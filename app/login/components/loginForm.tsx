@@ -1,24 +1,22 @@
 "use client";
 
-import { loginUser } from "@/app/redux/controllers/loginController";
-import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { Box, Button, Divider, TextField, Typography } from "@mui/material";
 import { useState } from "react";
 
-export default function LoginForm() {
-  const dispatch = useAppDispatch();
-  const { loading, error } = useAppSelector((state) => state.auth);
+interface LoginFormProps {
+  onSubmit: (email: string, password: string) => void;
+  loading: boolean;
+}
 
+export default function LoginForm({ onSubmit, loading }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    dispatch(loginUser({ email, password }))
-      .then(() => {
-        window.location.href = "/dashboard";
-      });
+    onSubmit(email, password); // 🔥 CALL PARENT FUNCTION
   };
+
   return (
     <form onSubmit={handleLogin}>
       <Box
@@ -62,15 +60,8 @@ export default function LoginForm() {
           sx={{ mb: 2 }}
         />
 
-        <Button
-          disabled={loading}
-          fullWidth
-          variant="contained"
-          color="primary"
-          type="submit"
-          sx={{ mb: 2, height: 42 }}
-        >
-          Login
+        <Button disabled={loading} type="submit" fullWidth variant="contained">
+          {loading ? "Processing..." : "Login"}
         </Button>
 
         <Divider sx={{ my: 2 }}>
@@ -83,11 +74,6 @@ export default function LoginForm() {
           fullWidth
           variant="outlined"
           color="primary"
-          sx={{
-            height: 42,
-            textTransform: "none",
-            borderColor: "#210e64",
-          }}
         >
           Microsoft Login
         </Button>
