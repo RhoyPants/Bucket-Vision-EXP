@@ -20,6 +20,7 @@ import {
 import { arrayMove } from "@dnd-kit/sortable";
 import TaskCard from "./Components/TaskCard";
 import StatCard from "./Components/StatCard";
+import TaskModal from "@/app/components/shared/modals/TaskModal";
 
 // sample data
 const initialTasks: TaskData[] = [
@@ -94,6 +95,12 @@ export default function TaskboardPage() {
     (columnId: TaskStatus) => tasks.filter((t) => t.status === columnId),
     [tasks]
   );
+  const [openModal, setOpenModal] = useState(false);
+
+  const handleSubmit = (data: any) => {
+    console.log("Submitted Task", data);
+    setOpenModal(false);
+  };
 
   // open menu for a task (used by TaskCard on double-click or action)
   const handleOpenCardMenu = (e: React.MouseEvent, taskId: number) => {
@@ -297,6 +304,7 @@ export default function TaskboardPage() {
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
               <Button
                 variant="contained"
+                onClick={() => setOpenModal(true)}
                 sx={{
                   backgroundColor: "#0f9d58", // green
                   "&:hover": { backgroundColor: "#0c7a45" },
@@ -389,6 +397,11 @@ export default function TaskboardPage() {
           Move to: Completed
         </MenuItem>
       </Menu>
+      <TaskModal
+        open={openModal}
+        onClose={() => setOpenModal(false)}
+        onSubmit={handleSubmit}
+      />
     </Layout>
   );
 }

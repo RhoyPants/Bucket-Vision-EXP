@@ -35,7 +35,8 @@ export default function Sidebar() {
       {/* MENU */}
       <SidebarItem label="Dashboard" href="/dashboard" />
       <SidebarItem label="Task Board" href="/taskboard" />
-      <SidebarItem label="Team Overview" href="/pages/team" />
+      <SidebarItem label="Team Overview" href="/teamOverview" />
+      <SidebarItem label="Project Timeline" href="/projectTimeline" />
     </Box>
   );
 

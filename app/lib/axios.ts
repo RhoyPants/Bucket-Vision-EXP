@@ -1,27 +1,19 @@
 import axios from "axios";
 
-const axiosApi = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
+const axiosInstance = axios.create({
+  baseURL: "http://localhost:8502/api",
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Attach token before each request (for future use)
-axiosApi.interceptors.request.use(
-  (config) => {
-    // Lazy import store to avoid circular import
-    const { store } = require("../redux/store");
-    const token = store.getState().auth.token; // we will use `token` in authSlice
+// 🔐 Auto-attach token from localStorage (Client Side Only)
+axiosInstance.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("token");
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-
-export default axiosApi;
+export default axiosInstance;

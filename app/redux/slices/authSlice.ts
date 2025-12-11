@@ -1,14 +1,4 @@
-"use client";
-
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-
-export const loginUser = createAsyncThunk(
-  "auth/loginUser",
-  async ({ email, password }: { email: string; password: string }) => {
-    // We will add logic later
-  }
-);
-
+import { createSlice } from "@reduxjs/toolkit";
 
 interface AuthState {
   user: any;
@@ -27,7 +17,24 @@ const initialState: AuthState = {
 const authSlice = createSlice({
   name: "auth",
   initialState,
-  reducers: {},
+  reducers: {
+    setLoading: (state, action) => {
+      state.loading = action.payload;
+    },
+    setUser: (state, action) => {
+      state.user = action.payload;
+      state.error = null;
+    },
+    setError: (state, action) => {
+      state.error = action.payload;
+    },
+    logout: (state) => {
+      state.user = null;
+      localStorage.removeItem("token");
+    },
+  },
 });
+
+export const { setLoading, setUser, setError, logout } = authSlice.actions;
 
 export default authSlice.reducer;

@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 
-import { CssBaseline, ThemeProvider } from "@mui/material";
+import ThemeRegistry from "./ThemeRegistry";
 import theme from "./lib/theme";
+import { Providers } from "./provider";
 
 // import ReduxProvider from "./providers/ReduxProvider";
 // import MsalProviders from "./providers/msalProvider";
@@ -90,16 +91,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={ftSterling.variable}>
       <body style={{ backgroundColor: "#f1f5f9" }}>
-        {/* <MsalProviders>
-          <ReduxProvider> */}
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          {/* <DateProvider> */}
-          {children}
-          {/* </DateProvider> */}
-        </ThemeProvider>
-        {/* </ReduxProvider>
-        </MsalProviders> */}
+        <ThemeRegistry>
+          <Providers>{children}</Providers>
+        </ThemeRegistry>
       </body>
     </html>
   );

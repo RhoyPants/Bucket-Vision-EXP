@@ -6,7 +6,7 @@ import { Box, Typography } from "@mui/material";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import SortableTaskCard from "./SortableTaskCard";
-import type { TaskData, TaskStatus } from "@/app/taskboard/taskTypes";
+import type { TaskData, TaskStatus } from "@/app/(pages)/taskboard/taskTypes";
 
 export default function ColumnSection({
   columnId,
