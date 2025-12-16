@@ -1,17 +1,28 @@
 "use client";
 
 import { Box, Drawer, IconButton } from "@mui/material";
-import MenuIcon from '@mui/icons-material/Menu';
+import MenuIcon from "@mui/icons-material/Menu";
 
 import SidebarItem from "./SidebarItem";
 import { useState } from "react";
+import { logout } from "@/app/redux/slices/authSlice";
+import { useAppDispatch } from "@/app/redux/hook";
+import router from "next/router";
 
 const drawerWidth = 240;
 
 export default function Sidebar() {
+  const dispatch = useAppDispatch();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleToggle = () => setMobileOpen((prev) => !prev);
+
+  const handleLogout = async () => {
+    router.push("/"); // navigate to root (login)
+    console.log("Before logout dispatch");
+    dispatch(logout()); // no need to await a plain reducer
+    console.log("After logout dispatch");
+  };
 
   const sidebarContent = (
     <Box
@@ -29,11 +40,17 @@ export default function Sidebar() {
     >
       {/* LOGO */}
       <Box sx={{ padding: 2, marginBottom: 2 }}>
-        <img src="/images/GVI_LOGO_DARK.png" width={150} alt="GVI Logo" />
+        <img
+          src="/images/GVI_LOGO_DARK.png"
+          onClick={handleLogout}
+          width={150}
+          alt="GVI Logo"
+        />
       </Box>
 
       {/* MENU */}
       <SidebarItem label="Dashboard" href="/dashboard" />
+      <SidebarItem label="Sprint Management" href="/sprintManagement" />
       <SidebarItem label="Task Board" href="/taskboard" />
       <SidebarItem label="Team Overview" href="/teamOverview" />
       <SidebarItem label="Project Timeline" href="/projectTimeline" />

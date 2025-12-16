@@ -92,7 +92,9 @@ export default function RootLayout({
     <html lang="en" className={ftSterling.variable}>
       <body style={{ backgroundColor: "#f1f5f9" }}>
         <ThemeRegistry>
-          <Providers>{children}</Providers>
+          <Providers>
+            {children}
+          </Providers>
         </ThemeRegistry>
       </body>
     </html>
