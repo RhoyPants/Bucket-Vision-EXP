@@ -1,7 +1,7 @@
 // app/(pages)/sprint/page.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Layout from "@/app/components/shared/Layout";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 
@@ -15,77 +15,150 @@ import {
   selectTaskTabs,
   selectSubtasks,
 } from "@/app/redux/selector";
+
 import TaskSidebar from "./Components/TaskSidebar";
 import { Box } from "@mui/material";
-import { getSubtasksByTask } from "@/app/redux/controllers/subTaskController";
+import {
+  createSubtask,
+  getSubtasksByTask,
+  updateSubtask,
+} from "@/app/redux/controllers/subTaskController";
 import KanbanBoard from "@/app/components/shared/kanban/KanbanBoard";
+import TaskModal from "@/app/components/shared/modals/TaskModal";
+import { KanbanSubtask } from "@/app/redux/slices/kanbanSlice";
 
 export default function SprintPage() {
   const dispatch = useAppDispatch();
 
-  const tasks = useAppSelector(selectTasks); // raw tasks from backend
-  const taskTabs = useAppSelector(selectTaskTabs); // mapped tabs
+  const tasks = useAppSelector(selectTasks);
+  const taskTabs = useAppSelector(selectTaskTabs);
   const subtasks = useAppSelector(selectSubtasks);
+  const [openViewModal, setOpenViewModal] = useState(false);
+  const [selectedSubtask, setSelectedSubtask] = useState<KanbanSubtask | null>(
+    null
+  );
+
+  const [openModal, setOpenModal] = useState(false); // task modal
+  const [openSubtaskModal, setOpenSubtaskModal] = useState(false); // NEW
 
   const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
+  const activeTask = tasks.find((t) => t.task_id === activeTaskId) || null;
 
-  // 1️⃣ Load ALL projects once
+  const hasLoaded = useRef(false);
+
   useEffect(() => {
+    if (hasLoaded.current) return;
+    hasLoaded.current = true;
+
     dispatch(getAllProjects());
-  }, [dispatch]);
 
-  // 2️⃣ Load tasks for default project
-  useEffect(() => {
     dispatch(getTasksByProject("EV-PMFTCEOTHRLM-25-00446")).then(
       (tasks: any) => {
         if (tasks?.length > 0) {
           const firstId = tasks[0].task_id;
           setActiveTaskId(firstId);
-
-          // fetch subtasks for the first task on page load
           dispatch(getSubtasksByTask(firstId));
         }
       }
     );
-  }, []);
-  useEffect(() => {
-    console.log("RAW TASKS:", tasks);
-    console.log("TASK TABS:", taskTabs);
-  }, [tasks, taskTabs]);
+  }, [dispatch]);
+
+  // TASK creation submit
+  const handleSubmit = (data: any) => {
+    console.log("Submitted Task", data);
+    setOpenModal(false);
+  };
+
+  // SUBTASK creation submit
+  const handleSubmitSubtask = (payload: any) => {
+    dispatch(createSubtask(payload)).then(() => {
+      if (activeTaskId) {
+        dispatch(getSubtasksByTask(activeTaskId));
+      }
+    });
+    setOpenSubtaskModal(false);
+  };
+  const handleViewSubtask = (subtask: KanbanSubtask) => {
+    setSelectedSubtask(subtask);
+    setOpenViewModal(true);
+  };
 
   return (
     <Layout>
-      <SummaryBar
-        stats={[
-          { label: "Total Tasks", value: tasks.length },
-          { label: "Overdue Tasks", value: 2 },
-          { label: "Due This Week", value: 5 },
-          { label: "Completed Tasks", value: 23 },
-        ]}
-        priorityCounts={{ high: 4, medium: 7, low: 3 }}
-        showProjectButton
-        showAddTaskButton
-      />
+      <SummaryBar stats={[]} priorityCounts={{ high: 0, medium: 0, low: 0 }} />
 
       <SprintHeader
         title="PMT APP"
         version="1"
-        onAddSubtask={() => console.log("open add subtask modal")}
+        onAddSubtask={() => {
+          if (!activeTaskId) return;
+          setOpenSubtaskModal(true);
+        }}
       />
+
       <Box sx={{ display: "flex", height: "calc(100vh - 200px)" }}>
         <TaskSidebar
           tasks={taskTabs}
           activeTaskId={activeTaskId}
           onSelectTask={(id) => {
-            setActiveTaskId(id); // update selected tab
-            dispatch(getSubtasksByTask(id)); // load subtasks for that task
+            if (id === activeTaskId) return;
+            setActiveTaskId(id);
+            dispatch(getSubtasksByTask(id));
           }}
         />
 
         <Box sx={{ flexGrow: 1, p: 2 }}>
-          <KanbanBoard parentTaskId={""} columns={[]} subtasks={[]} />
+          {activeTaskId !== null && (
+            <KanbanBoard
+              parentTaskId={activeTaskId}
+              columns={[
+                { id: "todo", title: "To Do" },
+                { id: "inprogress", title: "In Progress" },
+                { id: "review", title: "Review / QA" },
+                { id: "completed", title: "Completed" },
+              ]}
+              subtasks={subtasks}
+              onViewDetails={handleViewSubtask}
+            />
+          )}
         </Box>
       </Box>
+
+      {/* TASK modal */}
+      <TaskModal
+        open={openModal}
+        onClose={() => setOpenModal(false)}
+        onSubmit={handleSubmit}
+        mode="task"
+      />
+
+      {/* SUBTASK modal */}
+      {activeTask && (
+        <TaskModal
+          open={openSubtaskModal}
+          onClose={() => setOpenSubtaskModal(false)}
+          mode="subtask"
+          parentTask={activeTask}
+          onSubmit={handleSubmitSubtask}
+        />
+      )}
+      {/* VIEW SUBTASK MODAL (EDIT MODE ENABLED ON CLICK) */}
+      {selectedSubtask && (
+        <TaskModal
+          open={openViewModal}
+          onClose={() => setOpenViewModal(false)}
+          defaultValues={selectedSubtask}
+          mode="subtask"
+          isViewOnly
+          parentTask={activeTask}
+          onSubmit={(payload) => {
+            dispatch(updateSubtask(payload)).then(() => {
+              dispatch(getSubtasksByTask(activeTaskId!));
+            });
+            setOpenViewModal(false);
+          }}
+        />
+      )}
     </Layout>
   );
 }

@@ -47,4 +47,6 @@ export const selectTaskTabs = createSelector([selectTasks], (tasks) =>
 
 
 //subTask Selector 
-export const selectSubtasks = (state: RootState) => state.subtask.subtasks;
+// SELECT KANBAN SUBTASKS (correct type!)
+export const selectSubtasks = (state: any) => state.kanban.subtasks;
+

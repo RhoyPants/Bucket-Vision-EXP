@@ -1,98 +1,217 @@
 // app/components/shared/kanban/KanbanBoard.tsx
 "use client";
-import React, { useMemo } from "react";
+
+import React, { useMemo, useState } from "react";
 import { Grid } from "@mui/material";
+
 import {
   DndContext,
-  DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
   closestCenter,
-  DragStartEvent,
   DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
 } from "@dnd-kit/core";
+
 import KanbanColumn from "./KanbanColumn";
-import type { KanbanSubtask } from "@/app/redux/slices/kanbanSlice";
-import { useDispatch } from "react-redux";
-import { updateSubtaskStatus, reorderSubtasksForParent } from "@/app/redux/slices/kanbanSlice";
+import KanbanSortableCard from "./KanbanSortableCard";
+
+import type {
+  KanbanStatus,
+  KanbanSubtask,
+} from "@/app/redux/slices/kanbanSlice";
+
+import { useDispatch, useStore } from "react-redux";
+import {
+  updateSubtaskStatus,
+  reorderSubtasksForParent,
+} from "@/app/redux/slices/kanbanSlice";
+
+import { updateSubtask } from "@/app/redux/controllers/subTaskController";
 import { arrayMove } from "@dnd-kit/sortable";
+import { useAppDispatch } from "@/app/redux/hook";
 
 export default function KanbanBoard({
   parentTaskId,
   columns,
   subtasks,
+  onViewDetails,
 }: {
-  parentTaskId: string;
+  parentTaskId: number | null;
   columns: { id: string; title: string }[];
   subtasks: KanbanSubtask[];
+  onViewDetails: (subtask: KanbanSubtask) => void;
 }) {
-  const dispatch = useDispatch();
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
-  const parentSubtasks = useMemo(() => subtasks.filter((s) => s.parentTaskId === parentTaskId), [subtasks, parentTaskId]);
+  const dispatch = useAppDispatch();
+  const store = useStore<any>();
 
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  );
+
+  // Only subtasks of active parent task
+  const parentSubtasks = useMemo(
+    () =>
+      subtasks.filter((s) => Number(s.parentTaskId) === Number(parentTaskId)),
+    [subtasks, parentTaskId]
+  );
+
+  // Active card for ghost preview
+  const activeSubtask = activeId
+    ? parentSubtasks.find((s) => s.id === activeId) || null
+    : null;
+
+  // Bucket by column
   const columnMap: Record<string, KanbanSubtask[]> = {};
   columns.forEach((c) => (columnMap[c.id] = []));
+
   parentSubtasks.forEach((s) => {
     if (!columnMap[s.status]) columnMap[s.status] = [];
     columnMap[s.status].push(s);
   });
 
-  const handleDragStart = (e: DragStartEvent) => { /* optional set active */ };
+  const getId = (id: string) =>
+    id.startsWith("subtask-") ? id.replace("subtask-", "") : null;
 
-  const handleDragEnd = (e: DragEndEvent) => {
-    const { active, over } = e;
-    if (!over) return;
-    const aId = String(active.id);
-    const oId = String(over.id);
-
-    const getSubId = (s: string) => (s.startsWith("subtask-") ? s.replace("subtask-", "") : null);
-
-    // drop on column area
-    if (oId.startsWith("column-")) {
-      const target = oId.replace("column-", "");
-      const asub = getSubId(aId);
-      if (asub) dispatch(updateSubtaskStatus({ id: asub, status: target as any }));
-      return;
-    }
-
-    // reorder or move between columns by landing on another subtask
-    const aSubId = getSubId(aId);
-    const oSubId = getSubId(oId);
-    if (!aSubId || !oSubId) return;
-
-    const activeS = parentSubtasks.find((s) => s.id === aSubId);
-    const overS = parentSubtasks.find((s) => s.id === oSubId);
-    if (!activeS || !overS) return;
-
-    if (activeS.status === overS.status) {
-      const list = columnMap[activeS.status].map((s) => s.id);
-      const oldIndex = list.indexOf(activeS.id);
-      const newIndex = list.indexOf(overS.id);
-      const newOrder = arrayMove(list, oldIndex, newIndex);
-      dispatch(reorderSubtasksForParent({ parentTaskId, orderedIds: newOrder }));
-    } else {
-      // Move across columns: build new lists
-      const sourceList = columnMap[activeS.status].map((s) => s.id).filter((id) => id !== activeS.id);
-      const targetList = columnMap[overS.status].map((s) => s.id);
-      const insertIndex = targetList.indexOf(overS.id);
-      const newTarget = [...targetList.slice(0, insertIndex), activeS.id, ...targetList.slice(insertIndex)];
-
-      dispatch(updateSubtaskStatus({ id: activeS.id, status: overS.status as any }));
-      dispatch(reorderSubtasksForParent({ parentTaskId, orderedIds: newTarget }));
-      dispatch(reorderSubtasksForParent({ parentTaskId, orderedIds: sourceList })); // update source
+  const normalizeStatus = (s: string): KanbanStatus => {
+    switch (s.toLowerCase()) {
+      case "todo":
+      case "to do":
+        return "todo";
+      case "inprogress":
+      case "in progress":
+        return "inprogress";
+      case "review":
+      case "review / qa":
+        return "review";
+      case "completed":
+        return "completed";
+      default:
+        return "todo";
     }
   };
 
+  // -----------------------
+  // ⭐ ON DRAG START
+  // -----------------------
+  const handleDragStart = (event: DragStartEvent) => {
+    const id = getId(String(event.active.id));
+    setActiveId(id);
+  };
+
+  // -----------------------
+  // ⭐ ON DRAG END
+  // -----------------------
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) return;
+
+    const aId = getId(String(active.id));
+    const oId = getId(String(over.id));
+
+    // ⭐ Drop on empty column
+    if (String(over.id).startsWith("column-")) {
+      const newStatus = normalizeStatus(String(over.id).replace("column-", ""));
+
+      // Update UI
+      dispatch(updateSubtaskStatus({ id: String(aId), status: newStatus }));
+
+      // Sync backend
+      const updated = store
+        .getState()
+        .kanban.subtasks.find((s: KanbanSubtask) => s.id === aId);
+
+      if (updated) dispatch(updateSubtask(updated));
+
+      return;
+    }
+
+    if (!aId || !oId) return;
+
+    const activeSub = parentSubtasks.find((s) => s.id === aId);
+    const overSub = parentSubtasks.find((s) => s.id === oId);
+    if (!activeSub || !overSub) return;
+
+    // ⭐ SAME COLUMN → reorder
+    if (activeSub.status === overSub.status) {
+      const list = columnMap[activeSub.status].map((x) => x.id);
+      const oldIndex = list.indexOf(aId);
+      const newIndex = list.indexOf(oId);
+
+      const reordered = arrayMove(list, oldIndex, newIndex);
+
+      // Update UI
+      dispatch(
+        reorderSubtasksForParent({
+          parentTaskId: Number(parentTaskId),
+          orderedIds: reordered,
+        })
+      );
+
+      // 🔥 Sync each subtask’s new order to backend
+      const updatedList: KanbanSubtask[] = store
+        .getState()
+        .kanban.subtasks.filter(
+          (s: KanbanSubtask) => s.parentTaskId === parentTaskId
+        );
+
+      updatedList.forEach((s: KanbanSubtask, index: number) => {
+        dispatch(updateSubtask({ ...s, order: index }));
+      });
+
+      return;
+    }
+
+    // ⭐ MOVE TO ANOTHER COLUMN
+    const newStatus = normalizeStatus(overSub.status);
+
+    // Update UI
+    dispatch(updateSubtaskStatus({ id: aId, status: newStatus }));
+
+    // Sync backend
+    const updated = store
+      .getState()
+      .kanban.subtasks.find((s: KanbanSubtask) => s.id === aId);
+
+    if (updated) dispatch(updateSubtask(updated));
+  };
+
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+
+    >
       <Grid container spacing={2}>
         {columns.map((col) => (
           <Grid key={col.id} size={{ xs: 12, sm: 6, md: 3 }}>
-            <KanbanColumn id={col.id} title={col.title} items={columnMap[col.id] ?? []} />
+            <KanbanColumn
+              id={col.id}
+              title={col.title}
+              items={columnMap[col.id] ?? []}
+              activeId={activeId}
+              onViewDetails={onViewDetails} 
+            />
           </Grid>
         ))}
       </Grid>
+
+      {/* ⭐ Floating Ghost Card (drag preview) */}
+      <DragOverlay>
+        {activeSubtask ? (
+          <KanbanSortableCard subtask={activeSubtask} isOverlay />
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }
