@@ -16,12 +16,14 @@ export default function KanbanColumn({
   items,
   activeId,
   onViewDetails,
+  loading,
 }: {
   id: string;
   title: string;
   items: KanbanSubtask[];
   activeId: string | null;
   onViewDetails: (subtask: KanbanSubtask) => void;
+  loading: Boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${id}`,

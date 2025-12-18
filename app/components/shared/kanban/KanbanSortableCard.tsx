@@ -92,7 +92,7 @@ export default function KanbanSortableCard({
           </Avatar>
 
           <Typography sx={{ fontSize: 13 }}>
-            {subtask.assignee ?? "Unassigned"}
+            {subtask.assigneeName || subtask.assignee || "Unassigned"}
           </Typography>
 
           <Box sx={{ flexGrow: 1 }} />

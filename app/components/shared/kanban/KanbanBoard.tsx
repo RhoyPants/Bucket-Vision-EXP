@@ -18,12 +18,9 @@ import {
 import KanbanColumn from "./KanbanColumn";
 import KanbanSortableCard from "./KanbanSortableCard";
 
-import type {
-  KanbanStatus,
-  KanbanSubtask,
-} from "@/app/redux/slices/kanbanSlice";
+import type { KanbanStatus, KanbanSubtask } from "@/app/redux/slices/kanbanSlice";
 
-import { useDispatch, useStore } from "react-redux";
+import { useStore } from "react-redux";
 import {
   updateSubtaskStatus,
   reorderSubtasksForParent,
@@ -31,7 +28,7 @@ import {
 
 import { updateSubtask } from "@/app/redux/controllers/subTaskController";
 import { arrayMove } from "@dnd-kit/sortable";
-import { useAppDispatch } from "@/app/redux/hook";
+import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 
 export default function KanbanBoard({
   parentTaskId,
@@ -46,6 +43,7 @@ export default function KanbanBoard({
 }) {
   const dispatch = useAppDispatch();
   const store = useStore<any>();
+  const loading = useAppSelector((state) => state.kanban.loading);
 
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -55,23 +53,43 @@ export default function KanbanBoard({
     })
   );
 
-  // Only subtasks of active parent task
+  // -----------------------------
+  // ⭐ Helper: Convert Subtask → Backend Payload
+  // -----------------------------
+  const buildBackendPayload = (s: KanbanSubtask) => ({
+    subtask_id: Number(s.id),
+    task_name: s.title,
+    description: s.description,
+    start_date: s.startDate,
+    end_date: s.endDate,
+
+    assigned_to: s.assignee ? [s.assignee] : [],
+    assigned_by: s.assignedBy,
+
+    priority: s.priority,
+    progress: s.progress ?? 0,
+
+    status: s.status,
+    subTaskIndex: s.order ?? 0,
+  });
+
+  // Filter subtasks under parent task
   const parentSubtasks = useMemo(
-    () =>
-      subtasks.filter((s) => Number(s.parentTaskId) === Number(parentTaskId)),
+    () => subtasks.filter((s) => Number(s.parentTaskId) === Number(parentTaskId)),
     [subtasks, parentTaskId]
   );
 
-  // Active card for ghost preview
-  const activeSubtask = activeId
-    ? parentSubtasks.find((s) => s.id === activeId) || null
-    : null;
+  const safeSubtasks = Array.isArray(parentSubtasks) ? parentSubtasks : [];
 
-  // Bucket by column
+  // Active card
+  const activeSubtask =
+    activeId ? safeSubtasks.find((s) => s.id === activeId) || null : null;
+
+  // Bucket subtasks by column
   const columnMap: Record<string, KanbanSubtask[]> = {};
   columns.forEach((c) => (columnMap[c.id] = []));
 
-  parentSubtasks.forEach((s) => {
+  safeSubtasks.forEach((s) => {
     if (!columnMap[s.status]) columnMap[s.status] = [];
     columnMap[s.status].push(s);
   });
@@ -79,35 +97,34 @@ export default function KanbanBoard({
   const getId = (id: string) =>
     id.startsWith("subtask-") ? id.replace("subtask-", "") : null;
 
-  const normalizeStatus = (s: string): KanbanStatus => {
-    switch (s.toLowerCase()) {
-      case "todo":
-      case "to do":
-        return "todo";
-      case "inprogress":
-      case "in progress":
-        return "inprogress";
-      case "review":
-      case "review / qa":
-        return "review";
-      case "completed":
-        return "completed";
-      default:
-        return "todo";
-    }
+  const normalizeStatus = (raw: string): KanbanStatus => {
+     const s = raw.toLowerCase().replace(/\s+/g, ""); // remove spaces
+
+  switch (s) {
+    case "todo":
+      return "todo";
+    case "inprogress":
+      return "inprogress";
+    case "review":
+      return "review";
+    case "completed":
+      return "completed";
+    default:
+      return "todo";
+  }
   };
 
-  // -----------------------
-  // ⭐ ON DRAG START
-  // -----------------------
+  // -----------------------------
+  // ⭐ DRAG START
+  // -----------------------------
   const handleDragStart = (event: DragStartEvent) => {
     const id = getId(String(event.active.id));
     setActiveId(id);
   };
 
-  // -----------------------
-  // ⭐ ON DRAG END
-  // -----------------------
+  // -----------------------------
+  // ⭐ DRAG END
+  // -----------------------------
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
@@ -117,30 +134,25 @@ export default function KanbanBoard({
     const aId = getId(String(active.id));
     const oId = getId(String(over.id));
 
-    // ⭐ Drop on empty column
+    // ⭐ Drop into empty column
     if (String(over.id).startsWith("column-")) {
       const newStatus = normalizeStatus(String(over.id).replace("column-", ""));
 
-      // Update UI
       dispatch(updateSubtaskStatus({ id: String(aId), status: newStatus }));
 
-      // Sync backend
-      const updated = store
-        .getState()
-        .kanban.subtasks.find((s: KanbanSubtask) => s.id === aId);
-
-      if (updated) dispatch(updateSubtask(updated));
+      const updated = store.getState().kanban.subtasks.find((s: KanbanSubtask) => s.id === aId);
+      if (updated) dispatch(updateSubtask(buildBackendPayload(updated)));
 
       return;
     }
 
     if (!aId || !oId) return;
 
-    const activeSub = parentSubtasks.find((s) => s.id === aId);
-    const overSub = parentSubtasks.find((s) => s.id === oId);
+    const activeSub = safeSubtasks.find((s) => s.id === aId);
+    const overSub = safeSubtasks.find((s) => s.id === oId);
     if (!activeSub || !overSub) return;
 
-    // ⭐ SAME COLUMN → reorder
+    // ⭐ Same column → reorder
     if (activeSub.status === overSub.status) {
       const list = columnMap[activeSub.status].map((x) => x.id);
       const oldIndex = list.indexOf(aId);
@@ -148,7 +160,6 @@ export default function KanbanBoard({
 
       const reordered = arrayMove(list, oldIndex, newIndex);
 
-      // Update UI
       dispatch(
         reorderSubtasksForParent({
           parentTaskId: Number(parentTaskId),
@@ -156,41 +167,36 @@ export default function KanbanBoard({
         })
       );
 
-      // 🔥 Sync each subtask’s new order to backend
       const updatedList: KanbanSubtask[] = store
         .getState()
         .kanban.subtasks.filter(
-          (s: KanbanSubtask) => s.parentTaskId === parentTaskId
+          (s: KanbanSubtask) => Number(s.parentTaskId) === Number(parentTaskId)
         );
 
       updatedList.forEach((s: KanbanSubtask, index: number) => {
-        dispatch(updateSubtask({ ...s, order: index }));
+        dispatch(updateSubtask(buildBackendPayload({ ...s, order: index })));
       });
 
       return;
     }
 
-    // ⭐ MOVE TO ANOTHER COLUMN
+    // ⭐ Move to other column
     const newStatus = normalizeStatus(overSub.status);
-
-    // Update UI
     dispatch(updateSubtaskStatus({ id: aId, status: newStatus }));
 
-    // Sync backend
-    const updated = store
-      .getState()
-      .kanban.subtasks.find((s: KanbanSubtask) => s.id === aId);
-
-    if (updated) dispatch(updateSubtask(updated));
+    const updated = store.getState().kanban.subtasks.find((s: KanbanSubtask) => s.id === aId);
+    if (updated) dispatch(updateSubtask(buildBackendPayload(updated)));
   };
 
+  // -----------------------------
+  // ⭐ ALWAYS RENDER KANBAN — EVEN WHEN LOADING
+  // -----------------------------
   return (
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-
     >
       <Grid container spacing={2}>
         {columns.map((col) => (
@@ -200,13 +206,13 @@ export default function KanbanBoard({
               title={col.title}
               items={columnMap[col.id] ?? []}
               activeId={activeId}
-              onViewDetails={onViewDetails} 
+              onViewDetails={onViewDetails}
+              loading={loading} // optional
             />
           </Grid>
         ))}
       </Grid>
 
-      {/* ⭐ Floating Ghost Card (drag preview) */}
       <DragOverlay>
         {activeSubtask ? (
           <KanbanSortableCard subtask={activeSubtask} isOverlay />

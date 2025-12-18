@@ -3,8 +3,8 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 export type KanbanStatus = "todo" | "inprogress" | "review" | "completed";
 
 export interface KanbanSubtask {
-  id: string; // backend subtask_id → string
-  parentTaskId: number; // always number
+  id: string;
+  parentTaskId: number;
   projectId: number | null;
 
   title: string;
@@ -13,25 +13,28 @@ export interface KanbanSubtask {
   status: KanbanStatus;
   priority: string | null;
   assignee: string | null;
+  assigneeName?: string | null;
   assignedBy?: string | null;
 
   startDate?: string | null;
   endDate?: string | null;
 
   progress?: number;
-  order: number; // ordering index
+  order: number;
 }
 
 interface KanbanState {
   modules: any[];
   tasks: any[];
   subtasks: KanbanSubtask[];
+  loading: boolean; // 🔥 NEW
 }
 
 const initialState: KanbanState = {
   modules: [],
   tasks: [],
   subtasks: [],
+  loading: false, // 🔥 NEW
 };
 
 export const kanbanSlice = createSlice({
@@ -39,28 +42,35 @@ export const kanbanSlice = createSlice({
   initialState,
   reducers: {
     // --------------------------------------------------------
-    // 1. SET SUBTASKS (on page load)
+    // 0. SET LOADING
     // --------------------------------------------------------
-    setSubtasks(state, action: PayloadAction<KanbanSubtask[]>) {
-      state.subtasks = action.payload;
+    setLoading(state, action: PayloadAction<boolean>) {
+      state.loading = action.payload;
     },
 
     // --------------------------------------------------------
-    // 2. UPDATE STATUS ONLY (UI instant update)
+    // 1. SET SUBTASKS
+    // --------------------------------------------------------
+    setSubtasks(state, action: PayloadAction<KanbanSubtask[]>) {
+      state.subtasks = action.payload;
+      state.loading = false; // 🔥 auto-stop loading
+    },
+
+    // --------------------------------------------------------
+    // 2. UPDATE STATUS ONLY (drag/drop)
     // --------------------------------------------------------
     updateSubtaskStatus(
       state,
       action: PayloadAction<{ id: string; status: KanbanStatus }>
     ) {
       const { id, status } = action.payload;
-
       state.subtasks = state.subtasks.map((s) =>
         s.id === id ? { ...s, status } : s
       );
     },
 
     // --------------------------------------------------------
-    // 3. UPDATE FULL SUBTASK (used after successful backend save)
+    // 3. UPDATE FULL SUBTASK (edit modal)
     // --------------------------------------------------------
     updateSubtask(state, action: PayloadAction<KanbanSubtask>) {
       const updated = action.payload;
@@ -69,38 +79,36 @@ export const kanbanSlice = createSlice({
         s.id === updated.id ? updated : s
       );
     },
+
+    // --------------------------------------------------------
+    // 4. ADD NEW SUBTASK
+    // --------------------------------------------------------
     addSubtask(state, action: PayloadAction<KanbanSubtask>) {
       state.subtasks.push(action.payload);
     },
 
     // --------------------------------------------------------
-    // 4. REORDER SUBTASKS WITHIN SAME PARENT TASK
-    // (MAIN BUGFIX: always compare numbers!)
+    // 5. REORDER SUBTASKS WITHIN SAME PARENT
     // --------------------------------------------------------
     reorderSubtasksForParent(
       state,
       action: PayloadAction<{ parentTaskId: number; orderedIds: string[] }>
     ) {
       const { parentTaskId, orderedIds } = action.payload;
-
-      // Normalize parent task ID
       const pid = Number(parentTaskId);
 
-      // Build quick lookup table for ordering
       const orderMap = new Map(orderedIds.map((id, index) => [id, index]));
 
-      // Only update matching rows — DO NOT re-create arrays
       state.subtasks = state.subtasks.map((s) => {
         if (Number(s.parentTaskId) === pid) {
           return {
             ...s,
-            order: orderMap.get(s.id) ?? s.order, // keep safely
+            order: orderMap.get(s.id) ?? s.order,
           };
         }
         return s;
       });
 
-      // Finally, ensure stable sorted output
       state.subtasks.sort((a, b) => {
         if (Number(a.parentTaskId) !== pid) return 0;
         if (Number(b.parentTaskId) !== pid) return 0;
@@ -111,6 +119,7 @@ export const kanbanSlice = createSlice({
 });
 
 export const {
+  setLoading,
   setSubtasks,
   updateSubtaskStatus,
   updateSubtask,

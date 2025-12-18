@@ -90,7 +90,64 @@ export default function TaskModal({
   // SUBMIT HANDLER
   // -------------------------
   const handleSubmit = () => {
-    if (isSubtask) {
+    /** -------------------------------------------------
+     *  UPDATE MODE (subtask + viewOnly = true)
+     * ------------------------------------------------- */
+    if (isSubtask && isViewOnly) {
+      const updatePayload = {
+        subtask_id: Number(defaultValues.id ?? defaultValues.subtask_id),
+
+        task_name:
+          formData.taskName || defaultValues.task_name || defaultValues.title,
+
+        description: formData.description || defaultValues.description,
+
+        start_date:
+          formData.startDate ||
+          defaultValues.start_date ||
+          defaultValues.startDate,
+
+        end_date:
+          formData.endDate || defaultValues.end_date || defaultValues.endDate,
+
+        assigned_to:
+          formData.assignedTo?.length > 0
+            ? formData.assignedTo
+            : defaultValues.assigned_to ||
+              (defaultValues.assignee ? [defaultValues.assignee] : []),
+
+        assigned_by:
+          defaultValues.assigned_by ||
+          defaultValues.assignedBy ||
+          parentTask?.assigned_by,
+
+        priority: formData.priority || defaultValues.priority,
+
+        progress:
+          formData.progress ??
+          defaultValues.progress ??
+          parentTask?.progress ??
+          0,
+
+        status: formData.status || defaultValues.status,
+
+        subTaskIndex:
+          defaultValues.subTaskIndex ??
+          defaultValues.order ??
+          defaultValues.order_index ??
+          0,
+      };
+
+      console.log("FINAL UPDATE PAYLOAD:", updatePayload);
+
+      onSubmit(updatePayload);
+      return; // 🔥 STOP EXECUTION TO PREVENT CREATE LOGIC FROM RUNNING
+    }
+
+    /** -------------------------------------------------
+     *  CREATE SUBTASK MODE
+     * ------------------------------------------------- */
+    if (isSubtask && !isViewOnly) {
       onSubmit({
         task_id: parentTask.task_id,
         task_name: formData.taskName,
@@ -100,17 +157,15 @@ export default function TaskModal({
         assigned_to: formData.assignedTo,
         assigned_by: parentTask.assigned_by,
         priority: formData.priority,
-        progress: parentTask.progress ?? 0,
-        subTaskIndex: parentTask.subtasks?.length + 1 || 1,
-        // For updateSubtask payload (if editing existing subtask)
-        id: defaultValues?.id || undefined,
-        status: formData.status,
-        assignee: formData.assignedTo?.[0] ?? null,
+        status: "To Do",
+        progress: 0,
       });
       return;
     }
 
-    // Normal Task flow
+    /** -------------------------------------------------
+     *  TASK MODE (unchanged)
+     * ------------------------------------------------- */
     onSubmit(formData);
   };
 

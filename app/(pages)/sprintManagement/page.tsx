@@ -46,6 +46,20 @@ export default function SprintPage() {
 
   const hasLoaded = useRef(false);
 
+  const normalizeForUpdate = (st: KanbanSubtask) => ({
+    subtask_id: Number(st.id),
+    task_name: st.title,
+    description: st.description,
+    start_date: st.startDate,
+    end_date: st.endDate,
+    assigned_to: st.assignee ? [st.assignee] : [],
+    assigned_by: st.assignedBy,
+    priority: st.priority,
+    progress: st.progress,
+    status: st.status,
+    subTaskIndex: st.order,
+  });
+
   useEffect(() => {
     if (hasLoaded.current) return;
     hasLoaded.current = true;
@@ -147,7 +161,7 @@ export default function SprintPage() {
         <TaskModal
           open={openViewModal}
           onClose={() => setOpenViewModal(false)}
-          defaultValues={selectedSubtask}
+          defaultValues={normalizeForUpdate(selectedSubtask)}
           mode="subtask"
           isViewOnly
           parentTask={activeTask}
