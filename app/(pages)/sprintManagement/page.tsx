@@ -14,6 +14,8 @@ import {
   selectTasks,
   selectTaskTabs,
   selectSubtasks,
+  selectProjects,
+  selectCurrentProject,
 } from "@/app/redux/selector";
 
 import TaskSidebar from "./Components/TaskSidebar";
@@ -25,7 +27,8 @@ import {
 } from "@/app/redux/controllers/subTaskController";
 import KanbanBoard from "@/app/components/shared/kanban/KanbanBoard";
 import TaskModal from "@/app/components/shared/modals/TaskModal";
-import { KanbanSubtask } from "@/app/redux/slices/kanbanSlice";
+import { KanbanSubtask, setSubtasks } from "@/app/redux/slices/kanbanSlice";
+import { setCurrentProject } from "@/app/redux/slices/projectSlice";
 
 export default function SprintPage() {
   const dispatch = useAppDispatch();
@@ -33,6 +36,9 @@ export default function SprintPage() {
   const tasks = useAppSelector(selectTasks);
   const taskTabs = useAppSelector(selectTaskTabs);
   const subtasks = useAppSelector(selectSubtasks);
+  const projects = useAppSelector(selectProjects);
+  const currentProject = useAppSelector(selectCurrentProject);
+
   const [openViewModal, setOpenViewModal] = useState(false);
   const [selectedSubtask, setSelectedSubtask] = useState<KanbanSubtask | null>(
     null
@@ -60,22 +66,33 @@ export default function SprintPage() {
     subTaskIndex: st.order,
   });
 
+  // Load all projects once
   useEffect(() => {
     if (hasLoaded.current) return;
     hasLoaded.current = true;
 
-    dispatch(getAllProjects());
-
-    dispatch(getTasksByProject("EV-PMFTCEOTHRLM-25-00446")).then(
-      (tasks: any) => {
-        if (tasks?.length > 0) {
-          const firstId = tasks[0].task_id;
-          setActiveTaskId(firstId);
-          dispatch(getSubtasksByTask(firstId));
-        }
+    dispatch(getAllProjects()).then((proj: any) => {
+      if (proj?.length > 0) {
+        dispatch(setCurrentProject(proj[0])); // auto-select first project
       }
-    );
+    });
   }, [dispatch]);
+
+  // When selected project changes → load tasks
+  useEffect(() => {
+    if (!currentProject) return;
+
+    dispatch(getTasksByProject(currentProject.ref_no)).then((tasks: any) => {
+      if (tasks?.length > 0) {
+        const firstTask = tasks[0];
+        setActiveTaskId(firstTask.task_id);
+        dispatch(getSubtasksByTask(firstTask.task_id));
+      } else {
+        setActiveTaskId(null);
+        dispatch(setSubtasks([]));
+      }
+    });
+  }, [currentProject, dispatch]);
 
   // TASK creation submit
   const handleSubmit = (data: any) => {
@@ -99,7 +116,43 @@ export default function SprintPage() {
 
   return (
     <Layout>
-      <SummaryBar stats={[]} priorityCounts={{ high: 0, medium: 0, low: 0 }} />
+      <SummaryBar
+        stats={[
+          { label: "Total Tasks", value: tasks?.length ?? 0 },
+          { label: "Overdue Tasks", value: 0 },
+          { label: "Due This Week", value: 0 },
+          { label: "Completed Tasks", value: 0 },
+        ]}
+        priorityCounts={{
+          high: 0,
+          medium: 0,
+          low: 0,
+        }}
+        projectList={projects ?? []}
+        selectedProjectId={currentProject?.project_id ?? null}
+        onSelectProject={(pid) => {
+          const selected = projects.find((p) => p.project_id === pid) || null;
+
+          dispatch(setCurrentProject(selected));
+
+          if (!selected) {
+            setActiveTaskId(null);
+            dispatch(setSubtasks([]));
+            return;
+          }
+
+          dispatch(getTasksByProject(selected.ref_no)).then((tasks: any) => {
+            if (tasks?.length > 0) {
+              const first = tasks[0];
+              setActiveTaskId(first.task_id);
+              dispatch(getSubtasksByTask(first.task_id));
+            } else {
+              setActiveTaskId(null);
+              dispatch(setSubtasks([]));
+            }
+          });
+        }}
+      />
 
       <SprintHeader
         title="PMT APP"

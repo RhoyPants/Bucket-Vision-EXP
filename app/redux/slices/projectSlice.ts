@@ -15,21 +15,39 @@ export interface Project {
 
 interface ProjectState {
   projects: Project[];
+  loading: boolean;
+  currentProject: Project | null;
 }
 
 const initialState: ProjectState = {
   projects: [],
+  loading: false,
+  currentProject: null,
 };
 
 const projectSlice = createSlice({
   name: "project",
   initialState,
   reducers: {
+    // 🌟 Set project list
     setProjects(state, action: PayloadAction<Project[]>) {
       state.projects = action.payload;
+      state.loading = false;
+    },
+
+    // 🌟 Set loading state
+    setLoading(state, action: PayloadAction<boolean>) {
+      state.loading = action.payload;
+    },
+
+    // 🌟 Select project for dropdown
+    setCurrentProject(state, action: PayloadAction<Project | null>) {
+      state.currentProject = action.payload;
     },
   },
 });
 
-export const { setProjects } = projectSlice.actions;
+export const { setProjects, setLoading, setCurrentProject } =
+  projectSlice.actions;
+
 export default projectSlice.reducer;
