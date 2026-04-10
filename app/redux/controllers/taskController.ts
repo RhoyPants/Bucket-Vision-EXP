@@ -1,30 +1,81 @@
 import { AppDispatch } from "../store";
 import axiosApi from "@/app/lib/axios";
-import { aes_int_decrypt, aes_int_encrypt } from "@/app/lib/encryptdecrypt";
 import { setTasks } from "../slices/taskSlice";
 
-export const getTasksByProject = (projectRefNo: string) => {
+// ✅ GET TASKS BY PROJECT
+export const getTasksByProject = (projectId: string) => {
   return async (dispatch: AppDispatch) => {
     try {
-      // Encrypt payload BEFORE sending
-      const encryptedPayload = aes_int_encrypt(
-        JSON.stringify({ project_refno: projectRefNo })
-      );
+      const res = await axiosApi.get(`/tasks/project/${projectId}`);
 
-      // Send request
-      const res = await axiosApi.post("/task/getByProject", {
-        data: encryptedPayload,
-      });
+      dispatch(setTasks(res.data));
 
-      // Decrypt backend response
-      const decryptedText = aes_int_decrypt(res.data.data);
-      const parsedTasks = JSON.parse(decryptedText);
-      // Save to Redux
-      dispatch(setTasks(parsedTasks));
-
-      return parsedTasks;
+      return res.data;
     } catch (err) {
-      console.error("❌ Error loading tasks by project:", err);
+      console.error("❌ Error fetching tasks:", err);
+      throw err;
+    }
+  };
+};
+
+// ✅ GET SINGLE TASK
+export const getTaskById = (taskId: string) => {
+  return async () => {
+    try {
+      const res = await axiosApi.get(`/tasks/${taskId}`);
+      return res.data;
+    } catch (err) {
+      console.error("❌ Error fetching task:", err);
+      throw err;
+    }
+  };
+};
+
+// ✅ CREATE TASK
+export const createTask = (data: any) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      const res = await axiosApi.post("/tasks", data);
+
+      // optional: refresh list
+      if (data.projectId) {
+        await dispatch(getTasksByProject(data.projectId));
+      }
+
+      return res.data;
+    } catch (err) {
+      console.error("❌ Error creating task:", err);
+      throw err;
+    }
+  };
+};
+
+// ✅ UPDATE TASK
+export const updateTask = (taskId: string, data: any) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      const res = await axiosApi.put(`/tasks/${taskId}`, data);
+
+      return res.data;
+    } catch (err) {
+      console.error("❌ Error updating task:", err);
+      throw err;
+    }
+  };
+};
+
+// ✅ DELETE TASK
+export const deleteTask = (taskId: string, projectId?: string) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      await axiosApi.delete(`/tasks/${taskId}`);
+
+      // optional refresh
+      if (projectId) {
+        await dispatch(getTasksByProject(projectId));
+      }
+    } catch (err) {
+      console.error("❌ Error deleting task:", err);
       throw err;
     }
   };

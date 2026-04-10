@@ -1,8 +1,7 @@
 "use client";
 
 import { useAppDispatch } from "@/app/redux/hook";
-import { loginUser } from "@/app/redux/controllers/loginController";
-import { loadUserSession } from "@/app/redux/controllers/sessionController";
+import { login } from "@/app/redux/controllers/loginController";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import LoginForm from "./loginForm";
@@ -16,20 +15,12 @@ export default function LoginContainer() {
     try {
       setLoading(true);
 
-      // 1️⃣ LOGIN
-      const loginData = await dispatch(loginUser({ email, password }));
+      // 🔥 NEW LOGIN (JWT ONLY)
+      await dispatch(login(email, password) as any);
 
-      const jwt = loginData.Token;
-      const sessionToken = loginData.session_token;
+      // 🔥 REDIRECT
+      router.push("/taskboard");
 
-      localStorage.setItem("token", jwt);
-      localStorage.setItem("session_token", sessionToken);
-
-      // 2️⃣ GET USER SESSION (controller handles AES + axios)
-      await dispatch(loadUserSession(sessionToken, jwt));
-
-      // 3️⃣ REDIRECT
-      router.push("/dashboard");
     } catch (error) {
       console.error("Login failed:", error);
     } finally {

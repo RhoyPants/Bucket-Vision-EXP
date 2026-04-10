@@ -1,130 +1,114 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
-export type KanbanStatus = "todo" | "inprogress" | "review" | "completed";
-
+export interface KanbanChecklist {
+  id: string;
+  title: string;
+  isCompleted: boolean;
+  order: number;
+}
 export interface KanbanSubtask {
   id: string;
-  parentTaskId: number;
-  projectId: number | null;
-
   title: string;
-  description: string;
+  description?: string;
 
-  status: KanbanStatus;
-  priority: string | null;
-  assignee: string | null;
-  assigneeName?: string | null;
-  assignedBy?: string | null;
+  statusId: string; // NOW = statusId (UUID)
+  parentTaskId: string;
 
-  startDate?: string | null;
-  endDate?: string | null;
-
-  progress?: number;
   order: number;
+
+  priority?: string;
+  progress?: number;
+
+  assignee?: string | null;
+
+  startDate?: string;
+  endDate?: string;
+  checklists?: KanbanChecklist[];
 }
 
 interface KanbanState {
-  modules: any[];
-  tasks: any[];
   subtasks: KanbanSubtask[];
-  loading: boolean; // 🔥 NEW
+  loading: boolean;
 }
 
 const initialState: KanbanState = {
-  modules: [],
-  tasks: [],
   subtasks: [],
-  loading: false, // 🔥 NEW
+  loading: false,
 };
 
-export const kanbanSlice = createSlice({
+const kanbanSlice = createSlice({
   name: "kanban",
   initialState,
   reducers: {
-    // --------------------------------------------------------
-    // 0. SET LOADING
-    // --------------------------------------------------------
-    setLoading(state, action: PayloadAction<boolean>) {
-      state.loading = action.payload;
-    },
-
-    // --------------------------------------------------------
-    // 1. SET SUBTASKS
-    // --------------------------------------------------------
+    // SET ALL SUBTASKS (from API)
     setSubtasks(state, action: PayloadAction<KanbanSubtask[]>) {
       state.subtasks = action.payload;
-      state.loading = false; // 🔥 auto-stop loading
     },
 
-    // --------------------------------------------------------
-    // 2. UPDATE STATUS ONLY (drag/drop)
-    // --------------------------------------------------------
+    // UPDATE STATUS (DRAG DROP)
     updateSubtaskStatus(
       state,
-      action: PayloadAction<{ id: string; status: KanbanStatus }>
+      action: PayloadAction<{ id: string; statusId: string }>,
     ) {
-      const { id, status } = action.payload;
-      state.subtasks = state.subtasks.map((s) =>
-        s.id === id ? { ...s, status } : s
-      );
+      const subtask = state.subtasks.find((s) => s.id === action.payload.id);
+
+      if (subtask) {
+        subtask.statusId = action.payload.statusId; // ✅ FIX
+      }
     },
 
-    // --------------------------------------------------------
-    // 3. UPDATE FULL SUBTASK (edit modal)
-    // --------------------------------------------------------
-    updateSubtask(state, action: PayloadAction<KanbanSubtask>) {
-      const updated = action.payload;
+    // REORDER WITHIN SAME COLUMN
+    reorderSubtasksForParent(
+      state,
+      action: PayloadAction<{
+        parentTaskId: string;
+        orderedIds: string[];
+      }>,
+    ) {
+      const { orderedIds } = action.payload;
 
-      state.subtasks = state.subtasks.map((s) =>
-        s.id === updated.id ? updated : s
-      );
+      orderedIds.forEach((id, index) => {
+        const subtask = state.subtasks.find((s) => s.id === id);
+        if (subtask) {
+          subtask.order = index;
+        }
+      });
     },
 
-    // --------------------------------------------------------
-    // 4. ADD NEW SUBTASK
-    // --------------------------------------------------------
+    // ADD NEW SUBTASK
     addSubtask(state, action: PayloadAction<KanbanSubtask>) {
       state.subtasks.push(action.payload);
     },
 
-    // --------------------------------------------------------
-    // 5. REORDER SUBTASKS WITHIN SAME PARENT
-    // --------------------------------------------------------
-    reorderSubtasksForParent(
+    // OPTIONAL: LOADING STATE
+    setLoading(state, action: PayloadAction<boolean>) {
+      state.loading = action.payload;
+    },
+
+    toggleChecklistLocal(
       state,
-      action: PayloadAction<{ parentTaskId: number; orderedIds: string[] }>
+      action: PayloadAction<{ checklistId: string }>,
     ) {
-      const { parentTaskId, orderedIds } = action.payload;
-      const pid = Number(parentTaskId);
+      state.subtasks.forEach((subtask) => {
+        const checklist = subtask.checklists?.find(
+          (c) => c.id === action.payload.checklistId,
+        );
 
-      const orderMap = new Map(orderedIds.map((id, index) => [id, index]));
-
-      state.subtasks = state.subtasks.map((s) => {
-        if (Number(s.parentTaskId) === pid) {
-          return {
-            ...s,
-            order: orderMap.get(s.id) ?? s.order,
-          };
+        if (checklist) {
+          checklist.isCompleted = !checklist.isCompleted;
         }
-        return s;
-      });
-
-      state.subtasks.sort((a, b) => {
-        if (Number(a.parentTaskId) !== pid) return 0;
-        if (Number(b.parentTaskId) !== pid) return 0;
-        return (a.order ?? 0) - (b.order ?? 0);
       });
     },
   },
 });
 
 export const {
-  setLoading,
   setSubtasks,
   updateSubtaskStatus,
-  updateSubtask,
-  addSubtask,
   reorderSubtasksForParent,
+  addSubtask,
+  setLoading,
+  toggleChecklistLocal,
 } = kanbanSlice.actions;
 
 export default kanbanSlice.reducer;

@@ -77,6 +77,7 @@ export default function TaskCard({
           <LinearProgress variant="determinate" value={progress} sx={{ height: 8, borderRadius: 1 }} />
         </Box>
       )}
+      
 
       <Button variant="outlined" size="small" sx={{ textTransform: "none", fontWeight: 600 }}>
         View Details

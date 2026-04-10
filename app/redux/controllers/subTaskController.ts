@@ -1,199 +1,165 @@
+import { AppDispatch } from "../store";
 import axiosApi from "@/app/lib/axios";
-import { aes_int_decrypt, aes_int_encrypt } from "@/app/lib/encryptdecrypt";
-import { AppDispatch, RootState } from "../store";
 import {
-  addSubtask,
-  KanbanStatus,
-  KanbanSubtask,
-  setLoading,
   setSubtasks,
   updateSubtaskStatus,
-  updateSubtask as reduxUpdateSubtask,
-} from "@/app/redux/slices/kanbanSlice";
+  reorderSubtasksForParent,
+  toggleChecklistLocal,
+} from "../slices/kanbanSlice";
 
-// 🔥 GLOBAL CACHE (persists between fetches)
-const userNameCache: Record<string, string> = {};
+import { mapTaskToKanban } from "@/app/utils/kanbanAdapter"; // USE THIS
+import { updateTaskProgress } from "../slices/taskSlice";
 
-export const getSubtasksByTask = (task_id: number) => {
-  return async (dispatch: AppDispatch, getState: any) => {
-    try {
-      dispatch(setLoading(true));
-
-      // 🚫 DO NOT clear subtasks → causes flicker
-      // dispatch(setSubtasks([]));
-
-      const encryptedPayload = aes_int_encrypt(
-        JSON.stringify({ task_id: task_id })
-      );
-
-      const res = await axiosApi.post(`/subtask/getByTask`, {
-        data: encryptedPayload,
-      });
-
-      const decrypted = aes_int_decrypt(res.data.data);
-      const parsed = JSON.parse(decrypted);
-
-      const convertStatus = (raw: string): KanbanStatus => {
-        switch (raw.toLowerCase()) {
-          case "to do":
-            return "todo";
-          case "inprogress":
-            return "inprogress";
-          case "review":
-            return "review";
-          case "completed":
-            return "completed";
-          default:
-            return "todo";
-        }
-      };
-
-      // ---------------------------------------------------------
-      // STEP 1 — Identify all unique assignee IDs
-      // ---------------------------------------------------------
-      const uniqueAssignees = [
-        ...new Set(parsed.map((s: any) => s.assigned_to?.[0]).filter(Boolean)),
-      ];
-
-      // ---------------------------------------------------------
-      // STEP 2 — Fetch user names (cached)
-      // ---------------------------------------------------------
-      for (const uid of uniqueAssignees) {
-        const userId = String(uid);
-        if (userNameCache[userId]) continue;
-
-        try {
-          const encryptedUser = aes_int_encrypt(
-            JSON.stringify({ user_id: userId })
-          );
-
-          const userRes = await axiosApi.post(`/user/getUserById`, {
-            data: encryptedUser,
-          });
-
-          const decryptedUser = aes_int_decrypt(userRes.data.data);
-          const userParsed = JSON.parse(decryptedUser);
-
-          userNameCache[userId] =
-            userParsed.full_name || userParsed.name || "Unknown User";
-        } catch (e) {
-          console.warn("⚠ Failed to fetch user:", uid);
-          userNameCache[userId] = "Unknown User";
-        }
-      }
-
-      // ---------------------------------------------------------
-      // STEP 3 — Map backend → Kanban format
-      // ---------------------------------------------------------
-      const mapped = parsed.map((s: any) => {
-        const assigneeId = s.assigned_to?.[0] ?? null;
-
-        return {
-          id: String(s.subtask_id),
-          parentTaskId: task_id,
-          projectId: 0,
-          title: s.task_name,
-          description: s.description,
-          status: convertStatus(s.status),
-          priority: s.priority,
-          assignee: assigneeId,
-          assigneeName: userNameCache[assigneeId] || "",
-          assignedBy: s.assigned_by ?? null,
-          startDate: s.start_date ?? null,
-          endDate: s.end_date ?? null,
-          progress: s.progress ?? 0,
-          order: s.order_index ?? 0,
-        };
-      });
-
-      dispatch(setSubtasks(mapped));
-      return mapped;
-    } catch (err) {
-      console.error("❌ Error loading subtasks:", err);
-      throw err;
-    }
-  };
-};
-
-export const updateSubtask = (payload: any) => {
-  return async (dispatch: AppDispatch,  getState: () => RootState) => {
-    try {
-      console.log("📤 Sending UPDATE payload:", payload);
-
-      const encrypted = aes_int_encrypt(JSON.stringify(payload));
-
-      await axiosApi.put("/subtask/update", {
-        data: encrypted,
-      });
-
-      // If status changed (drag event)
-      if (payload.status) {
-        dispatch(
-          updateSubtaskStatus({
-            id: payload.subtask_id.toString(),
-            status: payload.status.toLowerCase(),
-          })
-        );
-      }
-
-      // 🔥 FULL Redux sync (for modal update)
-      const current = getState().kanban.subtasks.find(
-        (s: KanbanSubtask) => s.id === String(payload.subtask_id)
-      );
-
-      if (current) {
-        dispatch(
-          reduxUpdateSubtask({
-            ...current,
-            title: payload.task_name ?? current.title,
-            description: payload.description ?? current.description,
-            priority: payload.priority ?? current.priority,
-            startDate: payload.start_date ?? current.startDate,
-            endDate: payload.end_date ?? current.endDate,
-            assignee: payload.assigned_to?.[0] ?? current.assignee,
-            status: payload.status?.toLowerCase() ?? current.status,
-            progress: payload.progress ?? current.progress,
-          })
-        );
-      }
-
-      return true;
-    } catch (err) {
-      console.error("❌ Update Subtask Error:", err);
-      throw err;
-    }
-  };
-};
-
-export const createSubtask = (data: any) => {
+//  LOAD FULL TASK (KANBAN READY)
+export const loadKanbanByTask = (taskId: string) => {
   return async (dispatch: AppDispatch) => {
     try {
-      const payload = {
-        task_id: data.task_id,
-        task_name: data.task_name,
-        description: data.description,
-        start_date: data.start_date,
-        end_date: data.end_date,
-        assigned_to: data.assigned_to,
-        assigned_by: data.assigned_by,
-        status: data.status ?? "To Do",
-        priority: data.priority,
-        progress: data.progress ?? 0,
-      };
+      // IMPORTANT: use GET TASK (not subtasks endpoint)
+      const res = await axiosApi.get(`/tasks/${taskId}`);
 
-      const encrypted = aes_int_encrypt(JSON.stringify(payload));
+      const { columns, subtasks } = mapTaskToKanban(res.data);
 
-      const res = await axiosApi.post("/subtask/create", {
-        data: encrypted,
+      //set subtasks
+      dispatch(setSubtasks(subtasks));
+
+      // columns will be handled in component (next file)
+
+      return { columns, subtasks };
+    } catch (err) {
+      console.error("❌ Error loading kanban:", err);
+      throw err;
+    }
+  };
+};
+
+//CREATE SUBTASK
+export const createSubtask = (data: {
+  title: string;
+  taskId: string;
+  statusId: string;
+}) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      const res = await axiosApi.post("/subtasks", data);
+
+      // reload kanban after create
+      await dispatch(loadKanbanByTask(data.taskId));
+
+      return res.data;
+    } catch (err) {
+      console.error("Error creating subtask:", err);
+      throw err;
+    }
+  };
+};
+
+// UPDATE SUBTASK
+export const updateSubtask = (id: string, data: any) => {
+  return async () => {
+    try {
+      const res = await axiosApi.put(`/subtasks/${id}`, data);
+      return res.data;
+    } catch (err) {
+      console.error("Error updating subtask:", err);
+      throw err;
+    }
+  };
+};
+
+// DELETE SUBTASK
+export const deleteSubtask = (id: string) => {
+  return async () => {
+    try {
+      await axiosApi.delete(`/subtasks/${id}`);
+    } catch (err) {
+      console.error("Error deleting subtask:", err);
+      throw err;
+    }
+  };
+};
+
+// DRAG MOVE
+export const moveSubtask = (params: {
+  id: string;
+  statusId: string;
+  order: number;
+  parentTaskId: string;
+  orderedIds: string[];
+}) => {
+  return async (dispatch: AppDispatch) => {
+    const { id, statusId, order, parentTaskId, orderedIds } = params;
+
+    try {
+      //  FIXED (statusId, not status)
+      dispatch(updateSubtaskStatus({ id, statusId }));
+      dispatch(reorderSubtasksForParent({ parentTaskId, orderedIds }));
+
+      await axiosApi.patch(`/subtasks/${id}/move`, {
+        statusId,
+        order,
       });
+    } catch (err) {
+      console.error("Error moving subtask:", err);
+      throw err;
+    }
+  };
+};
 
-      const decrypted = aes_int_decrypt(res.data.data);
-      const result = JSON.parse(decrypted);
+export const toggleChecklist = (checklistId: string, taskId: string) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      const res = await axiosApi.patch(
+        `/subtasks/checklists/${checklistId}/toggle`,
+      );
 
-      return result.new_subtask_id;
-    } catch (error) {
-      console.error("❌ Error creating subtask:", error);
-      throw error;
+      // update checklist locally
+      dispatch(toggleChecklistLocal({ checklistId }));
+
+      // OPTIONAL: update status if changed
+      const updated = res.data;
+      await dispatch(loadKanbanByTask(taskId));
+      dispatch(
+        updateTaskProgress({
+          taskId,
+          progress: res.data.taskProgress,
+        }),
+      );
+
+      dispatch(
+        updateSubtaskStatus({
+          id: updated.id,
+          statusId: updated.statusId,
+        }),
+      );
+
+      return updated;
+    } catch (err) {
+      console.error(" Error toggling checklist:", err);
+      throw err;
+    }
+  };
+};
+
+export const addChecklist = (data: { subtaskId: string; title: string }) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      const res = await axiosApi.post("/subtasks/checklists", data);
+
+      // 🔥 easiest (for now): reload task
+      return res.data;
+    } catch (err) {
+      console.error("❌ Error adding checklist:", err);
+      throw err;
+    }
+  };
+};
+export const deleteChecklist = (checklistId: string) => {
+  return async () => {
+    try {
+      await axiosApi.delete(`/subtasks/checklists/${checklistId}`);
+    } catch (err) {
+      console.error("❌ Error deleting checklist:", err);
+      throw err;
     }
   };
 };

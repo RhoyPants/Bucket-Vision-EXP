@@ -11,7 +11,7 @@ export default function SummaryBar({
   projectList = [],
   selectedProjectId,
   onSelectProject,
-  showAddTaskButton = false,
+  showAddTaskButton = true,
   onAddTask,
 }: {
   stats: SummaryStat[];

@@ -5,35 +5,50 @@ import {
   List,
   ListItemButton,
   ListItemText,
-  Chip,
   LinearProgress,
+  IconButton,
+  Typography,
+  Button,
 } from "@mui/material";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import PriorityLegend from "./PriorityLegend";
 
 interface TaskItem {
-  task_id: number;
-  task_name: string;
-  priority: string;
-  progress: number;
+  id: string;
+  title: string;
+  priority?: string;
+  progress?: number;
 }
 
 export default function TaskSidebar({
   tasks,
   activeTaskId,
-  onSelectTask,   // ✅ Correct prop name
+  onSelectTask,
+  onDeleteTask,
+  onAddTask,
 }: {
   tasks: TaskItem[];
-  activeTaskId: number | null;
-  onSelectTask: (taskId: number) => void;
+  activeTaskId: string | null;
+  onSelectTask: (taskId: string) => void;
+  onDeleteTask?: (task: TaskItem) => void;
+  onAddTask?: () => void;
 }) {
-  const priorityDot = (priority: string) => {
+  // 🎨 Progress color logic
+  const getProgressColor = (progress?: number) => {
+    if (!progress || progress === 0) return "#9E9E9E"; // gray
+    if (progress < 50) return "#F59E0B"; // yellow
+    if (progress < 100) return "#3B82F6"; // blue
+    return "#22C55E"; // green
+  };
+
+  const priorityDot = (priority?: string) => {
     const colors: Record<string, string> = {
-      High: "#E5494D",   // red
-      Medium: "#FF9800", // orange
-      Low: "#57A55A",    // green
+      High: "#E5494D",
+      Medium: "#FF9800",
+      Low: "#57A55A",
       Normal: "#57A55A",
     };
-    return colors[priority] || "#888";
+    return colors[priority || ""] || "#888";
   };
 
   return (
@@ -47,36 +62,44 @@ export default function TaskSidebar({
         p: 1.5,
       }}
     >
-      {/* 🔹 Legend (High / Medium / Low colors) */}
+      {/* Priority Legend */}
       <PriorityLegend />
 
       <List sx={{ p: 0, mt: 1 }}>
         {tasks.map((task) => {
-          const isActive = activeTaskId === task.task_id;
+          const isActive = activeTaskId === task.id;
+
+          const progress = Number(task.progress) || 0;
 
           return (
             <ListItemButton
-              key={task.task_id}
+              key={task.id}
               selected={isActive}
-              onClick={() => onSelectTask(task.task_id)} // ✅ fixed function call
+              onClick={() => onSelectTask(task.id)}
               sx={{
                 mb: 1,
                 borderRadius: "8px",
                 alignItems: "flex-start",
                 flexDirection: "column",
-                background: isActive ? "#EAF2FF" : "transparent",
+                background: isActive ? "#EAF2FF" : "#fff",
                 borderLeft: isActive
                   ? "4px solid #0C66E4"
                   : "4px solid transparent",
                 py: 1.3,
                 px: 1.6,
                 transition: "0.15s",
+                boxShadow: isActive ? "0 2px 8px rgba(0,0,0,0.05)" : "none",
+
                 "&:hover": {
                   background: isActive ? "#E6F0FF" : "#F0F2F5",
                 },
+
+                "&:hover .delete-btn": {
+                  opacity: 1,
+                },
               }}
             >
-              {/* Task Title + Dot */}
+              {/* Title row */}
               <Box
                 sx={{
                   display: "flex",
@@ -95,8 +118,9 @@ export default function TaskSidebar({
                   }}
                 />
 
+                {/* Title */}
                 <ListItemText
-                  primary={task.task_name}
+                  primary={task.title}
                   primaryTypographyProps={{
                     fontSize: 14,
                     fontWeight: isActive ? 700 : 600,
@@ -107,26 +131,90 @@ export default function TaskSidebar({
                     textOverflow: "ellipsis",
                   }}
                 />
+
+                <Box sx={{ flexGrow: 1 }} />
+
+                {/* Delete */}
+                <IconButton
+                  className="delete-btn"
+                  size="small"
+                  sx={{
+                    opacity: 0,
+                    transition: "opacity 0.2s",
+                    color: "error.main",
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteTask?.(task);
+                  }}
+                >
+                  <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
               </Box>
 
-              {/* Progress bar */}
+              {/* Progress Bar */}
               <LinearProgress
                 variant="determinate"
-                value={task.progress}
+                value={progress}
                 sx={{
                   width: "100%",
                   mt: 1,
-                  height: 4,
+                  height: 5,
                   borderRadius: 2,
                   backgroundColor: "#D6D9DE",
+
                   "& .MuiLinearProgress-bar": {
-                    backgroundColor: "#0C66E4",
+                    backgroundColor: getProgressColor(progress),
+                    transition: "0.3s ease",
                   },
                 }}
               />
+
+              {/* Progress Info */}
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  width: "100%",
+                  mt: 0.5,
+                }}
+              >
+                <Typography sx={{ fontSize: 11, color: "#6B7280" }}>
+                  {progress}%
+                </Typography>
+
+                {progress === 100 && (
+                  <Typography
+                    sx={{
+                      fontSize: 11,
+                      color: "#22C55E",
+                      fontWeight: 600,
+                    }}
+                  >
+                    ✔ Done
+                  </Typography>
+                )}
+              </Box>
             </ListItemButton>
           );
         })}
+        {/* Add Task Button */}
+        <Box sx={{ mt: 1 }}>
+          <Button
+            fullWidth
+            variant="contained"
+            size="small"
+            onClick={onAddTask}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              borderRadius: "8px",
+              mb: 1,
+            }}
+          >
+            + Add Task
+          </Button>
+        </Box>
       </List>
     </Box>
   );

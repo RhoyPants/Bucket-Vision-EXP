@@ -1,24 +1,17 @@
 import { AppDispatch } from "../store";
-import { setProjects } from "../slices/projectSlice";
-import { aes_int_decrypt } from "@/app/lib/encryptdecrypt";
 import axiosApi from "@/app/lib/axios";
+import { setProjects } from "../slices/projectSlice";
 
-export const getAllProjects = () => {
+export const getProjects = () => {
   return async (dispatch: AppDispatch) => {
     try {
-      // Call backend using axiosApi (auto adds Authorization header)
-      const res = await axiosApi.get("/project/getAllProjects");
+      const res = await axiosApi.get("/projects");
 
-      // Decrypt backend response
-      const decryptedText = aes_int_decrypt(res.data.data);
-      const parsedProjects = JSON.parse(decryptedText);
+      dispatch(setProjects(res.data));
 
-      // Save to Redux
-      dispatch(setProjects(parsedProjects));
-
-      return parsedProjects;
+      return res.data;
     } catch (err) {
-      console.error("❌ Error loading projects:", err);
+      console.error("❌ Error fetching projects:", err);
       throw err;
     }
   };

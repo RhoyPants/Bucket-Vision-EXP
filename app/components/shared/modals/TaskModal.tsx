@@ -20,10 +20,11 @@ interface TaskModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: any) => void;
-  defaultValues?: any;
-  mode?: "task" | "subtask";
-  parentTask?: any;
-  isViewOnly?: boolean; // NEW for subtask view mode
+  defaultValues?: any; // for update subtask
+  mode?: "task" | "subtask"; // task = create task, subtask = create/update subtask
+  parentTask?: any; // needed for subtask creation
+  isViewOnly?: boolean; // subtask update mode
+  currentProject?: any; // ⭐ required for task creation PIN
 }
 
 export default function TaskModal({
@@ -34,20 +35,41 @@ export default function TaskModal({
   mode = "task",
   parentTask,
   isViewOnly = false,
+  currentProject,
 }: TaskModalProps) {
   const isSubtask = mode === "subtask";
 
-  // -------------------------
-  // INITIAL FORM VALUES
-  // -------------------------
+  // ----------------------------
+  // ⭐ INITIAL FORM BUILDER
+  // ----------------------------
   const buildInitialForm = () => ({
-    pin: defaultValues?.pin || (isSubtask ? "AUTO-SUB" : ""),
-    taskName: defaultValues?.taskName || defaultValues?.title || "",
-    status: defaultValues?.status || (isSubtask ? "todo" : ""),
+    // PIN only exists for TASK creation
+    pin: !isSubtask ? currentProject?.ref_no ?? "" : "",
+
+    taskName:
+      defaultValues?.task_name ||
+      defaultValues?.taskName ||
+      defaultValues?.title ||
+      "",
+
+    status: defaultValues?.status || (isSubtask ? "todo" : "Not Started"),
+
     description: defaultValues?.description || "",
-    startDate: defaultValues?.startDate || parentTask?.start_date || "",
-    endDate: defaultValues?.endDate || parentTask?.end_date || "",
+
+    startDate:
+      defaultValues?.start_date ||
+      defaultValues?.startDate ||
+      parentTask?.start_date ||
+      "",
+
+    endDate:
+      defaultValues?.end_date ||
+      defaultValues?.endDate ||
+      parentTask?.end_date ||
+      "",
+
     duration: defaultValues?.duration || "",
+
     assignedTo: Array.isArray(defaultValues?.assignedTo)
       ? defaultValues.assignedTo
       : defaultValues?.assignee
@@ -56,7 +78,8 @@ export default function TaskModal({
       ? parentTask.assigned_to
       : [],
 
-    priority: defaultValues?.priority || parentTask?.priority || "",
+    priority: defaultValues?.priority || parentTask?.priority || "Medium",
+
     progress: defaultValues?.progress ?? parentTask?.progress ?? 0,
   });
 
@@ -64,7 +87,7 @@ export default function TaskModal({
   const [initialValues, setInitialValues] = useState(buildInitialForm);
   const [editMode, setEditMode] = useState(!isViewOnly);
 
-  // Reset modal values when opened
+  // Reset form whenever modal opens
   useEffect(() => {
     if (!open) return;
     const fresh = buildInitialForm();
@@ -73,82 +96,77 @@ export default function TaskModal({
     setEditMode(!isViewOnly);
   }, [open]);
 
-  // -------------------------
-  // CHANGE HANDLER
-  // -------------------------
+  // ----------------------------
+  // ⭐ CHANGE HANDLER
+  // ----------------------------
   const handleChange = (field: string, value: any) => {
     if (!editMode && isViewOnly) setEditMode(true);
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // -------------------------
-  // DETECT REAL CHANGES
-  // -------------------------
   const hasChanges = JSON.stringify(formData) !== JSON.stringify(initialValues);
 
-  // -------------------------
-  // SUBMIT HANDLER
-  // -------------------------
+  // ----------------------------
+  // ⭐ SUBMIT LOGIC
+  // ----------------------------
   const handleSubmit = () => {
-    /** -------------------------------------------------
-     *  UPDATE MODE (subtask + viewOnly = true)
-     * ------------------------------------------------- */
+    /**
+     ****************************************************
+     ⭐ UPDATE SUBTASK MODE
+     ****************************************************
+     */
     if (isSubtask && isViewOnly) {
       const updatePayload = {
-        subtask_id: Number(defaultValues.id ?? defaultValues.subtask_id),
+        subtask_id: Number(defaultValues?.subtask_id || defaultValues?.id),
 
         task_name:
-          formData.taskName || defaultValues.task_name || defaultValues.title,
+          formData.taskName || defaultValues?.task_name || defaultValues?.title,
 
-        description: formData.description || defaultValues.description,
+        description: formData.description || defaultValues?.description,
 
         start_date:
           formData.startDate ||
-          defaultValues.start_date ||
-          defaultValues.startDate,
+          defaultValues?.start_date ||
+          defaultValues?.startDate,
 
         end_date:
-          formData.endDate || defaultValues.end_date || defaultValues.endDate,
+          formData.endDate || defaultValues?.end_date || defaultValues?.endDate,
 
         assigned_to:
           formData.assignedTo?.length > 0
             ? formData.assignedTo
-            : defaultValues.assigned_to ||
-              (defaultValues.assignee ? [defaultValues.assignee] : []),
+            : defaultValues?.assigned_to ??
+              (defaultValues?.assignee ? [defaultValues.assignee] : []),
 
         assigned_by:
-          defaultValues.assigned_by ||
-          defaultValues.assignedBy ||
+          defaultValues?.assigned_by ||
+          defaultValues?.assignedBy ||
           parentTask?.assigned_by,
 
-        priority: formData.priority || defaultValues.priority,
+        priority: formData.priority || defaultValues?.priority,
 
-        progress:
-          formData.progress ??
-          defaultValues.progress ??
-          parentTask?.progress ??
-          0,
+        progress: formData.progress ?? defaultValues?.progress ?? 0,
 
-        status: formData.status || defaultValues.status,
+        status: formData.status || defaultValues?.status,
 
         subTaskIndex:
-          defaultValues.subTaskIndex ??
-          defaultValues.order ??
-          defaultValues.order_index ??
+          defaultValues?.subTaskIndex ??
+          defaultValues?.order ??
+          defaultValues?.order_index ??
           0,
       };
 
-      console.log("FINAL UPDATE PAYLOAD:", updatePayload);
-
       onSubmit(updatePayload);
-      return; // 🔥 STOP EXECUTION TO PREVENT CREATE LOGIC FROM RUNNING
+      return;
     }
 
-    /** -------------------------------------------------
-     *  CREATE SUBTASK MODE
-     * ------------------------------------------------- */
+    /**
+     ****************************************************
+     ⭐ CREATE SUBTASK MODE
+     ****************************************************
+     */
     if (isSubtask && !isViewOnly) {
-      onSubmit({
+      const payload = {
         task_id: parentTask.task_id,
         task_name: formData.taskName,
         description: formData.description,
@@ -159,21 +177,38 @@ export default function TaskModal({
         priority: formData.priority,
         status: "To Do",
         progress: 0,
-      });
+      };
+
+      onSubmit(payload);
       return;
     }
 
     /** -------------------------------------------------
-     *  TASK MODE (unchanged)
+     *  TASK MODE  → CREATE TASK
      * ------------------------------------------------- */
-    onSubmit(formData);
+    if (mode === "task" && !isViewOnly) {
+      const taskPayload = {
+        project_refno: currentProject?.ref_no, // REQUIRED
+        task_name: formData.taskName, // REQUIRED
+        description: formData.description, // REQUIRED
+        start_date: formData.startDate, // REQUIRED
+        end_date: formData.endDate, // REQUIRED
+        assigned_to: formData.assignedTo ?? [], // REQUIRED
+        assigned_by: formData.assignedTo[0] ?? "", // TEMP (use first assignee)
+        priority: formData.priority, // REQUIRED
+        progress: formData.progress ?? 0, // REQUIRED
+      };
+
+      console.log("CREATE TASK PAYLOAD:", taskPayload);
+      onSubmit(taskPayload);
+      return;
+    }
   };
 
-  // -------------------------
-  // FIELD RENDER HELP
-  // -------------------------
+  // ----------------------------
+  // ⭐ FIELD CONTROL
+  // ----------------------------
   const readOnly = !editMode;
-
   const fieldProps = {
     InputProps: {
       readOnly,
@@ -183,6 +218,9 @@ export default function TaskModal({
     },
   };
 
+  // ----------------------------
+  // ⭐ UI RENDER
+  // ----------------------------
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ fontSize: 24, fontWeight: 700 }}>
@@ -190,7 +228,8 @@ export default function TaskModal({
           ? isViewOnly
             ? "Subtask Details"
             : "Create Subtask"
-          : "Task"}
+          : "Create Task"}
+
         <IconButton
           onClick={onClose}
           sx={{ position: "absolute", right: 12, top: 12 }}
@@ -201,20 +240,19 @@ export default function TaskModal({
 
       <DialogContent sx={{ paddingTop: 2 }}>
         <Grid container spacing={2}>
-          {/* PIN (hidden for subtasks) */}
+          {/* PIN ONLY IN TASK CREATE */}
           {!isSubtask && (
             <Grid size={{ xs: 4, md: 4 }}>
               <TextField
                 label="PIN"
                 fullWidth
                 value={formData.pin}
-                onChange={(e) => handleChange("pin", e.target.value)}
-                {...fieldProps}
+                InputProps={{ readOnly: true }}
               />
             </Grid>
           )}
 
-          {/* Name */}
+          {/* NAME */}
           <Grid size={{ xs: 4, md: 4 }}>
             <TextField
               label="Name"
@@ -225,7 +263,7 @@ export default function TaskModal({
             />
           </Grid>
 
-          {/* Status (visible only for tasks or when updating subtasks) */}
+          {/* STATUS (Task only) */}
           {!isSubtask && (
             <Grid size={{ xs: 4, md: 4 }}>
               <TextField
@@ -244,7 +282,7 @@ export default function TaskModal({
           )}
         </Grid>
 
-        {/* Description */}
+        {/* DESCRIPTION */}
         <TextField
           label="Description"
           fullWidth
@@ -256,7 +294,7 @@ export default function TaskModal({
           {...fieldProps}
         />
 
-        {/* Dates */}
+        {/* DATES */}
         <Grid container spacing={2} sx={{ mt: 1 }}>
           <Grid size={{ xs: 4, md: 4 }}>
             <TextField
@@ -277,12 +315,11 @@ export default function TaskModal({
               fullWidth
               InputLabelProps={{ shrink: true }}
               value={formData.endDate}
-              onChange={(e) => handleChange("enddate", e.target.value)}
+              onChange={(e) => handleChange("endDate", e.target.value)}
               {...fieldProps}
             />
           </Grid>
 
-          {/* Duration (task only) */}
           {!isSubtask && (
             <Grid size={{ xs: 4, md: 4 }}>
               <TextField
@@ -296,7 +333,7 @@ export default function TaskModal({
           )}
         </Grid>
 
-        {/* Assigned To */}
+        {/* ASSIGNED TO */}
         <Box sx={{ mt: 2 }}>
           <TextField
             label="Assigned To"
@@ -322,7 +359,7 @@ export default function TaskModal({
           </TextField>
         </Box>
 
-        {/* Priority & Progress */}
+        {/* PRIORITY / PROGRESS */}
         <Grid container spacing={2} sx={{ mt: 1 }}>
           <Grid size={{ xs: 4, md: 4 }}>
             <TextField
@@ -353,6 +390,7 @@ export default function TaskModal({
         </Grid>
       </DialogContent>
 
+      {/* FOOTER BUTTONS */}
       <DialogActions sx={{ padding: 2 }}>
         {isViewOnly ? (
           <>

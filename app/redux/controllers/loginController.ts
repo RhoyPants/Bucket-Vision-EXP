@@ -1,45 +1,28 @@
-import axios from "@/app/lib/axios";
-import { setUser, setError, setLoading } from "../slices/authSlice";
-import { aes_int_decrypt, aes_int_encrypt } from "@/app/lib/encryptdecrypt";
+import { AppDispatch } from "../store";
+import axiosApi from "@/app/lib/axios";
+import { setUser, setLoading, setError } from "../slices/authSlice";
 
-interface LoginPayload {
-  email: string;
-  password: string;
-}
-
-export const loginUser = (userData: LoginPayload) => {
-  return async (dispatch: any) => {
+export const login = (email: string, password: string) => {
+  return async (dispatch: AppDispatch) => {
     try {
       dispatch(setLoading(true));
-      dispatch(setError(null));
 
-      // Encrypt login payload
-      const encryptedData = aes_int_encrypt(JSON.stringify(userData));
-
-      const res = await axios.post(`/user/loginUser`, {
-        data: encryptedData,
+      const res = await axiosApi.post("/auth/login", {
+        email,
+        password,
       });
 
-      // FIX: decrypt the correct field
-      const decryptedText = aes_int_decrypt(res.data.data);
+      const { accessToken, user } = res.data;
 
-      const parsedData = JSON.parse(decryptedText);
+      // 🔥 SAVE TOKEN
+      localStorage.setItem("token", accessToken);
 
-      // Save user in redux
-      dispatch(setUser(parsedData));
+      // 🔥 UPDATE REDUX
+      dispatch(setUser({ user, token: accessToken }));
 
-      // Save to localStorage
-      if (typeof window !== "undefined") {
-        localStorage.setItem("token", parsedData.Token);
-        localStorage.setItem("session_token", parsedData.session_token);
-        localStorage.setItem("expires_at", parsedData.expires_at);
-      }
-
-      return parsedData; // IMPORTANT
     } catch (err: any) {
-      const message = err.response?.data?.message || "Login failed";
-      dispatch(setError(message));
-      throw new Error(message);
+      dispatch(setError("Login failed"));
+      throw err;
     } finally {
       dispatch(setLoading(false));
     }
