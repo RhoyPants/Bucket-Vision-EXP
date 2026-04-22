@@ -53,7 +53,7 @@ export default function Sidebar() {
       <SidebarItem label="Sprint Management" href="/sprintManagement" />
       <SidebarItem label="Task Board" href="/taskboard" />
       <SidebarItem label="Team Overview" href="/teamOverview" />
-      <SidebarItem label="Project Timeline" href="/projectTimeline" />
+      <SidebarItem label="Projects" href="/projects" />
     </Box>
   );
 

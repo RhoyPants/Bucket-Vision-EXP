@@ -6,12 +6,16 @@ export interface KanbanChecklist {
   isCompleted: boolean;
   order: number;
 }
+
 export interface KanbanSubtask {
   id: string;
   title: string;
   description?: string;
 
-  statusId: string; // NOW = statusId (UUID)
+  budgetAllocated?: number | null;
+  budgetPercent?: number | null;
+
+  status: number; // 0 = Pending, 1 = Ongoing, 2 = Done
   parentTaskId: string;
 
   order: number;
@@ -36,28 +40,68 @@ const initialState: KanbanState = {
   loading: false,
 };
 
+// 🔥 STATUS COMPUTATION
+const computeStatus = (progress?: number) => {
+  if (!progress || progress <= 0) return 0;
+  if (progress < 100) return 1;
+  return 2;
+};
+
+// 🔥 PROGRESS FROM CHECKLISTS
+const computeChecklistProgress = (checklists?: KanbanChecklist[]) => {
+  if (!checklists || checklists.length === 0) return 0;
+
+  const done = checklists.filter((c) => c.isCompleted).length;
+  return Math.round((done / checklists.length) * 100);
+};
+
 const kanbanSlice = createSlice({
   name: "kanban",
   initialState,
   reducers: {
-    // SET ALL SUBTASKS (from API)
+    // ========================================
+    // SET ALL SUBTASKS
+    // ========================================
     setSubtasks(state, action: PayloadAction<KanbanSubtask[]>) {
       state.subtasks = action.payload;
     },
 
-    // UPDATE STATUS (DRAG DROP)
-    updateSubtaskStatus(
-      state,
-      action: PayloadAction<{ id: string; statusId: string }>,
-    ) {
-      const subtask = state.subtasks.find((s) => s.id === action.payload.id);
+    // ========================================
+    // 🔥 CLEAR (VERY IMPORTANT)
+    // ========================================
+    clearSubtasks(state) {
+      state.subtasks = [];
+    },
 
-      if (subtask) {
-        subtask.statusId = action.payload.statusId; // ✅ FIX
+    // ========================================
+    // 🔥 REAL-TIME UPDATE
+    // ========================================
+    updateSubtaskLocal(
+      state,
+      action: PayloadAction<{
+        id: string;
+        progress?: number;
+        status?: number;
+      }>,
+    ) {
+      const { id, progress, status } = action.payload;
+
+      const sub = state.subtasks.find((s) => s.id === id);
+      if (!sub) return;
+
+      if (progress !== undefined) {
+        sub.progress = progress;
+        sub.status = computeStatus(progress);
+      }
+
+      if (status !== undefined) {
+        sub.status = status;
       }
     },
 
-    // REORDER WITHIN SAME COLUMN
+    // ========================================
+    // 🔥 REORDER (FIXED)
+    // ========================================
     reorderSubtasksForParent(
       state,
       action: PayloadAction<{
@@ -65,26 +109,37 @@ const kanbanSlice = createSlice({
         orderedIds: string[];
       }>,
     ) {
-      const { orderedIds } = action.payload;
+      const { parentTaskId, orderedIds } = action.payload;
+
+      const filtered = state.subtasks.filter(
+        (s) => s.parentTaskId === parentTaskId,
+      );
 
       orderedIds.forEach((id, index) => {
-        const subtask = state.subtasks.find((s) => s.id === id);
+        const subtask = filtered.find((s) => s.id === id);
         if (subtask) {
           subtask.order = index;
         }
       });
     },
 
-    // ADD NEW SUBTASK
+    // ========================================
+    // ADD SUBTASK
+    // ========================================
     addSubtask(state, action: PayloadAction<KanbanSubtask>) {
       state.subtasks.push(action.payload);
     },
 
-    // OPTIONAL: LOADING STATE
+    // ========================================
+    // LOADING
+    // ========================================
     setLoading(state, action: PayloadAction<boolean>) {
       state.loading = action.payload;
     },
 
+    // ========================================
+    // 🔥 CHECKLIST TOGGLE
+    // ========================================
     toggleChecklistLocal(
       state,
       action: PayloadAction<{ checklistId: string }>,
@@ -96,19 +151,29 @@ const kanbanSlice = createSlice({
 
         if (checklist) {
           checklist.isCompleted = !checklist.isCompleted;
+
+          const progress = computeChecklistProgress(subtask.checklists);
+
+          subtask.progress = progress;
+          subtask.status = computeStatus(progress);
         }
       });
+    },
+    removeSubtask(state, action: PayloadAction<string>) {
+      state.subtasks = state.subtasks.filter((s) => s.id !== action.payload);
     },
   },
 });
 
 export const {
   setSubtasks,
-  updateSubtaskStatus,
+  clearSubtasks, // 🔥 NEW
+  updateSubtaskLocal,
   reorderSubtasksForParent,
   addSubtask,
   setLoading,
   toggleChecklistLocal,
+  removeSubtask,
 } = kanbanSlice.actions;
 
 export default kanbanSlice.reducer;

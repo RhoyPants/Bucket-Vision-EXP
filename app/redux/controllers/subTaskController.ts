@@ -1,28 +1,39 @@
+"use client";
+
 import { AppDispatch } from "../store";
 import axiosApi from "@/app/lib/axios";
+
 import {
   setSubtasks,
-  updateSubtaskStatus,
   reorderSubtasksForParent,
   toggleChecklistLocal,
+  removeSubtask,
 } from "../slices/kanbanSlice";
 
-import { mapTaskToKanban } from "@/app/utils/kanbanAdapter"; // USE THIS
+import { mapTaskToKanban } from "@/app/utils/kanbanAdapter";
 import { updateTaskProgress } from "../slices/taskSlice";
+import { getSCurve } from "./scurveController";
 
-//  LOAD FULL TASK (KANBAN READY)
+// ========================================
+// LOAD FULL TASK (KANBAN)
+// ========================================
 export const loadKanbanByTask = (taskId: string) => {
   return async (dispatch: AppDispatch) => {
     try {
-      // IMPORTANT: use GET TASK (not subtasks endpoint)
       const res = await axiosApi.get(`/tasks/${taskId}`);
 
       const { columns, subtasks } = mapTaskToKanban(res.data);
 
-      //set subtasks
-      dispatch(setSubtasks(subtasks));
+      // ✅ update parent task progress
+      dispatch(
+        updateTaskProgress({
+          taskId,
+          progress: res.data.progress,
+        }),
+      );
 
-      // columns will be handled in component (next file)
+      // ✅ set subtasks
+      dispatch(setSubtasks(subtasks));
 
       return { columns, subtasks };
     } catch (err) {
@@ -32,120 +43,142 @@ export const loadKanbanByTask = (taskId: string) => {
   };
 };
 
-//CREATE SUBTASK
-export const createSubtask = (data: {
-  title: string;
-  taskId: string;
-  statusId: string;
-}) => {
-  return async (dispatch: AppDispatch) => {
+// ========================================
+// CREATE SUBTASK
+// ========================================
+export const createSubtask = (data: any, taskId: string) => {
+  return async (dispatch: AppDispatch, getState: any) => {
     try {
       const res = await axiosApi.post("/subtasks", data);
 
-      // reload kanban after create
+      // 🔥 reload (SAFE for now)
+      dispatch(
+        updateTaskProgress({
+          taskId,
+          progress: res.data.progress,
+        }),
+      );
+      const state = getState();
+      const projectId = state.project?.currentProjectId;
+      if (projectId) {
+        dispatch(getSCurve(projectId));
+      }
+
       await dispatch(loadKanbanByTask(data.taskId));
 
       return res.data;
     } catch (err) {
-      console.error("Error creating subtask:", err);
+      console.error("❌ Error creating subtask:", err);
       throw err;
     }
   };
 };
 
+// ========================================
 // UPDATE SUBTASK
+// ========================================
 export const updateSubtask = (id: string, data: any) => {
   return async () => {
     try {
       const res = await axiosApi.put(`/subtasks/${id}`, data);
       return res.data;
     } catch (err) {
-      console.error("Error updating subtask:", err);
+      console.error("❌ Error updating subtask:", err);
       throw err;
     }
   };
 };
 
+// ========================================
 // DELETE SUBTASK
-export const deleteSubtask = (id: string) => {
-  return async () => {
+// ========================================
+export const deleteSubtask = (id: string, taskId: string) => {
+  return async (dispatch: AppDispatch, getState: any) => {
     try {
-      await axiosApi.delete(`/subtasks/${id}`);
+      const res = await axiosApi.delete(`/subtasks/${id}`);
+
+      // 🔥 optional reload if taskId provided
+      dispatch(removeSubtask(id));
+      dispatch(
+        updateTaskProgress({
+          taskId,
+          progress: res.data.progress,
+        }),
+      );
+      await dispatch(loadKanbanByTask(taskId));
+      const state = getState();
+      const projectId = state.project?.currentProjectId;
+      if (projectId) {
+        dispatch(getSCurve(projectId));
+      }
     } catch (err) {
-      console.error("Error deleting subtask:", err);
+      console.error("❌ Error deleting subtask:", err);
       throw err;
     }
   };
 };
 
-// DRAG MOVE
+// ========================================
+// 🔥 DRAG MOVE (OPTIMISTIC)
+// ========================================
 export const moveSubtask = (params: {
   id: string;
-  statusId: string;
   order: number;
   parentTaskId: string;
   orderedIds: string[];
 }) => {
   return async (dispatch: AppDispatch) => {
-    const { id, statusId, order, parentTaskId, orderedIds } = params;
+    const { id, order, parentTaskId, orderedIds } = params;
 
     try {
-      //  FIXED (statusId, not status)
-      dispatch(updateSubtaskStatus({ id, statusId }));
-      dispatch(reorderSubtasksForParent({ parentTaskId, orderedIds }));
+      // ✅ optimistic reorder
+      dispatch(
+        reorderSubtasksForParent({
+          parentTaskId,
+          orderedIds,
+        }),
+      );
 
+      // ✅ backend update
       await axiosApi.patch(`/subtasks/${id}/move`, {
-        statusId,
-        order,
+        newOrder: order,
       });
     } catch (err) {
-      console.error("Error moving subtask:", err);
+      console.error("❌ Error moving subtask:", err);
       throw err;
     }
   };
 };
 
-export const toggleChecklist = (checklistId: string, taskId: string) => {
+// ========================================
+// 🔥 CHECKLIST TOGGLE (REAL-TIME)
+// ========================================
+export const toggleChecklist = (checklistId: string, taskId?: string) => {
   return async (dispatch: AppDispatch) => {
     try {
-      const res = await axiosApi.patch(
-        `/subtasks/checklists/${checklistId}/toggle`,
-      );
+      await axiosApi.patch(`/subtasks/checklists/${checklistId}/toggle`);
 
-      // update checklist locally
+      // ✅ instant UI update
       dispatch(toggleChecklistLocal({ checklistId }));
 
-      // OPTIONAL: update status if changed
-      const updated = res.data;
-      await dispatch(loadKanbanByTask(taskId));
-      dispatch(
-        updateTaskProgress({
-          taskId,
-          progress: res.data.taskProgress,
-        }),
-      );
-
-      dispatch(
-        updateSubtaskStatus({
-          id: updated.id,
-          statusId: updated.statusId,
-        }),
-      );
-
-      return updated;
+      // 🔁 optional sync
+      if (taskId) {
+        await dispatch(loadKanbanByTask(taskId));
+      }
     } catch (err) {
-      console.error(" Error toggling checklist:", err);
+      console.error("❌ Error toggling checklist:", err);
       throw err;
     }
   };
 };
 
+// ========================================
+// ADD CHECKLIST
+// ========================================
 export const addChecklist = (data: { subtaskId: string; title: string }) => {
-  return async (dispatch: AppDispatch) => {
+  return async () => {
     try {
       const res = await axiosApi.post("/subtasks/checklists", data);
-
-      // 🔥 easiest (for now): reload task
       return res.data;
     } catch (err) {
       console.error("❌ Error adding checklist:", err);
@@ -153,6 +186,10 @@ export const addChecklist = (data: { subtaskId: string; title: string }) => {
     }
   };
 };
+
+// ========================================
+// DELETE CHECKLIST
+// ========================================
 export const deleteChecklist = (checklistId: string) => {
   return async () => {
     try {

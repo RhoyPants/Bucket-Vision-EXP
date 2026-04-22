@@ -1,8 +1,14 @@
 "use client";
 
+import {
+  Box,
+  Typography,
+  TextField,
+  MenuItem,
+} from "@mui/material";
+
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { setCurrentProject } from "@/app/redux/slices/projectSlice";
-import { getTasksByProject } from "@/app/redux/controllers/taskController";
 
 export default function ProjectSelector() {
   const dispatch = useAppDispatch();
@@ -11,32 +17,42 @@ export default function ProjectSelector() {
     (state) => state.project
   );
 
-  const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const projectId = e.target.value;
-
     dispatch(setCurrentProject(projectId));
-
-    // 🔥 load tasks for selected project
-    await dispatch(getTasksByProject(projectId));
   };
 
   return (
-    <div>
-      <label className="block mb-1 text-sm font-medium">
+    <Box>
+      {/* LABEL */}
+      <Typography
+        variant="subtitle2"
+        fontWeight={600}
+        mb={1}
+      >
         Select Project
-      </label>
+      </Typography>
 
-      <select
+      {/* SELECT */}
+      <TextField
+        select
+        fullWidth
+        size="small"
         value={currentProjectId ?? ""}
         onChange={handleChange}
-        className="p-2 border rounded w-full"
+        sx={{
+          backgroundColor: "#fff",
+          borderRadius: 2,
+        }}
       >
         {projects.map((project) => (
-          <option key={project.id} value={project.id}>
+          <MenuItem key={project.id} value={project.id}>
             {project.name}
-          </option>
+          </MenuItem>
         ))}
-      </select>
-    </div>
+      </TextField>
+    </Box>
   );
 }

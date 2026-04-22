@@ -4,15 +4,17 @@ export interface Task {
   id: string;
   title: string;
   description?: string;
-  projectId: string;
+
+  categoryId: string; // 🔥 FIX (was projectId ❌)
+
   createdAt?: string;
   progress?: number;
 }
 
 interface TaskState {
   tasks: Task[];
-  currentTaskId: string | null; // 🔥 NEW
-  loading: boolean; // 🔥 NEW
+  currentTaskId: string | null;
+  loading: boolean;
 }
 
 const initialState: TaskState = {
@@ -25,58 +27,64 @@ const taskSlice = createSlice({
   name: "task",
   initialState,
   reducers: {
-    // SET ALL TASKS
+    // ✅ SET ALL
     setTasks(state, action: PayloadAction<Task[]>) {
       state.tasks = action.payload;
 
-      // auto select first task
       if (!state.currentTaskId && action.payload.length > 0) {
         state.currentTaskId = action.payload[0].id;
       }
     },
 
-    // SET CURRENT TASK
+    // ✅ CURRENT
     setCurrentTask(state, action: PayloadAction<string | null>) {
       state.currentTaskId = action.payload;
     },
 
-    // ADD ONE TASK
+    // ✅ ADD
     addTask(state, action: PayloadAction<Task>) {
       state.tasks.push(action.payload);
     },
 
-    // UPDATE TASK
-    updateTask(state, action: PayloadAction<Task>) {
-      const index = state.tasks.findIndex((t) => t.id === action.payload.id);
+    // ✅ UPDATE (RENAMED to avoid conflict)
+    updateTaskLocal(state, action: PayloadAction<Task>) {
+      const index = state.tasks.findIndex(
+        (t) => t.id === action.payload.id
+      );
 
       if (index !== -1) {
         state.tasks[index] = action.payload;
       }
     },
 
-    // DELETE TASK
-    deleteTask(state, action: PayloadAction<string>) {
-      state.tasks = state.tasks.filter((t) => t.id !== action.payload);
+    // ✅ DELETE (RENAMED to avoid conflict)
+    deleteTaskLocal(state, action: PayloadAction<string>) {
+      state.tasks = state.tasks.filter(
+        (t) => t.id !== action.payload
+      );
 
-      // 🔥 reset current if deleted
       if (state.currentTaskId === action.payload) {
-        state.currentTaskId = state.tasks.length > 0 ? state.tasks[0].id : null;
+        state.currentTaskId =
+          state.tasks.length > 0 ? state.tasks[0].id : null;
       }
     },
 
-    // LOADING STATE (OPTIONAL)
+    // ✅ LOADING
     setLoading(state, action: PayloadAction<boolean>) {
       state.loading = action.payload;
     },
 
-    updateTaskProgress: (
+    // ✅ PROGRESS UPDATE
+    updateTaskProgress(
       state,
-      action: PayloadAction<{ taskId: string; progress: number }>,
-    ) => {
-      const task = state.tasks.find((t) => t.id === action.payload.taskId);
+      action: PayloadAction<{ taskId: string; progress: number }>
+    ) {
+      const { taskId, progress } = action.payload;
+
+      const task = state.tasks.find((t) => t.id === taskId);
 
       if (task) {
-        task.progress = action.payload.progress;
+        task.progress = progress;
       }
     },
   },
@@ -85,8 +93,8 @@ const taskSlice = createSlice({
 export const {
   setTasks,
   addTask,
-  updateTask,
-  deleteTask,
+  updateTaskLocal,
+  deleteTaskLocal,
   setCurrentTask,
   setLoading,
   updateTaskProgress,

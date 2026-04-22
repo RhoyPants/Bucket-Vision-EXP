@@ -1,15 +1,34 @@
 import { AppDispatch } from "../store";
 import axiosApi from "@/app/lib/axios";
-import { setTasks } from "../slices/taskSlice";
+import {
+  setTasks,
+  addTask,
+  updateTaskLocal,
+  deleteTaskLocal,
+} from "../slices/taskSlice";
 
-// ✅ GET TASKS BY PROJECT
+// ✅ GET TASKS BY CATEGORY (MAIN USE)
+export const getTasksByCategory = (categoryId: string) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      const res = await axiosApi.get(`/tasks/category/${categoryId}`);
+
+      dispatch(setTasks(res.data));
+
+      return res.data;
+    } catch (err) {
+      console.error("❌ Error fetching tasks:", err);
+      return [];
+    }
+  };
+};
+
+
 export const getTasksByProject = (projectId: string) => {
   return async (dispatch: AppDispatch) => {
     try {
       const res = await axiosApi.get(`/tasks/project/${projectId}`);
-
       dispatch(setTasks(res.data));
-
       return res.data;
     } catch (err) {
       console.error("❌ Error fetching tasks:", err);
@@ -17,6 +36,7 @@ export const getTasksByProject = (projectId: string) => {
     }
   };
 };
+
 
 // ✅ GET SINGLE TASK
 export const getTaskById = (taskId: string) => {
@@ -37,10 +57,8 @@ export const createTask = (data: any) => {
     try {
       const res = await axiosApi.post("/tasks", data);
 
-      // optional: refresh list
-      if (data.projectId) {
-        await dispatch(getTasksByProject(data.projectId));
-      }
+      // local update (optional but useful)
+      dispatch(addTask(res.data));
 
       return res.data;
     } catch (err) {
@@ -56,6 +74,8 @@ export const updateTask = (taskId: string, data: any) => {
     try {
       const res = await axiosApi.put(`/tasks/${taskId}`, data);
 
+      dispatch(updateTaskLocal(res.data));
+
       return res.data;
     } catch (err) {
       console.error("❌ Error updating task:", err);
@@ -65,15 +85,12 @@ export const updateTask = (taskId: string, data: any) => {
 };
 
 // ✅ DELETE TASK
-export const deleteTask = (taskId: string, projectId?: string) => {
+export const deleteTask = (taskId: string) => {
   return async (dispatch: AppDispatch) => {
     try {
       await axiosApi.delete(`/tasks/${taskId}`);
 
-      // optional refresh
-      if (projectId) {
-        await dispatch(getTasksByProject(projectId));
-      }
+      dispatch(deleteTaskLocal(taskId));
     } catch (err) {
       console.error("❌ Error deleting task:", err);
       throw err;

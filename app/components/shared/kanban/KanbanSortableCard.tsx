@@ -3,43 +3,40 @@
 import React, { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  Box,
-  Chip,
-  Avatar,
-  Typography,
-  Button,
-  IconButton,
-  Slider,
-} from "@mui/material";
+import { Tooltip } from "@mui/material";
+import { Box, Chip, Typography, IconButton, Stack } from "@mui/material";
+
 import { useAppDispatch } from "@/app/redux/hook";
 import type { KanbanSubtask } from "@/app/redux/slices/kanbanSlice";
+
 import {
   addChecklist,
   deleteChecklist,
   toggleChecklist,
-  loadKanbanByTask,
   deleteSubtask,
 } from "@/app/redux/controllers/subTaskController";
+
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import ChecklistIcon from "@mui/icons-material/Checklist";
+import EventIcon from "@mui/icons-material/Event";
+import AddIcon from "@mui/icons-material/Add";
+
+import ProgressCalendarModal from "../modals/ProgressCalendarModal";
 
 export default function KanbanSortableCard({
   subtask,
   isOverlay = false,
   isDropTarget = false,
-  onViewDetails,
 }: {
   subtask: KanbanSubtask;
   isOverlay?: boolean;
   isDropTarget?: boolean;
-  onViewDetails?: (subtask: KanbanSubtask) => void;
 }) {
   const dispatch = useAppDispatch();
-  const [adding, setAdding] = React.useState(false);
-  const [input, setInput] = React.useState("");
 
-  // ✅ store slider values per checklist
-  const [sliderValues, setSliderValues] = useState<Record<string, number>>({});
+  const [adding, setAdding] = useState(false);
+  const [input, setInput] = useState("");
+  const [openCalendar, setOpenCalendar] = useState(false);
 
   const {
     attributes,
@@ -54,17 +51,15 @@ export default function KanbanSortableCard({
   });
 
   const style: React.CSSProperties = {
-    transform: CSS.Translate.toString(transform),
-    transition,
+    transform: CSS.Transform.toString(transform),
+    transition: transition || "transform 250ms ease",
     cursor: isDragging ? "grabbing" : "grab",
-    opacity: isDragging ? 0.4 : 1,
+    opacity: isDragging ? 0.5 : 1,
   };
 
   const handleDeleteSubtask = async () => {
     if (!confirm("Delete this subtask?")) return;
-
-    await dispatch(deleteSubtask(subtask.id) as any);
-    await dispatch(loadKanbanByTask(subtask.parentTaskId) as any);
+    await dispatch(deleteSubtask(subtask.id, subtask.parentTaskId) as any);
   };
 
   const getProgressColor = (progress?: number) => {
@@ -84,8 +79,6 @@ export default function KanbanSortableCard({
       }) as any,
     );
 
-    await dispatch(loadKanbanByTask(subtask.parentTaskId) as any);
-
     setInput("");
     setAdding(false);
   };
@@ -96,93 +89,163 @@ export default function KanbanSortableCard({
 
   const handleDelete = async (id: string) => {
     await dispatch(deleteChecklist(id) as any);
-    await dispatch(loadKanbanByTask(subtask.parentTaskId) as any);
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...(!isOverlay ? attributes : {})}
-      {...(!isOverlay ? listeners : {})}
-    >
-      <Box
-        sx={{
-          borderRadius: 2,
-          p: 2,
-          mb: 2,
-          backgroundColor: isDropTarget
-            ? "#e7fbe7"
-            : isDragging
-              ? "#e3f2fd"
-              : "#fff",
-          transition: "0.2s ease",
-          border: isDragging ? "2px solid #1976d2" : "1px solid #eee",
-          boxShadow: isDragging
-            ? "0 6px 16px rgba(0,0,50,0.15)"
-            : "0 2px 6px rgba(0,0,0,0.08)",
-          "&:hover": {
-            backgroundColor: "#f5f5f5",
-            transform: "translateY(-2px)",
-          },
-        }}
+    <>
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...(!isOverlay ? attributes : {})}
+        {...(!isOverlay ? listeners : {})}
       >
-        {/* Title */}
-        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
-          <Typography sx={{ fontWeight: 700 }}>{subtask.title}</Typography>
-
-          <Chip
-            label={subtask.priority}
-            size="small"
-            sx={{
-              bgcolor:
-                subtask.priority === "High"
-                  ? "#ef4444"
-                  : subtask.priority === "Medium"
-                    ? "#f59e0b"
-                    : "#22c55e",
-              color: "#fff",
-              fontWeight: 700,
-            }}
-          />
-        </Box>
-
-        {/* Progress */}
         <Box
           sx={{
-            height: 6,
-            borderRadius: 2,
-            backgroundColor: "#eee",
-            overflow: "hidden",
-            mb: 1,
+            position: "relative",
+            borderRadius: 3,
+            p: 2,
+            mb: 2,
+            backgroundColor: isDropTarget
+              ? "#e7fbe7"
+              : isDragging
+                ? "#e3f2fd"
+                : "#fff",
+            border: "1px solid #eee",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+            transition: "all 0.2s ease",
+
+            "&:hover": {
+              boxShadow: "0 6px 16px rgba(0,0,0,0.1)",
+            },
+
+            "&:hover .hover-actions": {
+              opacity: 1,
+            },
           }}
         >
+          {/* 🔥 HOVER ACTIONS */}
+          {/* 🔥 HOVER ACTIONS */}
+          <Box
+            className="hover-actions"
+            sx={{
+              position: "absolute",
+              top: 6,
+              right: 6,
+              display: "flex",
+              gap: 0.5,
+              opacity: 0,
+              transition: "opacity 0.2s ease",
+              backgroundColor: "rgba(9, 4, 70, 0.8)",
+              borderRadius: 2,
+              padding: 0.5,
+            }}
+          >
+            <Tooltip title="Add Progress" arrow>
+              <IconButton
+                size="small"
+                onClick={() => setOpenCalendar(true)}
+                sx={{
+                  background: "#fff",
+                  border: "1px solid #eee",
+                  "&:hover": { background: "#f5f5f5" },
+                }}
+              >
+                <EventIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Checklist" arrow>
+              <IconButton
+                size="small"
+                onClick={() => setAdding(true)}
+                sx={{
+                  background: "#fff",
+                  border: "1px solid #eee",
+                  "&:hover": { background: "#f5f5f5" },
+                }}
+              >
+                <ChecklistIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Delete Subtask" arrow>
+              <IconButton
+                size="small"
+                color="error"
+                onClick={handleDeleteSubtask}
+                sx={{
+                  background: "#fff",
+                  border: "1px solid #eee",
+                  "&:hover": { background: "#fdecea" },
+                }}
+              >
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+          {/* TITLE + PRIORITY */}
+          <Box display="flex" justifyContent="space-between" mb={1}>
+            <Typography fontWeight={600}>{subtask.title}</Typography>
+
+            <Chip
+              label={subtask.priority || "Medium"}
+              size="small"
+              sx={{
+                bgcolor:
+                  subtask.priority === "High"
+                    ? "#ef4444"
+                    : subtask.priority === "Medium"
+                      ? "#f59e0b"
+                      : "#22c55e",
+                color: "#fff",
+                fontWeight: 600,
+              }}
+            />
+          </Box>
+
+          {/* 🔥 BUDGET INFO */}
+          <Stack direction="row" spacing={2} mb={1}>
+            <Typography variant="caption">
+              💰 {subtask.budgetAllocated || 0}
+            </Typography>
+            <Typography variant="caption">
+              📊 {subtask.budgetPercent?.toFixed(1) || 0}%
+            </Typography>
+          </Stack>
+
+          {/* PROGRESS */}
+          <Typography fontSize={12}>
+            Progress: <b>{subtask.progress || 0}%</b>
+          </Typography>
+
           <Box
             sx={{
-              width: `${subtask.progress || 0}%`,
-              height: "100%",
-              backgroundColor: getProgressColor(subtask.progress),
+              height: 6,
+              borderRadius: 2,
+              backgroundColor: "#eee",
+              overflow: "hidden",
+              mt: 0.5,
             }}
-          />
-        </Box>
+          >
+            <Box
+              sx={{
+                width: `${subtask.progress || 0}%`,
+                height: "100%",
+                backgroundColor: getProgressColor(subtask.progress),
+                transition: "width 0.3s ease",
+              }}
+            />
+          </Box>
 
-        {/* Checklist */}
-        <Box sx={{ mt: 1 }}>
-          {subtask.checklists?.map((item) => {
-            const value = sliderValues[item.id] ?? 0;
-
-            return (
+          {/* CHECKLIST */}
+          <Box mt={1}>
+            {subtask.checklists?.map((item) => (
               <Box
                 key={item.id}
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  mb: 1,
-                  "&:hover .delete-btn": {
-                    opacity: 1,
-                  },
-                }}
+                display="flex"
+                alignItems="center"
+                gap={1}
+                mb={1}
               >
                 <input
                   type="checkbox"
@@ -200,116 +263,77 @@ export default function KanbanSortableCard({
                   {item.title}
                 </Typography>
 
-                {/* 🔥 SLIDER FIXED */}
-                <Box
-                  onClick={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                    width: 120,
-                  }}
-                >
-                  <Slider
-                    size="small"
-                    value={value}
-                    onChange={(_, val) =>
-                      setSliderValues((prev) => ({
-                        ...prev,
-                        [item.id]: val as number,
-                      }))
-                    }
-                  />
-
-                  <Typography sx={{ fontSize: 11, minWidth: 30 }}>
-                    {value}%
-                  </Typography>
-                </Box>
-
                 <IconButton
-                  className="delete-btn"
                   size="small"
-                  sx={{
-                    opacity: 0,
-                    transition: "0.2s",
-                    color: "error.main",
-                  }}
+                  color="error"
                   onClick={() => handleDelete(item.id)}
                 >
                   <DeleteOutlineIcon fontSize="small" />
                 </IconButton>
               </Box>
-            );
-          })}
-          {/* ADD */}
-          {adding ? (
-            <Box sx={{ mt: 1 }}>
+            ))}
+          </Box>
+
+          {/* ADD CHECKLIST */}
+          {adding && (
+            <Box mt={1}>
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Checklist item..."
-                style={{ width: "100%", padding: 6 }}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  border: "1px solid #ddd",
+                  outline: "none",
+                  fontSize: 13,
+                }}
               />
 
-              <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
-                <Button
-                  size="small"
-                  variant="contained"
-                  onClick={handleAddChecklist}
-                >
-                  Add
-                </Button>
-                <Button
-                  size="small"
-                  onClick={() => {
-                    setAdding(false);
-                    setInput("");
-                  }}
-                >
-                  Cancel
-                </Button>
-              </Box>
+              <Stack direction="row" spacing={1} mt={1}>
+                <Tooltip title="Add item" arrow>
+                  <IconButton
+                    onClick={handleAddChecklist}
+                    size="small"
+                    sx={{
+                      backgroundColor: "#e3f2fd",
+                      border: "1px solid #bbdefb",
+                      "&:hover": {
+                        backgroundColor: "#bbdefb",
+                      },
+                    }}
+                  >
+                    <AddIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+
+                <Tooltip title="Cancel" arrow>
+                  <IconButton
+                    onClick={() => setAdding(false)}
+                    size="small"
+                    sx={{
+                      backgroundColor: "#f5f5f5",
+                      border: "1px solid #ddd",
+                      "&:hover": {
+                        backgroundColor: "#e0e0e0",
+                      },
+                    }}
+                  >
+                    ✖
+                  </IconButton>
+                </Tooltip>
+              </Stack>
             </Box>
-          ) : (
-            ""
           )}
-
-          {/* Actions */}
-          <Box >
-            {!adding && (
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  sx={{ textTransform: "none" }}
-                  onClick={() => onViewDetails?.(subtask)}
-                >
-                  View Details
-                </Button>
-
-                <Button
-                  size="small"
-                  onClick={() => {
-                    setAdding(true);
-                  }}
-                  sx={{ textTransform: "none" }}
-                >
-                  {adding ? "Editing..." : "Add Checklist"}
-                </Button>
-                <Button
-                  size="small"
-                  color="error"
-                  sx={{ textTransform: "none" }}
-                  onClick={handleDeleteSubtask}
-                >
-                  Delete
-                </Button>
-              </Box>
-            )}
-          </Box>
         </Box>
-      </Box>
-    </div>
+      </div>
+
+      <ProgressCalendarModal
+        open={openCalendar}
+        onClose={() => setOpenCalendar(false)}
+        subtaskId={subtask.id}
+      />
+    </>
   );
 }

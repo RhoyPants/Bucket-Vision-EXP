@@ -8,6 +8,8 @@ import {
   TextField,
   DialogActions,
   Button,
+  Grid,
+  MenuItem,
 } from "@mui/material";
 
 import { useAppDispatch } from "@/app/redux/hook";
@@ -17,34 +19,43 @@ import { setCurrentTask } from "@/app/redux/slices/taskSlice";
 export default function AddTaskModal({
   open,
   onClose,
-  projectId,
+  categoryId, // ✅ FIXED
 }: {
   open: boolean;
   onClose: () => void;
-  projectId: string;
+  categoryId: string;
 }) {
   const dispatch = useAppDispatch();
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    priority: "Medium",
+    budgetAllocated: 0,
+    budgetPercent: 0,
+  });
 
   const handleCreate = async () => {
-    if (!title.trim()) return;
+    if (!form.title.trim()) return;
 
     try {
       const newTask = await dispatch(
         createTask({
-          title,
-          description,
-          projectId,
-        })
+          ...form,
+          categoryId, // ✅ IMPORTANT
+        }),
       );
 
-      // 🔥 auto select new task
       dispatch(setCurrentTask(newTask.id));
 
-      setTitle("");
-      setDescription("");
+      setForm({
+        title: "",
+        description: "",
+        priority: "Medium",
+        budgetAllocated: 0,
+        budgetPercent: 0,
+      });
+
       onClose();
     } catch (err) {
       console.error(err);
@@ -56,23 +67,73 @@ export default function AddTaskModal({
       <DialogTitle>Create Task</DialogTitle>
 
       <DialogContent>
-        <TextField
-          label="Task Title"
-          fullWidth
-          margin="normal"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              label="Task Title"
+              fullWidth
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            />
+          </Grid>
 
-        <TextField
-          label="Description"
-          fullWidth
-          multiline
-          rows={3}
-          margin="normal"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              select
+              label="Priority"
+              fullWidth
+              value={form.priority}
+              onChange={(e) => setForm({ ...form, priority: e.target.value })}
+            >
+              <MenuItem value="High">High</MenuItem>
+              <MenuItem value="Medium">Medium</MenuItem>
+              <MenuItem value="Low">Low</MenuItem>
+            </TextField>
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              label="Budget Allocated"
+              type="number"
+              fullWidth
+              value={form.budgetAllocated}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  budgetAllocated: Number(e.target.value),
+                })
+              }
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              label="Budget %"
+              type="number"
+              fullWidth
+              value={form.budgetPercent}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  budgetPercent: Number(e.target.value),
+                })
+              }
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              label="Description"
+              fullWidth
+              multiline
+              rows={3}
+              value={form.description}
+              onChange={(e) =>
+                setForm({ ...form, description: e.target.value })
+              }
+            />
+          </Grid>
+        </Grid>
       </DialogContent>
 
       <DialogActions>

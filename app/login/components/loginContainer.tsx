@@ -19,7 +19,7 @@ export default function LoginContainer() {
       await dispatch(login(email, password) as any);
 
       // 🔥 REDIRECT
-      router.push("/taskboard");
+      router.push("/projects");
 
     } catch (error) {
       console.error("Login failed:", error);

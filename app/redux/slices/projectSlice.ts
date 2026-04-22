@@ -1,92 +1,102 @@
-// import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-
-// export interface Project {
-//   project_id: number;
-//   project_name: string;
-//   status: string;
-//   ref_no: string;
-//   entity: string;
-//   date_from: string;
-//   date_to: string;
-//   bu_code: string;
-//   attachment_url: string | null;
-//   created_at: string;
-// }
-
-// interface ProjectState {
-//   projects: Project[];
-//   loading: boolean;
-//   currentProject: Project | null;
-// }
-
-// const initialState: ProjectState = {
-//   projects: [],
-//   loading: false,
-//   currentProject: null,
-// };
-
-// const projectSlice = createSlice({
-//   name: "project",
-//   initialState,
-//   reducers: {
-//     // 🌟 Set project list
-//     setProjects(state, action: PayloadAction<Project[]>) {
-//       state.projects = action.payload;
-//       state.loading = false;
-//     },
-
-//     // 🌟 Set loading state
-//     setLoading(state, action: PayloadAction<boolean>) {
-//       state.loading = action.payload;
-//     },
-
-//     // 🌟 Select project for dropdown
-//     setCurrentProject(state, action: PayloadAction<Project | null>) {
-//       state.currentProject = action.payload;
-//     },
-//   },
-// });
-
-// export const { setProjects, setLoading, setCurrentProject } =
-//   projectSlice.actions;
-
-// export default projectSlice.reducer;
-
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
-export interface Project {
+// 🔥 LOCATION TYPE
+export interface ProjectLocation {
+  city?: string;
+  province?: string;
+  barangay?: string;
+  street?: string;
+}
+
+export interface Projects {
   id: string;
   name: string;
+  description?: string;
+
+  // 🔥 FIXED (JSON)
+  location?: ProjectLocation | null;
+
+  startDate?: string;
+  expectedEndDate?: string;
+
+  totalBudget?: number;
+  priority?: string;
+  pin?: string;
+
+  // 🔥 NEW
+  businessUnit?: string;
+  entity?: string;
 }
 
 interface ProjectState {
-  projects: Project[];
+  projects: Projects[];
   currentProjectId: string | null;
+  loading: boolean;
+  fullProject: any | null;
 }
 
 const initialState: ProjectState = {
   projects: [],
   currentProjectId: null,
+  loading: false,
+  fullProject: null,
 };
 
 const projectSlice = createSlice({
-  name: "project",
+  name: "projects",
   initialState,
   reducers: {
-    setProjects(state, action: PayloadAction<Project[]>) {
+    setProjects(state, action: PayloadAction<Projects[]>) {
       state.projects = action.payload;
 
-      // auto select first project
       if (!state.currentProjectId && action.payload.length > 0) {
         state.currentProjectId = action.payload[0].id;
       }
     },
 
+    setFullProject(state, action: PayloadAction<any>) {
+      state.fullProject = action.payload;
+    },
+
     setCurrentProject(state, action: PayloadAction<string>) {
       state.currentProjectId = action.payload;
+    },
+
+    // 🔥 OPTIMISTIC ADD
+    addProject(state, action: PayloadAction<Projects>) {
+      state.projects.unshift(action.payload);
+    },
+
+    // 🔥 OPTIMISTIC UPDATE
+    updateProjectLocal(state, action: PayloadAction<Projects>) {
+      const index = state.projects.findIndex((p) => p.id === action.payload.id);
+      if (index !== -1) {
+        state.projects[index] = {
+          ...state.projects[index],
+          ...action.payload,
+        };
+      }
+    },
+
+    // 🔥 OPTIMISTIC DELETE
+    deleteProjectLocal(state, action: PayloadAction<string>) {
+      state.projects = state.projects.filter((p) => p.id !== action.payload);
+    },
+
+    setLoading(state, action: PayloadAction<boolean>) {
+      state.loading = action.payload;
     },
   },
 });
 
-export const { setProjects, setCurrentProject } = projectSlice.actions;
+export const {
+  setProjects,
+  setCurrentProject,
+  addProject,
+  updateProjectLocal,
+  deleteProjectLocal,
+  setLoading,
+  setFullProject,
+} = projectSlice.actions;
+
 export default projectSlice.reducer;

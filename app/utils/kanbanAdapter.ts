@@ -1,26 +1,26 @@
 export function mapTaskToKanban(task: any) {
-  const columns = task.statuses.map((s: any) => ({
-    id: s.id,
-    title: s.name,
-  }));
+  const columns = [
+    { id: 0, title: "Pending" },
+    { id: 1, title: "Ongoing" },
+    { id: 2, title: "Done" },
+  ];
 
-  const subtasks = task.subtasks.map((s: any) => ({
-    id: s.id,
-    title: s.title,
-    description: s.description,
+  const subtasks = (task.subtasks || []).map((s: any) => ({
+    // 🔥 KEEP EVERYTHING FROM BACKEND
+    ...s,
 
-    statusId: s.statusId,
-    order: s.order,
+    // ✅ normalize ONLY what you need
     parentTaskId: s.taskId,
 
-    assignee: s.assignees?.[0]?.userId ?? null,
+    // 🔥 FIX DATE MAPPING (VERY IMPORTANT)
+    startDate: s.projectedStartDate,
+    endDate: s.projectedEndDate,
 
-    priority: s.priority,
+    // fallback safety
+    status: s.status ?? 0,
     progress: s.progress ?? 0,
 
-    startDate: s.startDate,
-    endDate: s.dueDate,
-
+    assignee: s.assignees?.[0]?.userId ?? null,
     checklists: s.checklists || [],
   }));
 

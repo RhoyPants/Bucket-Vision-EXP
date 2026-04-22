@@ -33,12 +33,11 @@ export default function TaskSidebar({
   onDeleteTask?: (task: TaskItem) => void;
   onAddTask?: () => void;
 }) {
-  // 🎨 Progress color logic
   const getProgressColor = (progress?: number) => {
-    if (!progress || progress === 0) return "#9E9E9E"; // gray
-    if (progress < 50) return "#F59E0B"; // yellow
-    if (progress < 100) return "#3B82F6"; // blue
-    return "#22C55E"; // green
+    if (!progress || progress === 0) return "#9E9E9E";
+    if (progress < 50) return "#F59E0B";
+    if (progress < 100) return "#3B82F6";
+    return "#22C55E";
   };
 
   const priorityDot = (priority?: string) => {
@@ -62,13 +61,38 @@ export default function TaskSidebar({
         p: 1.5,
       }}
     >
+      {/* 🔥 HEADER */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 1,
+        }}
+      >
+        <Typography fontWeight={700}>TASK</Typography>
+
+        <Button
+          size="small"
+          variant="contained"
+          onClick={onAddTask}
+          sx={{
+            textTransform: "none",
+            fontWeight: 600,
+            borderRadius: "6px",
+            px: 1.5,
+          }}
+        >
+          + Add
+        </Button>
+      </Box>
+
       {/* Priority Legend */}
       <PriorityLegend />
 
       <List sx={{ p: 0, mt: 1 }}>
         {tasks.map((task) => {
           const isActive = activeTaskId === task.id;
-
           const progress = Number(task.progress) || 0;
 
           return (
@@ -108,7 +132,6 @@ export default function TaskSidebar({
                   width: "100%",
                 }}
               >
-                {/* Priority dot */}
                 <Box
                   sx={{
                     width: 10,
@@ -118,7 +141,6 @@ export default function TaskSidebar({
                   }}
                 />
 
-                {/* Title */}
                 <ListItemText
                   primary={task.title}
                   primaryTypographyProps={{
@@ -134,7 +156,6 @@ export default function TaskSidebar({
 
                 <Box sx={{ flexGrow: 1 }} />
 
-                {/* Delete */}
                 <IconButton
                   className="delete-btn"
                   size="small"
@@ -152,7 +173,7 @@ export default function TaskSidebar({
                 </IconButton>
               </Box>
 
-              {/* Progress Bar */}
+              {/* Progress */}
               <LinearProgress
                 variant="determinate"
                 value={progress}
@@ -170,7 +191,6 @@ export default function TaskSidebar({
                 }}
               />
 
-              {/* Progress Info */}
               <Box
                 sx={{
                   display: "flex",
@@ -198,23 +218,6 @@ export default function TaskSidebar({
             </ListItemButton>
           );
         })}
-        {/* Add Task Button */}
-        <Box sx={{ mt: 1 }}>
-          <Button
-            fullWidth
-            variant="contained"
-            size="small"
-            onClick={onAddTask}
-            sx={{
-              textTransform: "none",
-              fontWeight: 600,
-              borderRadius: "8px",
-              mb: 1,
-            }}
-          >
-            + Add Task
-          </Button>
-        </Box>
       </List>
     </Box>
   );

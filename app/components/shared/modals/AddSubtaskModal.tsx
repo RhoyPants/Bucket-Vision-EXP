@@ -14,47 +14,70 @@ import {
 } from "@mui/material";
 
 import { useAppDispatch } from "@/app/redux/hook";
-// import { createSubtask } from "@/app/redux/controllers/subTaskController";
+import { createSubtask } from "@/app/redux/controllers/subTaskController";
 
 export default function AddSubtaskModal({
   open,
   onClose,
   taskId,
+  statusId,
 }: {
   open: boolean;
   onClose: () => void;
   taskId: string;
+  statusId: string;
 }) {
   const dispatch = useAppDispatch();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("Medium");
-  const [assignee, setAssignee] = useState("");
-  const [dueDate, setDueDate] = useState("");
+
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  const [remarks, setRemarks] = useState("");
+
+  // 🔥 NEW
+  const [budgetAllocated, setBudgetAllocated] = useState<number | "">("");
 
   const handleCreate = async () => {
     if (!title.trim()) return;
 
     try {
-      // 🔥 later connect to backend
-      // await dispatch(createSubtask({...}))
+      await dispatch(
+        createSubtask(
+          {
+            taskId,
+            statusId,
 
-      console.log({
-        title,
-        description,
-        priority,
-        assignee,
-        dueDate,
-        taskId,
-      });
+            title,
+            description,
+            priority,
+            remarks,
 
-      // reset
+            projectedStartDate: startDate || null,
+            projectedEndDate: endDate || null,
+
+            // 🔥 IMPORTANT FOR S-CURVE
+            budgetAllocated:
+              budgetAllocated === "" ? null : Number(budgetAllocated),
+
+            // 🔥 DO NOT SET → backend should compute
+            budgetPercent: null,
+          },
+          taskId
+        )
+      );
+
+      // RESET
       setTitle("");
       setDescription("");
       setPriority("Medium");
-      setAssignee("");
-      setDueDate("");
+      setStartDate("");
+      setEndDate("");
+      setRemarks("");
+      setBudgetAllocated("");
 
       onClose();
     } catch (err) {
@@ -69,7 +92,7 @@ export default function AddSubtaskModal({
       </DialogTitle>
 
       <DialogContent>
-        {/* Title */}
+        {/* TITLE */}
         <TextField
           label="Subtask Title"
           fullWidth
@@ -78,7 +101,7 @@ export default function AddSubtaskModal({
           onChange={(e) => setTitle(e.target.value)}
         />
 
-        {/* Description */}
+        {/* DESCRIPTION */}
         <TextField
           label="Description"
           fullWidth
@@ -89,46 +112,72 @@ export default function AddSubtaskModal({
           onChange={(e) => setDescription(e.target.value)}
         />
 
-        {/* Row: Priority + Assignee */}
-        <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
+        {/* PRIORITY */}
+        <TextField
+          select
+          label="Priority"
+          fullWidth
+          margin="normal"
+          value={priority}
+          onChange={(e) => setPriority(e.target.value)}
+        >
+          <MenuItem value="High">High</MenuItem>
+          <MenuItem value="Medium">Medium</MenuItem>
+          <MenuItem value="Low">Low</MenuItem>
+        </TextField>
+
+        {/* 🔥 BUDGET */}
+        <TextField
+          label="Budget Allocation"
+          type="number"
+          fullWidth
+          margin="normal"
+          value={budgetAllocated}
+          onChange={(e) =>
+            setBudgetAllocated(
+              e.target.value === "" ? "" : Number(e.target.value)
+            )
+          }
+        />
+
+        {/* DATE RANGE */}
+        <Box sx={{ display: "flex", gap: 2 }}>
           <TextField
-            select
-            label="Priority"
+            type="date"
+            label="Projected Start Date"
             fullWidth
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
-          >
-            <MenuItem value="High">High</MenuItem>
-            <MenuItem value="Medium">Medium</MenuItem>
-            <MenuItem value="Low">Low</MenuItem>
-          </TextField>
+            margin="normal"
+            InputLabelProps={{ shrink: true }}
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
 
           <TextField
-            label="Assignee"
+            type="date"
+            label="Projected End Date"
             fullWidth
-            value={assignee}
-            onChange={(e) => setAssignee(e.target.value)}
+            margin="normal"
+            InputLabelProps={{ shrink: true }}
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
           />
         </Box>
 
-        {/* Due Date */}
+        {/* REMARKS */}
         <TextField
-          type="date"
-          label="Due Date"
+          label="Remarks"
           fullWidth
+          multiline
+          rows={2}
           margin="normal"
-          InputLabelProps={{ shrink: true }}
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
+          value={remarks}
+          onChange={(e) => setRemarks(e.target.value)}
         />
 
-        {/* Info */}
+        {/* INFO */}
         <Box sx={{ mt: 2 }}>
           <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
-            Status will be automatically set based on progress.
-          </Typography>
-          <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
-            Default sub-status: <b>In Progress</b>
+            Budget is used for weighted progress (S-Curve).
           </Typography>
         </Box>
       </DialogContent>
