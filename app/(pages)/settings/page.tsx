@@ -1,0 +1,83 @@
+"use client";
+
+import {
+  Box,
+  List,
+  ListItemButton,
+  ListItemText,
+  Typography,
+  Paper,
+} from "@mui/material";
+import { useState } from "react";
+import Roles from "./components/Roles";
+import Layout from "@/app/components/shared/Layout";
+import Users from "./components/Users";
+import UserRelations from "./components/UserRelations";
+
+type TabType = "roles" | "users" | "relations";
+
+export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<TabType>("roles");
+
+  return (
+    <Layout>
+      <Box display="flex" height="100%" sx={{ background: "#f4f6f8" }}>
+        {/* 🔹 SIDEBAR */}
+        <Paper
+          elevation={0}
+          sx={{
+            width: 240,
+            borderRight: "1px solid #e0e0e0",
+            p: 2,
+            background: "#fff",
+          }}
+        >
+          <Typography fontWeight={700} mb={2}>
+            Settings
+          </Typography>
+
+          <List>
+            <ListItemButton
+              selected={activeTab === "roles"}
+              onClick={() => setActiveTab("roles")}
+            >
+              <ListItemText primary="Roles" />
+            </ListItemButton>
+
+            <ListItemButton
+              selected={activeTab === "users"}
+              onClick={() => setActiveTab("users")}
+            >
+              <ListItemText primary="Users" />
+            </ListItemButton>
+
+            <ListItemButton
+              selected={activeTab === "relations"}
+              onClick={() => setActiveTab("relations")}
+            >
+              <ListItemText primary="User Relations" />
+            </ListItemButton>
+          </List>
+        </Paper>
+
+        {/* 🔹 CONTENT */}
+        <Paper
+          elevation={0}
+          sx={{ 
+            width: `calc(100% - 240px)`,
+            borderRight: "1px solid #e0e0e0",
+            p: 2,
+            ml: 2,
+            background: "#fff",
+          }}
+        >
+          <Box flex={1} p={3}>
+            {activeTab === "roles" && <Roles />}
+            {activeTab === "users" && <Users />}
+            {activeTab === "relations" && <UserRelations />}
+          </Box>
+        </Paper>
+      </Box>
+    </Layout>
+  );
+}

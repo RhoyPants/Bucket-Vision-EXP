@@ -1,25 +1,23 @@
-import { aes_int_decrypt, aes_int_encrypt } from "@/app/lib/encryptdecrypt";
-import axiosApi from "@/app/lib/axios";
 import { AppDispatch } from "../store";
+import axiosApi from "@/app/lib/axios";
+import { setMembers, setLoading } from "../slices/userSlice";
 
-export const getUserById = (userId: string) => {
-  return async () => {
+// ✅ GET MY MEMBERS
+export const getMyMembers = () => {
+  return async (dispatch: AppDispatch) => {
     try {
-      const payload = { user_id: userId };
-      const encrypted = aes_int_encrypt(JSON.stringify(payload));
+      dispatch(setLoading(true));
 
-      const res = await axiosApi.post("/user/getUserById", {
-        data: encrypted,
-      });
+      const res = await axiosApi.get("/users/my-members");
 
-      const decrypted = aes_int_decrypt(res.data.data);
-      const user = JSON.parse(decrypted);
+      dispatch(setMembers(res.data.data || res.data));
 
-      // expected: { user_id, name, email, ... }
-      return user;
+      return res.data;
     } catch (err) {
-      console.error("❌ Error fetching user info:", err);
-      return null;
+      console.error("❌ Error fetching members:", err);
+      return [];
+    } finally {
+      dispatch(setLoading(false));
     }
   };
 };

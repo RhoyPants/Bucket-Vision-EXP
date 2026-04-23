@@ -29,18 +29,46 @@ export const getProjects = () => {
 };
 
 // ✅ GET FULL
+import { setFullProject } from "../slices/projectSlice";
+
 export const getProjectFull = (projectId: string) => {
-  return async () => {
-    const res = await axiosApi.get(`/projects/${projectId}/full`);
-    return res.data;
+  return async (dispatch: AppDispatch) => {
+    try {
+      dispatch(setLoading(true));
+
+      const res = await axiosApi.get(`/projects/${projectId}/full`);
+
+      // 🔥 STORE IN REDUX
+      dispatch(setFullProject(res.data));
+
+      return res.data;
+    } catch (err) {
+      console.error("❌ Error fetching full project:", err);
+      throw err;
+    } finally {
+      dispatch(setLoading(false));
+    }
   };
 };
 
 // ✅ GET ONE
 export const getProjectById = (projectId: string) => {
-  return async () => {
-    const res = await axiosApi.get(`/projects/${projectId}`);
-    return res.data;
+  return async (dispatch: AppDispatch) => {
+    try {
+      dispatch(setLoading(true));
+
+      const res = await axiosApi.get(`/projects/${projectId}`);
+
+      // 🔥 STORE IN REDUX
+      dispatch(setFullProject(res.data));
+
+      return res.data;
+    } catch (err) {
+      console.error("❌ Error fetching project by ID:", err);
+      throw err;
+    } finally {
+      dispatch(setLoading(false));
+    }
   };
 };
 

@@ -23,7 +23,9 @@ export const getTasksByCategory = (categoryId: string) => {
   };
 };
 
-
+// ❌ REMOVE /tasks/project — NOT IN BACKEND
+// (we keep your function but comment for safety)
+/*
 export const getTasksByProject = (projectId: string) => {
   return async (dispatch: AppDispatch) => {
     try {
@@ -36,7 +38,7 @@ export const getTasksByProject = (projectId: string) => {
     }
   };
 };
-
+*/
 
 // ✅ GET SINGLE TASK
 export const getTaskById = (taskId: string) => {

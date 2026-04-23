@@ -54,6 +54,7 @@ export default function Sidebar() {
       <SidebarItem label="Task Board" href="/taskboard" />
       <SidebarItem label="Team Overview" href="/teamOverview" />
       <SidebarItem label="Projects" href="/projects" />
+      <SidebarItem label="Settings" href="/settings" />
     </Box>
   );
 

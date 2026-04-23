@@ -8,6 +8,7 @@ import progressReducer from "./slices/progressSlice";
 import scurveReducer from "./slices/scurveSlice";
 import projectReducer from "./slices/projectSlice";
 import taskReducer from "./slices/taskSlice";
+import userReducer from "./slices/userSlice";
 // @ts-ignore
 import logger from "redux-logger";
 
@@ -20,6 +21,7 @@ export const store = configureStore({
     scurve: scurveReducer,
     project: projectReducer,
     task: taskReducer,
+    user: userReducer,
   },
   middleware: (getDefault) => getDefault().concat(logger),
   devTools: true,
