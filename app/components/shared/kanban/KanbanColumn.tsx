@@ -19,7 +19,15 @@ export default function KanbanColumn({
   parentTaskId,
   onProgressSuccess,
   showHierarchy = false,
-}: any) {
+}: {
+  id: string | number;
+  title: string;
+  items: any[];
+  activeId: string | null;
+  parentTaskId?: string | null;
+  onProgressSuccess?: () => void;
+  showHierarchy?: boolean;
+}) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${id}`,
   });

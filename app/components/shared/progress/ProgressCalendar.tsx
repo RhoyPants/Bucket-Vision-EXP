@@ -1,35 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useCallback, useState } from "react";
 import dayjs from "dayjs";
-
-import {
-  Box,
-  Paper,
-  Typography,
-  TextField,
-  Button,
-  Divider,
-  IconButton,
-} from "@mui/material";
-
+import { Box, Paper, Typography, TextField, Button, Divider, IconButton, Alert } from "@mui/material";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 
-// REDUX
 import { useDispatch, useSelector } from "react-redux";
-import {
-  getProgressLogs,
-  saveProgressLog,
-} from "@/app/redux/controllers/progressController";
-import { getSCurve } from "@/app/redux/controllers/scurveController"; // 🔥 NEW
+import { getProgressLogs, saveProgressLog } from "@/app/redux/controllers/progressController";
+import { getSCurve } from "@/app/redux/controllers/scurveController";
 import { loadKanbanByTask, loadMyBoard } from "@/app/redux/controllers/subTaskController";
-
+import axiosApi from "@/app/lib/axios";
 import { RootState } from "@/app/redux/store";
 
-const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export default function ProgressCalendarPage({ subtaskId, isTaskBoard = false }: any) {
+interface ProgressCalendarProps {
+  subtaskId: string;
+  isTaskBoard?: boolean;
+}
+
+export default function ProgressCalendar({ subtaskId, isTaskBoard = false }: ProgressCalendarProps) {
   const dispatch = useDispatch<any>();
 
   const logsArray =
@@ -59,6 +50,8 @@ export default function ProgressCalendarPage({ subtaskId, isTaskBoard = false }:
 
   const [currentProgress, setCurrentProgress] = useState(0);
   const [range, setRange] = useState<any>(null);
+  const [loadingSubtask, setLoadingSubtask] = useState(false);
+  const [error, setError] = useState("");
 
   // =========================
   // LOAD DATA
@@ -69,20 +62,24 @@ export default function ProgressCalendarPage({ subtaskId, isTaskBoard = false }:
 
   useEffect(() => {
     const fetchSubtask = async () => {
-      const res = await fetch(
-        `http://localhost:5000/api/subtasks/${subtaskId}`,
-      );
-      const data = await res.json();
-
-      setRange({
-        start: data.projectedStartDate,
-        end: data.projectedEndDate,
-      });
-
-      setCurrentProgress(data.progress || 0);
+      setLoadingSubtask(true);
+      setError("");
+      try {
+        const { data } = await axiosApi.get(`/subtasks/${subtaskId}`);
+        setRange({
+          start: data.projectedStartDate || "",
+          end: data.projectedEndDate || "",
+        });
+        setCurrentProgress(data.progress || 0);
+      } catch (err: any) {
+        console.error("❌ Error loading subtask:", err);
+        setError("Failed to load subtask details");
+      } finally {
+        setLoadingSubtask(false);
+      }
     };
 
-    fetchSubtask();
+    if (subtaskId) fetchSubtask();
   }, [subtaskId]);
 
   // =========================
@@ -137,17 +134,14 @@ export default function ProgressCalendarPage({ subtaskId, isTaskBoard = false }:
   // =========================
   // SAVE (🔥 FULL REAL-TIME FIX)
   // =========================
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
+    const value = Number(dailyPercent);
+    if (!value || value <= 0 || value > 100) {
+      alert("Please enter valid progress (1–100)");
+      return;
+    }
+
     try {
-      const value = Number(dailyPercent);
-
-      // 🔥 VALIDATION
-      if (!value || value <= 0 || value > 100) {
-        alert("Enter valid progress (1–100)");
-        return;
-      }
-
-      // 🔥 1. SAVE
       const res = await dispatch(
         saveProgressLog({
           subtaskId,
@@ -161,45 +155,36 @@ export default function ProgressCalendarPage({ subtaskId, isTaskBoard = false }:
       let taskId = res?.payload?.taskId;
       let projectId = res?.payload?.projectId;
 
-      // 🔥 FALLBACK FETCH
       if (!taskId || !projectId) {
-        const subRes = await fetch(
-          `http://localhost:5000/api/subtasks/${subtaskId}`,
-        );
-        const subData = await subRes.json();
-
-        taskId = subData.taskId;
-        projectId = subData.task?.category?.projectId;
+        const { data } = await axiosApi.get(`/subtasks/${subtaskId}`);
+        taskId = data.taskId;
+        projectId = data.task?.category?.projectId;
       }
 
-      // 🔥 2. REFRESH KANBAN
       if (taskId) {
         await dispatch(loadKanbanByTask(taskId));
       }
 
-      // 🔥 3. REFRESH S-CURVE (CRITICAL)
       if (projectId) {
         await dispatch(getSCurve(projectId));
       }
 
-      // 🔥 4. RELOAD TASK BOARD IF IN TASK BOARD MODE
       if (isTaskBoard) {
         await dispatch(loadMyBoard());
       }
 
-      // 🔥 5. UPDATE LOCAL PROGRESS (INSTANT UI)
       setCurrentProgress((prev) => Math.min(100, prev + value));
-
-      // 🔥 RESET
       setPhoto(null);
-
     } catch (err) {
       console.error("❌ Error saving progress:", err);
+      alert("Failed to save progress");
     }
-  };
+  }, [dispatch, dailyPercent, remarks, photo, selectedDate, subtaskId, isTaskBoard]);
 
   return (
     <Box display="grid" gridTemplateColumns="3fr 1.2fr" gap={2}>
+      {error && <Alert severity="error" sx={{ gridColumn: "1/-1" }}>{error}</Alert>}
+      {loadingSubtask && <Alert severity="info" sx={{ gridColumn: "1/-1" }}>Loading subtask details...</Alert>}
       {/* CALENDAR */}
       <Paper sx={{ p: 2 }}>
         <Box display="flex" justifyContent="space-between" mb={2}>
@@ -221,7 +206,7 @@ export default function ProgressCalendarPage({ subtaskId, isTaskBoard = false }:
         </Box>
 
         <Box display="grid" gridTemplateColumns="repeat(7, 1fr)">
-          {days.map((d) => (
+          {DAYS.map((d) => (
             <Box key={d} textAlign="center" fontWeight="bold">
               {d}
             </Box>

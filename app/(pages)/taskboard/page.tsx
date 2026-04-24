@@ -113,8 +113,9 @@ export default function TaskBoardPage() {
           categoryId: null,
           taskId: null,
         }));
-      } catch (err) {
-        console.error("Error loading categories:", err);
+      } catch (err: any) {
+        const errorMessage = err?.response?.data?.message || "Failed to load categories";
+        console.error("Error loading categories:", errorMessage);
       }
     };
 
@@ -136,8 +137,9 @@ export default function TaskBoardPage() {
           ...prev,
           taskId: null,
         }));
-      } catch (err) {
-        console.error("Error loading tasks:", err);
+      } catch (err: any) {
+        const errorMessage = err?.response?.data?.message || "Failed to load tasks";
+        console.error("Error loading tasks:", errorMessage);
       }
     };
 
@@ -189,8 +191,7 @@ export default function TaskBoardPage() {
   );
 
   const handleViewDetails = useCallback((subtaskId: string) => {
-    // TODO: Navigate to subtask details page or open details modal
-    console.log("View details for:", subtaskId);
+    // TODO: Implement view details page/modal in next iteration
   }, []);
 
   const handleProgressModalClose = () => {
