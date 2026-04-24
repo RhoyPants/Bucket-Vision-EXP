@@ -11,6 +11,7 @@ import {
   Button,
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import PriorityLegend from "./PriorityLegend";
 
 interface TaskItem {
@@ -26,12 +27,14 @@ export default function TaskSidebar({
   onSelectTask,
   onDeleteTask,
   onAddTask,
+  onViewTask,
 }: {
   tasks: TaskItem[];
   activeTaskId: string | null;
   onSelectTask: (taskId: string) => void;
   onDeleteTask?: (task: TaskItem) => void;
   onAddTask?: () => void;
+  onViewTask?: (task: TaskItem) => void;
 }) {
   const getProgressColor = (progress?: number) => {
     if (!progress || progress === 0) return "#9E9E9E";
@@ -118,7 +121,7 @@ export default function TaskSidebar({
                   background: isActive ? "#E6F0FF" : "#F0F2F5",
                 },
 
-                "&:hover .delete-btn": {
+                "&:hover .task-actions": {
                   opacity: 1,
                 },
               }}
@@ -156,22 +159,85 @@ export default function TaskSidebar({
 
                 <Box sx={{ flexGrow: 1 }} />
 
-                <IconButton
-                  className="delete-btn"
-                  size="small"
+                {/* Action Buttons */}
+                <Box
+                  className="task-actions"
                   sx={{
+                    display: "flex",
+                    gap: 0.5,
                     opacity: 0,
                     transition: "opacity 0.2s",
-                    color: "error.main",
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteTask?.(task);
                   }}
                 >
-                  <DeleteOutlineIcon fontSize="small" />
-                </IconButton>
+                  <IconButton
+                    size="small"
+                    sx={{
+                      color: "#0C66E4",
+                      "&:hover": { backgroundColor: "rgba(12, 102, 228, 0.08)" },
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onViewTask?.(task);
+                    }}
+                  >
+                    <InfoOutlinedIcon fontSize="small" />
+                  </IconButton>
+
+                  <IconButton
+                    size="small"
+                    sx={{
+                      color: "error.main",
+                      "&:hover": { backgroundColor: "rgba(239, 68, 68, 0.08)" },
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteTask?.(task);
+                    }}
+                  >
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
+                </Box>
               </Box>
+
+              {/* Budget Info */}
+              {task.budgetAllocated > 0 && (
+                <Box
+                  sx={{
+                    backgroundColor: "#f0f9ff",
+                    border: "1px solid #bfdbfe",
+                    borderRadius: 0.5,
+                    px: 1,
+                    py: 0.5,
+                    mt: 1,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 1,
+                    }}
+                  >
+                    <Typography sx={{ fontSize: 11, fontWeight: 600, color: "#1e40af" }}>
+                      ₱{(task.budgetAllocated || 0).toLocaleString()}
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        backgroundColor: "#0ea5e9",
+                        color: "#fff",
+                        px: 1,
+                        py: 0.25,
+                        borderRadius: 0.5,
+                      }}
+                    >
+                      {(task.budgetPercent || 0).toFixed(1)}%
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
 
               {/* Progress */}
               <LinearProgress

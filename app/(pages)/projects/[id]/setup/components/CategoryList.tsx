@@ -5,8 +5,6 @@ interface CategoryListProps {
   categories: any[];
   categoryEdit: any;
   setCategoryEdit: (cat: any) => void;
-  taskEdit: any;
-  setTaskEdit: (task: any) => void;
   taskInputs: Record<string, any>;
   setTaskInputs: (inputs: any) => void;
   subtaskInputs: Record<string, any>;
@@ -17,8 +15,7 @@ interface CategoryListProps {
   onDeleteCategory: (catId: string) => void;
   onUpdateCategory: () => void;
   onAddTask: (categoryId: string) => void;
-  onEditTask: (task: any) => void;
-  onUpdateTask: () => void;
+  onUpdateTask: (taskId: string, updates: any) => void;
   onDeleteTask: (taskId: string) => void;
   onUpdateSubtask: (subId: string, taskId: string) => void;
   onDeleteSubtask: (subId: string, taskId: string) => void;
@@ -30,8 +27,6 @@ export default function CategoryList({
   categories,
   categoryEdit,
   setCategoryEdit,
-  taskEdit,
-  setTaskEdit,
   taskInputs,
   setTaskInputs,
   subtaskInputs,
@@ -42,7 +37,6 @@ export default function CategoryList({
   onDeleteCategory,
   onUpdateCategory,
   onAddTask,
-  onEditTask,
   onUpdateTask,
   onDeleteTask,
   onUpdateSubtask,
@@ -58,8 +52,6 @@ export default function CategoryList({
           category={category}
           categoryEdit={categoryEdit}
           setCategoryEdit={setCategoryEdit}
-          taskEdit={taskEdit}
-          setTaskEdit={setTaskEdit}
           taskInputs={taskInputs}
           setTaskInputs={setTaskInputs}
           subtaskInputs={subtaskInputs}
@@ -70,7 +62,6 @@ export default function CategoryList({
           onDeleteCategory={onDeleteCategory}
           onUpdateCategory={onUpdateCategory}
           onAddTask={onAddTask}
-          onEditTask={onEditTask}
           onUpdateTask={onUpdateTask}
           onDeleteTask={onDeleteTask}
           onUpdateSubtask={onUpdateSubtask}

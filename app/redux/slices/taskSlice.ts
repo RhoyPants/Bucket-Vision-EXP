@@ -4,7 +4,7 @@ export interface Task {
   id: string;
   title: string;
   description?: string;
-
+  budgetAllocated?: number;
   categoryId: string; // 🔥 FIX (was projectId ❌)
 
   createdAt?: string;

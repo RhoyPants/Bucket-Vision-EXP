@@ -19,15 +19,19 @@ import {
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import ChecklistIcon from "@mui/icons-material/Checklist";
 import EventIcon from "@mui/icons-material/Event";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import AddIcon from "@mui/icons-material/Add";
 
 import ProgressCalendarModal from "../modals/ProgressCalendarModal";
+import SubtaskModal from "../modals/SubtaskModal";
 
 export default function KanbanSortableCard({
   subtask,
   isOverlay = false,
   isDropTarget = false,
   parentTaskId,
+  taskBudget = 0,
+  projectId = "",
   onProgressSuccess,
   showHierarchy = false,
 }: {
@@ -39,6 +43,8 @@ export default function KanbanSortableCard({
   isOverlay?: boolean;
   isDropTarget?: boolean;
   parentTaskId?: string | null;
+  taskBudget?: number;
+  projectId?: string;
   onProgressSuccess?: () => void;
   showHierarchy?: boolean;
 }) {
@@ -47,6 +53,8 @@ export default function KanbanSortableCard({
   const [adding, setAdding] = useState(false);
   const [input, setInput] = useState("");
   const [openCalendar, setOpenCalendar] = useState(false);
+  const [openSubtaskModal, setOpenSubtaskModal] = useState(false);
+  const [subtaskModalMode, setSubtaskModalMode] = useState<"create" | "view" | "edit">("view");
 
   const {
     attributes,
@@ -150,6 +158,21 @@ export default function KanbanSortableCard({
               padding: 0.5,
             }}
           >
+            <Tooltip title="View Details" arrow>
+              <IconButton
+                size="small"
+                onClick={() => setOpenSubtaskModal(true)}
+                sx={{
+                  background: "#fff",
+                  border: "1px solid #0C66E4",
+                  color: "#0C66E4",
+                  "&:hover": { background: "#e3f2fd" },
+                }}
+              >
+                <InfoOutlinedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+
             <Tooltip title="Add Progress" arrow>
               <IconButton
                 size="small"
@@ -259,6 +282,55 @@ export default function KanbanSortableCard({
                   ✓ {subtask.task.title}
                 </Typography>
               )}
+            </Box>
+          )}
+
+          {/* 🔥 DATE INFO */}
+          {(subtask.projectedStartDate || subtask.projectedEndDate) && (
+            <Box sx={{ mb: 1.5, pb: 1.5, borderBottom: "1px solid #e5e7eb" }}>
+              {subtask.projectedStartDate && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: "block",
+                    fontSize: "11px",
+                    color: "#374151",
+                    mb: 0.3,
+                  }}
+                >
+                  📅 Start: <b>{new Date(subtask.projectedStartDate).toLocaleDateString()}</b>
+                </Typography>
+              )}
+              {subtask.projectedEndDate && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: "block",
+                    fontSize: "11px",
+                    color: "#374151",
+                  }}
+                >
+                  🎯 End: <b>{new Date(subtask.projectedEndDate).toLocaleDateString()}</b>
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          {/* 🔥 ASSIGNEES */}
+          {subtask.userIds && subtask.userIds.length > 0 && (
+            <Box sx={{ mb: 1.5, pb: 1.5, borderBottom: "1px solid #e5e7eb" }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  display: "block",
+                  fontSize: "11px",
+                  color: "#374151",
+                  fontWeight: 600,
+                  mb: 0.5,
+                }}
+              >
+                👥 Assigned: {subtask.userIds.length} member{subtask.userIds.length !== 1 ? "s" : ""}
+              </Typography>
             </Box>
           )}
 
@@ -397,6 +469,29 @@ export default function KanbanSortableCard({
           onProgressSuccess?.();
           setOpenCalendar(false);
         }}
+      />
+
+      <SubtaskModal
+        open={openSubtaskModal}
+        onClose={() => setOpenSubtaskModal(false)}
+        mode="view"
+        subtask={
+          {
+            id: subtask.id,
+            taskId: subtask.parentTaskId || "",
+            title: subtask.title,
+            description: subtask.description,
+            priority: subtask.priority,
+            projectedStartDate: subtask.projectedStartDate,
+            projectedEndDate: subtask.projectedEndDate,
+            budgetAllocated: subtask.budgetAllocated,
+            budgetPercent: subtask.budgetPercent,
+            remarks: subtask.remarks,
+            userIds: subtask.userIds || [],
+          } as any
+        }
+        taskBudget={taskBudget}
+        projectId={projectId}
       />
     </>
   );

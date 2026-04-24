@@ -23,13 +23,15 @@ import { useAppDispatch } from "@/app/redux/hook";
 import { moveSubtask } from "@/app/redux/controllers/subTaskController";
 
 import { Box, Button, Typography } from "@mui/material";
-import AddSubTaskModal from "@/app/components/shared/modals/AddSubtaskModal";
+import SubtaskModal from "@/app/components/shared/modals/SubtaskModal";
 
 export default function KanbanBoard({
   parentTaskId,
   columns,
   subtasks,
   onViewDetails,
+  taskBudget = 0,
+  projectId = "",
   onProgressSuccess,
   showHierarchy = false,
 }: {
@@ -37,6 +39,8 @@ export default function KanbanBoard({
   columns: { id: number; title: string }[];
   subtasks: KanbanSubtask[];
   onViewDetails: (subtask: KanbanSubtask) => void;
+  taskBudget?: number;
+  projectId?: string;
   onProgressSuccess?: () => void;
   showHierarchy?: boolean;
 }) {
@@ -167,6 +171,8 @@ export default function KanbanBoard({
                 title={col.title}
                 items={columnMap[col.id] || []}
                 parentTaskId={parentTaskId}
+                taskBudget={taskBudget}
+                projectId={projectId}
                 activeId={activeId}
                 onViewDetails={onViewDetails}
                 onProgressSuccess={onProgressSuccess}
@@ -186,11 +192,13 @@ export default function KanbanBoard({
       {/* MODAL */}
       {/* 🔥 Only show on sprint management (when parentTaskId is provided) */}
       {parentTaskId && (
-        <AddSubTaskModal
+        <SubtaskModal
           open={openTaskModal}
           onClose={() => setOpenTaskModal(false)}
-          taskId={parentTaskId || ""}
-          statusId="0"
+          mode="create"
+          taskId={parentTaskId}
+          taskBudget={taskBudget}
+          projectId={projectId}
         />
       )}
     </>

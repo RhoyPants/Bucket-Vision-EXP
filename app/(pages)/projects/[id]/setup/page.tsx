@@ -43,7 +43,6 @@ export default function ProjectSetupPage() {
   });
 
   const [categoryEdit, setCategoryEdit] = useState<any>(null);
-  const [taskEdit, setTaskEdit] = useState<any>(null);
 
   const [taskInputs, setTaskInputs] = useState<Record<string, any>>({});
   const [subtaskInputs, setSubtaskInputs] = useState<Record<string, any>>({});
@@ -121,6 +120,7 @@ export default function ProjectSetupPage() {
     await dispatch(
       createTask({
         title: data.title,
+        description: data.description || "",
         categoryId,
         budgetAllocated: Number(data.budgetAllocated),
         budgetPercent: percent,
@@ -131,14 +131,24 @@ export default function ProjectSetupPage() {
     fetchProject();
   };
 
-  const handleUpdateTask = async () => {
+  const handleUpdateTask = async (taskId: string, updates: any) => {
+    const category = project.categories.find((c: any) =>
+      c.tasks?.find((t: any) => t.id === taskId)
+    );
+
+    const percent =
+      category?.budgetAllocated > 0
+        ? (updates.budgetAllocated / category.budgetAllocated) * 100
+        : 0;
+
     await dispatch(
-      updateTask(taskEdit.id, {
-        title: taskEdit.title,
-        budgetAllocated: Number(taskEdit.budgetAllocated),
+      updateTask(taskId, {
+        title: updates.title,
+        description: updates.description || "",
+        budgetAllocated: Number(updates.budgetAllocated),
+        budgetPercent: percent,
       }),
     );
-    setTaskEdit(null);
     fetchProject();
   };
 
@@ -153,12 +163,28 @@ export default function ProjectSetupPage() {
   const handleUpdateSubtask = async (id: string, taskId: string) => {
     const data = subtaskInputs[taskId];
 
+    let parentTask: any = null;
+    project.categories.forEach((cat: any) => {
+      const found = cat.tasks?.find((t: any) => t.id === taskId);
+      if (found) parentTask = found;
+    });
+
+    const percent =
+      parentTask?.budgetAllocated > 0
+        ? (data.budgetAllocated / parentTask.budgetAllocated) * 100
+        : 0;
+
     await dispatch(
       updateSubtask(id, {
         title: data.title,
+        description: data.description || "",
+        priority: data.priority,
         budgetAllocated: Number(data.budgetAllocated),
+        budgetPercent: percent,
         projectedStartDate: data.projectedStartDate,
         projectedEndDate: data.projectedEndDate,
+        remarks: data.remarks || "",
+        userIds: data.users?.map((u: any) => u.id || u.userId) || [],
       }),
     );
 
@@ -195,12 +221,15 @@ export default function ProjectSetupPage() {
       createSubtask(
         {
           title: data.title,
+          description: data.description || "",
+          priority: data.priority,
           taskId,
           projectedStartDate: data.projectedStartDate,
           projectedEndDate: data.projectedEndDate,
           budgetAllocated: Number(data.budgetAllocated),
           budgetPercent: percent,
-          userIds: data.users?.map((u: any) => u.id) || [],
+          remarks: data.remarks || "",
+          userIds: data.users?.map((u: any) => u.id || u.userId) || [],
         },
         taskId,
       ),
@@ -239,6 +268,8 @@ export default function ProjectSetupPage() {
             categoryForm={categoryForm}
             setCategoryForm={setCategoryForm}
             onAddCategory={handleAddCategory}
+            projectBudget={project?.totalBudget || 0}
+            existingCategories={project?.categories || []}
           />
 
           {/* CATEGORY LIST */}
@@ -246,8 +277,6 @@ export default function ProjectSetupPage() {
             categories={project?.categories || []}
             categoryEdit={categoryEdit}
             setCategoryEdit={setCategoryEdit}
-            taskEdit={taskEdit}
-            setTaskEdit={setTaskEdit}
             taskInputs={taskInputs}
             setTaskInputs={setTaskInputs}
             subtaskInputs={subtaskInputs}
@@ -258,7 +287,6 @@ export default function ProjectSetupPage() {
             onDeleteCategory={handleDeleteCategory}
             onUpdateCategory={handleUpdateCategory}
             onAddTask={handleAddTask}
-            onEditTask={(task: any) => setTaskEdit(task)}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTask}
             onUpdateSubtask={handleUpdateSubtask}
@@ -269,9 +297,13 @@ export default function ProjectSetupPage() {
                 [taskId]: {
                   editId: sub.id,
                   title: sub.title,
+                  description: sub.description || "",
+                  priority: sub.priority || "",
                   budgetAllocated: sub.budgetAllocated,
-                  projectedStartDate: sub.projectedStartDate,
-                  projectedEndDate: sub.projectedEndDate,
+                  projectedStartDate: sub.projectedStartDate || "",
+                  projectedEndDate: sub.projectedEndDate || "",
+                  remarks: sub.remarks || "",
+                  users: sub.assignees?.map((a: any) => a.user) || [],
                 },
               }));
             }}

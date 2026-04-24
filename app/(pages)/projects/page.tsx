@@ -124,24 +124,42 @@ export default function ProjectsPage() {
               >
                 <CardContent>
                   {/* HEADER */}
-                  <Box display="flex" justifyContent="space-between">
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
                     <Typography variant="h6" fontWeight={600}>
                       {project.name}
                     </Typography>
 
-                    <Tooltip title="Go to Sprint" arrow>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(
-                            `/sprintManagement?projectId=${project.id}`
-                          );
-                        }}
-                      >
-                        <InfoOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      {project.priority && (
+                        <Chip
+                          size="small"
+                          label={project.priority}
+                          sx={{
+                            bgcolor:
+                              project.priority === "High"
+                                ? "#ef4444"
+                                : project.priority === "Medium"
+                                ? "#f59e0b"
+                                : "#22c55e",
+                            color: "#fff",
+                          }}
+                        />
+                      )}
+
+                      <Tooltip title="Go to Sprint" arrow>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(
+                              `/sprintManagement?projectId=${project.id}`
+                            );
+                          }}
+                        >
+                          <InfoOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   </Box>
 
                   {/* DESCRIPTION */}
@@ -160,10 +178,23 @@ export default function ProjectsPage() {
                   </Typography>
 
                   {/* DATE */}
-                  <Typography variant="caption" display="block">
-                    📅 {project.startDate?.slice(0, 10)} →{" "}
-                    {project.expectedEndDate?.slice(0, 10)}
-                  </Typography>
+                  <Box mt={2}>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 500, mb: 0.5 }}>
+                      Expected Start Date
+                    </Typography>
+                    <Typography variant="caption" display="block" sx={{ fontWeight: 600 }}>
+                      {project.startDate?.slice(0, 10) || "Not set"}
+                    </Typography>
+                  </Box>
+
+                  <Box mt={1}>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 500, mb: 0.5 }}>
+                      Expected End Date
+                    </Typography>
+                    <Typography variant="caption" display="block" sx={{ fontWeight: 600 }}>
+                      {project.expectedEndDate?.slice(0, 10) || "Not set"}
+                    </Typography>
+                  </Box>
 
                   {/* BUSINESS */}
                   <Typography variant="caption" display="block">
@@ -174,25 +205,6 @@ export default function ProjectsPage() {
                   <Typography variant="caption" display="block">
                     🧩 {project.entity || "No Entity"}
                   </Typography>
-
-                  {/* PRIORITY */}
-                  <Stack direction="row" spacing={1} mt={2}>
-                    {project.priority && (
-                      <Chip
-                        size="small"
-                        label={project.priority}
-                        sx={{
-                          bgcolor:
-                            project.priority === "High"
-                              ? "#ef4444"
-                              : project.priority === "Medium"
-                              ? "#f59e0b"
-                              : "#22c55e",
-                          color: "#fff",
-                        }}
-                      />
-                    )}
-                  </Stack>
                 </CardContent>
 
                 {/* ACTIONS */}

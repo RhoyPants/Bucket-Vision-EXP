@@ -51,7 +51,10 @@ export const loadKanbanByTask = (taskId: string) => {
 export const createSubtask = (data: any, taskId: string) => {
   return async (dispatch: AppDispatch, getState: any) => {
     try {
-      const res = await axiosApi.post("/subtasks", data);
+      const res = await axiosApi.post("/subtasks", {
+        ...data,
+        taskId,  // 🔥 ADD taskId to the request payload
+      });
 
       // 🔥 reload (SAFE for now)
       dispatch(
@@ -66,7 +69,7 @@ export const createSubtask = (data: any, taskId: string) => {
         dispatch(getSCurve(projectId));
       }
 
-      await dispatch(loadKanbanByTask(data.taskId));
+      await dispatch(loadKanbanByTask(taskId));  // 🔥 Use taskId parameter, not data.taskId
 
       return res.data;
     } catch (err) {
@@ -79,10 +82,33 @@ export const createSubtask = (data: any, taskId: string) => {
 // ========================================
 // UPDATE SUBTASK
 // ========================================
-export const updateSubtask = (id: string, data: any) => {
-  return async () => {
+export const updateSubtask = (id: string, data: any, taskId?: string) => {
+  return async (dispatch: AppDispatch, getState: any) => {
     try {
       const res = await axiosApi.put(`/subtasks/${id}`, data);
+
+      // 🔥 Reload Kanban if taskId is provided
+      if (taskId) {
+        await dispatch(loadKanbanByTask(taskId));
+      }
+
+      // 🔥 Update task progress if response includes it
+      if (res.data?.progress && taskId) {
+        dispatch(
+          updateTaskProgress({
+            taskId,
+            progress: res.data.progress,
+          })
+        );
+      }
+
+      // 🔥 Update S-Curve if project available
+      const state = getState();
+      const projectId = state.project?.currentProjectId;
+      if (projectId) {
+        dispatch(getSCurve(projectId));
+      }
+
       return res.data;
     } catch (err) {
       console.error("❌ Error updating subtask:", err);

@@ -8,7 +8,7 @@ import ProjectSelector from "@/app/components/shared/selectors/ProjectSelector";
 import CategorySelector from "@/app/components/shared/selectors/CategorySelector";
 import TaskSidebar from "@/app/(pages)/sprintManagement/Components/TaskSidebar";
 import KanbanBoard from "@/app/components/shared/kanban/KanbanBoard";
-import AddTaskModal from "@/app/components/shared/modals/AddTaskModal";
+import TaskModal from "@/app/components/shared/modals/AddTaskModal";
 import { useSearchParams } from "next/navigation";
 import { setCurrentProject } from "@/app/redux/slices/projectSlice";
 
@@ -35,9 +35,15 @@ export default function SprintManagementPage() {
   const { subtasks } = useAppSelector((state) => state.kanban);
 
   const [openTaskModal, setOpenTaskModal] = useState(false);
+  const [taskModalMode, setTaskModalMode] = useState<"create" | "view" | "edit">("create");
+  const [selectedTaskForModal, setSelectedTaskForModal] = useState<any>(null);
   const [columns, setColumns] = useState<any[]>([]);
   const searchParams = useSearchParams();
   const projectIdFromUrl = searchParams.get("projectId");
+
+  // Get current category for budget
+  const currentCategory = categories.find((c) => c.id === currentCategoryId);
+  const currentTask = tasks.find((t) => t.id === currentTaskId);
 
   // ========================================
   // 🔥 INITIAL LOAD
@@ -122,6 +128,16 @@ export default function SprintManagementPage() {
     load();
   }, [currentTaskId, dispatch]);
 
+  const handleOpenTaskModal = (mode: "create" | "view" | "edit", task?: any) => {
+    setTaskModalMode(mode);
+    if (task) {
+      setSelectedTaskForModal(task);
+    } else {
+      setSelectedTaskForModal(null);
+    }
+    setOpenTaskModal(true);
+  };
+
   return (
     <Layout>
       <Box sx={{ p: { xs: 2, md: 3 } }}>
@@ -171,7 +187,8 @@ export default function SprintManagementPage() {
                 onSelectTask={(taskId: string) => {
                   dispatch(setCurrentTask(taskId));
                 }}
-                onAddTask={() => setOpenTaskModal(true)}
+                onAddTask={() => handleOpenTaskModal("create")}
+                onViewTask={(task) => handleOpenTaskModal("view", task)}
               />
             </Paper>
 
@@ -190,6 +207,8 @@ export default function SprintManagementPage() {
                   columns={columns}
                   subtasks={subtasks}
                   onViewDetails={() => {}}
+                  taskBudget={currentTask?.budgetAllocated || 0}
+                  projectId={currentProjectId || ""}
                 />
               )}
             </Paper>
@@ -197,12 +216,18 @@ export default function SprintManagementPage() {
         </Stack>
       </Box>
 
-      {/* MODAL */}
+      {/* TASK MODAL */}
       {currentCategoryId && (
-        <AddTaskModal
+        <TaskModal
           open={openTaskModal}
-          onClose={() => setOpenTaskModal(false)}
+          onClose={() => {
+            setOpenTaskModal(false);
+            setSelectedTaskForModal(null);
+          }}
+          mode={taskModalMode}
+          task={selectedTaskForModal}
           categoryId={currentCategoryId}
+          categoryBudget={currentCategory?.budgetAllocated || 0}
         />
       )}
     </Layout>

@@ -44,6 +44,7 @@ export default function SubtaskList({
             key={sub.id}
             sub={sub}
             taskId={task.id}
+            taskBudget={task.budgetAllocated || 0}
             isEditing={isEditing}
             subtaskInputs={subtaskInputs}
             setSubtaskInputs={setSubtaskInputs}
@@ -59,6 +60,7 @@ export default function SubtaskList({
       {/* ADD FORM CARD */}
       <SubtaskForm
         taskId={task.id}
+        taskBudget={task.budgetAllocated || 0}
         subtaskInputs={subtaskInputs}
         setSubtaskInputs={setSubtaskInputs}
         members={members}

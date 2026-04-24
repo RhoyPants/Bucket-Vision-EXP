@@ -17,6 +17,8 @@ export default function KanbanColumn({
   items,
   activeId,
   parentTaskId,
+  taskBudget = 0,
+  projectId = "",
   onProgressSuccess,
   showHierarchy = false,
 }: {
@@ -25,6 +27,8 @@ export default function KanbanColumn({
   items: any[];
   activeId: string | null;
   parentTaskId?: string | null;
+  taskBudget?: number;
+  projectId?: string;
   onProgressSuccess?: () => void;
   showHierarchy?: boolean;
 }) {
@@ -71,6 +75,8 @@ export default function KanbanColumn({
               subtask={s}
               isDropTarget={activeId === s.id}
               parentTaskId={parentTaskId}
+              taskBudget={taskBudget}
+              projectId={projectId}
               onProgressSuccess={onProgressSuccess}
               showHierarchy={showHierarchy}
             />
