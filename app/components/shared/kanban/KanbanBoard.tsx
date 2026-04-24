@@ -30,11 +30,15 @@ export default function KanbanBoard({
   columns,
   subtasks,
   onViewDetails,
+  onProgressSuccess,
+  showHierarchy = false,
 }: {
   parentTaskId: string | null;
   columns: { id: number; title: string }[];
   subtasks: KanbanSubtask[];
   onViewDetails: (subtask: KanbanSubtask) => void;
+  onProgressSuccess?: () => void;
+  showHierarchy?: boolean;
 }) {
   const dispatch = useAppDispatch();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -47,8 +51,14 @@ export default function KanbanBoard({
   );
 
   const safeSubtasks = useMemo(
-    () =>
-      subtasks.filter((s) => String(s.parentTaskId) === String(parentTaskId)),
+    () => {
+      // 🔥 If parentTaskId is null, show all subtasks (for task board)
+      if (parentTaskId === null) {
+        return subtasks;
+      }
+      // Otherwise filter by parentTaskId (for sprint management)
+      return subtasks.filter((s) => String(s.parentTaskId) === String(parentTaskId));
+    },
     [subtasks, parentTaskId]
   );
 
@@ -126,18 +136,21 @@ export default function KanbanBoard({
       >
         <Typography fontWeight={700}>SUBTASK</Typography>
 
-        <Button
-          variant="contained"
-          size="small"
-          onClick={() => setOpenTaskModal(true)}
-          sx={{
-            textTransform: "none",
-            fontWeight: 600,
-            borderRadius: "6px",
-          }}
-        >
-          + Add Subtask
-        </Button>
+        {/* 🔥 Hide "Add Subtask" button on task board (when parentTaskId is null) */}
+        {parentTaskId && (
+          <Button
+            variant="contained"
+            size="small"
+            onClick={() => setOpenTaskModal(true)}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              borderRadius: "6px",
+            }}
+          >
+            + Add Subtask
+          </Button>
+        )}
       </Box>
 
       <DndContext
@@ -153,10 +166,11 @@ export default function KanbanBoard({
                 id={String(col.id)}
                 title={col.title}
                 items={columnMap[col.id] || []}
-                parentTaskId={parentTaskId!}
+                parentTaskId={parentTaskId}
                 activeId={activeId}
                 onViewDetails={onViewDetails}
-                loading={false}
+                onProgressSuccess={onProgressSuccess}
+                showHierarchy={showHierarchy}
               />
             </Box>
           ))}
@@ -170,12 +184,15 @@ export default function KanbanBoard({
       </DndContext>
 
       {/* MODAL */}
-      <AddSubTaskModal
-        open={openTaskModal}
-        onClose={() => setOpenTaskModal(false)}
-        taskId={parentTaskId || ""}
-        statusId="0"
-      />
+      {/* 🔥 Only show on sprint management (when parentTaskId is provided) */}
+      {parentTaskId && (
+        <AddSubTaskModal
+          open={openTaskModal}
+          onClose={() => setOpenTaskModal(false)}
+          taskId={parentTaskId || ""}
+          statusId="0"
+        />
+      )}
     </>
   );
 }

@@ -30,14 +30,33 @@ export interface KanbanSubtask {
   checklists?: KanbanChecklist[];
 }
 
+// 🔥 BOARD FILTER DATA
+export interface BoardFilterItem {
+  id: string;
+  name?: string;
+  title?: string;
+}
+
+export interface BoardFiltersState {
+  projects: BoardFilterItem[];
+  categories: BoardFilterItem[];
+  tasks: BoardFilterItem[];
+}
+
 interface KanbanState {
   subtasks: KanbanSubtask[];
   loading: boolean;
+  boardFilters: BoardFiltersState;
 }
 
 const initialState: KanbanState = {
   subtasks: [],
   loading: false,
+  boardFilters: {
+    projects: [],
+    categories: [],
+    tasks: [],
+  },
 };
 
 // 🔥 STATUS COMPUTATION
@@ -162,18 +181,37 @@ const kanbanSlice = createSlice({
     removeSubtask(state, action: PayloadAction<string>) {
       state.subtasks = state.subtasks.filter((s) => s.id !== action.payload);
     },
+
+    // ========================================
+    // 🔥 BOARD FILTERS
+    // ========================================
+    setBoardFilters(
+      state,
+      action: PayloadAction<BoardFiltersState>,
+    ) {
+      state.boardFilters = action.payload;
+    },
+
+    setTasksForBoard(
+      state,
+      action: PayloadAction<BoardFilterItem[]>,
+    ) {
+      state.boardFilters.tasks = action.payload;
+    },
   },
 });
 
 export const {
   setSubtasks,
-  clearSubtasks, // 🔥 NEW
+  clearSubtasks,
   updateSubtaskLocal,
   reorderSubtasksForParent,
   addSubtask,
   setLoading,
   toggleChecklistLocal,
   removeSubtask,
+  setBoardFilters,
+  setTasksForBoard,
 } = kanbanSlice.actions;
 
 export default kanbanSlice.reducer;

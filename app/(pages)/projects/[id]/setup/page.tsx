@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, Tabs, Tab } from "@mui/material";
 import { useParams } from "next/navigation";
 
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 
 import { getProjectFull } from "@/app/redux/controllers/projectController";
+import { getEngagedUsers } from "@/app/redux/controllers/projectMemberController";
+import Layout from "@/app/components/shared/Layout";
 import {
   createCategory,
   updateCategory,
@@ -26,12 +28,14 @@ import { getMyMembers } from "@/app/redux/controllers/userController";
 
 import CategoryForm from "./components/CategoryForm";
 import CategoryList from "./components/CategoryList";
+import ProjectTeamPanel from "./components/ProjectTeamPanel";
 
 export default function ProjectSetupPage() {
   const { id } = useParams();
   const dispatch = useAppDispatch();
 
   const [project, setProject] = useState<any>(null);
+  const [tab, setTab] = useState(0);
 
   const [categoryForm, setCategoryForm] = useState({
     name: "",
@@ -51,8 +55,13 @@ export default function ProjectSetupPage() {
   const { members } = useAppSelector((state) => state.user);
 
   useEffect(() => {
-    fetchProject();
-  }, []);
+    if (id) {
+      fetchProject();
+      // Load engaged users for subtask assignment
+      dispatch(getEngagedUsers(id as string) as any);
+    }
+  }, [id, dispatch]);
+  
   useEffect(() => {
     dispatch(getMyMembers());
   }, [dispatch]);
@@ -206,6 +215,7 @@ export default function ProjectSetupPage() {
   }
 
   return (
+    <Layout>
     <Box p={4}>
       <Typography variant="h4" fontWeight={600}>
         Project Setup
@@ -215,48 +225,68 @@ export default function ProjectSetupPage() {
         {project?.name} (₱{project?.totalBudget})
       </Typography>
 
-      {/* CATEGORY INPUT */}
-      <CategoryForm
-        categoryForm={categoryForm}
-        setCategoryForm={setCategoryForm}
-        onAddCategory={handleAddCategory}
-      />
+      {/* TABS */}
+      <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 3 }}>
+        <Tab label="Project Structure" />
+        <Tab label="Team Management" />
+      </Tabs>
 
-      {/* CATEGORY LIST */}
-      <CategoryList
-        categories={project?.categories || []}
-        categoryEdit={categoryEdit}
-        setCategoryEdit={setCategoryEdit}
-        taskEdit={taskEdit}
-        setTaskEdit={setTaskEdit}
-        taskInputs={taskInputs}
-        setTaskInputs={setTaskInputs}
-        subtaskInputs={subtaskInputs}
-        setSubtaskInputs={setSubtaskInputs}
-        members={members}
-        onEditCategory={(cat: any) => setCategoryEdit(cat)}
-        onDeleteCategory={handleDeleteCategory}
-        onUpdateCategory={handleUpdateCategory}
-        onAddTask={handleAddTask}
-        onEditTask={(task: any) => setTaskEdit(task)}
-        onUpdateTask={handleUpdateTask}
-        onDeleteTask={handleDeleteTask}
-        onUpdateSubtask={handleUpdateSubtask}
-        onDeleteSubtask={handleDeleteSubtask}
-        onEditSubtask={(sub: any, taskId: string) => {
-          setSubtaskInputs((prev) => ({
-            ...prev,
-            [taskId]: {
-              editId: sub.id,
-              title: sub.title,
-              budgetAllocated: sub.budgetAllocated,
-              projectedStartDate: sub.projectedStartDate,
-              projectedEndDate: sub.projectedEndDate,
-            },
-          }));
-        }}
-        onAddSubtask={handleAddSubtask}
-      />
+      {/* TAB 1: PROJECT STRUCTURE */}
+      {tab === 0 && (
+        <>
+          {/* CATEGORY INPUT */}
+          <CategoryForm
+            categoryForm={categoryForm}
+            setCategoryForm={setCategoryForm}
+            onAddCategory={handleAddCategory}
+          />
+
+          {/* CATEGORY LIST */}
+          <CategoryList
+            categories={project?.categories || []}
+            categoryEdit={categoryEdit}
+            setCategoryEdit={setCategoryEdit}
+            taskEdit={taskEdit}
+            setTaskEdit={setTaskEdit}
+            taskInputs={taskInputs}
+            setTaskInputs={setTaskInputs}
+            subtaskInputs={subtaskInputs}
+            setSubtaskInputs={setSubtaskInputs}
+            members={members}
+            projectId={id as string}
+            onEditCategory={(cat: any) => setCategoryEdit(cat)}
+            onDeleteCategory={handleDeleteCategory}
+            onUpdateCategory={handleUpdateCategory}
+            onAddTask={handleAddTask}
+            onEditTask={(task: any) => setTaskEdit(task)}
+            onUpdateTask={handleUpdateTask}
+            onDeleteTask={handleDeleteTask}
+            onUpdateSubtask={handleUpdateSubtask}
+            onDeleteSubtask={handleDeleteSubtask}
+            onEditSubtask={(sub: any, taskId: string) => {
+              setSubtaskInputs((prev) => ({
+                ...prev,
+                [taskId]: {
+                  editId: sub.id,
+                  title: sub.title,
+                  budgetAllocated: sub.budgetAllocated,
+                  projectedStartDate: sub.projectedStartDate,
+                  projectedEndDate: sub.projectedEndDate,
+                },
+              }));
+            }}
+            onAddSubtask={handleAddSubtask}
+          />
+        </>
+      )}
+
+      {/* TAB 2: TEAM MANAGEMENT */}
+      {tab === 1 && (
+        <ProjectTeamPanel
+          projectId={id as string}
+        />
+      )}
     </Box>
+    </Layout>
   );
 }

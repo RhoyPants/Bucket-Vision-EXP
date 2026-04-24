@@ -8,6 +8,7 @@ interface TaskCardProps {
   subtaskInputs: Record<string, any>;
   setSubtaskInputs: (inputs: any) => void;
   members: any[];
+  projectId?: string;
   onEditTask: (task: any) => void;
   onDeleteTask: (taskId: string) => void;
   onUpdateTask: () => void;
@@ -24,6 +25,7 @@ export default function TaskCard({
   subtaskInputs,
   setSubtaskInputs,
   members,
+  projectId,
   onEditTask,
   onDeleteTask,
   onUpdateTask,
@@ -106,6 +108,7 @@ export default function TaskCard({
         subtaskInputs={subtaskInputs}
         setSubtaskInputs={setSubtaskInputs}
         members={members}
+        projectId={projectId}
         onUpdateSubtask={onUpdateSubtask}
         onDeleteSubtask={onDeleteSubtask}
         onEditSubtask={onEditSubtask}

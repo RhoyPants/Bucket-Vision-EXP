@@ -23,13 +23,13 @@ import {
   saveProgressLog,
 } from "@/app/redux/controllers/progressController";
 import { getSCurve } from "@/app/redux/controllers/scurveController"; // 🔥 NEW
-import { loadKanbanByTask } from "@/app/redux/controllers/subTaskController";
+import { loadKanbanByTask, loadMyBoard } from "@/app/redux/controllers/subTaskController";
 
 import { RootState } from "@/app/redux/store";
 
 const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export default function ProgressCalendarPage({ subtaskId }: any) {
+export default function ProgressCalendarPage({ subtaskId, isTaskBoard = false }: any) {
   const dispatch = useDispatch<any>();
 
   const logsArray =
@@ -182,7 +182,12 @@ export default function ProgressCalendarPage({ subtaskId }: any) {
         await dispatch(getSCurve(projectId));
       }
 
-      // 🔥 4. UPDATE LOCAL PROGRESS (INSTANT UI)
+      // 🔥 4. RELOAD TASK BOARD IF IN TASK BOARD MODE
+      if (isTaskBoard) {
+        await dispatch(loadMyBoard());
+      }
+
+      // 🔥 5. UPDATE LOCAL PROGRESS (INSTANT UI)
       setCurrentProgress((prev) => Math.min(100, prev + value));
 
       // 🔥 RESET

@@ -11,6 +11,8 @@ import {
   Grid,
   IconButton,
   Box,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
@@ -37,6 +39,7 @@ export default function ProjectModal({
   // STATE
   // ========================================
   const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState(0);
 
   const [form, setForm] = useState<any>({
     name: "",
@@ -174,7 +177,7 @@ export default function ProjectModal({
       }}
     >
       {/* HEADER */}
-      <DialogTitle sx={{ display: "flex", justifyContent: "space-between" }}>
+      <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         {mode === "edit" ? "Edit Project" : "New Project"}
 
         {project?.id && (
@@ -188,7 +191,15 @@ export default function ProjectModal({
         )}
       </DialogTitle>
 
+      {mode === "edit" && (
+        <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: "divider", bgcolor: "#f5f5f5" }}>
+          <Tab label="Project Details" />
+          <Tab label="Team Members" />
+        </Tabs>
+      )}
+
       <DialogContent dividers>
+        {tab === 0 && (
         <Grid container spacing={2}>
           {/* LEFT */}
           <Grid size={{ xs: 12, md: 6 }}>
@@ -411,13 +422,24 @@ export default function ProjectModal({
             />
           </Grid>
         </Grid>
+        )}
+
+        {mode === "edit" && tab === 1 && (
+        <Box>
+          <ProjectTeamPanel
+            projectId={project.id}
+          />
+        </Box>
+        )}
       </DialogContent>
 
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={saving}>
-          {saving ? "Saving..." : mode === "edit" ? "Update" : "Save"}
-        </Button>
+        {tab === 0 && (
+          <Button variant="contained" onClick={handleSubmit} disabled={saving}>
+            {saving ? "Saving..." : mode === "edit" ? "Update" : "Save"}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

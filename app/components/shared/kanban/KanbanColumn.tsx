@@ -16,6 +16,9 @@ export default function KanbanColumn({
   title,
   items,
   activeId,
+  parentTaskId,
+  onProgressSuccess,
+  showHierarchy = false,
 }: any) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${id}`,
@@ -59,6 +62,9 @@ export default function KanbanColumn({
             <KanbanSortableCard
               subtask={s}
               isDropTarget={activeId === s.id}
+              parentTaskId={parentTaskId}
+              onProgressSuccess={onProgressSuccess}
+              showHierarchy={showHierarchy}
             />
           </Box>
         ))}

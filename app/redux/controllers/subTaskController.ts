@@ -8,6 +8,8 @@ import {
   reorderSubtasksForParent,
   toggleChecklistLocal,
   removeSubtask,
+  setBoardFilters,
+  setTasksForBoard,
 } from "../slices/kanbanSlice";
 
 import { mapTaskToKanban } from "@/app/utils/kanbanAdapter";
@@ -196,6 +198,116 @@ export const deleteChecklist = (checklistId: string) => {
       await axiosApi.delete(`/subtasks/checklists/${checklistId}`);
     } catch (err) {
       console.error("❌ Error deleting checklist:", err);
+      throw err;
+    }
+  };
+};
+
+// ========================================
+// 🔥 LOAD MY BOARD (Task Board)
+// ========================================
+export const loadMyBoard = (filters?: {
+  projectId?: string;
+  categoryId?: string;
+  taskId?: string;
+  search?: string;
+}) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      // ✅ Build query params
+      const params = new URLSearchParams();
+      if (filters?.projectId) params.append("projectId", filters.projectId);
+      if (filters?.categoryId) params.append("categoryId", filters.categoryId);
+      if (filters?.taskId) params.append("taskId", filters.taskId);
+      if (filters?.search) params.append("search", filters.search);
+
+      const queryString = params.toString();
+      const url = queryString
+        ? `/subtasks/board/my?${queryString}`
+        : "/subtasks/board/my";
+
+      const res = await axiosApi.get(url);
+
+      // ✅ Set subtasks to Redux
+      dispatch(setSubtasks(res.data.data || []));
+
+      return res.data;
+    } catch (err) {
+      console.error("❌ Error loading my board:", err);
+      throw err;
+    }
+  };
+};
+
+// ========================================
+// 🔥 LOAD BOARD FILTERS DATA
+// ========================================
+export const loadBoardFilterData = () => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      // ✅ Only fetch projects initially
+      const projectsRes = await axiosApi.get("/projects");
+
+      dispatch(
+        setBoardFilters({
+          projects: projectsRes.data || [],
+          categories: [],
+          tasks: [],
+        }),
+      );
+
+      return {
+        projects: projectsRes.data || [],
+      };
+    } catch (err) {
+      console.error("❌ Error loading board filters:", err);
+      throw err;
+    }
+  };
+};
+
+// ========================================
+// 🔥 LOAD CATEGORIES FOR PROJECT
+// ========================================
+export const loadCategoriesForProject = (projectId: string) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      const res = await axiosApi.get(`/categories/project/${projectId}`);
+
+      dispatch(
+        setTasksForBoard([]), // ✅ Clear tasks when category changes
+      );
+
+      // 🔥 Set in board filters
+      dispatch(
+        setBoardFilters({
+          projects: [],
+          categories: res.data || [],
+          tasks: [],
+        }),
+      );
+
+      return res.data || [];
+    } catch (err) {
+      console.error("❌ Error loading categories:", err);
+      throw err;
+    }
+  };
+};
+
+// ========================================
+// 🔥 LOAD TASKS FOR CATEGORY
+// ========================================
+export const loadTasksForCategory = (categoryId: string) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      const res = await axiosApi.get(`/tasks/category/${categoryId}`);
+
+      dispatch(setTasksForBoard(res.data || []));
+
+      return res.data || [];
+    } catch (err) {
+      console.error("❌ Error loading tasks:", err);
       throw err;
     }
   };

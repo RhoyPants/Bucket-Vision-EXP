@@ -12,11 +12,13 @@ export interface User {
 
 interface UserState {
   members: User[];
+  users: User[];
   loading: boolean;
 }
 
 const initialState: UserState = {
   members: [],
+  users: [],
   loading: false,
 };
 
@@ -29,6 +31,11 @@ const userSlice = createSlice({
       state.members = action.payload;
     },
 
+    // ✅ SET USERS (all users)
+    setUsers(state, action: PayloadAction<User[]>) {
+      state.users = action.payload;
+    },
+
     // ✅ LOADING
     setLoading(state, action: PayloadAction<boolean>) {
       state.loading = action.payload;
@@ -36,5 +43,5 @@ const userSlice = createSlice({
   },
 });
 
-export const { setMembers, setLoading } = userSlice.actions;
+export const { setMembers, setUsers, setLoading } = userSlice.actions;
 export default userSlice.reducer;

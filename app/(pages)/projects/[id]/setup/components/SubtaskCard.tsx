@@ -1,5 +1,7 @@
 import { Box, Button, TextField, Typography } from "@mui/material";
+import { useAppSelector } from "@/app/redux/hook";
 import AssignUsersSelect from "@/app/components/shared/selectors/AssignUsersSelect";
+import { useMemo } from "react";
 
 interface SubtaskCardProps {
   sub: any;
@@ -8,6 +10,7 @@ interface SubtaskCardProps {
   subtaskInputs: Record<string, any>;
   setSubtaskInputs: (inputs: any) => void;
   members: any[];
+  projectId?: string;
   onUpdate: (subId: string, taskId: string) => void;
   onDelete: (subId: string, taskId: string) => void;
   onEdit: () => void;
@@ -20,10 +23,30 @@ export default function SubtaskCard({
   subtaskInputs,
   setSubtaskInputs,
   members,
+  projectId,
   onUpdate,
   onDelete,
   onEdit,
 }: SubtaskCardProps) {
+  const { engagedUsers } = useAppSelector((state) => state.projectMembers);
+  const { fullProject } = useAppSelector((state) => state.project);
+  const { users = [] } = useAppSelector((state) => state.user);
+
+  // 🔥 Include owner with engaged users
+  const assignableUsers = useMemo(() => {
+    const userIds = new Set(engagedUsers.map((u: any) => u.id || u.userId));
+    
+    // Get owner user object
+    if (fullProject?.ownerId && users.length > 0) {
+      const ownerUser = users.find((u: any) => u.id === fullProject.ownerId);
+      if (ownerUser && !userIds.has(ownerUser.id)) {
+        return [ownerUser, ...engagedUsers];
+      }
+    }
+    
+    return engagedUsers;
+  }, [engagedUsers, fullProject?.ownerId, users]);
+
   if (!isEditing) {
     return (
       <Box
@@ -113,7 +136,8 @@ export default function SubtaskCard({
         />
 
         <AssignUsersSelect
-          members={members}
+          members={assignableUsers}
+          projectId={projectId}
           value={subtaskInputs[taskId]?.users || []}
           onChange={(users) =>
             setSubtaskInputs((prev: any) => ({

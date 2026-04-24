@@ -27,10 +27,20 @@ export default function KanbanSortableCard({
   subtask,
   isOverlay = false,
   isDropTarget = false,
+  parentTaskId,
+  onProgressSuccess,
+  showHierarchy = false,
 }: {
-  subtask: KanbanSubtask;
+  subtask: KanbanSubtask & {
+    project?: { id: string; name: string };
+    category?: { id: string; name: string };
+    task?: { id: string; title: string };
+  };
   isOverlay?: boolean;
   isDropTarget?: boolean;
+  parentTaskId?: string | null;
+  onProgressSuccess?: () => void;
+  showHierarchy?: boolean;
 }) {
   const dispatch = useAppDispatch();
 
@@ -203,6 +213,55 @@ export default function KanbanSortableCard({
             />
           </Box>
 
+          {/* 🔥 HIERARCHY INFO (TASKBOARD ONLY) */}
+          {showHierarchy && (
+            <Box sx={{ mb: 1.5, pb: 1.5, borderBottom: "1px solid #e5e7eb" }}>
+              {subtask.project && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: "block",
+                    fontSize: "10px",
+                    color: "#6B7280",
+                    fontWeight: 600,
+                    mb: 0.3,
+                  }}
+                >
+                  📦 {subtask.project.name}
+                </Typography>
+              )}
+
+              {subtask.category && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: "block",
+                    fontSize: "10px",
+                    color: "#6B7280",
+                    fontWeight: 600,
+                    mb: 0.3,
+                  }}
+                >
+                  📁 {subtask.category.name}
+                </Typography>
+              )}
+
+              {subtask.task && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: "block",
+                    fontSize: "10px",
+                    color: "#6B7280",
+                    fontWeight: 600,
+                  }}
+                >
+                  ✓ {subtask.task.title}
+                </Typography>
+              )}
+            </Box>
+          )}
+
           {/* 🔥 BUDGET INFO */}
           <Stack direction="row" spacing={2} mb={1}>
             <Typography variant="caption">
@@ -333,6 +392,11 @@ export default function KanbanSortableCard({
         open={openCalendar}
         onClose={() => setOpenCalendar(false)}
         subtaskId={subtask.id}
+        isTaskBoard={parentTaskId === null}
+        onSuccess={() => {
+          onProgressSuccess?.();
+          setOpenCalendar(false);
+        }}
       />
     </>
   );

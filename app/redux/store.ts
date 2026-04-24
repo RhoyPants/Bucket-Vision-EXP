@@ -7,6 +7,7 @@ import categoryReducer from "./slices/categorySlice";
 import progressReducer from "./slices/progressSlice";
 import scurveReducer from "./slices/scurveSlice";
 import projectReducer from "./slices/projectSlice";
+import projectMemberReducer from "./slices/projectMemberSlice";
 import taskReducer from "./slices/taskSlice";
 import userReducer from "./slices/userSlice";
 // @ts-ignore
@@ -20,6 +21,7 @@ export const store = configureStore({
     progress: progressReducer,
     scurve: scurveReducer,
     project: projectReducer,
+    projectMembers: projectMemberReducer,
     task: taskReducer,
     user: userReducer,
   },

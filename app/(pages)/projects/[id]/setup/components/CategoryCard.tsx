@@ -13,6 +13,7 @@ interface CategoryCardProps {
   subtaskInputs: Record<string, any>;
   setSubtaskInputs: (inputs: any) => void;
   members: any[];
+  projectId?: string;
   onEditCategory: (cat: any) => void;
   onDeleteCategory: (catId: string) => void;
   onUpdateCategory: () => void;
@@ -37,6 +38,7 @@ export default function CategoryCard({
   subtaskInputs,
   setSubtaskInputs,
   members,
+  projectId,
   onEditCategory,
   onDeleteCategory,
   onUpdateCategory,
@@ -138,6 +140,7 @@ export default function CategoryCard({
             subtaskInputs={subtaskInputs}
             setSubtaskInputs={setSubtaskInputs}
             members={members}
+            projectId={projectId}
             onEditTask={onEditTask}
             onDeleteTask={onDeleteTask}
             onUpdateTask={onUpdateTask}

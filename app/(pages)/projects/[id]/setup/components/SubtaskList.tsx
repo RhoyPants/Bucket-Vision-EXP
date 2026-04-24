@@ -7,6 +7,7 @@ interface SubtaskListProps {
   subtaskInputs: Record<string, any>;
   setSubtaskInputs: (inputs: any) => void;
   members: any[];
+  projectId?: string;
   onUpdateSubtask: (subId: string, taskId: string) => void;
   onDeleteSubtask: (subId: string, taskId: string) => void;
   onEditSubtask: (sub: any, taskId: string) => void;
@@ -18,6 +19,7 @@ export default function SubtaskList({
   subtaskInputs,
   setSubtaskInputs,
   members,
+  projectId,
   onUpdateSubtask,
   onDeleteSubtask,
   onEditSubtask,
@@ -46,6 +48,7 @@ export default function SubtaskList({
             subtaskInputs={subtaskInputs}
             setSubtaskInputs={setSubtaskInputs}
             members={members}
+            projectId={projectId}
             onUpdate={onUpdateSubtask}
             onDelete={onDeleteSubtask}
             onEdit={() => onEditSubtask(sub, task.id)}
@@ -59,6 +62,7 @@ export default function SubtaskList({
         subtaskInputs={subtaskInputs}
         setSubtaskInputs={setSubtaskInputs}
         members={members}
+        projectId={projectId}
         onAddSubtask={onAddSubtask}
       />
     </Box>

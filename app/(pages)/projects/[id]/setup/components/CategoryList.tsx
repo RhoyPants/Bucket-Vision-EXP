@@ -12,6 +12,7 @@ interface CategoryListProps {
   subtaskInputs: Record<string, any>;
   setSubtaskInputs: (inputs: any) => void;
   members: any[];
+  projectId?: string;
   onEditCategory: (cat: any) => void;
   onDeleteCategory: (catId: string) => void;
   onUpdateCategory: () => void;
@@ -36,6 +37,7 @@ export default function CategoryList({
   subtaskInputs,
   setSubtaskInputs,
   members,
+  projectId,
   onEditCategory,
   onDeleteCategory,
   onUpdateCategory,
@@ -63,6 +65,7 @@ export default function CategoryList({
           subtaskInputs={subtaskInputs}
           setSubtaskInputs={setSubtaskInputs}
           members={members}
+          projectId={projectId}
           onEditCategory={onEditCategory}
           onDeleteCategory={onDeleteCategory}
           onUpdateCategory={onUpdateCategory}
