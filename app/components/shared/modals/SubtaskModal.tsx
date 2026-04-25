@@ -92,7 +92,16 @@ export default function SubtaskModal({
         // 🔥 Handle both assignees (backend) and userIds (Kanban card)
         let assignedUsers = [];
         if (subtask.assignees?.length > 0) {
-          assignedUsers = subtask.assignees.map((a: any) => a.user);
+          assignedUsers = subtask.assignees.map((a: any) => {
+            // Extract the user object and ensure it has id and name
+            const user = a.user || a;
+            return {
+              ...user,
+              id: user.id, // Ensure id is present
+              name: user.name || "Unknown", // Ensure name is present
+            };
+          }).filter((u: any) => u && u.id); // Filter out invalid users
+          console.log("📌 Assigned Users from subtask:", assignedUsers);
         } else if (subtask.userIds?.length > 0) {
           // If only userIds provided, map to user objects from engagedUsers
           assignedUsers = subtask.userIds
@@ -117,15 +126,39 @@ export default function SubtaskModal({
   }, [open, subtask, mode, engagedUsers]);
 
   const assignableUsers = useMemo(() => {
-    const userIds = new Set(engagedUsers.map((u: any) => u.id || u.userId));
+    // Create a map to ensure uniqueness by id
+    const userMap = new Map();
+    
+    // Add engaged users first
+    engagedUsers.forEach((u: any) => {
+      const userId = u.id || u.userId;
+      if (userId) {
+        userMap.set(userId, u);
+      }
+    });
+    
+    // Add owner if exists
     if (fullProject?.ownerId && users.length > 0) {
       const ownerUser = users.find((u: any) => u.id === fullProject.ownerId);
-      if (ownerUser && !userIds.has(ownerUser.id)) {
-        return [ownerUser, ...engagedUsers];
+      if (ownerUser && !userMap.has(ownerUser.id)) {
+        userMap.set(ownerUser.id, ownerUser);
       }
     }
-    return engagedUsers;
-  }, [engagedUsers, fullProject?.ownerId, users]);
+    
+    // 🔥 IMPORTANT: Add currently assigned users to the list
+    // This ensures they always appear in the dropdown even if not in engagedUsers
+    if (form.users && Array.isArray(form.users)) {
+      form.users.forEach((u: any) => {
+        if (u && u.id && !userMap.has(u.id)) {
+          userMap.set(u.id, u);
+        }
+      });
+    }
+    
+    const result = Array.from(userMap.values());
+    console.log("📌 Assignable Users:", result);
+    return result;
+  }, [engagedUsers, fullProject?.ownerId, users, form.users]);
 
   const budgetPercent =
     form.budgetAllocated && taskBudget > 0
@@ -325,6 +358,7 @@ export default function SubtaskModal({
               members={assignableUsers}
               projectId={projectId}
               value={form.users}
+              disabled={isViewOnly || saving}
               onChange={(users) => !isViewOnly && handleChange("users", users)}
             />
           </Box>

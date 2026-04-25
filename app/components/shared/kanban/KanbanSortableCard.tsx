@@ -317,7 +317,7 @@ export default function KanbanSortableCard({
           )}
 
           {/* 🔥 ASSIGNEES */}
-          {subtask.userIds && subtask.userIds.length > 0 && (
+          {(subtask.assignees && subtask.assignees.length > 0) && (
             <Box sx={{ mb: 1.5, pb: 1.5, borderBottom: "1px solid #e5e7eb" }}>
               <Typography
                 variant="caption"
@@ -329,8 +329,25 @@ export default function KanbanSortableCard({
                   mb: 0.5,
                 }}
               >
-                👥 Assigned: {subtask.userIds.length} member{subtask.userIds.length !== 1 ? "s" : ""}
+                👥 Assigned:
               </Typography>
+              <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5}>
+                {subtask.assignees.map((assignee: any, idx: number) => (
+                  <Chip
+                    key={idx}
+                    label={assignee.user?.name || "Unknown"}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      fontSize: "10px",
+                      height: "20px",
+                      backgroundColor: "#e3f2fd",
+                      borderColor: "#0C66E4",
+                      color: "#0C66E4",
+                    }}
+                  />
+                ))}
+              </Stack>
             </Box>
           )}
 
@@ -488,6 +505,7 @@ export default function KanbanSortableCard({
             budgetPercent: subtask.budgetPercent,
             remarks: subtask.remarks,
             userIds: subtask.userIds || [],
+            assignees: subtask.assignees || [], // 🔥 IMPORTANT: Pass assignees with user data
           } as any
         }
         taskBudget={taskBudget}

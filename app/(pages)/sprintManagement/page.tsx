@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Box, Paper, Stack, Typography } from "@mui/material";
+import { Box, Paper, Stack, Typography, ButtonGroup, Button } from "@mui/material";
+import ViewWeekIcon from "@mui/icons-material/ViewWeek";
+import ViewAgendaIcon from "@mui/icons-material/ViewAgenda";
 
 import Layout from "@/app/components/shared/Layout";
 import ProjectSelector from "@/app/components/shared/selectors/ProjectSelector";
@@ -23,9 +25,14 @@ import { setCurrentTask } from "@/app/redux/slices/taskSlice";
 import { setCurrentCategory } from "@/app/redux/slices/categorySlice";
 
 import SCurveChart from "@/app/components/shared/Scurved/SCurveChart";
+import GridTableView from "./Components/GridTableView";
+import { getProjectFull } from "@/app/redux/controllers/projectController";
+
+type ViewMode = "grid" | "kanban";
 
 export default function SprintManagementPage() {
   const dispatch = useAppDispatch();
+  const [viewMode, setViewMode] = useState<ViewMode>("kanban");
 
   const { currentProjectId } = useAppSelector((state) => state.project);
   const { currentCategoryId, categories } = useAppSelector(
@@ -35,18 +42,19 @@ export default function SprintManagementPage() {
   const { subtasks } = useAppSelector((state) => state.kanban);
 
   const [openTaskModal, setOpenTaskModal] = useState(false);
-  const [taskModalMode, setTaskModalMode] = useState<"create" | "view" | "edit">("create");
+  const [taskModalMode, setTaskModalMode] = useState<"create" | "view" | "edit">(
+    "create",
+  );
   const [selectedTaskForModal, setSelectedTaskForModal] = useState<any>(null);
   const [columns, setColumns] = useState<any[]>([]);
   const searchParams = useSearchParams();
   const projectIdFromUrl = searchParams.get("projectId");
 
-  // Get current category for budget
   const currentCategory = categories.find((c) => c.id === currentCategoryId);
   const currentTask = tasks.find((t) => t.id === currentTaskId);
 
   // ========================================
-  // 🔥 INITIAL LOAD
+  // 📌 INITIAL LOAD
   // ========================================
   useEffect(() => {
     const init = async () => {
@@ -61,7 +69,7 @@ export default function SprintManagementPage() {
 
       if (!projectId) return;
 
-      // 🔥 SET CURRENT PROJECT
+      // 📌 SET CURRENT PROJECT
       dispatch(setCurrentProject(projectId));
 
       const categories = await dispatch(getCategoriesByProject(projectId));
@@ -83,37 +91,29 @@ export default function SprintManagementPage() {
     init();
   }, [dispatch, projectIdFromUrl]);
 
-  // PROJECT → CATEGORY
+  // PROJECT → LOAD FULL PROJECT DATA (categories, tasks, subtasks)
   useEffect(() => {
     if (!currentProjectId) return;
 
     const load = async () => {
-      const categories = await dispatch(
-        getCategoriesByProject(currentProjectId),
-      );
+      const fullProjectData = await dispatch(getProjectFull(currentProjectId));
 
-      if (categories.length > 0) {
-        dispatch(setCurrentCategory(categories[0].id));
+      // Get first category and task from the full project data
+      if (fullProjectData && fullProjectData.categories && fullProjectData.categories.length > 0) {
+        const firstCategory = fullProjectData.categories[0];
+        dispatch(setCurrentCategory(firstCategory.id));
+
+        if (fullProjectData.tasks && fullProjectData.tasks.length > 0) {
+          const firstTask = fullProjectData.tasks.find((t: any) => t.categoryId === firstCategory.id);
+          if (firstTask) {
+            dispatch(setCurrentTask(firstTask.id));
+          }
+        }
       }
     };
 
     load();
   }, [currentProjectId, dispatch]);
-
-  // CATEGORY → TASK
-  useEffect(() => {
-    if (!currentCategoryId) return;
-
-    const load = async () => {
-      const tasks = await dispatch(getTasksByCategory(currentCategoryId));
-
-      if (tasks.length > 0) {
-        dispatch(setCurrentTask(tasks[0].id));
-      }
-    };
-
-    load();
-  }, [currentCategoryId, dispatch]);
 
   // TASK → KANBAN
   useEffect(() => {
@@ -142,77 +142,109 @@ export default function SprintManagementPage() {
     <Layout>
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         <Stack spacing={3}>
-          {/* 🔥 PROJECT SELECTOR */}
+          {/* 📌 PROJECT SELECTOR */}
           <Paper sx={{ p: 2, borderRadius: 3 }}>
             <ProjectSelector />
           </Paper>
 
-          {/* 🔥 S-CURVE */}
-          <Paper sx={{ p: 2, borderRadius: 3 }}>
-            <Typography variant="subtitle1" fontWeight={600} mb={1}>
-              Project Progress
+          {/* 📌 VIEW TOGGLE */}
+          <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+            <Typography sx={{ fontWeight: 600, fontSize: "14px", color: "#7D8693" }}>
+              View:
             </Typography>
-
-            <SCurveChart projectId={currentProjectId} />
-          </Paper>
-
-          {/* 🔥 CATEGORY */}
-          <Paper sx={{ p: 2, borderRadius: 3 }}>
-            <CategorySelector
-              categories={categories}
-              currentCategoryId={currentCategoryId}
-              onChange={(id: string) => dispatch(setCurrentCategory(id))}
-            />
-          </Paper>
-
-          {/* 🔥 MAIN BOARD */}
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: { xs: "column", md: "row" },
-              gap: 2,
-            }}
-          >
-            {/* TASK SIDEBAR */}
-            <Paper
-              sx={{
-                width: { xs: "100%", md: 280 },
-                borderRadius: 3,
-                p: 1,
-              }}
-            >
-              <TaskSidebar
-                tasks={tasks}
-                activeTaskId={currentTaskId}
-                onSelectTask={(taskId: string) => {
-                  dispatch(setCurrentTask(taskId));
-                }}
-                onAddTask={() => handleOpenTaskModal("create")}
-                onViewTask={(task) => handleOpenTaskModal("view", task)}
-              />
-            </Paper>
-
-            {/* KANBAN BOARD */}
-            <Paper
-              sx={{
-                flexGrow: 1,
-                borderRadius: 3,
-                p: 2,
-                minHeight: 400,
-              }}
-            >
-              {currentTaskId && (
-                <KanbanBoard
-                  parentTaskId={currentTaskId}
-                  columns={columns}
-                  subtasks={subtasks}
-                  onViewDetails={() => {}}
-                  taskBudget={currentTask?.budgetAllocated || 0}
-                  projectId={currentProjectId || ""}
-                />
-              )}
-            </Paper>
+            <ButtonGroup variant="outlined" size="small">
+              <Button
+                onClick={() => setViewMode("kanban")}
+                variant={viewMode === "kanban" ? "contained" : "outlined"}
+                startIcon={<ViewWeekIcon />}
+              >
+                Kanban
+              </Button>
+              <Button
+                onClick={() => setViewMode("grid")}
+                variant={viewMode === "grid" ? "contained" : "outlined"}
+                startIcon={<ViewAgendaIcon />}
+              >
+                Grid Table
+              </Button>
+            </ButtonGroup>
           </Box>
+
+          {/* 📌 KANBAN VIEW */}
+          {viewMode === "kanban" && (
+            <>
+              {/* 📌 S-CURVE */}
+              <Paper sx={{ p: 2, borderRadius: 3 }}>
+                <Typography variant="subtitle1" fontWeight={600} mb={1}>
+                  Project Progress
+                </Typography>
+
+                <SCurveChart projectId={currentProjectId} />
+              </Paper>
+
+              {/* 📌 CATEGORY */}
+              <Paper sx={{ p: 2, borderRadius: 3 }}>
+                <CategorySelector
+                  categories={categories}
+                  currentCategoryId={currentCategoryId}
+                  onChange={(id: string) => dispatch(setCurrentCategory(id))}
+                />
+              </Paper>
+
+              {/* 📌 MAIN BOARD */}
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: { xs: "column", md: "row" },
+                  gap: 2,
+                }}
+              >
+                {/* TASK SIDEBAR */}
+                <Paper
+                  sx={{
+                    width: { xs: "100%", md: 280 },
+                    borderRadius: 3,
+                    p: 1,
+                  }}
+                >
+                  <TaskSidebar
+                    tasks={tasks}
+                    activeTaskId={currentTaskId}
+                    onSelectTask={(taskId: string) => {
+                      dispatch(setCurrentTask(taskId));
+                    }}
+                    onAddTask={() => handleOpenTaskModal("create")}
+                    onViewTask={(task) => handleOpenTaskModal("view", task)}
+                  />
+                </Paper>
+
+                {/* KANBAN BOARD */}
+                <Paper
+                  sx={{
+                    flexGrow: 1,
+                    borderRadius: 3,
+                    p: 2,
+                    minHeight: 400,
+                  }}
+                >
+                  {currentTaskId && (
+                    <KanbanBoard
+                      parentTaskId={currentTaskId}
+                      columns={columns}
+                      subtasks={subtasks}
+                      taskBudget={currentTask?.budgetAllocated || 0}
+                      projectId={currentProjectId || ""}
+                    />
+                  )}
+                </Paper>
+              </Box>
+            </>
+          )}
+
+          {/* 📌 GRID VIEW */}
+          {viewMode === "grid" && (
+            <GridTableView projectId={currentProjectId} />
+          )}
         </Stack>
       </Box>
 
@@ -233,3 +265,5 @@ export default function SprintManagementPage() {
     </Layout>
   );
 }
+
+

@@ -24,9 +24,15 @@ export interface KanbanSubtask {
   progress?: number;
 
   assignee?: string | null;
+  assignees?: any[]; // Support both assignee and assignees array
+  userIds?: string[]; // User IDs for assignments
 
   startDate?: string;
   endDate?: string;
+  projectedStartDate?: string; // Projected start date
+  projectedEndDate?: string; // Projected end date
+  remarks?: string; // Additional remarks
+  
   checklists?: KanbanChecklist[];
 }
 

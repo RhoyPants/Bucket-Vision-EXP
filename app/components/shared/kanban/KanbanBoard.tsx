@@ -29,7 +29,6 @@ export default function KanbanBoard({
   parentTaskId,
   columns,
   subtasks,
-  onViewDetails,
   taskBudget = 0,
   projectId = "",
   onProgressSuccess,
@@ -38,7 +37,6 @@ export default function KanbanBoard({
   parentTaskId: string | null;
   columns: { id: number; title: string }[];
   subtasks: KanbanSubtask[];
-  onViewDetails: (subtask: KanbanSubtask) => void;
   taskBudget?: number;
   projectId?: string;
   onProgressSuccess?: () => void;
@@ -174,7 +172,6 @@ export default function KanbanBoard({
                 taskBudget={taskBudget}
                 projectId={projectId}
                 activeId={activeId}
-                onViewDetails={onViewDetails}
                 onProgressSuccess={onProgressSuccess}
                 showHierarchy={showHierarchy}
               />

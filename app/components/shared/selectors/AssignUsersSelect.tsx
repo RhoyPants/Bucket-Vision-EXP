@@ -22,6 +22,7 @@ type Props = {
   onChange: (val: User[]) => void;
   members: User[];
   projectId?: string;
+  disabled?: boolean;
 };
 
 export default function AssignUsersSelect({
@@ -29,6 +30,7 @@ export default function AssignUsersSelect({
   onChange,
   members = [],
   projectId,
+  disabled = false,
 }: Props) {
   // =========================
   // 🔥 CLEAN + SAFE OPTIONS (from project team only)
@@ -64,6 +66,7 @@ export default function AssignUsersSelect({
   return (
     <Autocomplete
       multiple
+      disabled={disabled}
       options={uniqueMembers}
       value={uniqueValue}
       onChange={(e, newValue) => onChange(newValue)}
