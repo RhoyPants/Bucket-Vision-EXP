@@ -15,6 +15,8 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import PriorityLegend from "./PriorityLegend";
 
 interface TaskItem {
+  budgetPercent: number;
+  budgetAllocated: number;
   id: string;
   title: string;
   priority?: string;

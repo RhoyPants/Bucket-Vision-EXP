@@ -6,6 +6,7 @@ export interface Task {
   description?: string;
   budgetAllocated?: number;
   categoryId: string; // 🔥 FIX (was projectId ❌)
+  order?: number;
 
   createdAt?: string;
   progress?: number;
@@ -29,10 +30,16 @@ const taskSlice = createSlice({
   reducers: {
     // ✅ SET ALL
     setTasks(state, action: PayloadAction<Task[]>) {
-      state.tasks = action.payload;
+      // Sort by order field (ascending)
+      const sortedTasks = [...action.payload].sort((a, b) => {
+        const orderA = a.order ?? 0;
+        const orderB = b.order ?? 0;
+        return orderA - orderB;
+      });
+      state.tasks = sortedTasks;
 
-      if (!state.currentTaskId && action.payload.length > 0) {
-        state.currentTaskId = action.payload[0].id;
+      if (!state.currentTaskId && sortedTasks.length > 0) {
+        state.currentTaskId = sortedTasks[0].id;
       }
     },
 
@@ -44,6 +51,12 @@ const taskSlice = createSlice({
     // ✅ ADD
     addTask(state, action: PayloadAction<Task>) {
       state.tasks.push(action.payload);
+      // Sort by order field after adding
+      state.tasks.sort((a, b) => {
+        const orderA = a.order ?? 0;
+        const orderB = b.order ?? 0;
+        return orderA - orderB;
+      });
     },
 
     // ✅ UPDATE (RENAMED to avoid conflict)
@@ -54,6 +67,12 @@ const taskSlice = createSlice({
 
       if (index !== -1) {
         state.tasks[index] = action.payload;
+        // Sort after update to maintain order
+        state.tasks.sort((a, b) => {
+          const orderA = a.order ?? 0;
+          const orderB = b.order ?? 0;
+          return orderA - orderB;
+        });
       }
     },
 

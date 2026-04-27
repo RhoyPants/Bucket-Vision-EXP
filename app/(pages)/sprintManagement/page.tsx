@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Box, Paper, Stack, Typography, ButtonGroup, Button } from "@mui/material";
+import { useEffect, useState, useMemo } from "react";
+import {
+  Box,
+  Paper,
+  Stack,
+  Typography,
+  ButtonGroup,
+  Button,
+} from "@mui/material";
 import ViewWeekIcon from "@mui/icons-material/ViewWeek";
 import ViewAgendaIcon from "@mui/icons-material/ViewAgenda";
 
@@ -17,12 +24,12 @@ import { setCurrentProject } from "@/app/redux/slices/projectSlice";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 
 import { getProjects } from "@/app/redux/controllers/projectController";
-import { getCategoriesByProject } from "@/app/redux/controllers/categoryController";
-import { getTasksByCategory } from "@/app/redux/controllers/taskController";
 import { loadKanbanByTask } from "@/app/redux/controllers/subTaskController";
 
 import { setCurrentTask } from "@/app/redux/slices/taskSlice";
 import { setCurrentCategory } from "@/app/redux/slices/categorySlice";
+import { setCategories } from "@/app/redux/slices/categorySlice";
+import { setTasks } from "@/app/redux/slices/taskSlice";
 
 import SCurveChart from "@/app/components/shared/Scurved/SCurveChart";
 import GridTableView from "./Components/GridTableView";
@@ -42,9 +49,9 @@ export default function SprintManagementPage() {
   const { subtasks } = useAppSelector((state) => state.kanban);
 
   const [openTaskModal, setOpenTaskModal] = useState(false);
-  const [taskModalMode, setTaskModalMode] = useState<"create" | "view" | "edit">(
-    "create",
-  );
+  const [taskModalMode, setTaskModalMode] = useState<
+    "create" | "view" | "edit"
+  >("create");
   const [selectedTaskForModal, setSelectedTaskForModal] = useState<any>(null);
   const [columns, setColumns] = useState<any[]>([]);
   const searchParams = useSearchParams();
@@ -54,81 +61,130 @@ export default function SprintManagementPage() {
   const currentTask = tasks.find((t) => t.id === currentTaskId);
 
   // ========================================
-  // 📌 INITIAL LOAD
+  // 📌 FILTER TASKS BY CATEGORY (NO API CALL)
+  // ========================================
+  const filteredTasksForCategory = useMemo(() => {
+    if (!currentCategoryId || !tasks) return [];
+    return tasks
+      .filter((task: any) => task.categoryId === currentCategoryId)
+      .map((task: any) => ({
+        id: task.id,
+        title: task.title || task.name,
+        priority: task.priority,
+        progress: task.progress || 0,
+        budgetAllocated: task.budgetAllocated || 0,
+        budgetPercent: task.budgetPercent || 0,
+      }));
+  }, [currentCategoryId, tasks]);
+
+  // ========================================
+  // 📌 LOAD CASCADE: Project → Categories → Tasks → Subtasks
   // ========================================
   useEffect(() => {
-    const init = async () => {
+    const loadInitial = async () => {
+      // Step 1: Load projects
       const projects = await dispatch(getProjects());
 
       let projectId = projectIdFromUrl;
-
-      // fallback if no URL param
       if (!projectId && projects.length > 0) {
         projectId = projects[0].id;
       }
-
       if (!projectId) return;
 
-      // 📌 SET CURRENT PROJECT
+      // Step 2: Set current project
       dispatch(setCurrentProject(projectId));
-
-      const categories = await dispatch(getCategoriesByProject(projectId));
-
-      if (categories.length > 0) {
-        const categoryId = categories[0].id;
-
-        dispatch(setCurrentCategory(categoryId));
-
-        const tasks = await dispatch(getTasksByCategory(categoryId));
-
-        if (tasks.length > 0) {
-          const taskId = tasks[0].id;
-          dispatch(setCurrentTask(taskId));
-        }
-      }
     };
 
-    init();
+    loadInitial();
   }, [dispatch, projectIdFromUrl]);
 
-  // PROJECT → LOAD FULL PROJECT DATA (categories, tasks, subtasks)
+  // Step 3: Once project is set, load full project data (categories + tasks)
   useEffect(() => {
     if (!currentProjectId) return;
 
-    const load = async () => {
+    const loadFullProject = async () => {
       const fullProjectData = await dispatch(getProjectFull(currentProjectId));
 
-      // Get first category and task from the full project data
-      if (fullProjectData && fullProjectData.categories && fullProjectData.categories.length > 0) {
-        const firstCategory = fullProjectData.categories[0];
-        dispatch(setCurrentCategory(firstCategory.id));
+      if (!fullProjectData) return;
 
-        if (fullProjectData.tasks && fullProjectData.tasks.length > 0) {
-          const firstTask = fullProjectData.tasks.find((t: any) => t.categoryId === firstCategory.id);
-          if (firstTask) {
-            dispatch(setCurrentTask(firstTask.id));
+      // ✅ POPULATE REDUX STATE WITH FULL PROJECT DATA
+      // Step 4A: Set all categories in Redux
+      if (fullProjectData.categories?.length) {
+        dispatch(setCategories(fullProjectData.categories));
+
+        // Step 4B: Extract tasks from nested structure (categories.tasks)
+        const allTasks: any[] = [];
+        let firstCategoryId = fullProjectData.categories[0].id;
+        let firstTaskId: string | null = null;
+
+        fullProjectData.categories.forEach((category: any) => {
+          if (category.tasks && Array.isArray(category.tasks)) {
+            category.tasks.forEach((task: any) => {
+              allTasks.push({
+                ...task,
+                categoryId: category.id, // 🔥 Ensure categoryId is set
+              });
+              // Remember first task from first category
+              if (category.id === firstCategoryId && !firstTaskId) {
+                firstTaskId = task.id;
+              }
+            });
           }
+        });
+
+        // Step 4C: Set all tasks in Redux
+        if (allTasks.length > 0) {
+          dispatch(setTasks(allTasks));
+        }
+
+        // Step 4D: Select first category and its first task
+        dispatch(setCurrentCategory(firstCategoryId));
+        if (firstTaskId) {
+          dispatch(setCurrentTask(firstTaskId));
         }
       }
     };
 
-    load();
+    loadFullProject();
   }, [currentProjectId, dispatch]);
 
-  // TASK → KANBAN
+  // Step 6: Once task is set, load subtasks for Kanban
   useEffect(() => {
     if (!currentTaskId) return;
 
-    const load = async () => {
+    const loadSubtasks = async () => {
       const kanban = await dispatch(loadKanbanByTask(currentTaskId));
-
       if (kanban) setColumns(kanban.columns);
     };
 
-    load();
+    loadSubtasks();
   }, [currentTaskId, dispatch]);
 
-  const handleOpenTaskModal = (mode: "create" | "view" | "edit", task?: any) => {
+  // ========================================
+  // 📌 WHEN CATEGORY CHANGES: Auto-select first task in new category
+  // ========================================
+  useEffect(() => {
+    if (!currentCategoryId || filteredTasksForCategory.length === 0) {
+      dispatch(setCurrentTask(null));
+      return;
+    }
+
+    // Keep current task if it's in the new category
+    const taskInCategory = filteredTasksForCategory.find(
+      (t: any) => t.id === currentTaskId,
+    );
+    if (taskInCategory) return;
+
+    // Otherwise, select first task in new category
+    if (filteredTasksForCategory.length > 0) {
+      dispatch(setCurrentTask(filteredTasksForCategory[0].id));
+    }
+  }, [currentCategoryId, filteredTasksForCategory, currentTaskId, dispatch]);
+
+  const handleOpenTaskModal = (
+    mode: "create" | "view" | "edit",
+    task?: any,
+  ) => {
     setTaskModalMode(mode);
     if (task) {
       setSelectedTaskForModal(task);
@@ -136,6 +192,40 @@ export default function SprintManagementPage() {
       setSelectedTaskForModal(null);
     }
     setOpenTaskModal(true);
+  };
+
+  // 🔧 REFETCH CATEGORIES & TASKS AFTER MODAL CLOSES (to maintain order)
+  const handleTaskModalClose = async () => {
+    setOpenTaskModal(false);
+    setSelectedTaskForModal(null);
+
+    // Refetch full project data to ensure categories maintain sort order
+    if (currentProjectId) {
+      const fullProjectData = await dispatch(
+        getProjectFull(currentProjectId)
+      );
+
+      if (fullProjectData?.categories?.length) {
+        dispatch(setCategories(fullProjectData.categories));
+
+        // Re-extract tasks from updated nested structure
+        const allTasks: any[] = [];
+        fullProjectData.categories.forEach((category: any) => {
+          if (category.tasks && Array.isArray(category.tasks)) {
+            category.tasks.forEach((task: any) => {
+              allTasks.push({
+                ...task,
+                categoryId: category.id,
+              });
+            });
+          }
+        });
+
+        if (allTasks.length > 0) {
+          dispatch(setTasks(allTasks));
+        }
+      }
+    }
   };
 
   return (
@@ -149,7 +239,9 @@ export default function SprintManagementPage() {
 
           {/* 📌 VIEW TOGGLE */}
           <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-            <Typography sx={{ fontWeight: 600, fontSize: "14px", color: "#7D8693" }}>
+            <Typography
+              sx={{ fontWeight: 600, fontSize: "14px", color: "#7D8693" }}
+            >
               View:
             </Typography>
             <ButtonGroup variant="outlined" size="small">
@@ -208,7 +300,7 @@ export default function SprintManagementPage() {
                   }}
                 >
                   <TaskSidebar
-                    tasks={tasks}
+                    tasks={filteredTasksForCategory}
                     activeTaskId={currentTaskId}
                     onSelectTask={(taskId: string) => {
                       dispatch(setCurrentTask(taskId));
@@ -243,7 +335,14 @@ export default function SprintManagementPage() {
 
           {/* 📌 GRID VIEW */}
           {viewMode === "grid" && (
-            <GridTableView projectId={currentProjectId} />
+            <Paper sx={{ p: 2, borderRadius: 3 }}>
+              <Typography variant="subtitle1" fontWeight={600} mb={1}>
+                Project Progress
+              </Typography>
+
+              <SCurveChart projectId={currentProjectId} />
+              <GridTableView projectId={currentProjectId} />
+            </Paper>
           )}
         </Stack>
       </Box>
@@ -252,10 +351,7 @@ export default function SprintManagementPage() {
       {currentCategoryId && (
         <TaskModal
           open={openTaskModal}
-          onClose={() => {
-            setOpenTaskModal(false);
-            setSelectedTaskForModal(null);
-          }}
+          onClose={handleTaskModalClose}
           mode={taskModalMode}
           task={selectedTaskForModal}
           categoryId={currentCategoryId}
@@ -265,5 +361,3 @@ export default function SprintManagementPage() {
     </Layout>
   );
 }
-
-

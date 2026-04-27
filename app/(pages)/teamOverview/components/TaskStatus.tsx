@@ -1,15 +1,38 @@
+"use client";
+
 import { Box, Paper, Typography, LinearProgress } from "@mui/material";
+import { useAppSelector } from "@/app/redux/hook";
+import {
+  aggregateMemberWorkload,
+  getSortedMembers,
+} from "@/app/utils/teamAggregation";
 
-const statusData = [
-  { name: "Liam", value: 85 },
-  { name: "Fiona", value: 78 },
-  { name: "James", value: 82 },
-  { name: "Michael", value: 88 },
-  { name: "Glivia", value: 90 },
-  { name: "Grace", value: 87 },
-];
+interface Props {
+  projectId: string | null;
+  allProjectsData?: any[] | null;
+}
 
-export default function TaskStatus() {
+export default function TaskStatus({ projectId, allProjectsData }: Props) {
+  const fullProject = useAppSelector((state) => state.project.fullProject);
+
+  // Determine data to use
+  let projectData = null;
+  
+  if (projectId === "all-projects" && allProjectsData && allProjectsData.length > 0) {
+    projectData = null;
+  } else if (projectId && projectId !== "all-projects") {
+    projectData = fullProject && fullProject.id === projectId ? fullProject : null;
+  }
+
+  const memberWorkload = aggregateMemberWorkload(
+    projectData,
+    projectId === "all-projects" ? allProjectsData || [] : undefined
+  );
+  const sortedMembers = getSortedMembers(memberWorkload, "progress").slice(
+    0,
+    6
+  ); // Show top 6 members
+
   return (
     <Paper
       elevation={0}
@@ -21,28 +44,52 @@ export default function TaskStatus() {
         backgroundColor: "#fff",
       }}
     >
-      <Typography sx={{ fontWeight: 900, fontSize: 18, mb: 2 }}>Task Status Breakdown</Typography>
+      <Typography sx={{ fontWeight: 900, fontSize: 18, mb: 2 }}>
+        Member Progress
+      </Typography>
 
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1.75 }}>
-        {statusData.map((item) => (
-          <Box key={item.name}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-              <Typography variant="body2">{item.name}</Typography>
-              <Typography variant="body2">{item.value}%</Typography>
-            </Box>
+        {sortedMembers.length > 0 ? (
+          sortedMembers.map((member) => (
+            <Box key={member.userId}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={member.memberName}
+                >
+                  {member.memberName}
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  {member.progressPercent}%
+                </Typography>
+              </Box>
 
-            <LinearProgress
-              variant="determinate"
-              value={item.value}
-              sx={{
-                height: 9,
-                borderRadius: 3,
-                "& .MuiLinearProgress-bar": { borderRadius: 3, backgroundColor: "#4B2E83" },
-                backgroundColor: "rgba(75,46,131,0.12)",
-              }}
-            />
-          </Box>
-        ))}
+              <LinearProgress
+                variant="determinate"
+                value={member.progressPercent}
+                sx={{
+                  height: 9,
+                  borderRadius: 3,
+                  "& .MuiLinearProgress-bar": {
+                    borderRadius: 3,
+                    backgroundColor: "#4B2E83",
+                  },
+                  backgroundColor: "rgba(75,46,131,0.12)",
+                }}
+              />
+            </Box>
+          ))
+        ) : (
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 2 }}>
+            No members with assignments
+          </Typography>
+        )}
       </Box>
     </Paper>
   );

@@ -123,6 +123,7 @@ export default function AssignUsersSelect({
       renderInput={(params) => (
         <TextField
           {...params}
+          disabled={disabled}
           size="small"
           label="Assign Users"
           placeholder="Select team members"

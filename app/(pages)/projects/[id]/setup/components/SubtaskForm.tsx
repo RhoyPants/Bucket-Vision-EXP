@@ -69,11 +69,11 @@ export default function SubtaskForm({
     if (fullProject?.ownerId && users.length > 0) {
       const ownerUser = users.find((u: any) => u.id === fullProject.ownerId);
       if (ownerUser && !userIds.has(ownerUser.id)) {
-        return [ownerUser, ...engagedUsers];
+        return [ownerUser, ...engagedUsers] as any;
       }
     }
 
-    return engagedUsers;
+    return engagedUsers as any;
   }, [engagedUsers, fullProject?.ownerId, users]);
 
   const budgetPercent =

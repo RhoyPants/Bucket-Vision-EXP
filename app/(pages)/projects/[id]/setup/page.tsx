@@ -80,6 +80,7 @@ export default function ProjectSetupPage() {
         projectId: id,
         budgetAllocated: budget,
         budgetPercent: percent,
+        order: project.categories?.length || 0,
       }),
     );
 
@@ -274,7 +275,11 @@ export default function ProjectSetupPage() {
 
           {/* CATEGORY LIST */}
           <CategoryList
-            categories={project?.categories || []}
+            categories={[...(project?.categories || [])].sort((a: any, b: any) => {
+              const orderA = a.order ?? 0;
+              const orderB = b.order ?? 0;
+              return orderA - orderB;
+            })}
             categoryEdit={categoryEdit}
             setCategoryEdit={setCategoryEdit}
             taskInputs={taskInputs}

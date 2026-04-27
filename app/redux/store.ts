@@ -10,6 +10,9 @@ import projectReducer from "./slices/projectSlice";
 import projectMemberReducer from "./slices/projectMemberSlice";
 import taskReducer from "./slices/taskSlice";
 import userReducer from "./slices/userSlice";
+import dashboardReducer from "./slices/dashboardSlice";
+import dailyReportReducer from "./slices/dailyReportSlice";
+import weeklyReportReducer from "./slices/weeklyReportSlice";
 // @ts-ignore
 import logger from "redux-logger";
 
@@ -24,6 +27,9 @@ export const store = configureStore({
     projectMembers: projectMemberReducer,
     task: taskReducer,
     user: userReducer,
+    dashboard: dashboardReducer,
+    dailyReport: dailyReportReducer,
+    weeklyReport: weeklyReportReducer,
   },
   middleware: (getDefault) => getDefault().concat(logger),
   devTools: true,

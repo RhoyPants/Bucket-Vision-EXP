@@ -1,6 +1,53 @@
-import { Paper, Typography, Grid } from "@mui/material";
+"use client";
 
-export default function TeamRoles() {
+import { Paper, Typography, Grid, Box } from "@mui/material";
+import { useAppSelector } from "@/app/redux/hook";
+import { aggregateTeamStats } from "@/app/utils/teamAggregation";
+
+interface Props {
+  projectId: string | null;
+  allProjectsData?: any[] | null;
+}
+
+export default function TeamRoles({ projectId, allProjectsData }: Props) {
+  const fullProject = useAppSelector((state) => state.project.fullProject);
+
+  // Determine data to use
+  let projectData = null;
+  
+  if (projectId === "all-projects" && allProjectsData && allProjectsData.length > 0) {
+    projectData = null;
+  } else if (projectId && projectId !== "all-projects") {
+    projectData = fullProject && fullProject.id === projectId ? fullProject : null;
+  }
+
+  const stats = aggregateTeamStats(
+    projectData,
+    projectId === "all-projects" ? allProjectsData || [] : undefined
+  );
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "#10B981";
+      case "inProgress":
+        return "#3B82F6";
+      case "pending":
+        return "#9CA3AF";
+      case "overdue":
+        return "#EF4444";
+      default:
+        return "#6B7280";
+    }
+  };
+
+  const statusItems = [
+    { label: "Completed", value: stats.completedSubtasks, color: getStatusColor("completed") },
+    { label: "In Progress", value: stats.inProgressSubtasks, color: getStatusColor("inProgress") },
+    { label: "Pending", value: stats.pendingSubtasks, color: getStatusColor("pending") },
+    { label: "Overdue", value: stats.overdueSubtasks, color: getStatusColor("overdue") },
+  ];
+
   return (
     <Paper
       elevation={0}
@@ -12,34 +59,77 @@ export default function TeamRoles() {
         backgroundColor: "#fff",
       }}
     >
-      <Typography sx={{ fontWeight: 900, fontSize: 18, mb: 2 }}>Team Roles and Department</Typography>
+      <Typography sx={{ fontWeight: 900, fontSize: 18, mb: 2 }}>
+        Subtask Status
+      </Typography>
 
-      <Grid container spacing={1}>
-        <Grid size={{ xs: 12, sm: 6 }}>
-          <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>
-            Team Members: <span style={{ fontWeight: 400 }}>6</span>
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>
-            UI/UX Designers: <span style={{ fontWeight: 400 }}>2</span>
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>
-            QA Team: <span style={{ fontWeight: 400 }}>1</span>
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-            Project Managers: <span style={{ fontWeight: 400 }}>3</span>
-          </Typography>
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 6 }}>
-          <Typography variant="body2" sx={{ mb: 0.75 }}>
-            • Emma completed the Login Module
-          </Typography>
-          <Typography variant="body2" sx={{ mb: 0.75 }}>
-            • James resolved 12 bugs this week
-          </Typography>
-          <Typography variant="body2">• Fiona finished the UX Workshop</Typography>
-        </Grid>
+      <Grid container spacing={1.5}>
+        {statusItems.map((item) => (
+          <Grid key={item.label} size={{ xs: 6 }}>
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: 2,
+                backgroundColor: `${item.color}15`,
+                border: `1px solid ${item.color}30`,
+                textAlign: "center",
+              }}
+            >
+              <Typography
+                variant="body2"
+                sx={{
+                  color: item.color,
+                  fontWeight: 700,
+                  fontSize: 20,
+                  mb: 0.5,
+                }}
+              >
+                {item.value}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  fontWeight: 500,
+                  fontSize: 11,
+                }}
+              >
+                {item.label}
+              </Typography>
+            </Box>
+          </Grid>
+        ))}
       </Grid>
+
+      <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            mb: 1,
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            Total Subtasks
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: "#4B2E83" }}>
+            {stats.totalAssignedSubtasks}
+          </Typography>
+        </Box>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 700, color: "text.secondary" }}>
+            Team Members
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: "text.secondary" }}>
+            {stats.totalMembers}
+          </Typography>
+        </Box>
+      </Box>
     </Paper>
   );
 }

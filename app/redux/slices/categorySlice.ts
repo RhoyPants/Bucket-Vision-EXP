@@ -5,6 +5,7 @@ export interface Category {
   name: string;
   description?: string;
   projectId: string;
+  order?: number;
 
   budgetAllocated?: number;
   budgetPercent?: number;
@@ -26,7 +27,12 @@ const categorySlice = createSlice({
   reducers: {
     // ✅ SET ALL
     setCategories(state, action: PayloadAction<Category[]>) {
-      state.categories = action.payload;
+      // Sort by order field (ascending)
+      state.categories = [...action.payload].sort((a, b) => {
+        const orderA = a.order ?? 0;
+        const orderB = b.order ?? 0;
+        return orderA - orderB;
+      });
     },
 
     // ✅ CURRENT
@@ -37,6 +43,12 @@ const categorySlice = createSlice({
     // ✅ ADD
     addCategory(state, action: PayloadAction<Category>) {
       state.categories.push(action.payload);
+      // Sort by order field after adding
+      state.categories.sort((a, b) => {
+        const orderA = a.order ?? 0;
+        const orderB = b.order ?? 0;
+        return orderA - orderB;
+      });
     },
 
     // ✅ UPDATE
@@ -46,6 +58,12 @@ const categorySlice = createSlice({
       );
       if (index !== -1) {
         state.categories[index] = action.payload;
+        // Sort after update to maintain order
+        state.categories.sort((a, b) => {
+          const orderA = a.order ?? 0;
+          const orderB = b.order ?? 0;
+          return orderA - orderB;
+        });
       }
     },
 
