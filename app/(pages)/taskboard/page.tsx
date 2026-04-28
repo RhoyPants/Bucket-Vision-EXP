@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Box,
   Container,
-  Grid,
   CircularProgress,
   Typography,
   Alert,
@@ -16,10 +15,10 @@ import ViewWeekIcon from "@mui/icons-material/ViewWeek";
 import ViewAgendaIcon from "@mui/icons-material/ViewAgenda";
 
 import Layout from "@/app/components/shared/Layout";
-import SubtaskCard from "./components/SubtaskCard";
-import TaskBoardFilters from "./components/TaskBoardFilters";
-import ProgressUpdateModal from "./components/ProgressUpdateModal";
+import TaskBoardFilters from "./Components/TaskBoardFilters";
+import GridTableView from "./Components/GridTableView";
 import KanbanBoard from "@/app/components/shared/kanban/KanbanBoard";
+import ProgressCalendarModal from "@/app/components/shared/modals/ProgressCalendarModal";
 
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import {
@@ -28,7 +27,7 @@ import {
   loadCategoriesForProject,
   loadTasksForCategory,
 } from "@/app/redux/controllers/subTaskController";
-import { filterSubtasks, type SubtaskCardData } from "@/app/api-service/myBoardService";
+import type { SubtaskCardData } from "@/app/api-service/myBoardService";
 
 interface FilterState {
   searchQuery: string;
@@ -42,10 +41,17 @@ export default function TaskBoardPage() {
   // 🔥 REDUX HOOKS
   // ========================================
   const dispatch = useAppDispatch();
-  const subtasks = useAppSelector((state) => state.kanban.subtasks) as SubtaskCardData[];
-  const { projects, categories, tasks } = useAppSelector(
-    (state) => state.kanban.boardFilters,
-  );
+  const subtasks = useAppSelector((state) => {
+    const kanbanSubtasks = state.kanban.subtasks || [];
+    // Map KanbanSubtask to SubtaskCardData if needed
+    return kanbanSubtasks as any as SubtaskCardData[];
+  });
+  const boardFilters = useAppSelector((state) => state.kanban.boardFilters);
+  
+  // ✅ Ensure arrays are always defined
+  const projects = (boardFilters?.projects || []) as any[];
+  const categories = (boardFilters?.categories || []) as any[];
+  const tasks = (boardFilters?.tasks || []) as any[];
 
   // ========================================
   // 🔥 LOCAL STATE
@@ -60,18 +66,12 @@ export default function TaskBoardPage() {
     taskId: null,
   });
 
-  // Modal State
-  const [progressModal, setProgressModal] = useState<{
-    open: boolean;
-    subtaskId?: string;
-    subtaskTitle?: string;
-    currentProgress?: number;
-  }>({
-    open: false,
-  });
+  // Progress Modal State
+  const [progressModalOpen, setProgressModalOpen] = useState(false);
+  const [selectedSubtask, setSelectedSubtask] = useState<SubtaskCardData | null>(null);
 
   // ========================================
-  // 🔥 INITIAL LOAD - Fetch board and filters
+  // 🔥 INITIAL LOAD - Fetch filters dropdown data
   // ========================================
   useEffect(() => {
     const loadInitialData = async () => {
@@ -79,11 +79,10 @@ export default function TaskBoardPage() {
       setError("");
 
       try {
-        // ✅ Load user's subtasks and filter data in parallel
-        await Promise.all([
-          dispatch(loadMyBoard()),
-          dispatch(loadBoardFilterData()),
-        ]);
+        // ✅ Load filter dropdown data (projects, categories, tasks)
+        await dispatch(loadBoardFilterData());
+        // ✅ Load initial subtasks (no filters yet)
+        await dispatch(loadMyBoard());
       } catch (err: any) {
         console.error("Error loading board:", err);
         setError(
@@ -98,6 +97,31 @@ export default function TaskBoardPage() {
   }, [dispatch]);
 
   // ========================================
+  // 🔥 WHEN FILTERS CHANGE - RELOAD SUBTASKS FROM BACKEND
+  // ========================================
+  useEffect(() => {
+    if (loading) return; // Skip if still loading initial data
+
+    // Only reload if filters changed (after initial load)
+    const reloadBoard = async () => {
+      try {
+        await dispatch(
+          loadMyBoard({
+            projectId: filters.projectId || undefined,
+            categoryId: filters.categoryId || undefined,
+            taskId: filters.taskId || undefined,
+            search: filters.searchQuery || undefined,
+          })
+        );
+      } catch (err: any) {
+        console.error("Error reloading board with filters:", err);
+      }
+    };
+
+    reloadBoard();
+  }, [filters.projectId, filters.categoryId, filters.taskId, filters.searchQuery, dispatch, loading]);
+
+  // ========================================
   // 🔥 LOAD CATEGORIES WHEN PROJECT CHANGES
   // ========================================
   useEffect(() => {
@@ -107,7 +131,7 @@ export default function TaskBoardPage() {
 
     const loadCategories = async () => {
       try {
-        await dispatch(loadCategoriesForProject(filters.projectId));
+        await dispatch(loadCategoriesForProject(filters.projectId!));
         setFilters((prev) => ({
           ...prev,
           categoryId: null,
@@ -132,7 +156,7 @@ export default function TaskBoardPage() {
 
     const loadTasks = async () => {
       try {
-        await dispatch(loadTasksForCategory(filters.categoryId));
+        await dispatch(loadTasksForCategory(filters.categoryId!));
         setFilters((prev) => ({
           ...prev,
           taskId: null,
@@ -150,18 +174,30 @@ export default function TaskBoardPage() {
   // 🔥 HANDLE PROJECT CHANGE - Clear subcategories
   // ========================================
   const handleFilterChange = useCallback((newFilters: FilterState) => {
+    // If project changed, clear category and task
+    if (newFilters.projectId !== filters.projectId) {
+      newFilters.categoryId = null;
+      newFilters.taskId = null;
+    }
+    // If category changed, clear task
+    else if (newFilters.categoryId !== filters.categoryId) {
+      newFilters.taskId = null;
+    }
+    
     setFilters(newFilters);
-  }, []);
+  }, [filters]);
 
   // ========================================
-  // 🔥 FILTER SUBTASKS
+  // 🔥 FILTERED SUBTASKS (Backend filtered already)
   // ========================================
-  const filteredSubtasks = filterSubtasks(subtasks, {
-    search: filters.searchQuery,
-    projectId: filters.projectId || undefined,
-    categoryId: filters.categoryId || undefined,
-    taskId: filters.taskId || undefined,
-  });
+  const filteredSubtasks = useMemo(
+    () => {
+      // ✅ Subtasks are already filtered by backend
+      // Just ensure they're in the correct format
+      return subtasks && Array.isArray(subtasks) ? subtasks : [];
+    },
+    [subtasks]
+  );
 
   // ========================================
   // 🔥 KANBAN COLUMNS COMPUTATION
@@ -176,41 +212,37 @@ export default function TaskBoardPage() {
   );
 
   // ========================================
-  // 🔥 HANDLERS
+  // 🔥 TYPE GUARD FOR FILTERED SUBTASKS
   // ========================================
-  const handleUpdateProgress = useCallback(
-    (subtask: SubtaskCardData) => {
-      setProgressModal({
-        open: true,
-        subtaskId: subtask.id,
-        subtaskTitle: subtask.title,
-        currentProgress: subtask.progress,
-      });
-    },
-    [],
+  const safeFilteredSubtasks = useMemo(
+    () =>
+      filteredSubtasks.filter((sub) => sub && typeof sub === 'object'),
+    [filteredSubtasks]
   );
 
-  const handleViewDetails = useCallback((subtaskId: string) => {
-    // TODO: Implement view details page/modal in next iteration
+  // ========================================
+  // 🔥 HANDLERS
+  // ========================================
+  const handleUpdateProgress = useCallback((subtask: SubtaskCardData) => {
+    setSelectedSubtask(subtask);
+    setProgressModalOpen(true);
   }, []);
 
   const handleProgressModalClose = () => {
-    setProgressModal({ open: false });
+    setProgressModalOpen(false);
+    setSelectedSubtask(null);
   };
 
   const handleProgressSuccess = useCallback(() => {
-    // ✅ Reload the board WITHOUT filters to get all assigned subtasks
-    // (filtering happens on client side)
+    // ✅ Reload the board WITHOUT filters to get a fresh complete list
+    // AND refresh filter dropdowns to ensure consistency
     const reloadBoard = async () => {
       try {
-        await dispatch(loadMyBoard()); // No filters - get ALL assigned
-        // 🔥 CLEAR ALL FILTERS to show all assigned subtasks fresh
-        setFilters({
-          searchQuery: "",
-          projectId: null,
-          categoryId: null,
-          taskId: null,
-        });
+        // 🔥 CRITICAL: Reload subtasks AND filter data for consistency
+        await Promise.all([
+          dispatch(loadMyBoard()), // No filters - get ALL assigned from backend
+          dispatch(loadBoardFilterData()), // Refresh projects/categories/tasks dropdowns
+        ]);
       } catch (err) {
         console.error("Error reloading board:", err);
       }
@@ -260,17 +292,41 @@ export default function TaskBoardPage() {
         <TaskBoardFilters
           filters={filters}
           onFilterChange={handleFilterChange}
-          projects={projects}
-          categories={categories.filter(
-            (cat) =>
-              !filters.projectId ||
-              subtasks.some(
-                (sub) =>
-                  sub.category.id === cat.id &&
-                  sub.project.id === filters.projectId,
-              ),
-          )}
-          tasks={tasks}
+          projects={
+            projects && Array.isArray(projects) && projects.length > 0
+              ? projects.map((p: any) => ({
+                  id: p.id || p.ID || "",
+                  name: p.name || p.projectName || p.title || "Unknown Project",
+                }))
+              : []
+          }
+          categories={
+            (filters.projectId
+              ? categories
+              : categories.filter(
+                  (cat) =>
+                    subtasks.some(
+                      (sub) => sub?.category?.id === cat.id
+                    )
+                )
+            )
+              .filter((c: any) => c) // Remove nulls
+              .map((c: any) => ({
+                id: c.id || c.ID || "",
+                name: c.name || c.categoryName || "Unknown Category",
+              }))
+          }
+          tasks={
+            (filters.categoryId
+              ? tasks
+              : []
+            )
+              .filter((t: any) => t) // Remove nulls
+              .map((t: any) => ({
+                id: t.id || t.ID || "",
+                name: t.name || t.taskName || t.title || "Unknown Task",
+              }))
+          }
           isLoading={loading}
         />
 
@@ -335,7 +391,7 @@ export default function TaskBoardPage() {
         )}
 
         {/* Empty State */}
-        {!loading && filteredSubtasks.length === 0 && (
+        {!loading && safeFilteredSubtasks.length === 0 && (
           <Paper
             sx={{
               p: 4,
@@ -370,36 +426,21 @@ export default function TaskBoardPage() {
           </Paper>
         )}
 
-        {/* Grid View */}
-        {!loading && filteredSubtasks.length > 0 && viewMode === "grid" && (
-          <Grid container spacing={2.5}>
-            {filteredSubtasks.map((subtask) => (
-              <Grid item xs={12} sm={6} lg={4} key={subtask.id}>
-                <SubtaskCard
-                  id={subtask.id}
-                  title={subtask.title}
-                  status={subtask.status}
-                  progress={subtask.progress}
-                  priority={subtask.priority}
-                  task={subtask.task}
-                  category={subtask.category}
-                  project={subtask.project}
-                  onUpdateProgress={() => handleUpdateProgress(subtask)}
-                  onViewDetails={handleViewDetails}
-                />
-              </Grid>
-            ))}
-          </Grid>
+        {/* Grid View - Table */}
+        {!loading && safeFilteredSubtasks.length > 0 && viewMode === "grid" && (
+          <GridTableView
+            subtasks={safeFilteredSubtasks}
+            onUpdateProgress={handleUpdateProgress}
+          />
         )}
 
         {/* Kanban View */}
-        {!loading && filteredSubtasks.length > 0 && viewMode === "kanban" && (
+        {!loading && safeFilteredSubtasks.length > 0 && viewMode === "kanban" && (
           <Box sx={{ background: "#F7F8FA", borderRadius: "12px", p: 2 }}>
             <KanbanBoard
               parentTaskId={null}
               columns={kanbanColumns}
-              subtasks={filteredSubtasks as any[]}
-              onViewDetails={handleViewDetails}
+              subtasks={safeFilteredSubtasks as any[]}
               onProgressSuccess={handleProgressSuccess}
               showHierarchy={true}
             />
@@ -407,15 +448,18 @@ export default function TaskBoardPage() {
         )}
       </Container>
 
-      {/* Progress Update Modal */}
-      <ProgressUpdateModal
-        open={progressModal.open}
-        onClose={handleProgressModalClose}
-        subtaskId={progressModal.subtaskId || ""}
-        subtaskTitle={progressModal.subtaskTitle || ""}
-        currentProgress={progressModal.currentProgress || 0}
-        onSuccess={handleProgressSuccess}
-      />
+      {/* Progress Calendar Modal */}
+      {selectedSubtask && (
+        <ProgressCalendarModal
+          open={progressModalOpen}
+          onClose={handleProgressModalClose}
+          subtaskId={selectedSubtask.id}
+          onSuccess={handleProgressSuccess}
+          isTaskBoard={true}
+          expectedStart={selectedSubtask.projectedStartDate}
+          expectedEnd={selectedSubtask.projectedEndDate}
+        />
+      )}
     </Layout>
   );
 }

@@ -296,18 +296,22 @@ export const loadBoardFilterData = () => {
 // 🔥 LOAD CATEGORIES FOR PROJECT
 // ========================================
 export const loadCategoriesForProject = (projectId: string) => {
-  return async (dispatch: AppDispatch) => {
+  return async (dispatch: AppDispatch, getState: any) => {
     try {
       const res = await axiosApi.get(`/categories/project/${projectId}`);
+      
+      // ✅ Get existing state to preserve projects
+      const currentState = getState();
+      const currentProjects = currentState?.kanban?.boardFilters?.projects || [];
 
       dispatch(
         setTasksForBoard([]), // ✅ Clear tasks when category changes
       );
 
-      // 🔥 Set in board filters
+      // 🔥 Preserve projects, update categories and clear tasks
       dispatch(
         setBoardFilters({
-          projects: [],
+          projects: currentProjects, // ✅ PRESERVE existing projects
           categories: res.data || [],
           tasks: [],
         }),
@@ -325,11 +329,25 @@ export const loadCategoriesForProject = (projectId: string) => {
 // 🔥 LOAD TASKS FOR CATEGORY
 // ========================================
 export const loadTasksForCategory = (categoryId: string) => {
-  return async (dispatch: AppDispatch) => {
+  return async (dispatch: AppDispatch, getState: any) => {
     try {
       const res = await axiosApi.get(`/tasks/category/${categoryId}`);
+      
+      // ✅ Get existing state to preserve projects and categories
+      const currentState = getState();
+      const currentProjects = currentState?.kanban?.boardFilters?.projects || [];
+      const currentCategories = currentState?.kanban?.boardFilters?.categories || [];
 
       dispatch(setTasksForBoard(res.data || []));
+      
+      // 🔥 Also update board filters to preserve projects and categories
+      dispatch(
+        setBoardFilters({
+          projects: currentProjects, // ✅ PRESERVE existing projects
+          categories: currentCategories, // ✅ PRESERVE existing categories
+          tasks: res.data || [],
+        }),
+      );
 
       return res.data || [];
     } catch (err) {

@@ -181,6 +181,14 @@ export default function SprintManagementPage() {
     }
   }, [currentCategoryId, filteredTasksForCategory, currentTaskId, dispatch]);
 
+  const handleProgressSuccess = async () => {
+    // ✅ Reload only subtasks for current task (don't reset project/category)
+    if (currentTaskId) {
+      const kanban = await dispatch(loadKanbanByTask(currentTaskId));
+      if (kanban) setColumns(kanban.columns);
+    }
+  };
+
   const handleOpenTaskModal = (
     mode: "create" | "view" | "edit",
     task?: any,
@@ -230,7 +238,12 @@ export default function SprintManagementPage() {
 
   return (
     <Layout>
-      <Box sx={{ p: { xs: 2, md: 3 } }}>
+      <Box sx={{ 
+        p: { xs: 2, sm: 2.5, md: 3, lg: 4 },
+        maxWidth: "1920px",
+        mx: "auto",
+        width: "100%"
+      }}>
         <Stack spacing={3}>
           {/* 📌 PROJECT SELECTOR */}
           <Paper sx={{ p: 2, borderRadius: 3 }}>
@@ -266,16 +279,19 @@ export default function SprintManagementPage() {
           {viewMode === "kanban" && (
             <>
               {/* 📌 S-CURVE */}
-              <Paper sx={{ p: 2, borderRadius: 3 }}>
-                <Typography variant="subtitle1" fontWeight={600} mb={1}>
+              <Paper sx={{ p: { xs: 2, md: 2.5, lg: 3 }, borderRadius: 3 }}>
+                <Typography variant="subtitle1" fontWeight={600} mb={2}>
                   Project Progress
                 </Typography>
-
-                <SCurveChart projectId={currentProjectId} />
+                <Box sx={{ 
+                  minHeight: { xs: "300px", md: "400px", lg: "450px" },
+                  overflow: "auto"
+                }}>
+                  <SCurveChart projectId={currentProjectId} />
+                </Box>
               </Paper>
 
-              {/* 📌 CATEGORY */}
-              <Paper sx={{ p: 2, borderRadius: 3 }}>
+              <Paper sx={{ p: { xs: 2, md: 2.5, lg: 3 }, borderRadius: 3 }}>
                 <CategorySelector
                   categories={categories}
                   currentCategoryId={currentCategoryId}
@@ -288,15 +304,20 @@ export default function SprintManagementPage() {
                 sx={{
                   display: "flex",
                   flexDirection: { xs: "column", md: "row" },
-                  gap: 2,
+                  gap: { xs: 2, md: 2.5, lg: 3 },
+                  alignItems: "stretch",
+                  height: "auto",
                 }}
               >
                 {/* TASK SIDEBAR */}
                 <Paper
                   sx={{
-                    width: { xs: "100%", md: 280 },
+                    width: { xs: "100%", md: 280, lg: 340 },
                     borderRadius: 3,
-                    p: 1,
+                    p: { xs: 1.5, md: 1.5, lg: 2 },
+                    minHeight: { xs: "auto", md: "650px", lg: "750px" },
+                    overflow: "auto",
+                    flexShrink: 0,
                   }}
                 >
                   <TaskSidebar
@@ -313,10 +334,13 @@ export default function SprintManagementPage() {
                 {/* KANBAN BOARD */}
                 <Paper
                   sx={{
-                    flexGrow: 1,
+                    flex: 1,
                     borderRadius: 3,
-                    p: 2,
-                    minHeight: 400,
+                    p: { xs: 2, md: 2.5, lg: 3 },
+                    minHeight: { xs: 400, md: 650, lg: 750 },
+                    overflow: "auto",
+                    display: "flex",
+                    flexDirection: "column",
                   }}
                 >
                   {currentTaskId && (
@@ -326,6 +350,7 @@ export default function SprintManagementPage() {
                       subtasks={subtasks}
                       taskBudget={currentTask?.budgetAllocated || 0}
                       projectId={currentProjectId || ""}
+                      onProgressSuccess={handleProgressSuccess}
                     />
                   )}
                 </Paper>
@@ -335,14 +360,27 @@ export default function SprintManagementPage() {
 
           {/* 📌 GRID VIEW */}
           {viewMode === "grid" && (
-            <Paper sx={{ p: 2, borderRadius: 3 }}>
-              <Typography variant="subtitle1" fontWeight={600} mb={1}>
-                Project Progress
-              </Typography>
+            <>
+              <Paper sx={{ p: { xs: 2, md: 2.5, lg: 3 }, borderRadius: 3 }}>
+                <Typography variant="subtitle1" fontWeight={600} mb={2}>
+                  Project Progress
+                </Typography>
 
-              <SCurveChart projectId={currentProjectId} />
-              <GridTableView projectId={currentProjectId} />
-            </Paper>
+                <Box sx={{ 
+                  minHeight: { xs: "300px", md: "400px", lg: "450px" }, 
+                  overflow: "auto", 
+                  mb: 3 
+                }}>
+                  <SCurveChart projectId={currentProjectId} />
+                </Box>
+              </Paper>
+
+              <Paper sx={{ p: { xs: 2, md: 2.5, lg: 3 }, borderRadius: 3 }}>
+                <Box sx={{ overflow: "auto" }}>
+                  <GridTableView projectId={currentProjectId} />
+                </Box>
+              </Paper>
+            </>
           )}
         </Stack>
       </Box>

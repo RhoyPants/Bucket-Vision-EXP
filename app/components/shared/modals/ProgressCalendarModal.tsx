@@ -37,6 +37,7 @@ export default function ProgressCalendarModal({
               isTaskBoard={isTaskBoard}
               projectedStartDate={expectedStart}
               projectedEndDate={expectedEnd}
+              onSuccess={onSuccess}
             />
           </Box>
         </DialogContent>

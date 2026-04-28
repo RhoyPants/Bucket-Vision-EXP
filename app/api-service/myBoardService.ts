@@ -11,6 +11,12 @@ export interface SubtaskCardData {
   progress: number;
   priority: string;
   remarks?: string;
+  budgetAllocated?: number;
+  budgetPercent?: number;
+  projectedStartDate?: string;
+  projectedEndDate?: string;
+  actualStartDate?: string;
+  actualEndDate?: string;
   task: {
     id: string;
     title: string;
@@ -31,7 +37,8 @@ export interface SubtaskCardData {
     remarks?: string;
   }>;
   assignees?: Array<{
-    id: string;
+    subtaskId?: string;
+    userId?: string;
     user: {
       id: string;
       name: string;
@@ -74,6 +81,9 @@ export const filterSubtasks = (
   }
 ): SubtaskCardData[] => {
   return subtasks.filter((subtask) => {
+    // Null/undefined check
+    if (!subtask || !subtask.title) return false;
+
     // Search filter
     if (
       filters.search &&
@@ -84,18 +94,24 @@ export const filterSubtasks = (
       return false;
     }
 
-    // Project filter
-    if (filters.projectId && subtask.project.id !== filters.projectId) {
-      return false;
+    // Project filter - Match via task.category.project hierarchy
+    if (filters.projectId) {
+      const projectId = (subtask.task as any)?.category?.project?.id;
+      if (projectId !== filters.projectId) {
+        return false;
+      }
     }
 
-    // Category filter
-    if (filters.categoryId && subtask.category.id !== filters.categoryId) {
-      return false;
+    // Category filter - Match via task.category hierarchy
+    if (filters.categoryId) {
+      const categoryId = (subtask.task as any)?.category?.id;
+      if (categoryId !== filters.categoryId) {
+        return false;
+      }
     }
 
-    // Task filter
-    if (filters.taskId && subtask.task.id !== filters.taskId) {
+    // Task filter - Direct match
+    if (filters.taskId && subtask.task?.id !== filters.taskId) {
       return false;
     }
 

@@ -17,7 +17,7 @@ import {
   Chip,
   Stack,
   IconButton,
-} from "@mui/material";
+} from "@mui/material"
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { useAppSelector } from "@/app/redux/hook";
@@ -55,11 +55,27 @@ export default function GridTableView({ projectId }: GridTableViewProps) {
         0
       );
 
+      // Calculate category progress from all subtasks
+      let totalSubtaskProgress = 0;
+      let totalSubtasksCount = 0;
+      (category.tasks || []).forEach((task: any) => {
+        (task.subtasks || []).forEach((subtask: any) => {
+          totalSubtaskProgress += subtask.progress || 0;
+          totalSubtasksCount += 1;
+        });
+      });
+      const categoryProgress = totalSubtasksCount > 0 ? Math.round(totalSubtaskProgress / totalSubtasksCount) : 0;
+
+      // Calculate category weight percentage
+      const categoryWeight = totalBudget > 0 ? (categoryBudget / totalBudget) * 100 : 0;
+
       return {
         type: "category",
         id: category.id,
         name: category.name,
         totalBudget: categoryBudget,
+        weight: categoryWeight,
+        progress: categoryProgress,
         // Tasks are nested directly in category
         tasks: (category.tasks || []).map((task: any) => ({
           type: "task",
@@ -224,13 +240,22 @@ export default function GridTableView({ projectId }: GridTableViewProps) {
                     ₱{category.totalBudget.toLocaleString()}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700, color: "#1D1F26", fontSize: "13px" }}>
-                    -
+                    {category.weight.toFixed(2)}%
                   </TableCell>
                   <TableCell align="center" />
                   <TableCell align="center" />
                   <TableCell align="center" />
                   <TableCell align="center" />
-                  <TableCell align="center" />
+                  <TableCell align="center" sx={{ fontSize: "13px" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Box sx={{ flex: 1, height: "6px", borderRadius: "3px", backgroundColor: "#E0E0E0", overflow: "hidden" }}>
+                        <Box sx={{ height: "100%", width: `${category.progress || 0}%`, backgroundColor: category.progress >= 75 ? "#4CAF50" : category.progress >= 50 ? "#FFC107" : "#FF9800", transition: "width 0.3s ease" }} />
+                      </Box>
+                      <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#1D1F26", minWidth: "35px" }}>
+                        {category.progress || 0}%
+                      </Typography>
+                    </Box>
+                  </TableCell>
                 </TableRow>
 
                 {expandedCategories.has(category.id) &&

@@ -3,6 +3,7 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 export interface ProgressLog {
   id?: string;
   subtaskId: string;
+  userId?: string;
   date: string;
 
   dailyPercent: number;
@@ -11,8 +12,13 @@ export interface ProgressLog {
   photoUrl?: string;
   latitude?: number;
   longitude?: number;
+  location?: string;
 
   remarks?: string;
+  dayNumber?: number;
+
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface ProgressState {
