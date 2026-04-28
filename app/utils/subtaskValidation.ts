@@ -113,7 +113,7 @@ export const validateSubtaskForm = (
   }
 
   // ✅ Budget validation against task budget
-  if (taskBudget > 0 && form.budgetAllocated > taskBudget) {
+  if (form.budgetAllocated !== undefined && form.budgetAllocated !== null && taskBudget > 0 && form.budgetAllocated > taskBudget) {
     errors.push({
       field: "budgetAllocated",
       message: `Budget allocation (₱${form.budgetAllocated}) exceeds task budget (₱${taskBudget})`,

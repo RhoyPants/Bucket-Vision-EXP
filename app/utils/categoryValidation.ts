@@ -67,7 +67,7 @@ export const validateCategoryForm = (
   }
 
   // ✅ Budget validation against project budget
-  if (projectBudget > 0 && form.budgetAllocated > projectBudget) {
+  if (form.budgetAllocated !== undefined && form.budgetAllocated !== null && projectBudget > 0 && form.budgetAllocated > projectBudget) {
     errors.push({
       field: "budgetAllocated",
       message: `Budget allocation (₱${form.budgetAllocated}) exceeds project budget (₱${projectBudget})`,

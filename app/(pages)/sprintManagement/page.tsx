@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import {
   Box,
   Paper,
@@ -8,6 +8,7 @@ import {
   Typography,
   ButtonGroup,
   Button,
+  CircularProgress,
 } from "@mui/material";
 import ViewWeekIcon from "@mui/icons-material/ViewWeek";
 import ViewAgendaIcon from "@mui/icons-material/ViewAgenda";
@@ -37,7 +38,7 @@ import { getProjectFull } from "@/app/redux/controllers/projectController";
 
 type ViewMode = "grid" | "kanban";
 
-export default function SprintManagementPage() {
+function SprintManagementContent() {
   const dispatch = useAppDispatch();
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
 
@@ -241,9 +242,9 @@ export default function SprintManagementPage() {
       <Box sx={{ 
         p: { xs: 2, sm: 2.5, md: 3, lg: 4 },
         maxWidth: "1920px",
-        mx: "auto",
-        width: "100%"
-      }}>
+          mx: "auto",
+          width: "100%"
+        }}>
         <Stack spacing={3}>
           {/* 📌 PROJECT SELECTOR */}
           <Paper sx={{ p: 2, borderRadius: 3 }}>
@@ -396,6 +397,14 @@ export default function SprintManagementPage() {
           categoryBudget={currentCategory?.budgetAllocated || 0}
         />
       )}
-    </Layout>
+      </Layout>
+  );
+}
+
+export default function SprintManagementPage() {
+  return (
+    <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}><CircularProgress /></Box>}>
+      <SprintManagementContent />
+    </Suspense>
   );
 }
