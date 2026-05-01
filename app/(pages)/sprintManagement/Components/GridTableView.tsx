@@ -1,397 +1,497 @@
-/**
- * GridTableView - Table display for categories, tasks and subtasks
- * Uses fullProject data from API which contains complete hierarchy
- */
+"use client";
 
 import React, { useMemo, useState } from "react";
 import {
   Box,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Typography,
-  Chip,
-  Stack,
   IconButton,
-} from "@mui/material"
+  Stack,
+} from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { useAppSelector } from "@/app/redux/hook";
 
-interface GridTableViewProps {
+interface Props {
   projectId?: string | null;
 }
 
-export default function GridTableView({ projectId }: GridTableViewProps) {
+export default function GanttGridView({ projectId }: Props) {
   const fullProject = useAppSelector((state) => state.project.fullProject);
+
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
-  // Build hierarchical data from fullProject
-  // ⚠️ Data structure is NESTED: categories.tasks.subtasks (not flat)
-  const hierarchicalData = useMemo(() => {
-    if (!fullProject || !fullProject.categories) {
+  // 🔥 DATE RESOLVER - AGGREGATE UPWARD FROM SUBTASKS
+  const getRowDates = (row: any) => {
+    // 🔹 SUBTASK → direct dates
+    if (row.type === "subtask") {
+      return {
+        start: row.projectedStartDate || row.startDate,
+        end: row.projectedEndDate || row.endDate,
+      };
+    }
+
+    // 🔹 TASK → derive from subtasks
+    if (row.type === "task") {
+      const subs = row.subtasks || [];
+      const valid = subs.filter(
+        (s: any) => s.projectedStartDate || s.startDate
+      );
+
+      if (valid.length === 0) return { start: undefined, end: undefined };
+
+      const startDates = valid.map(
+        (s: any) => new Date((s.projectedStartDate || s.startDate) as string).getTime()
+      );
+      const endDates = valid.map(
+        (s: any) => new Date((s.projectedEndDate || s.endDate) as string).getTime()
+      );
+
+      return {
+        start: new Date(Math.min(...startDates)),
+        end: new Date(Math.max(...endDates)),
+      };
+    }
+
+    // 🔹 CATEGORY → derive from all subtasks across tasks
+    if (row.type === "category") {
+      let allSubs: any[] = [];
+      row.tasks?.forEach((t: any) => {
+        allSubs = [...allSubs, ...(t.subtasks || [])];
+      });
+
+      const valid = allSubs.filter(
+        (s) => s.projectedStartDate || s.startDate
+      );
+
+      if (valid.length === 0) return { start: undefined, end: undefined };
+
+      const startDates = valid.map(
+        (s: any) => new Date((s.projectedStartDate || s.startDate) as string).getTime()
+      );
+      const endDates = valid.map(
+        (s: any) => new Date((s.projectedEndDate || s.endDate) as string).getTime()
+      );
+
+      return {
+        start: new Date(Math.min(...startDates)),
+        end: new Date(Math.max(...endDates)),
+      };
+    }
+
+    return { start: undefined, end: undefined };
+  };
+
+  // 🔥 GENERATE DATE RANGE (GLOBAL) - FROM SUBTASKS ONLY
+  const dates = useMemo(() => {
+    if (!fullProject?.categories) return [];
+
+    const allDates: number[] = [];
+
+    fullProject.categories.forEach((cat: any) => {
+      cat.tasks?.forEach((task: any) => {
+        task.subtasks?.forEach((sub: any) => {
+          const start = sub.projectedStartDate || sub.startDate;
+          const end = sub.projectedEndDate || sub.endDate;
+
+          // 🔥 STRICT CHECK - BOTH must exist
+          if (!start || !end) return;
+
+          const s = new Date(start).getTime();
+          const e = new Date(end).getTime();
+
+          // 🔥 Validate dates are valid numbers
+          if (!isNaN(s) && !isNaN(e)) {
+            allDates.push(s, e);
+          }
+        });
+      });
+    });
+
+    // 🔴 CRITICAL: no valid dates
+    if (allDates.length === 0) {
+      console.warn("❌ No valid subtask dates found in project");
       return [];
     }
 
-    const categories = fullProject.categories || [];
-    
-    // Calculate total budget from all tasks across all categories
-    const totalBudget = categories.reduce((catSum: number, category: any) => {
-      const categoryTaskBudget = (category.tasks || []).reduce(
-        (taskSum: number, task: any) => taskSum + (task.budgetAllocated || 0),
-        0
-      );
-      return catSum + categoryTaskBudget;
-    }, 0);
+    const min = Math.min(...allDates);
+    const max = Math.max(...allDates);
 
-    return categories.map((category: any) => {
-      const categoryBudget = (category.tasks || []).reduce(
-        (sum: number, task: any) => sum + (task.budgetAllocated || 0),
-        0
-      );
+    const result: Date[] = [];
+    let current = new Date(min);
 
-      // Calculate category progress from all subtasks
-      let totalSubtaskProgress = 0;
-      let totalSubtasksCount = 0;
-      (category.tasks || []).forEach((task: any) => {
-        (task.subtasks || []).forEach((subtask: any) => {
-          totalSubtaskProgress += subtask.progress || 0;
-          totalSubtasksCount += 1;
-        });
-      });
-      const categoryProgress = totalSubtasksCount > 0 ? Math.round(totalSubtaskProgress / totalSubtasksCount) : 0;
+    while (current.getTime() <= max) {
+      result.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
 
-      // Calculate category weight percentage
-      const categoryWeight = totalBudget > 0 ? (categoryBudget / totalBudget) * 100 : 0;
+    console.log("✅ GENERATED DATES:", result.length, "from", new Date(min), "to", new Date(max));
 
-      return {
-        type: "category",
-        id: category.id,
-        name: category.name,
-        totalBudget: categoryBudget,
-        weight: categoryWeight,
-        progress: categoryProgress,
-        // Tasks are nested directly in category
-        tasks: (category.tasks || []).map((task: any) => ({
-          type: "task",
-          id: task.id,
-          name: task.title || task.name, // API uses "title" not "name" for tasks
-          budget: task.budgetAllocated || 0,
-          weight: totalBudget > 0 ? ((task.budgetAllocated || 0) / totalBudget) * 100 : 0,
-          expectedStartDate: task.projectedStartDate || task.expectedStartDate || task.startDate,
-          expectedEndDate: task.projectedEndDate || task.expectedEndDate || task.endDate,
-          actualStartDate: task.actualStartDate,
-          actualEndDate: task.actualEndDate,
-          progress: task.progress || 0,
-          // Subtasks are nested directly in task
-          subtasks: (task.subtasks || []).map((subtask: any) => {
-            // Extract ALL assignee names from assignees array
-            let assigneeNames: string[] = [];
-            
-            if (subtask.assignees && Array.isArray(subtask.assignees) && subtask.assignees.length > 0) {
-              assigneeNames = subtask.assignees
-                .map((assignee: any) => {
-                  // assignees[i].user.name structure
-                  if (assignee && assignee.user) {
-                    return assignee.user.name || assignee.user.fullName || assignee.user.username || "Unknown";
-                  }
-                  return null;
-                })
-                .filter((name: string | null) => name !== null);
-            } else if (subtask.user) {
-              const userName = typeof subtask.user === 'object'
-                ? (subtask.user.name || subtask.user.fullName || subtask.user.username || "Unknown")
-                : subtask.user;
-              assigneeNames = [userName];
-            } else if (subtask.assignee) {
-              const assigneeName = typeof subtask.assignee === 'object'
-                ? (subtask.assignee.name || subtask.assignee.fullName || subtask.assignee.username || "Unknown")
-                : subtask.assignee;
-              assigneeNames = [assigneeName];
-            }
-            
-            return {
-              type: "subtask",
-              id: subtask.id,
-              title: subtask.title || "-",
-              budget: subtask.budgetAllocated || 0,
-              weight: totalBudget > 0 ? ((subtask.budgetAllocated || 0) / totalBudget) * 100 : 0,
-              assignees: assigneeNames,
-              expectedStartDate: subtask.projectedStartDate,
-              expectedEndDate: subtask.projectedEndDate,
-              actualStartDate: subtask.actualStartDate,
-              actualEndDate: subtask.actualEndDate,
-              progress: subtask.progress || 0,
-            };
-          }),
-        })),
-      };
-    });
+    return result;
   }, [fullProject]);
 
-  const formatDate = (date?: string | Date) => {
+  // 🔥 FLATTEN DATA (FOR ROW ALIGNMENT)
+  const rows = useMemo(() => {
+    if (!fullProject?.categories) return [];
+
+    const result: any[] = [];
+
+    fullProject.categories.forEach((category: any) => {
+      result.push({ type: "category", ...category });
+
+      if (expandedCategories.has(category.id)) {
+        category.tasks?.forEach((task: any) => {
+          result.push({ type: "task", ...task, parentId: category.id });
+
+          if (expandedTasks.has(task.id)) {
+            task.subtasks?.forEach((subtask: any) => {
+              result.push({ type: "subtask", ...subtask, parentId: task.id });
+            });
+          }
+        });
+      }
+    });
+
+    return result;
+  }, [fullProject, expandedCategories, expandedTasks]);
+
+  const toggleCategory = (id: string) => {
+    const set = new Set(expandedCategories);
+    set.has(id) ? set.delete(id) : set.add(id);
+    setExpandedCategories(set);
+  };
+
+  const toggleTask = (id: string) => {
+    const set = new Set(expandedTasks);
+    set.has(id) ? set.delete(id) : set.add(id);
+    setExpandedTasks(set);
+  };
+
+  const isActive = (date: Date, start?: any, end?: any) => {
+    if (!start || !end) return false;
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    return date >= startDate && date <= endDate;
+  };
+
+  const getColor = (item: any) => {
+    // Different colors by type (HIERARCHY)
+    if (item.type === "category") return "#5E35B1"; // Purple (thick bars)
+    if (item.type === "task") return "#0D47A1"; // Dark Blue (medium bars)
+    
+    // Subtask - color by status
+    if (item.progress === 100) return "#00C853"; // Bright Green (complete)
+    if (!item.actualStartDate) return "#FFA726"; // Orange (planned)
+    return "#29B6F6"; // Light Blue (ongoing)
+  };
+
+  const isToday = (date: Date) => {
+    const today = new Date();
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
+  };
+
+  const formatDate = (date: any) => {
     if (!date) return "-";
-    try {
-      return new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-    } catch {
-      return "-";
-    }
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
   };
 
-  const toggleCategory = (categoryId: string) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(categoryId)) {
-      newExpanded.delete(categoryId);
-    } else {
-      newExpanded.add(categoryId);
-    }
-    setExpandedCategories(newExpanded);
+  const isWeekend = (date: Date) => date.getDay() === 0 || date.getDay() === 6;
+
+  // 🔥 BAR POSITIONING HELPERS
+  const totalDays = dates.length > 0 ? dates.length : 1;
+
+  const getOffset = (start: any) => {
+    if (!start || dates.length === 0) return 0;
+    const diff =
+      (new Date(start).getTime() - dates[0]?.getTime()) /
+      (1000 * 60 * 60 * 24);
+    return Math.max(0, diff);
   };
 
-  const toggleTask = (taskId: string) => {
-    const newExpanded = new Set(expandedTasks);
-    if (newExpanded.has(taskId)) {
-      newExpanded.delete(taskId);
-    } else {
-      newExpanded.add(taskId);
-    }
-    setExpandedTasks(newExpanded);
+  const getDuration = (start: any, end: any) => {
+    if (!start || !end) return 0;
+    const duration =
+      (new Date(end).getTime() - new Date(start).getTime()) /
+      (1000 * 60 * 60 * 24) + 1; // +1 to include end day
+    return Math.max(0, duration);
   };
 
-  if (!projectId) {
+  // 🔥 GROUP DATES BY MONTH
+  const groupByMonth = (dateList: Date[]) => {
+    const groups: Array<{ month: string; days: number; startIndex: number }> = [];
+    let currentMonth = "";
+    let monthStart = 0;
+
+    dateList.forEach((d, idx) => {
+      const key = d.toLocaleString("default", { month: "short", year: "numeric" });
+      if (key !== currentMonth) {
+        if (currentMonth) {
+          groups.push({
+            month: currentMonth,
+            days: idx - monthStart,
+            startIndex: monthStart,
+          });
+        }
+        currentMonth = key;
+        monthStart = idx;
+      }
+    });
+
+    if (currentMonth) {
+      groups.push({
+        month: currentMonth,
+        days: dateList.length - monthStart,
+        startIndex: monthStart,
+      });
+    }
+
+    return groups;
+  };
+
+  if (!projectId || !fullProject) {
     return (
       <Paper sx={{ p: 3, textAlign: "center" }}>
-        <Typography color="textSecondary">Select a project to view categories</Typography>
+        <Typography>Select project</Typography>
       </Paper>
     );
   }
-
-  if (!fullProject) {
-    return (
-      <Paper sx={{ p: 3, textAlign: "center" }}>
-        <Typography color="textSecondary">Loading project data...</Typography>
-      </Paper>
-    );
-  }
-
-  if (hierarchicalData.length === 0) {
-    return (
-      <Paper sx={{ p: 3, textAlign: "center" }}>
-        <Typography color="textSecondary">No categories available for this project</Typography>
-      </Paper>
-    );
-  }
+  console.log("DATES:", dates.length, dates);  
 
   return (
-    <Box>
-      <TableContainer component={Paper} sx={{ borderRadius: 2, overflow: "hidden" }}>
-        <Table stickyHeader>
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "#F7F8FA", borderBottom: "2px solid #DDE1E8" }}>
-              <TableCell sx={{ fontWeight: 700, color: "#1D1F26", backgroundColor: "#F7F8FA", fontSize: "12px", textTransform: "uppercase", width: "30%" }}>
-                Name
-              </TableCell>
-              <TableCell align="right" sx={{ fontWeight: 700, color: "#1D1F26", backgroundColor: "#F7F8FA", fontSize: "12px", textTransform: "uppercase" }}>
-                Budget (₱)
-              </TableCell>
-              <TableCell align="right" sx={{ fontWeight: 700, color: "#1D1F26", backgroundColor: "#F7F8FA", fontSize: "12px", textTransform: "uppercase" }}>
-                Weight %
-              </TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, color: "#1D1F26", backgroundColor: "#F7F8FA", fontSize: "12px", textTransform: "uppercase" }}>
-                Expected Start
-              </TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, color: "#1D1F26", backgroundColor: "#F7F8FA", fontSize: "12px", textTransform: "uppercase" }}>
-                Expected End
-              </TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, color: "#1D1F26", backgroundColor: "#F7F8FA", fontSize: "12px", textTransform: "uppercase" }}>
-                Actual Start
-              </TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, color: "#1D1F26", backgroundColor: "#F7F8FA", fontSize: "12px", textTransform: "uppercase" }}>
-                Actual End
-              </TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, color: "#1D1F26", backgroundColor: "#F7F8FA", fontSize: "12px", textTransform: "uppercase" }}>
-                Progress
-              </TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, color: "#1D1F26", backgroundColor: "#F7F8FA", fontSize: "12px", textTransform: "uppercase" }}>
-                Assignee
-              </TableCell>
-            </TableRow>
-          </TableHead>
+    <Box sx={{ overflow: "hidden" }}>
+      <Paper sx={{ display: "flex", overflow: "hidden" }}>
+        
+        {/* 🔥 LEFT PANEL (DATA COLUMNS) */}
+        <Box sx={{ minWidth: 680, borderRight: "2px solid #DDE1E8" }}>
+          
+          {/* HEADER ROW */}
+          <Box sx={{ position: "sticky", top: 0, zIndex: 5, background: "#F7F8FA", display: "flex", fontWeight: 700, fontSize: 12, borderBottom: "1px solid #DDE1E8" }}>
+            <Box sx={{ width: 60, px: 1, py: 1 }}>WBS</Box>
+            <Box sx={{ width: 280, px: 1, py: 1 }}>Phase / Task</Box>
+            <Box sx={{ width: 90, px: 1, py: 1, textAlign: "right" }}>Start</Box>
+            <Box sx={{ width: 90, px: 1, py: 1, textAlign: "right" }}>End</Box>
+            <Box sx={{ width: 70, px: 1, py: 1, textAlign: "center" }}>Days</Box>
+            <Box sx={{ width: 110, px: 1, py: 1, textAlign: "center" }}>Status</Box>
+          </Box>
 
-          <TableBody>
-            {hierarchicalData.map((category: any) => (
-              <React.Fragment key={category.id}>
-                <TableRow sx={{ backgroundColor: "#EEF2F6", borderBottom: "2px solid #DDE1E8", "&:hover": { backgroundColor: "#E4EDF5" } }}>
-                  <TableCell sx={{ fontWeight: 700, color: "#1D1F26", fontSize: "14px" }}>
-                    <Stack direction="row" gap={1} alignItems="center">
-                      <IconButton size="small" onClick={() => toggleCategory(category.id)} sx={{ p: 0, color: "#1D1F26" }}>
-                        {expandedCategories.has(category.id) ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
-                      </IconButton>
-                      <Box sx={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#FF6B6B" }} />
-                      📁 {category.name}
-                    </Stack>
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, color: "#1D1F26", fontSize: "13px" }}>
-                    ₱{category.totalBudget.toLocaleString()}
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, color: "#1D1F26", fontSize: "13px" }}>
-                    {category.weight.toFixed(2)}%
-                  </TableCell>
-                  <TableCell align="center" />
-                  <TableCell align="center" />
-                  <TableCell align="center" />
-                  <TableCell align="center" />
-                  <TableCell align="center" sx={{ fontSize: "13px" }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Box sx={{ flex: 1, height: "6px", borderRadius: "3px", backgroundColor: "#E0E0E0", overflow: "hidden" }}>
-                        <Box sx={{ height: "100%", width: `${category.progress || 0}%`, backgroundColor: category.progress >= 75 ? "#4CAF50" : category.progress >= 50 ? "#FFC107" : "#FF9800", transition: "width 0.3s ease" }} />
-                      </Box>
-                      <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#1D1F26", minWidth: "35px" }}>
-                        {category.progress || 0}%
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                </TableRow>
+          {/* DATA ROWS */}
+          {rows.map((row: any, idx: number) => {
+            const isCategory = row.type === "category";
+            const isTask = row.type === "task";
+            const isSubtask = row.type === "subtask";
+            const { start, end } = getRowDates(row);
+            const duration = getDuration(start, end);
+            const wbs = isCategory ? row.id?.substring(0, 2)?.toUpperCase() : isTask ? `${row.parentId?.substring(0, 2)?.toUpperCase()}.${idx % 10}` : "-";
+            const status = row.progress === 100 ? "✓ Done" : row.progress ? `${Math.round(row.progress)}%` : "Planned";
 
-                {expandedCategories.has(category.id) &&
-                  category.tasks.map((task: any) => (
-                    <React.Fragment key={task.id}>
-                      <TableRow sx={{ backgroundColor: "#FFFFFF", borderBottom: "1px solid #DDE1E8", "&:hover": { backgroundColor: "#F7F8FA" } }}>
-                        <TableCell sx={{ paddingLeft: 4, fontWeight: 600, color: "#1D1F26", fontSize: "13px" }}>
-                          <Stack direction="row" gap={1} alignItems="center">
-                            <IconButton size="small" onClick={() => toggleTask(task.id)} sx={{ p: 0, color: "#1D1F26" }}>
-                              {expandedTasks.has(task.id) ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
-                            </IconButton>
-                            <Box sx={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#29B6F6" }} />
-                            📋 {task.name}
-                          </Stack>
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontSize: "13px", color: "#7D8693" }}>
-                          ₱{task.budget.toLocaleString()}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontSize: "13px", color: "#7D8693" }}>
-                          {task.weight.toFixed(2)}%
-                        </TableCell>
-                        <TableCell align="center" sx={{ fontSize: "13px", color: "#7D8693" }}>
-                          {formatDate(task.expectedStartDate)}
-                        </TableCell>
-                        <TableCell align="center" sx={{ fontSize: "13px", color: "#7D8693" }}>
-                          {formatDate(task.expectedEndDate)}
-                        </TableCell>
-                        <TableCell align="center" sx={{ fontSize: "13px", color: "#7D8693" }}>
-                          {formatDate(task.actualStartDate)}
-                        </TableCell>
-                        <TableCell align="center" sx={{ fontSize: "13px", color: "#7D8693" }}>
-                          {formatDate(task.actualEndDate)}
-                        </TableCell>
-                        <TableCell align="center" sx={{ fontSize: "13px" }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Box sx={{ flex: 1, height: "6px", borderRadius: "3px", backgroundColor: "#E0E0E0", overflow: "hidden" }}>
-                              <Box sx={{ height: "100%", width: `${task.progress || 0}%`, backgroundColor: task.progress >= 75 ? "#4CAF50" : task.progress >= 50 ? "#FFC107" : "#FF9800", transition: "width 0.3s ease" }} />
-                            </Box>
-                            <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#1D1F26", minWidth: "35px" }}>
-                              {task.progress || 0}%
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                        <TableCell align="center" sx={{ fontSize: "13px", color: "#7D8693" }}>
-                          -
-                        </TableCell>
-                      </TableRow>
+            return (
+              <Box
+                key={idx}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  height: 40,
+                  background:
+                    isCategory ? "#EEF2F6" :
+                    isTask ? "#FFFFFF" : "#FAFBFC",
+                  borderBottom: "1px solid #E0E0E0",
+                }}
+              >
+                {/* WBS */}
+                <Box sx={{ width: 60, px: 1, fontSize: 11, fontWeight: 600 }}>
+                  {wbs}
+                </Box>
 
-                      {expandedTasks.has(task.id) &&
-                        task.subtasks.map((subtask: any) => (
-                          <TableRow key={subtask.id} sx={{ backgroundColor: "#FAFBFC", borderBottom: "1px solid #EEF0F4", "&:hover": { backgroundColor: "#EFF4F9" }, "&:hover td": { backgroundColor: "#EFF4F9" } }}>
-                            <TableCell sx={{ paddingLeft: 8, fontWeight: 500, color: "#4A5568", fontSize: "12px" }}>
-                              <Stack direction="row" gap={1} alignItems="center">
-                                <Box sx={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#A5ADB8" }} />
-                                ✓ {subtask.title}
-                              </Stack>
-                            </TableCell>
-                            <TableCell align="right" sx={{ fontSize: "12px", color: "#4A5568" }}>
-                              ₱{subtask.budget.toLocaleString()}
-                            </TableCell>
-                            <TableCell align="right" sx={{ fontSize: "12px", color: "#4A5568" }}>
-                              {subtask.weight.toFixed(2)}%
-                            </TableCell>
-                            <TableCell align="center" sx={{ fontSize: "12px", color: "#4A5568" }}>
-                              {formatDate(subtask.expectedStartDate)}
-                            </TableCell>
-                            <TableCell align="center" sx={{ fontSize: "12px", color: "#4A5568" }}>
-                              {formatDate(subtask.expectedEndDate)}
-                            </TableCell>
-                            <TableCell align="center" sx={{ fontSize: "12px", color: "#4A5568" }}>
-                              {formatDate(subtask.actualStartDate)}
-                            </TableCell>
-                            <TableCell align="center" sx={{ fontSize: "12px", color: "#4A5568" }}>
-                              {formatDate(subtask.actualEndDate)}
-                            </TableCell>
-                            <TableCell align="center" sx={{ fontSize: "12px" }}>
-                              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                <Box sx={{ flex: 1, height: "6px", borderRadius: "3px", backgroundColor: "#E0E0E0", overflow: "hidden" }}>
-                                  <Box sx={{ height: "100%", width: `${subtask.progress || 0}%`, backgroundColor: subtask.progress >= 75 ? "#4CAF50" : subtask.progress >= 50 ? "#FFC107" : "#FF9800", transition: "width 0.3s ease" }} />
-                                </Box>
-                                <Typography sx={{ fontSize: "11px", fontWeight: 600, color: "#1D1F26", minWidth: "30px" }}>
-                                  {subtask.progress || 0}%
-                                </Typography>
-                              </Box>
-                            </TableCell>
-                            <TableCell align="center" sx={{ fontSize: "12px" }}>
-                              {subtask.assignees && subtask.assignees.length > 0 ? (
-                                <Stack direction="row" spacing={0.5} justifyContent="center" flexWrap="wrap" gap={0.5}>
-                                  {subtask.assignees.map((assignee: string, idx: number) => (
-                                    <Chip 
-                                      key={idx}
-                                      label={assignee} 
-                                      size="small" 
-                                      variant="outlined" 
-                                      sx={{ height: "24px", fontSize: "11px", backgroundColor: "#e3f2fd", borderColor: "#0C66E4", color: "#0C66E4" }} 
-                                    />
-                                  ))}
-                                </Stack>
-                              ) : (
-                                <Typography sx={{ fontSize: "12px", color: "#A5ADB8" }}>Unassigned</Typography>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                    </React.Fragment>
-                  ))}
-              </React.Fragment>
+                {/* NAME WITH EXPAND ICONS */}
+                <Box sx={{ width: 280, px: 1, display: "flex", alignItems: "center", gap: 0.5 }}>
+                  {isCategory && (
+                    <IconButton size="small" onClick={() => toggleCategory(row.id)} sx={{ p: 0.25 }}>
+                      {expandedCategories.has(row.id) ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+                    </IconButton>
+                  )}
+                  {isTask && (
+                    <IconButton size="small" onClick={() => toggleTask(row.id)} sx={{ p: 0.25 }}>
+                      {expandedTasks.has(row.id) ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+                    </IconButton>
+                  )}
+                  <Typography
+                    sx={{
+                      fontSize: isCategory ? 13 : isTask ? 12 : 11,
+                      fontWeight: isCategory ? 700 : isTask ? 600 : 400,
+                      pl: isTask ? 1 : isSubtask ? 2 : 0,
+                      flex: 1,
+                    }}
+                  >
+                    {row.name || row.title}
+                  </Typography>
+                </Box>
+
+                {/* START DATE */}
+                <Box sx={{ width: 90, px: 1, fontSize: 11, textAlign: "right" }}>
+                  {formatDate(start)}
+                </Box>
+
+                {/* END DATE */}
+                <Box sx={{ width: 90, px: 1, fontSize: 11, textAlign: "right" }}>
+                  {formatDate(end)}
+                </Box>
+
+                {/* DURATION (DAYS) */}
+                <Box sx={{ width: 70, px: 1, fontSize: 11, textAlign: "center", fontWeight: 500 }}>
+                  {duration > 0 ? `${Math.round(duration)}d` : "-"}
+                </Box>
+
+                {/* STATUS */}
+                <Box sx={{ width: 110, px: 1, fontSize: 11, textAlign: "center" }}>
+                  <Typography sx={{ fontSize: 10, color: row.progress === 100 ? "#00C853" : "#FFA726", fontWeight: 600 }}>
+                    {status}
+                  </Typography>
+                </Box>
+              </Box>
+            );
+          })}
+        </Box>
+
+        {/* 🔥 RIGHT PANEL (TIMELINE) */}
+        <Box sx={{ overflowX: "auto", flex: 1, position: "relative" }}>
+          
+          {/* MONTH HEADER */}
+          <Box sx={{ display: "flex", position: "sticky", top: 0, zIndex: 3, background: "#EEF2F6", borderBottom: "2px solid #DDE1E8" }}>
+            {dates.length > 0 && groupByMonth(dates).map((month, i) => (
+              <Box
+                key={i}
+                sx={{
+                  width: month.days * 40,
+                  textAlign: "center",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  p: 0.5,
+                  borderRight: "1px solid #BCC4CD",
+                  color: "#4B2E83",
+                }}
+              >
+                {month.month}
+              </Box>
             ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+          </Box>
 
-      <Paper sx={{ p: 2, mt: 2, backgroundColor: "#F7F8FA", borderRadius: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <Stack spacing={1}>
-          <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#7D8693", textTransform: "uppercase" }}>
-            Summary
-          </Typography>
-          <Typography sx={{ fontSize: "14px", color: "#1D1F26" }}>
-            <strong>Total Categories:</strong> {hierarchicalData.length}
-          </Typography>
-          <Typography sx={{ fontSize: "14px", color: "#1D1F26" }}>
-            <strong>Total Tasks:</strong> {hierarchicalData.reduce((sum: number, cat: any) => sum + cat.tasks.length, 0)}
-          </Typography>
-          <Typography sx={{ fontSize: "14px", color: "#1D1F26" }}>
-            <strong>Total Subtasks:</strong> {hierarchicalData.reduce((sum: number, cat: any) => sum + cat.tasks.reduce((taskSum: number, task: any) => taskSum + task.subtasks.length, 0), 0)}
-          </Typography>
-        </Stack>
+          {/* DAY HEADER */}
+          <Box sx={{ display: "flex", position: "sticky", top: 32, zIndex: 4, background: "#F7F8FA", borderBottom: "1px solid #DDE1E8" }}>
+            {dates.map((d, i) => (
+              <Box
+                key={i}
+                sx={{
+                  width: 40,
+                  textAlign: "center",
+                  fontSize: 10,
+                  borderRight: "1px solid #E0E0E0",
+                  p: 0.5,
+                  backgroundColor: isToday(d) ? "#FFE082" : isWeekend(d) ? "#FAFAFA" : "transparent",
+                  fontWeight: isToday(d) ? 700 : 400,
+                  color: isToday(d) ? "#F57F17" : "#666",
+                }}
+              >
+                {d.getDate()}
+              </Box>
+            ))}
+          </Box>
 
-        <Stack spacing={1} sx={{ textAlign: "right" }}>
-          <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#7D8693", textTransform: "uppercase" }}>
-            Total Budget
-          </Typography>
-          <Typography sx={{ fontSize: "18px", fontWeight: 700, color: "#1D1F26" }}>
-            ₱{hierarchicalData.reduce((sum: number, cat: any) => sum + cat.totalBudget, 0).toLocaleString()}
-          </Typography>
-        </Stack>
+          {/* TIMELINE BARS WITH GRID */}
+          {rows.map((row: any, i: number) => {
+            const { start, end } = getRowDates(row);
+            const offset = getOffset(start);
+            const duration = getDuration(start, end);
+
+            return (
+              <Box
+                key={i}
+                sx={{
+                  display: "flex",
+                  height: 40,
+                  position: "relative",
+                  borderBottom: "1px solid #E0E0E0",
+                  backgroundColor:
+                    row.type === "category" ? "#EEF2F6" :
+                    row.type === "task" ? "#FFFFFF" : "#FAFBFC",
+                  backgroundImage: dates.length > 0 ? `repeating-linear-gradient(
+                    to right,
+                    transparent 0px,
+                    transparent 39px,
+                    #E0E0E0 39px,
+                    #E0E0E0 40px
+                  )` : "none",
+                }}
+              >
+                {/* 🔥 WEEKEND SHADING */}
+                {dates.map((d, idx) => (
+                  isWeekend(d) && (
+                    <Box
+                      key={idx}
+                      sx={{
+                        position: "absolute",
+                        left: `${(idx / dates.length) * 100}%`,
+                        width: `${(1 / dates.length) * 100}%`,
+                        height: "100%",
+                        backgroundColor: "#FAFAFA",
+                        pointerEvents: "none",
+                        zIndex: 0,
+                      }}
+                    />
+                  )
+                ))}
+
+                {/* 🔥 TODAY VERTICAL LINE */}
+                {dates.length > 0 && (() => {
+                  const todayIdx = dates.findIndex((d) => isToday(d));
+                  const todayOffset = (todayIdx / totalDays) * 100;
+                  return (
+                    todayIdx >= 0 && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          left: `${todayOffset}%`,
+                          top: 0,
+                          bottom: 0,
+                          width: "2px",
+                          backgroundColor: "#F57F17",
+                          zIndex: 5,
+                        }}
+                      />
+                    )
+                  );
+                })()}
+
+                {/* 🔥 CONTINUOUS BAR */}
+                {start && end && (
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      left: `${(offset / totalDays) * 100}%`,
+                      width: `${(duration / totalDays) * 100}%`,
+                      height: 16,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      borderRadius: 2,
+                      backgroundColor: getColor(row),
+                      border: row.type === "category" ? "2px solid #5E35B1" : row.type === "task" ? "2px solid #0D47A1" : "1px solid rgba(0,0,0,0.1)",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                      zIndex: 2,
+                    }}
+                  />
+                )}
+              </Box>
+            );
+          })}
+        </Box>
+
       </Paper>
     </Box>
   );

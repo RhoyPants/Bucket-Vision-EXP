@@ -8,13 +8,14 @@ import {
   setLoading,
 } from "../slices/projectSlice";
 
-// ✅ GET ALL
+// ✅ GET ALL (with full details including members)
 export const getProjects = () => {
   return async (dispatch: AppDispatch) => {
     try {
       dispatch(setLoading(true));
 
-      const res = await axiosApi.get("/projects");
+      // 🔥 FETCH FULL PROJECT DATA WITH MEMBERS
+      const res = await axiosApi.get("/projects?full=true");
 
       dispatch(setProjects(res.data));
 

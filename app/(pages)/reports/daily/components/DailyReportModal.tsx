@@ -21,6 +21,7 @@ import {
   createDailyReport,
   updateDailyReport,
 } from "@/app/redux/controllers/dailyReportController";
+import { getProjects } from "@/app/redux/controllers/projectController";
 import { getUsers } from "@/app/redux/controllers/userController";
 import { getProjectMembers } from "@/app/redux/controllers/projectMemberController";
 import { DailyReport } from "@/app/redux/slices/dailyReportSlice";
@@ -61,6 +62,7 @@ export default function DailyReportModal({
   const users = useAppSelector((state) => state.user.users);
   const projects = useAppSelector((state) => state.project.projects);
   const usersLoading = useAppSelector((state) => state.user.loading);
+  const projectsLoading = useAppSelector((state) => state.project.loading);
   const projectMembers = useAppSelector((state) => state.projectMembers.projectMembers);
 
   useEffect(() => {
@@ -68,6 +70,12 @@ export default function DailyReportModal({
       dispatch(getUsers() as any);
     }
   }, [open, dispatch, users.length]);
+
+  useEffect(() => {
+    if (open && projects.length === 0) {
+      dispatch(getProjects() as any);
+    }
+  }, [open, dispatch, projects.length]);
 
   // Fetch project members when project is selected
   useEffect(() => {
@@ -212,8 +220,11 @@ export default function DailyReportModal({
               label="Project"
               value={selectedProject}
               onChange={(e) => setSelectedProject(e.target.value)}
+              disabled={projectsLoading || projects.length === 0}
             >
-              <MenuItem value="">Select a project...</MenuItem>
+              <MenuItem value="">
+                {projectsLoading ? "Loading projects..." : "Select a project..."}
+              </MenuItem>
               {projects.map((project) => (
                 <MenuItem key={project.id} value={project.id}>
                   {project.name}

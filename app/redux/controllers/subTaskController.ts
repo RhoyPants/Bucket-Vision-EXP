@@ -271,19 +271,25 @@ export const loadMyBoard = (filters?: {
 export const loadBoardFilterData = () => {
   return async (dispatch: AppDispatch) => {
     try {
-      // ✅ Only fetch projects initially
-      const projectsRes = await axiosApi.get("/projects");
+      // ✅ Fetch projects with full=true parameter
+      const projectsRes = await axiosApi.get("/projects?full=true");
+
+      // ✅ Map projects to have { id, name } structure (FilterItem format)
+      const formattedProjects = (projectsRes.data || []).map((project: any) => ({
+        id: project.id,
+        name: project.name || project.title || "Unnamed Project",
+      }));
 
       dispatch(
         setBoardFilters({
-          projects: projectsRes.data || [],
+          projects: formattedProjects,
           categories: [],
           tasks: [],
         }),
       );
 
       return {
-        projects: projectsRes.data || [],
+        projects: formattedProjects,
       };
     } catch (err) {
       console.error("❌ Error loading board filters:", err);
@@ -304,6 +310,12 @@ export const loadCategoriesForProject = (projectId: string) => {
       const currentState = getState();
       const currentProjects = currentState?.kanban?.boardFilters?.projects || [];
 
+      // ✅ Map categories to have { id, name } structure
+      const formattedCategories = (res.data || []).map((category: any) => ({
+        id: category.id,
+        name: category.name || category.title || "Unnamed Category",
+      }));
+
       dispatch(
         setTasksForBoard([]), // ✅ Clear tasks when category changes
       );
@@ -312,12 +324,12 @@ export const loadCategoriesForProject = (projectId: string) => {
       dispatch(
         setBoardFilters({
           projects: currentProjects, // ✅ PRESERVE existing projects
-          categories: res.data || [],
+          categories: formattedCategories,
           tasks: [],
         }),
       );
 
-      return res.data || [];
+      return formattedCategories;
     } catch (err) {
       console.error("❌ Error loading categories:", err);
       throw err;
@@ -338,18 +350,24 @@ export const loadTasksForCategory = (categoryId: string) => {
       const currentProjects = currentState?.kanban?.boardFilters?.projects || [];
       const currentCategories = currentState?.kanban?.boardFilters?.categories || [];
 
-      dispatch(setTasksForBoard(res.data || []));
+      // ✅ Map tasks to have { id, name } structure
+      const formattedTasks = (res.data || []).map((task: any) => ({
+        id: task.id,
+        name: task.name || task.title || "Unnamed Task",
+      }));
+
+      dispatch(setTasksForBoard(formattedTasks));
       
       // 🔥 Also update board filters to preserve projects and categories
       dispatch(
         setBoardFilters({
           projects: currentProjects, // ✅ PRESERVE existing projects
           categories: currentCategories, // ✅ PRESERVE existing categories
-          tasks: res.data || [],
+          tasks: formattedTasks,
         }),
       );
 
-      return res.data || [];
+      return formattedTasks;
     } catch (err) {
       console.error("❌ Error loading tasks:", err);
       throw err;

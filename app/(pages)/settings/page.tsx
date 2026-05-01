@@ -13,11 +13,12 @@ import Roles from "./components/Roles";
 import Layout from "@/app/components/shared/Layout";
 import Users from "./components/Users";
 import UserRelations from "./components/UserRelations";
+import UserProfile from "./components/UserProfile";
 
-type TabType = "roles" | "users" | "relations";
+type TabType = "profile" | "roles" | "users" | "relations";
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<TabType>("roles");
+  const [activeTab, setActiveTab] = useState<TabType>("profile");
 
   return (
     <Layout>
@@ -37,6 +38,13 @@ export default function SettingsPage() {
           </Typography>
 
           <List>
+            <ListItemButton
+              selected={activeTab === "profile"}
+              onClick={() => setActiveTab("profile")}
+            >
+              <ListItemText primary="My Profile" />
+            </ListItemButton>
+
             <ListItemButton
               selected={activeTab === "roles"}
               onClick={() => setActiveTab("roles")}
@@ -72,6 +80,7 @@ export default function SettingsPage() {
           }}
         >
           <Box flex={1} p={3}>
+            {activeTab === "profile" && <UserProfile />}
             {activeTab === "roles" && <Roles />}
             {activeTab === "users" && <Users />}
             {activeTab === "relations" && <UserRelations />}

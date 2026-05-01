@@ -74,6 +74,7 @@ interface WeeklyReportState {
   currentReport: WeeklyReport | null;
   summary: WeeklyReportSummary | null;
   loading: boolean;
+  summaryLoading: boolean;
   error: string | null;
   total: number;
   filters: WeeklyReportFilters;
@@ -87,6 +88,7 @@ const initialState: WeeklyReportState = {
   currentReport: null,
   summary: null,
   loading: false,
+  summaryLoading: false,
   error: null,
   total: 0,
   filters: {},
@@ -152,15 +154,15 @@ const weeklyReportSlice = createSlice({
 
     // Get summary
     getSummaryStart: (state) => {
-      state.loading = true;
+      state.summaryLoading = true;
       state.error = null;
     },
     getSummarySuccess: (state, action: PayloadAction<WeeklyReportSummary>) => {
-      state.loading = false;
+      state.summaryLoading = false;
       state.summary = action.payload;
     },
     getSummaryFailure: (state, action: PayloadAction<string>) => {
-      state.loading = false;
+      state.summaryLoading = false;
       state.error = action.payload;
     },
 

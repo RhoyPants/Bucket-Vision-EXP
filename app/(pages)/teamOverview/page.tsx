@@ -24,57 +24,61 @@ export default function TeamOverviewPage() {
   const [projectId, setProjectId] = React.useState<string | null>(null);
   const [allProjectsData, setAllProjectsData] = React.useState<any[]>([]);
   const [loadingAllProjects, setLoadingAllProjects] = React.useState(false);
+  const [projectsRoleMap, setProjectsRoleMap] = React.useState<{ [key: string]: string }>({});
 
   const { loading } = useAppSelector((state) => state.project);
   const projects = useAppSelector((state) => state.project.projects);
   const fullProject = useAppSelector((state) => state.project.fullProject);
   const user = useAppSelector((state) => state.auth.user);
-  const projectMembers = useAppSelector(
-    (state) => state.projectMembers.projectMembers
-  );
 
-  // Determine if user is OWNER or SUB_OWNER in a project
-  const isUserOwnerOrSubOwner = (projId: string): boolean => {
-    if (!projectMembers || !user) return false;
-
-    // projectMembers appears to be an object, try to access it
-    const projectTeam = (projectMembers as any)[projId];
-    if (!projectTeam) return false;
-
-    // Check if user's role is OWNER or SUB_OWNER in this project
-    // Loop through all roles to find user
-    for (const role in projectTeam) {
-      const members = (projectTeam as any)[role];
-      if (Array.isArray(members)) {
-        const isMember = members.some((m: any) => m.userId === user.id);
-        if (isMember && (role === "OWNER" || role === "SUB_OWNER")) {
-          return true;
-        }
-      }
-    }
-
-    return false;
-  };
-
-  // Get projects where user is OWNER or SUB_OWNER
+  // Get projects where user is OWNER or SUB_OWNER (from loaded role map)
   const userAccessibleProjects = useMemo(() => {
-    if (!user || !projects) return projects || [];
+    if (!projects) return [];
 
-    return projects.filter((proj: any) => isUserOwnerOrSubOwner(proj.id));
-  }, [user, projects, projectMembers]);
+    return projects.filter((proj: any) => 
+      projectsRoleMap[proj.id] === "OWNER" || projectsRoleMap[proj.id] === "SUB_OWNER"
+    );
+  }, [projects, projectsRoleMap]);
 
   // Load projects on mount
   useEffect(() => {
     if (!projects || projects.length === 0) {
-      dispatch(getProjects() as any).then((result: any) => {
-        if (result && result.length > 0) {
-          setProjectId(result[0].id);
-        }
-      });
-    } else if (projects.length > 0 && !projectId) {
-      setProjectId(projects[0].id);
+      dispatch(getProjects() as any);
     }
-  }, [projects, projectId, dispatch]);
+  }, [dispatch, projects]);
+
+  // ✅ Set initial projectId from accessible projects (after roleMap is built)
+  useEffect(() => {
+    if (userAccessibleProjects.length > 0 && !projectId) {
+      setProjectId(userAccessibleProjects[0].id);
+    }
+  }, [userAccessibleProjects, projectId]);
+
+  // ✅ Load members for all projects to build role map
+  useEffect(() => {
+    if (!projects || projects.length === 0 || !user) return;
+
+    const roleMap: { [key: string]: string } = {};
+
+    // Map roles directly from project data
+    for (const proj of projects) {
+      // Check if user is the project owner (via ownerId field)
+      if (proj.ownerId === user.id) {
+        roleMap[proj.id] = "OWNER";
+        continue;
+      }
+
+      // Otherwise check projectMembers
+      const projectMembers = (proj as any)?.projectMembers || [];
+      const userMember = projectMembers.find((m: any) => m.userId === user.id);
+
+      if (userMember && (userMember.role === "OWNER" || userMember.role === "SUB_OWNER")) {
+        roleMap[proj.id] = userMember.role;
+      }
+    }
+
+    setProjectsRoleMap(roleMap);
+  }, [projects, user]);
 
   // Load full project data once projectId is set
   useEffect(() => {

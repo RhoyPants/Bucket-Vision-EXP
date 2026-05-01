@@ -68,6 +68,18 @@ export interface DailyReportFilters {
   search?: string;
 }
 
+export interface DailyReportSummary {
+  totalSubmitted: number;
+  totalPending: number;
+  totalReviewed: number;
+  lateReports: number;
+  todayHighlights: {
+    submittedCount: number;
+    lateCount: number;
+    onTimeCount: number;
+  };
+}
+
 interface DailyReportState {
   reports: DailyReport[];
   projectReports: DailyReport[];
@@ -75,7 +87,9 @@ interface DailyReportState {
   submittedReports: DailyReport[];
   currentReport: DailyReport | null;
   loading: boolean;
+  summaryLoading: boolean;
   error: string | null;
+  summary: DailyReportSummary | null;
   total: number;
   filters: DailyReportFilters;
 }
@@ -87,7 +101,9 @@ const initialState: DailyReportState = {
   submittedReports: [],
   currentReport: null,
   loading: false,
+  summaryLoading: false,
   error: null,
+  summary: null,
   total: 0,
   filters: {},
 };
@@ -249,6 +265,20 @@ const dailyReportSlice = createSlice({
       state.error = action.payload;
     },
 
+    // Get summary
+    getDailyReportsSummaryStart: (state) => {
+      state.summaryLoading = true;
+      state.error = null;
+    },
+    getDailyReportsSummarySuccess: (state, action: PayloadAction<DailyReportSummary>) => {
+      state.summaryLoading = false;
+      state.summary = action.payload;
+    },
+    getDailyReportsSummaryFailure: (state, action: PayloadAction<string>) => {
+      state.summaryLoading = false;
+      state.error = action.payload;
+    },
+
     // Set filters
     setFilters: (state, action: PayloadAction<DailyReportFilters>) => {
       state.filters = action.payload;
@@ -295,6 +325,9 @@ export const {
   markReportAsReadStart,
   markReportAsReadSuccess,
   markReportAsReadFailure,
+  getDailyReportsSummaryStart,
+  getDailyReportsSummarySuccess,
+  getDailyReportsSummaryFailure,
   setFilters,
   clearDailyReports,
 } = dailyReportSlice.actions;

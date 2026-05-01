@@ -28,6 +28,9 @@ import {
   markReportAsReadStart,
   markReportAsReadSuccess,
   markReportAsReadFailure,
+  getDailyReportsSummaryStart,
+  getDailyReportsSummarySuccess,
+  getDailyReportsSummaryFailure,
   DailyReportCreatePayload,
   DailyReportUpdatePayload,
   DailyReportFilters,
@@ -236,3 +239,19 @@ export const markDailyReportAsRead =
       throw error;
     }
   };
+
+/**
+ * Get daily reports summary/dashboard
+ */
+export const getDailyReportsSummary = () => async (dispatch: AppDispatch) => {
+  dispatch(getDailyReportsSummaryStart());
+  try {
+    const response = await axios.get("/daily-reports/summary");
+    dispatch(getDailyReportsSummarySuccess(response.data.data));
+    return response.data.data;
+  } catch (error: any) {
+    const message = error.response?.data?.message || "Failed to fetch summary";
+    dispatch(getDailyReportsSummaryFailure(message));
+    throw error;
+  }
+};

@@ -1,6 +1,7 @@
 import { AppDispatch } from "../store";
 import axiosApi from "@/app/lib/axios";
 import { setUser, setLoading, setError } from "../slices/authSlice";
+import { fetchCurrentUser } from "./authController";
 
 export const login = (email: string, password: string) => {
   return async (dispatch: AppDispatch) => {
@@ -17,8 +18,11 @@ export const login = (email: string, password: string) => {
       // 🔥 SAVE TOKEN
       localStorage.setItem("token", accessToken);
 
-      // 🔥 UPDATE REDUX
+      // 🔥 UPDATE REDUX WITH LOGIN RESPONSE
       dispatch(setUser({ user, token: accessToken }));
+
+      // 🔥 FETCH FULL USER DATA WITH PERMISSIONS
+      await dispatch(fetchCurrentUser() as any);
 
     } catch (err: any) {
       dispatch(setError("Login failed"));

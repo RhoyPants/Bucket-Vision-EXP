@@ -16,7 +16,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <Header />
 
         {/* Page Content */}
-        <Box sx={{ flexGrow: 1, overflowY: "auto", padding: 3 }}>
+        <Box sx={{ flexGrow: 1, overflowY: "auto", padding: 1 }}>
           {children}
         </Box>
       </Box>
