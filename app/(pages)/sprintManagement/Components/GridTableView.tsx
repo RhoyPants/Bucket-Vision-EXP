@@ -19,12 +19,12 @@ interface Props {
 export default function GanttGridView({ projectId }: Props) {
   const fullProject = useAppSelector((state) => state.project.fullProject);
 
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [expandedScopes, setExpandedCategories] = useState<Set<string>>(new Set());
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
-  // 🔥 DATE RESOLVER - AGGREGATE UPWARD FROM SUBTASKS
+  // Ã°Å¸â€Â¥ DATE RESOLVER - AGGREGATE UPWARD FROM SUBTASKS
   const getRowDates = (row: any) => {
-    // 🔹 SUBTASK → direct dates
+    // Ã°Å¸â€Â¹ SUBTASK Ã¢â€ â€™ direct dates
     if (row.type === "subtask") {
       return {
         start: row.projectedStartDate || row.startDate,
@@ -32,7 +32,7 @@ export default function GanttGridView({ projectId }: Props) {
       };
     }
 
-    // 🔹 TASK → derive from subtasks
+    // Ã°Å¸â€Â¹ TASK Ã¢â€ â€™ derive from subtasks
     if (row.type === "task") {
       const subs = row.subtasks || [];
       const valid = subs.filter(
@@ -54,8 +54,8 @@ export default function GanttGridView({ projectId }: Props) {
       };
     }
 
-    // 🔹 CATEGORY → derive from all subtasks across tasks
-    if (row.type === "category") {
+    // Ã°Å¸â€Â¹ Scope Ã¢â€ â€™ derive from all subtasks across tasks
+    if (row.type === "scope") {
       let allSubs: any[] = [];
       row.tasks?.forEach((t: any) => {
         allSubs = [...allSubs, ...(t.subtasks || [])];
@@ -83,25 +83,25 @@ export default function GanttGridView({ projectId }: Props) {
     return { start: undefined, end: undefined };
   };
 
-  // 🔥 GENERATE DATE RANGE (GLOBAL) - FROM SUBTASKS ONLY
+  // Ã°Å¸â€Â¥ GENERATE DATE RANGE (GLOBAL) - FROM SUBTASKS ONLY
   const dates = useMemo(() => {
-    if (!fullProject?.categories) return [];
+    if (!fullProject?.scopes) return [];
 
     const allDates: number[] = [];
 
-    fullProject.categories.forEach((cat: any) => {
+    fullProject.scopes.forEach((cat: any) => {
       cat.tasks?.forEach((task: any) => {
         task.subtasks?.forEach((sub: any) => {
           const start = sub.projectedStartDate || sub.startDate;
           const end = sub.projectedEndDate || sub.endDate;
 
-          // 🔥 STRICT CHECK - BOTH must exist
+          // Ã°Å¸â€Â¥ STRICT CHECK - BOTH must exist
           if (!start || !end) return;
 
           const s = new Date(start).getTime();
           const e = new Date(end).getTime();
 
-          // 🔥 Validate dates are valid numbers
+          // Ã°Å¸â€Â¥ Validate dates are valid numbers
           if (!isNaN(s) && !isNaN(e)) {
             allDates.push(s, e);
           }
@@ -109,9 +109,9 @@ export default function GanttGridView({ projectId }: Props) {
       });
     });
 
-    // 🔴 CRITICAL: no valid dates
+    // Ã°Å¸â€Â´ CRITICAL: no valid dates
     if (allDates.length === 0) {
-      console.warn("❌ No valid subtask dates found in project");
+      console.warn("Ã¢ÂÅ’ No valid subtask dates found in project");
       return [];
     }
 
@@ -126,23 +126,23 @@ export default function GanttGridView({ projectId }: Props) {
       current.setDate(current.getDate() + 1);
     }
 
-    console.log("✅ GENERATED DATES:", result.length, "from", new Date(min), "to", new Date(max));
+    console.log("Ã¢Å“â€¦ GENERATED DATES:", result.length, "from", new Date(min), "to", new Date(max));
 
     return result;
   }, [fullProject]);
 
-  // 🔥 FLATTEN DATA (FOR ROW ALIGNMENT)
+  // Ã°Å¸â€Â¥ FLATTEN DATA (FOR ROW ALIGNMENT)
   const rows = useMemo(() => {
-    if (!fullProject?.categories) return [];
+    if (!fullProject?.scopes) return [];
 
     const result: any[] = [];
 
-    fullProject.categories.forEach((category: any) => {
-      result.push({ type: "category", ...category });
+    fullProject.scopes.forEach((scope: any) => {
+      result.push({ type: "scope", ...scope });
 
-      if (expandedCategories.has(category.id)) {
-        category.tasks?.forEach((task: any) => {
-          result.push({ type: "task", ...task, parentId: category.id });
+      if (expandedScopes.has(scope.id)) {
+        scope.tasks?.forEach((task: any) => {
+          result.push({ type: "task", ...task, parentId: scope.id });
 
           if (expandedTasks.has(task.id)) {
             task.subtasks?.forEach((subtask: any) => {
@@ -154,10 +154,10 @@ export default function GanttGridView({ projectId }: Props) {
     });
 
     return result;
-  }, [fullProject, expandedCategories, expandedTasks]);
+  }, [fullProject, expandedScopes, expandedTasks]);
 
-  const toggleCategory = (id: string) => {
-    const set = new Set(expandedCategories);
+  const toggleScope = (id: string) => {
+    const set = new Set(expandedScopes);
     set.has(id) ? set.delete(id) : set.add(id);
     setExpandedCategories(set);
   };
@@ -177,7 +177,7 @@ export default function GanttGridView({ projectId }: Props) {
 
   const getColor = (item: any) => {
     // Different colors by type (HIERARCHY)
-    if (item.type === "category") return "#5E35B1"; // Purple (thick bars)
+    if (item.type === "scope") return "#5E35B1"; // Purple (thick bars)
     if (item.type === "task") return "#0D47A1"; // Dark Blue (medium bars)
     
     // Subtask - color by status
@@ -205,7 +205,7 @@ export default function GanttGridView({ projectId }: Props) {
 
   const isWeekend = (date: Date) => date.getDay() === 0 || date.getDay() === 6;
 
-  // 🔥 BAR POSITIONING HELPERS
+  // Ã°Å¸â€Â¥ BAR POSITIONING HELPERS
   const totalDays = dates.length > 0 ? dates.length : 1;
 
   const getOffset = (start: any) => {
@@ -224,7 +224,7 @@ export default function GanttGridView({ projectId }: Props) {
     return Math.max(0, duration);
   };
 
-  // 🔥 GROUP DATES BY MONTH
+  // Ã°Å¸â€Â¥ GROUP DATES BY MONTH
   const groupByMonth = (dateList: Date[]) => {
     const groups: Array<{ month: string; days: number; startIndex: number }> = [];
     let currentMonth = "";
@@ -269,7 +269,7 @@ export default function GanttGridView({ projectId }: Props) {
     <Box sx={{ overflow: "hidden" }}>
       <Paper sx={{ display: "flex", overflow: "hidden" }}>
         
-        {/* 🔥 LEFT PANEL (DATA COLUMNS) */}
+        {/* Ã°Å¸â€Â¥ LEFT PANEL (DATA COLUMNS) */}
         <Box sx={{ minWidth: 680, borderRight: "2px solid #DDE1E8" }}>
           
           {/* HEADER ROW */}
@@ -284,13 +284,13 @@ export default function GanttGridView({ projectId }: Props) {
 
           {/* DATA ROWS */}
           {rows.map((row: any, idx: number) => {
-            const isCategory = row.type === "category";
+            const isScope = row.type === "scope";
             const isTask = row.type === "task";
             const isSubtask = row.type === "subtask";
             const { start, end } = getRowDates(row);
             const duration = getDuration(start, end);
-            const wbs = isCategory ? row.id?.substring(0, 2)?.toUpperCase() : isTask ? `${row.parentId?.substring(0, 2)?.toUpperCase()}.${idx % 10}` : "-";
-            const status = row.progress === 100 ? "✓ Done" : row.progress ? `${Math.round(row.progress)}%` : "Planned";
+            const wbs = isScope ? row.id?.substring(0, 2)?.toUpperCase() : isTask ? `${row.parentId?.substring(0, 2)?.toUpperCase()}.${idx % 10}` : "-";
+            const status = row.progress === 100 ? "Ã¢Å“â€œ Done" : row.progress ? `${Math.round(row.progress)}%` : "Planned";
 
             return (
               <Box
@@ -300,7 +300,7 @@ export default function GanttGridView({ projectId }: Props) {
                   alignItems: "center",
                   height: 40,
                   background:
-                    isCategory ? "#EEF2F6" :
+                    isScope ? "#EEF2F6" :
                     isTask ? "#FFFFFF" : "#FAFBFC",
                   borderBottom: "1px solid #E0E0E0",
                 }}
@@ -312,9 +312,9 @@ export default function GanttGridView({ projectId }: Props) {
 
                 {/* NAME WITH EXPAND ICONS */}
                 <Box sx={{ width: 280, px: 1, display: "flex", alignItems: "center", gap: 0.5 }}>
-                  {isCategory && (
-                    <IconButton size="small" onClick={() => toggleCategory(row.id)} sx={{ p: 0.25 }}>
-                      {expandedCategories.has(row.id) ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+                  {isScope && (
+                    <IconButton size="small" onClick={() => toggleScope(row.id)} sx={{ p: 0.25 }}>
+                      {expandedScopes.has(row.id) ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
                     </IconButton>
                   )}
                   {isTask && (
@@ -324,8 +324,8 @@ export default function GanttGridView({ projectId }: Props) {
                   )}
                   <Typography
                     sx={{
-                      fontSize: isCategory ? 13 : isTask ? 12 : 11,
-                      fontWeight: isCategory ? 700 : isTask ? 600 : 400,
+                      fontSize: isScope ? 13 : isTask ? 12 : 11,
+                      fontWeight: isScope ? 700 : isTask ? 600 : 400,
                       pl: isTask ? 1 : isSubtask ? 2 : 0,
                       flex: 1,
                     }}
@@ -360,7 +360,7 @@ export default function GanttGridView({ projectId }: Props) {
           })}
         </Box>
 
-        {/* 🔥 RIGHT PANEL (TIMELINE) */}
+        {/* Ã°Å¸â€Â¥ RIGHT PANEL (TIMELINE) */}
         <Box sx={{ overflowX: "auto", flex: 1, position: "relative" }}>
           
           {/* MONTH HEADER */}
@@ -419,7 +419,7 @@ export default function GanttGridView({ projectId }: Props) {
                   position: "relative",
                   borderBottom: "1px solid #E0E0E0",
                   backgroundColor:
-                    row.type === "category" ? "#EEF2F6" :
+                    row.type === "scope" ? "#EEF2F6" :
                     row.type === "task" ? "#FFFFFF" : "#FAFBFC",
                   backgroundImage: dates.length > 0 ? `repeating-linear-gradient(
                     to right,
@@ -430,7 +430,7 @@ export default function GanttGridView({ projectId }: Props) {
                   )` : "none",
                 }}
               >
-                {/* 🔥 WEEKEND SHADING */}
+                {/* Ã°Å¸â€Â¥ WEEKEND SHADING */}
                 {dates.map((d, idx) => (
                   isWeekend(d) && (
                     <Box
@@ -448,7 +448,7 @@ export default function GanttGridView({ projectId }: Props) {
                   )
                 ))}
 
-                {/* 🔥 TODAY VERTICAL LINE */}
+                {/* Ã°Å¸â€Â¥ TODAY VERTICAL LINE */}
                 {dates.length > 0 && (() => {
                   const todayIdx = dates.findIndex((d) => isToday(d));
                   const todayOffset = (todayIdx / totalDays) * 100;
@@ -469,7 +469,7 @@ export default function GanttGridView({ projectId }: Props) {
                   );
                 })()}
 
-                {/* 🔥 CONTINUOUS BAR */}
+                {/* Ã°Å¸â€Â¥ CONTINUOUS BAR */}
                 {start && end && (
                   <Box
                     sx={{
@@ -481,7 +481,7 @@ export default function GanttGridView({ projectId }: Props) {
                       transform: "translateY(-50%)",
                       borderRadius: 2,
                       backgroundColor: getColor(row),
-                      border: row.type === "category" ? "2px solid #5E35B1" : row.type === "task" ? "2px solid #0D47A1" : "1px solid rgba(0,0,0,0.1)",
+                      border: row.type === "scope" ? "2px solid #5E35B1" : row.type === "task" ? "2px solid #0D47A1" : "1px solid rgba(0,0,0,0.1)",
                       boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                       zIndex: 2,
                     }}

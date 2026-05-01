@@ -28,15 +28,15 @@ export default function TaskModal({
   onClose,
   mode = "create",
   task = null,
-  categoryId = "",
-  categoryBudget = 0,
+  scopeId = "",
+  scopeBudget = 0,
 }: {
   open: boolean;
   onClose: () => void;
   mode?: "create" | "view" | "edit";
   task?: any | null;
-  categoryId?: string;
-  categoryBudget?: number;
+  scopeId?: string;
+  scopeBudget?: number;
 }) {
   const dispatch = useAppDispatch();
 
@@ -71,8 +71,8 @@ export default function TaskModal({
   }, [open, task, mode]);
 
   const budgetPercent =
-    form.budgetAllocated && categoryBudget > 0
-      ? calculateBudgetPercent(form.budgetAllocated, categoryBudget)
+    form.budgetAllocated && scopeBudget > 0
+      ? calculateBudgetPercent(form.budgetAllocated, scopeBudget)
       : 0;
 
   const handleChange = (field: string, value: any) => {
@@ -87,10 +87,10 @@ export default function TaskModal({
       {
         title: form.title,
         description: form.description,
-        categoryId,
+        scopeId,
         budgetAllocated: form.budgetAllocated,
       },
-      categoryBudget
+      scopeBudget
     );
 
     if (!validation.isValid) {
@@ -107,7 +107,7 @@ export default function TaskModal({
             description: form.description,
             budgetAllocated: form.budgetAllocated,
             budgetPercent: budgetPercent,
-            categoryId,
+            scopeId,
           })
         );
         dispatch(setCurrentTask(newTask.id));
@@ -184,8 +184,8 @@ export default function TaskModal({
                 textAlign: "center",
               }}
             >
-              ₱{form.budgetAllocated.toLocaleString()} ({budgetPercent.toFixed(1)}% of ₱
-              {categoryBudget.toLocaleString()})
+              {form.budgetAllocated.toLocaleString()} ({budgetPercent.toFixed(1)}% of 
+              {scopeBudget.toLocaleString()})
             </Box>
           )}
 

@@ -12,7 +12,7 @@ import {
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import PieChartOutlineIcon from "@mui/icons-material/PieChartOutline";
 
-interface Category {
+interface Scope {
   id: string;
   name: string;
   budgetAllocated?: number;
@@ -21,14 +21,14 @@ interface Category {
 }
 
 interface Props {
-  categories: Category[];
-  currentCategoryId: string | null;
+  scopes: Scope[];
+  currentScopeId: string | null;
   onChange: (id: string) => void;
 }
 
-export default function CategorySelector({
-  categories,
-  currentCategoryId,
+export default function ScopeSelector({
+  scopes,
+  currentScopeId,
   onChange,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
@@ -37,7 +37,7 @@ export default function CategorySelector({
   const mobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const selected =
-    categories.find((c) => c.id === currentCategoryId) || categories[0];
+    scopes.find((c) => c.id === currentScopeId) || scopes[0];
 
   const progress = selected?.progress ?? 0;
 
@@ -58,8 +58,8 @@ export default function CategorySelector({
 
   const expandedWidth = Math.min(
     BASE_CARD_WIDTH +
-      categories.length * OPTION_CARD_WIDTH +
-      (categories.length - 1) * 16,
+      scopes.length * OPTION_CARD_WIDTH +
+      (scopes.length - 1) * 16,
     MAX_DRAWER_WIDTH,
   );
 
@@ -91,7 +91,7 @@ export default function CategorySelector({
             overflow: "hidden",
           }}
         >
-          {/* CABINET FRONT - Main Category KPI Card */}
+          {/* CABINET FRONT - Main Scope KPI Card */}
           <Card
             onMouseEnter={() => setExpanded(true)}
             onMouseLeave={() => setExpanded(false)}
@@ -118,7 +118,7 @@ export default function CategorySelector({
             }}
           >
             {/* COMPACT HEADER */}
-            {/* Category Name Pill - Responsive with Ellipsis */}
+            {/* Scope Name Pill - Responsive with Ellipsis */}
             <Box
               sx={{
                 minWidth: 0,
@@ -146,7 +146,7 @@ export default function CategorySelector({
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {selected?.name || "Select Category"}
+                  {selected?.name || "Select Scope"}
                 </Typography>
               </Box>
 
@@ -309,7 +309,7 @@ export default function CategorySelector({
                             whiteSpace: "nowrap",
                           }}
                         >
-                          ₱{selected?.budgetAllocated?.toLocaleString() || "0"}
+                          {selected?.budgetAllocated?.toLocaleString() || "0"}
                         </Typography>
                       </Box>
                     </Box>
@@ -404,7 +404,7 @@ export default function CategorySelector({
                         pl: 0.5,
                       }}
                     >
-                      Select Category
+                      Select Scope
                     </Typography>
 
                     {/* DRAWER CONTENTS - Horizontal Scrollable Card Items */}
@@ -433,10 +433,10 @@ export default function CategorySelector({
                         },
                       }}
                     >
-                      {categories
-                        .filter((c) => c.id !== currentCategoryId)
+                      {scopes
+                        .filter((c) => c.id !== currentScopeId)
                         .map((cat, idx) => {
-                          const active = cat.id === currentCategoryId;
+                          const active = cat.id === currentScopeId;
                           const catProgress = cat.progress ?? 0;
                           const catProgressColor =
                             catProgress < 40
@@ -492,7 +492,7 @@ export default function CategorySelector({
                                   },
                                 }}
                               >
-                                {/* Category Header with Active Indicator */}
+                                {/* Scope Header with Active Indicator */}
                                 <Box
                                   sx={{
                                     display: "flex",
@@ -534,7 +534,7 @@ export default function CategorySelector({
                                           "0 2px 6px rgba(33,14,100,.25)",
                                       }}
                                     >
-                                      ✓
+                                      Ã¢Å“â€œ
                                     </Box>
                                   )}
                                 </Box>
@@ -631,7 +631,7 @@ export default function CategorySelector({
                                           whiteSpace: "nowrap",
                                         }}
                                       >
-                                        ₱
+                                        
                                         {(cat.budgetAllocated / 1000).toFixed(
                                           0,
                                         )}

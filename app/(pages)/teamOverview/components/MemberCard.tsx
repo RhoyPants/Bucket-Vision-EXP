@@ -60,14 +60,14 @@ export default function MemberCard({
       }
     }
 
-    if (projectsData.length === 0 || !projectsData[0]?.categories) return [];
+    if (projectsData.length === 0 || !projectsData[0]?.scopes) return [];
 
     const subtasks: any[] = [];
     
     projectsData.forEach((project: any) => {
-      project.categories?.forEach((category: any) => {
-        if (category.tasks) {
-          category.tasks.forEach((task: any) => {
+      project.scopes?.forEach((scope: any) => {
+        if (Scope.tasks) {
+          Scope.tasks.forEach((task: any) => {
             if (task.subtasks) {
               task.subtasks.forEach((subtask: any) => {
                 if (
@@ -79,7 +79,7 @@ export default function MemberCard({
                     id: subtask.id,
                     subtaskName: subtask.title,
                     taskName: task.title,
-                    categoryName: category.name,
+                    scopeName: Scope.name,
                     projectName: project.name,
                     progress: subtask.progress,
                     status:
@@ -297,7 +297,7 @@ export default function MemberCard({
                 variant="body2"
                 sx={{ fontWeight: 600, color: "#4B2E83" }}
               >
-                📋 Project: {fullProject.name}
+                Ã°Å¸â€œâ€¹ Project: {fullProject.name}
               </Typography>
             </Box>
           )}
@@ -316,7 +316,7 @@ export default function MemberCard({
                       Project
                     </TableCell>
                     <TableCell sx={{ fontWeight: 700, color: "#4B2E83", fontSize: 12 }}>
-                      Category
+                      Scope
                     </TableCell>
                     <TableCell sx={{ fontWeight: 700, color: "#4B2E83", fontSize: 12 }}>
                       Task
@@ -345,7 +345,7 @@ export default function MemberCard({
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" sx={{ fontSize: 12, color: "text.secondary" }}>
-                          {subtask.categoryName}
+                          {subtask.scopeName}
                         </Typography>
                       </TableCell>
                       <TableCell>

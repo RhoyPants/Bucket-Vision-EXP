@@ -19,17 +19,17 @@ import {
 } from "@/app/utils/taskValidation";
 
 interface TaskFormProps {
-  categoryId: string;
-  categoryBudget: number;
+  scopeId: string;
+  scopeBudget: number;
   taskInputs: Record<string, any>;
   setTaskInputs: (inputs: any) => void;
-  onAddTask: (categoryId: string) => void;
+  onAddTask: (scopeId: string) => void;
   existingTasks?: Array<{ budgetAllocated: number }>;
 }
 
 export default function TaskForm({
-  categoryId,
-  categoryBudget,
+  scopeId,
+  scopeBudget,
   taskInputs,
   setTaskInputs,
   onAddTask,
@@ -39,13 +39,13 @@ export default function TaskForm({
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
 
-  const form = taskInputs[categoryId] || {};
+  const form = taskInputs[scopeId] || {};
 
   const handleChange = (field: string, value: any) => {
     setTaskInputs((prev: any) => ({
       ...prev,
-      [categoryId]: {
-        ...prev[categoryId],
+      [scopeId]: {
+        ...prev[scopeId],
         [field]: value,
       },
     }));
@@ -59,7 +59,7 @@ export default function TaskForm({
   };
 
   const handleSubmit = async () => {
-    const validation = validateTaskForm(form, categoryBudget);
+    const validation = validateTaskForm(form, scopeBudget);
 
     if (!validation.isValid) {
       setErrors(validation.errors);
@@ -68,10 +68,10 @@ export default function TaskForm({
 
     setSaving(true);
     try {
-      onAddTask(categoryId);
+      onAddTask(scopeId);
       setTaskInputs((prev: any) => ({
         ...prev,
-        [categoryId]: {},
+        [scopeId]: {},
       }));
       setErrors([]);
       setTouched({});
@@ -83,8 +83,8 @@ export default function TaskForm({
   const titleError = touched["title"] && getFieldError("title", errors);
   const budgetError = touched["budgetAllocated"] && getFieldError("budgetAllocated", errors);
   const budgetPercent =
-    form.budgetAllocated && categoryBudget > 0
-      ? calculateBudgetPercent(form.budgetAllocated, categoryBudget)
+    form.budgetAllocated && scopeBudget > 0
+      ? calculateBudgetPercent(form.budgetAllocated, scopeBudget)
       : 0;
 
   return (

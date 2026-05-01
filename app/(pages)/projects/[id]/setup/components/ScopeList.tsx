@@ -1,20 +1,20 @@
 import { Box } from "@mui/material";
-import CategoryCard from "./CategoryCard";
+import ScopeCard from "./ScopeCard";
 
-interface CategoryListProps {
-  categories: any[];
-  categoryEdit: any;
-  setCategoryEdit: (cat: any) => void;
+interface ScopeListProps {
+  scopes: any[];
+  scopeEdit: any;
+  setScopeEdit: (scope: any) => void;
   taskInputs: Record<string, any>;
   setTaskInputs: (inputs: any) => void;
   subtaskInputs: Record<string, any>;
   setSubtaskInputs: (inputs: any) => void;
   members: any[];
   projectId?: string;
-  onEditCategory: (cat: any) => void;
-  onDeleteCategory: (catId: string) => void;
-  onUpdateCategory: () => void;
-  onAddTask: (categoryId: string) => void;
+  onEditScope: (scope: any) => void;
+  onDeleteScope: (scopeId: string) => void;
+  onUpdateScope: () => void;
+  onAddTask: (scopeId: string) => void;
   onUpdateTask: (taskId: string, updates: any) => void;
   onDeleteTask: (taskId: string) => void;
   onUpdateSubtask: (subId: string, taskId: string) => void;
@@ -23,19 +23,19 @@ interface CategoryListProps {
   onAddSubtask: (taskId: string) => void;
 }
 
-export default function CategoryList({
-  categories,
-  categoryEdit,
-  setCategoryEdit,
+export default function ScopeList({
+  scopes,
+  scopeEdit,
+  setScopeEdit,
   taskInputs,
   setTaskInputs,
   subtaskInputs,
   setSubtaskInputs,
   members,
   projectId,
-  onEditCategory,
-  onDeleteCategory,
-  onUpdateCategory,
+  onEditScope,
+  onDeleteScope,
+  onUpdateScope,
   onAddTask,
   onUpdateTask,
   onDeleteTask,
@@ -43,24 +43,24 @@ export default function CategoryList({
   onDeleteSubtask,
   onEditSubtask,
   onAddSubtask,
-}: CategoryListProps) {
+}: ScopeListProps) {
   return (
     <Box mt={4}>
-      {categories?.map((category: any) => (
-        <CategoryCard
-          key={category.id}
-          category={category}
-          categoryEdit={categoryEdit}
-          setCategoryEdit={setCategoryEdit}
+      {scopes?.map((scope: any) => (
+        <ScopeCard
+          key={scope.id}
+          scope={scope}
+          scopeEdit={scopeEdit}
+          setScopeEdit={setScopeEdit}
           taskInputs={taskInputs}
           setTaskInputs={setTaskInputs}
           subtaskInputs={subtaskInputs}
           setSubtaskInputs={setSubtaskInputs}
           members={members}
           projectId={projectId}
-          onEditCategory={onEditCategory}
-          onDeleteCategory={onDeleteCategory}
-          onUpdateCategory={onUpdateCategory}
+          onEditScope={onEditScope}
+          onDeleteScope={onDeleteScope}
+          onUpdateScope={onUpdateScope}
           onAddTask={onAddTask}
           onUpdateTask={onUpdateTask}
           onDeleteTask={onDeleteTask}

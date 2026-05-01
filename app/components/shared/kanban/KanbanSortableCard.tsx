@@ -37,7 +37,7 @@ export default function KanbanSortableCard({
 }: {
   subtask: KanbanSubtask & {
     project?: { id: string; name: string };
-    category?: { id: string; name: string };
+    Scope?: { id: string; name: string };
     task?: { id: string; title: string };
   };
   isOverlay?: boolean;
@@ -141,8 +141,8 @@ export default function KanbanSortableCard({
             },
           }}
         >
-          {/* 🔥 HOVER ACTIONS */}
-          {/* 🔥 HOVER ACTIONS */}
+
+          {/*HOVER ACTIONS */}
           <Box
             className="hover-actions"
             sx={{
@@ -236,7 +236,7 @@ export default function KanbanSortableCard({
             />
           </Box>
 
-          {/* 🔥 HIERARCHY INFO (TASKBOARD ONLY) */}
+          {/*  HIERARCHY INFO (TASKBOARD ONLY) */}
           {showHierarchy && (
             <Box sx={{ mb: 1.5, pb: 1.5, borderBottom: "1px solid #e5e7eb" }}>
               {subtask.project && (
@@ -250,11 +250,11 @@ export default function KanbanSortableCard({
                     mb: 0.3,
                   }}
                 >
-                  📦 {subtask.project.name}
+                  {subtask.project.name}
                 </Typography>
               )}
 
-              {subtask.category && (
+              {subtask.Scope && (
                 <Typography
                   variant="caption"
                   sx={{
@@ -265,7 +265,7 @@ export default function KanbanSortableCard({
                     mb: 0.3,
                   }}
                 >
-                  📁 {subtask.category.name}
+                  {subtask.Scope.name}
                 </Typography>
               )}
 
@@ -279,13 +279,13 @@ export default function KanbanSortableCard({
                     fontWeight: 600,
                   }}
                 >
-                  ✓ {subtask.task.title}
+                  {subtask.task.title}
                 </Typography>
               )}
             </Box>
           )}
 
-          {/* 🔥 DATE INFO */}
+          {/*  DATE INFO */}
           {(subtask.projectedStartDate || subtask.projectedEndDate) && (
             <Box sx={{ mb: 1.5, pb: 1.5, borderBottom: "1px solid #e5e7eb" }}>
               {subtask.projectedStartDate && (
@@ -298,7 +298,7 @@ export default function KanbanSortableCard({
                     mb: 0.3,
                   }}
                 >
-                  📅 Start: <b>{new Date(subtask.projectedStartDate).toLocaleDateString()}</b>
+                  Start: <b>{new Date(subtask.projectedStartDate).toLocaleDateString()}</b>
                 </Typography>
               )}
               {subtask.projectedEndDate && (
@@ -310,13 +310,13 @@ export default function KanbanSortableCard({
                     color: "#374151",
                   }}
                 >
-                  🎯 End: <b>{new Date(subtask.projectedEndDate).toLocaleDateString()}</b>
+                  End: <b>{new Date(subtask.projectedEndDate).toLocaleDateString()}</b>
                 </Typography>
               )}
             </Box>
           )}
 
-          {/* 🔥 ASSIGNEES */}
+          {/* ASSIGNEES */}
           {(subtask.assignees && subtask.assignees.length > 0) && (
             <Box sx={{ mb: 1.5, pb: 1.5, borderBottom: "1px solid #e5e7eb" }}>
               <Typography
@@ -329,7 +329,7 @@ export default function KanbanSortableCard({
                   mb: 0.5,
                 }}
               >
-                👥 Assigned:
+                Assigned:
               </Typography>
               <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5}>
                 {subtask.assignees.map((assignee: any, idx: number) => (
@@ -351,13 +351,13 @@ export default function KanbanSortableCard({
             </Box>
           )}
 
-          {/* 🔥 BUDGET INFO */}
+          {/* BUDGET INFO */}
           <Stack direction="row" spacing={2} mb={1}>
             <Typography variant="caption">
-              💰 {subtask.budgetAllocated || 0}
+              {subtask.budgetAllocated || 0}
             </Typography>
             <Typography variant="caption">
-              📊 {subtask.budgetPercent?.toFixed(1) || 0}%
+             {subtask.budgetPercent?.toFixed(1) || 0}%
             </Typography>
           </Stack>
 
@@ -468,7 +468,6 @@ export default function KanbanSortableCard({
                       },
                     }}
                   >
-                    ✖
                   </IconButton>
                 </Tooltip>
               </Stack>
@@ -505,7 +504,7 @@ export default function KanbanSortableCard({
             budgetPercent: subtask.budgetPercent,
             remarks: subtask.remarks,
             userIds: subtask.userIds || [],
-            assignees: subtask.assignees || [], // 🔥 IMPORTANT: Pass assignees with user data
+            assignees: subtask.assignees || [], //IMPORTANT: Pass assignees with user data
           } as any
         }
         taskBudget={taskBudget}

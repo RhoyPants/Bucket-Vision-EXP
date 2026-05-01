@@ -3,7 +3,7 @@
 export interface TaskFormData {
   title: string;
   description?: string;
-  categoryId: string;
+  scopeId: string;
   budgetAllocated: number;
   budgetPercent?: number;
 }
@@ -21,16 +21,16 @@ export interface ValidationResult {
 /**
  * Validates a complete task form
  * @param form - The task form data to validate
- * @param categoryBudget - The category budget (for percent validation)
+ * @param scopeBudget - The Scope budget (for percent validation)
  * @returns ValidationResult with errors array if any
  */
 export const validateTaskForm = (
   form: Partial<TaskFormData>,
-  categoryBudget: number = 0
+  scopeBudget: number = 0
 ): ValidationResult => {
   const errors: ValidationError[] = [];
 
-  // ✅ Title validation
+  // Ã¢Å“â€¦ Title validation
   if (!form.title || form.title.trim() === "") {
     errors.push({
       field: "title",
@@ -48,7 +48,7 @@ export const validateTaskForm = (
     });
   }
 
-  // ✅ Budget Allocated validation
+  // Ã¢Å“â€¦ Budget Allocated validation
   if (form.budgetAllocated === undefined || form.budgetAllocated === null) {
     errors.push({
       field: "budgetAllocated",
@@ -66,15 +66,15 @@ export const validateTaskForm = (
     });
   }
 
-  // ✅ Budget validation against category budget
-  if (form.budgetAllocated !== undefined && form.budgetAllocated !== null && categoryBudget > 0 && form.budgetAllocated > categoryBudget) {
+  // Ã¢Å“â€¦ Budget validation against Scope budget
+  if (form.budgetAllocated !== undefined && form.budgetAllocated !== null && scopeBudget > 0 && form.budgetAllocated > scopeBudget) {
     errors.push({
       field: "budgetAllocated",
-      message: `Budget allocation (₱${form.budgetAllocated}) exceeds category budget (₱${categoryBudget})`,
+      message: `Budget allocation (${form.budgetAllocated}) exceeds Scope budget (${scopeBudget})`,
     });
   }
 
-  // ✅ Description validation (optional but has limits)
+  // Ã¢Å“â€¦ Description validation (optional but has limits)
   if (form.description && form.description.length > 500) {
     errors.push({
       field: "description",
@@ -93,17 +93,17 @@ export const validateTaskForm = (
  * @param fieldName - The name of the field to validate
  * @param value - The value of the field
  * @param form - The complete form data (for context-aware validation)
- * @param categoryBudget - The category budget
+ * @param scopeBudget - The Scope budget
  * @returns ValidationError or null if valid
  */
 export const validateField = (
   fieldName: string,
   value: any,
   form?: Partial<TaskFormData>,
-  categoryBudget?: number
+  scopeBudget?: number
 ): ValidationError | null => {
   const fullForm = { ...form, [fieldName]: value };
-  const result = validateTaskForm(fullForm, categoryBudget);
+  const result = validateTaskForm(fullForm, scopeBudget);
   return result.errors.find((err) => err.field === fieldName) || null;
 };
 
@@ -130,46 +130,46 @@ export const hasFieldError = (field: string, errors: ValidationError[]): boolean
 /**
  * Calculate budget percentage
  * @param budgetAllocated - Amount allocated to task
- * @param categoryBudget - Category budget
+ * @param scopeBudget - Scope budget
  * @returns Calculated percentage
  */
 export const calculateBudgetPercent = (
   budgetAllocated: number,
-  categoryBudget: number
+  scopeBudget: number
 ): number => {
-  if (categoryBudget <= 0) return 0;
-  return (budgetAllocated / categoryBudget) * 100;
+  if (scopeBudget <= 0) return 0;
+  return (budgetAllocated / scopeBudget) * 100;
 };
 
 /**
- * Get remaining budget for category
- * @param categoryBudget - Category budget
+ * Get remaining budget for Scope
+ * @param scopeBudget - Scope budget
  * @param allocatedTasks - Array of tasks with their budgets
  * @returns Remaining budget amount
  */
 export const getRemainingBudget = (
-  categoryBudget: number,
+  scopeBudget: number,
   allocatedTasks: Array<{ budgetAllocated: number }>
 ): number => {
   const totalAllocated = allocatedTasks.reduce(
     (sum, task) => sum + (task.budgetAllocated || 0),
     0
   );
-  return Math.max(0, categoryBudget - totalAllocated);
+  return Math.max(0, scopeBudget - totalAllocated);
 };
 
 /**
  * Get remaining budget percentage
- * @param categoryBudget - Category budget
+ * @param scopeBudget - Scope budget
  * @param allocatedTasks - Array of tasks with their budgets
  * @returns Remaining budget percentage
  */
 export const getRemainingBudgetPercent = (
-  categoryBudget: number,
+  scopeBudget: number,
   allocatedTasks: Array<{ budgetAllocated: number }>
 ): number => {
-  const remaining = getRemainingBudget(categoryBudget, allocatedTasks);
-  return categoryBudget > 0 ? (remaining / categoryBudget) * 100 : 0;
+  const remaining = getRemainingBudget(scopeBudget, allocatedTasks);
+  return scopeBudget > 0 ? (remaining / scopeBudget) * 100 : 0;
 };
 
 /**

@@ -10,10 +10,10 @@ import { getProjectFull } from "@/app/redux/controllers/projectController";
 import { getEngagedUsers } from "@/app/redux/controllers/projectMemberController";
 import Layout from "@/app/components/shared/Layout";
 import {
-  createCategory,
-  updateCategory,
-  deleteCategory,
-} from "@/app/redux/controllers/categoryController";
+  createScope,
+  updateScope,
+  deleteScope,
+} from "@/app/redux/controllers/scopeController";
 import {
   createTask,
   updateTask,
@@ -26,8 +26,8 @@ import {
 } from "@/app/redux/controllers/subTaskController";
 import { getMyMembers } from "@/app/redux/controllers/userController";
 
-import CategoryForm from "./components/CategoryForm";
-import CategoryList from "./components/CategoryList";
+import ScopeForm from "./components/ScopeForm";
+import ScopeList from "./components/ScopeList";
 import ProjectTeamPanel from "./components/ProjectTeamPanel";
 
 export default function ProjectSetupPage() {
@@ -37,12 +37,12 @@ export default function ProjectSetupPage() {
   const [project, setProject] = useState<any>(null);
   const [tab, setTab] = useState(0);
 
-  const [categoryForm, setCategoryForm] = useState({
+  const [scopeForm, setScopeForm] = useState({
     name: "",
     budgetAllocated: "",
   });
 
-  const [categoryEdit, setCategoryEdit] = useState<any>(null);
+  const [scopeEdit, setScopeEdit] = useState<any>(null);
 
   const [taskInputs, setTaskInputs] = useState<Record<string, any>>({});
   const [subtaskInputs, setSubtaskInputs] = useState<Record<string, any>>({});
@@ -66,80 +66,80 @@ export default function ProjectSetupPage() {
   }, [dispatch]);
 
   // =========================
-  // CATEGORY
+  // Scope
   // =========================
-  const handleAddCategory = async () => {
+  const handleAddScope = async () => {
     const projectBudget = project?.totalBudget || 0;
-    const budget = Number(categoryForm.budgetAllocated);
+    const budget = Number(scopeForm.budgetAllocated);
 
     const percent = projectBudget > 0 ? (budget / projectBudget) * 100 : 0;
 
     await dispatch(
-      createCategory({
-        name: categoryForm.name,
+      createScope({
+        name: scopeForm.name,
         projectId: id,
         budgetAllocated: budget,
         budgetPercent: percent,
-        order: project.categories?.length || 0,
+        order: project.scopes?.length || 0,
       }),
     );
 
-    setCategoryForm({ name: "", budgetAllocated: "" });
+    setScopeForm({ name: "", budgetAllocated: "" });
     fetchProject();
   };
 
-  const handleUpdateCategory = async () => {
+  const handleUpdateScope = async () => {
     await dispatch(
-      updateCategory(categoryEdit.id, {
-        name: categoryEdit.name,
-        budgetAllocated: Number(categoryEdit.budgetAllocated),
+      updateScope(scopeEdit.id, {
+        name: scopeEdit.name,
+        budgetAllocated: Number(scopeEdit.budgetAllocated),
       }),
     );
-    setCategoryEdit(null);
+    setScopeEdit(null);
     fetchProject();
   };
 
-  const handleDeleteCategory = async (id: string) => {
-    await dispatch(deleteCategory(id));
+  const handleDeleteScope = async (id: string) => {
+    await dispatch(deleteScope(id));
     fetchProject();
   };
 
   // =========================
   // TASK
   // =========================
-  const handleAddTask = async (categoryId: string) => {
-    const data = taskInputs[categoryId];
+  const handleAddTask = async (scopeId: string) => {
+    const data = taskInputs[scopeId];
     if (!data?.title) return;
 
-    const category = project.categories.find((c: any) => c.id === categoryId);
+    const scope = project.scopes.find((c: any) => c.id === scopeId);
 
     const percent =
-      category?.budgetAllocated > 0
-        ? (data.budgetAllocated / category.budgetAllocated) * 100
+      scope?.budgetAllocated > 0
+        ? (data.budgetAllocated / scope.budgetAllocated) * 100
         : 0;
 
     await dispatch(
       createTask({
         title: data.title,
         description: data.description || "",
-        categoryId,
+        scopeId,
         budgetAllocated: Number(data.budgetAllocated),
         budgetPercent: percent,
       }),
     );
 
-    setTaskInputs((prev) => ({ ...prev, [categoryId]: {} }));
+    setTaskInputs((prev) => ({ ...prev, [scopeId]: {} }));
     fetchProject();
   };
 
   const handleUpdateTask = async (taskId: string, updates: any) => {
-    const category = project.categories.find((c: any) =>
+    const scope = project.scopes.find((c: any) =>
       c.tasks?.find((t: any) => t.id === taskId)
     );
 
     const percent =
-      category?.budgetAllocated > 0
-        ? (updates.budgetAllocated / category.budgetAllocated) * 100
+      scope?.budgetAllocated > 0
+        ? (updates.budgetAllocated / scope.budgetAllocated) * 100
         : 0;
 
     await dispatch(
@@ -165,7 +165,7 @@ export default function ProjectSetupPage() {
     const data = subtaskInputs[taskId];
 
     let parentTask: any = null;
-    project.categories.forEach((cat: any) => {
+    project.scopes.forEach((cat: any) => {
       const found = cat.tasks?.find((t: any) => t.id === taskId);
       if (found) parentTask = found;
     });
@@ -208,7 +208,7 @@ export default function ProjectSetupPage() {
 
     let parentTask: any = null;
 
-    project.categories.forEach((cat: any) => {
+    project.scopes.forEach((cat: any) => {
       const found = cat.tasks?.find((t: any) => t.id === taskId);
       if (found) parentTask = found;
     });
@@ -264,33 +264,33 @@ export default function ProjectSetupPage() {
       {/* TAB 1: PROJECT STRUCTURE */}
       {tab === 0 && (
         <>
-          {/* CATEGORY INPUT */}
-          <CategoryForm
-            categoryForm={categoryForm}
-            setCategoryForm={setCategoryForm}
-            onAddCategory={handleAddCategory}
+          {/* Scope INPUT */}
+          <ScopeForm
+            scopeForm={scopeForm}
+            setScopeForm={setScopeForm}
+            onAddScope={handleAddScope}
             projectBudget={project?.totalBudget || 0}
-            existingCategories={project?.categories || []}
+            existingScopes={project?.scopes || []}
           />
 
-          {/* CATEGORY LIST */}
-          <CategoryList
-            categories={[...(project?.categories || [])].sort((a: any, b: any) => {
+          {/* Scope LIST */}
+          <ScopeList
+            scopes={[...(project?.scopes || [])].sort((a: any, b: any) => {
               const orderA = a.order ?? 0;
               const orderB = b.order ?? 0;
               return orderA - orderB;
             })}
-            categoryEdit={categoryEdit}
-            setCategoryEdit={setCategoryEdit}
+            scopeEdit={scopeEdit}
+            setScopeEdit={setScopeEdit}
             taskInputs={taskInputs}
             setTaskInputs={setTaskInputs}
             subtaskInputs={subtaskInputs}
             setSubtaskInputs={setSubtaskInputs}
             members={members}
             projectId={id as string}
-            onEditCategory={(cat: any) => setCategoryEdit(cat)}
-            onDeleteCategory={handleDeleteCategory}
-            onUpdateCategory={handleUpdateCategory}
+            onEditScope={(scope: any) => setScopeEdit(scope)}
+            onDeleteScope={handleDeleteScope}
+            onUpdateScope={handleUpdateScope}
             onAddTask={handleAddTask}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTask}

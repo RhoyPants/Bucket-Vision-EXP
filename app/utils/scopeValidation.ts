@@ -1,6 +1,6 @@
-// Category Validation Schema & Utilities
+// Scope Validation Schema & Utilities
 
-export interface CategoryFormData {
+export interface ScopeFormData {
   name: string;
   description?: string;
   projectId: string;
@@ -19,13 +19,13 @@ export interface ValidationResult {
 }
 
 /**
- * Validates a complete category form
- * @param form - The category form data to validate
+ * Validates a complete Scope form
+ * @param form - The Scope form data to validate
  * @param projectBudget - The total project budget (for percent validation)
  * @returns ValidationResult with errors array if any
  */
-export const validateCategoryForm = (
-  form: Partial<CategoryFormData>,
+export const validateScopeForm = (
+  form: Partial<ScopeFormData>,
   projectBudget: number = 0
 ): ValidationResult => {
   const errors: ValidationError[] = [];
@@ -34,17 +34,17 @@ export const validateCategoryForm = (
   if (!form.name || form.name.trim() === "") {
     errors.push({
       field: "name",
-      message: "Category name is required",
+      message: "Scope name is required",
     });
   } else if (form.name.trim().length < 2) {
     errors.push({
       field: "name",
-      message: "Category name must be at least 2 characters",
+      message: "Scope name must be at least 2 characters",
     });
   } else if (form.name.length > 100) {
     errors.push({
       field: "name",
-      message: "Category name must not exceed 100 characters",
+      message: "Scope name must not exceed 100 characters",
     });
   }
 
@@ -99,11 +99,11 @@ export const validateCategoryForm = (
 export const validateField = (
   fieldName: string,
   value: any,
-  form?: Partial<CategoryFormData>,
+  form?: Partial<ScopeFormData>,
   projectBudget?: number
 ): ValidationError | null => {
   const fullForm = { ...form, [fieldName]: value };
-  const result = validateCategoryForm(fullForm, projectBudget);
+  const result = validateScopeForm(fullForm, projectBudget);
   return result.errors.find((err) => err.field === fieldName) || null;
 };
 
@@ -129,7 +129,7 @@ export const hasFieldError = (field: string, errors: ValidationError[]): boolean
 
 /**
  * Calculate budget percentage
- * @param budgetAllocated - Amount allocated to category
+ * @param budgetAllocated - Amount allocated to Scope
  * @param projectBudget - Total project budget
  * @returns Calculated percentage
  */
@@ -144,15 +144,15 @@ export const calculateBudgetPercent = (
 /**
  * Get remaining budget for project
  * @param projectBudget - Total project budget
- * @param allocatedCategories - Array of categories with their budgets
+ * @param allocatedScopes - Array of scopes with their budgets
  * @returns Remaining budget amount
  */
 export const getRemainingBudget = (
   projectBudget: number,
-  allocatedCategories: Array<{ budgetAllocated: number }>
+  allocatedScopes: Array<{ budgetAllocated: number }>
 ): number => {
-  const totalAllocated = allocatedCategories.reduce(
-    (sum, cat) => sum + (cat.budgetAllocated || 0),
+  const totalAllocated = allocatedScopes.reduce(
+    (sum, scope) => sum + (scope.budgetAllocated || 0),
     0
   );
   return Math.max(0, projectBudget - totalAllocated);
@@ -161,13 +161,13 @@ export const getRemainingBudget = (
 /**
  * Get remaining budget percentage
  * @param projectBudget - Total project budget
- * @param allocatedCategories - Array of categories with their budgets
+ * @param allocatedScopes - Array of scopes with their budgets
  * @returns Remaining budget percentage
  */
 export const getRemainingBudgetPercent = (
   projectBudget: number,
-  allocatedCategories: Array<{ budgetAllocated: number }>
+  allocatedScopes: Array<{ budgetAllocated: number }>
 ): number => {
-  const remaining = getRemainingBudget(projectBudget, allocatedCategories);
+  const remaining = getRemainingBudget(projectBudget, allocatedScopes);
   return projectBudget > 0 ? (remaining / projectBudget) * 100 : 0;
 };

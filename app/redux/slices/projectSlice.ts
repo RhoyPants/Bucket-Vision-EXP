@@ -9,6 +9,7 @@ export interface ProjectLocation {
 }
 
 export interface Projects {
+  ownerId: string;
   id: string;
   name: string;
   description?: string;

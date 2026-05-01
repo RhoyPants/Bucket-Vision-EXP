@@ -234,7 +234,7 @@ export const deleteChecklist = (checklistId: string) => {
 // ========================================
 export const loadMyBoard = (filters?: {
   projectId?: string;
-  categoryId?: string;
+  scopeId?: string;
   taskId?: string;
   search?: string;
 }) => {
@@ -243,7 +243,7 @@ export const loadMyBoard = (filters?: {
       // ✅ Build query params
       const params = new URLSearchParams();
       if (filters?.projectId) params.append("projectId", filters.projectId);
-      if (filters?.categoryId) params.append("categoryId", filters.categoryId);
+      if (filters?.scopeId) params.append("scopeId", filters.scopeId);
       if (filters?.taskId) params.append("taskId", filters.taskId);
       if (filters?.search) params.append("search", filters.search);
 
@@ -283,7 +283,7 @@ export const loadBoardFilterData = () => {
       dispatch(
         setBoardFilters({
           projects: formattedProjects,
-          categories: [],
+          scopes: [],
           tasks: [],
         }),
       );
@@ -299,56 +299,56 @@ export const loadBoardFilterData = () => {
 };
 
 // ========================================
-// 🔥 LOAD CATEGORIES FOR PROJECT
+// 🔥 LOAD SCOPES FOR PROJECT
 // ========================================
-export const loadCategoriesForProject = (projectId: string) => {
+export const loadScopesForProject = (projectId: string) => {
   return async (dispatch: AppDispatch, getState: any) => {
     try {
-      const res = await axiosApi.get(`/categories/project/${projectId}`);
+      const res = await axiosApi.get(`/scopes/project/${projectId}`);
       
       // ✅ Get existing state to preserve projects
       const currentState = getState();
       const currentProjects = currentState?.kanban?.boardFilters?.projects || [];
 
-      // ✅ Map categories to have { id, name } structure
-      const formattedCategories = (res.data || []).map((category: any) => ({
-        id: category.id,
-        name: category.name || category.title || "Unnamed Category",
+      // ✅ Map scopes to have { id, name } structure
+      const formattedScopes = (res.data || []).map((scope: any) => ({
+        id: scope.id,
+        name: scope.name || scope.title || "Unnamed Scope",
       }));
 
       dispatch(
-        setTasksForBoard([]), // ✅ Clear tasks when category changes
+        setTasksForBoard([]), // ✅ Clear tasks when scope changes
       );
 
-      // 🔥 Preserve projects, update categories and clear tasks
+      // 🔥 Preserve projects, update scopes and clear tasks
       dispatch(
         setBoardFilters({
           projects: currentProjects, // ✅ PRESERVE existing projects
-          categories: formattedCategories,
+          scopes: formattedScopes,
           tasks: [],
         }),
       );
 
-      return formattedCategories;
+      return formattedScopes;
     } catch (err) {
-      console.error("❌ Error loading categories:", err);
+      console.error("❌ Error loading scopes:", err);
       throw err;
     }
   };
 };
 
 // ========================================
-// 🔥 LOAD TASKS FOR CATEGORY
+// 🔥 LOAD TASKS FOR SCOPE
 // ========================================
-export const loadTasksForCategory = (categoryId: string) => {
+export const loadTasksForScope = (scopeId: string) => {
   return async (dispatch: AppDispatch, getState: any) => {
     try {
-      const res = await axiosApi.get(`/tasks/category/${categoryId}`);
+      const res = await axiosApi.get(`/tasks/scope/${scopeId}`);
       
-      // ✅ Get existing state to preserve projects and categories
+      // ✅ Get existing state to preserve projects and scopes
       const currentState = getState();
       const currentProjects = currentState?.kanban?.boardFilters?.projects || [];
-      const currentCategories = currentState?.kanban?.boardFilters?.categories || [];
+      const currentScopes = currentState?.kanban?.boardFilters?.scopes || [];
 
       // ✅ Map tasks to have { id, name } structure
       const formattedTasks = (res.data || []).map((task: any) => ({
@@ -358,11 +358,11 @@ export const loadTasksForCategory = (categoryId: string) => {
 
       dispatch(setTasksForBoard(formattedTasks));
       
-      // 🔥 Also update board filters to preserve projects and categories
+      // 🔥 Also update board filters to preserve projects and scopes
       dispatch(
         setBoardFilters({
           projects: currentProjects, // ✅ PRESERVE existing projects
-          categories: currentCategories, // ✅ PRESERVE existing categories
+          scopes: currentScopes, // ✅ PRESERVE existing scopes
           tasks: formattedTasks,
         }),
       );

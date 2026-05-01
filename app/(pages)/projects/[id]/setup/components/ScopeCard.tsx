@@ -7,27 +7,27 @@ import CloseIcon from "@mui/icons-material/Close";
 import TaskForm from "./TaskForm";
 import TaskCard from "./TaskCard";
 import {
-  validateCategoryForm,
+  validateScopeForm,
   getFieldError,
   hasFieldError,
   calculateBudgetPercent,
   ValidationError,
-} from "@/app/utils/categoryValidation";
+} from "@/app/utils/scopeValidation";
 
-interface CategoryCardProps {
-  category: any;
-  categoryEdit: any;
-  setCategoryEdit: (cat: any) => void;
+interface ScopeCardProps {
+  scope: any;
+  scopeEdit: any;
+  setScopeEdit: (scope: any) => void;
   taskInputs: Record<string, any>;
   setTaskInputs: (inputs: any) => void;
   subtaskInputs: Record<string, any>;
   setSubtaskInputs: (inputs: any) => void;
   members: any[];
   projectId?: string;
-  onEditCategory: (cat: any) => void;
-  onDeleteCategory: (catId: string) => void;
-  onUpdateCategory: () => void;
-  onAddTask: (categoryId: string) => void;
+  onEditScope: (scope: any) => void;
+  onDeleteScope: (scopeId: string) => void;
+  onUpdateScope: () => void;
+  onAddTask: (scopeId: string) => void;
   onUpdateTask: (taskId: string, updates: any) => void;
   onDeleteTask: (taskId: string) => void;
   onUpdateSubtask: (subId: string, taskId: string) => void;
@@ -36,19 +36,19 @@ interface CategoryCardProps {
   onAddSubtask: (taskId: string) => void;
 }
 
-export default function CategoryCard({
-  category,
-  categoryEdit,
-  setCategoryEdit,
+export default function ScopeCard({
+  scope,
+  scopeEdit,
+  setScopeEdit,
   taskInputs,
   setTaskInputs,
   subtaskInputs,
   setSubtaskInputs,
   members,
   projectId,
-  onEditCategory,
-  onDeleteCategory,
-  onUpdateCategory,
+  onEditScope,
+  onDeleteScope,
+  onUpdateScope,
   onAddTask,
   onUpdateTask,
   onDeleteTask,
@@ -56,14 +56,14 @@ export default function CategoryCard({
   onDeleteSubtask,
   onEditSubtask,
   onAddSubtask,
-}: CategoryCardProps) {
-  const [editModalOpen, setEditModalOpen] = useState(categoryEdit?.id === category.id);
+}: ScopeCardProps) {
+  const [editModalOpen, setEditModalOpen] = useState(scopeEdit?.id === scope.id);
   const [editErrors, setEditErrors] = useState<ValidationError[]>([]);
   const [editTouched, setEditTouched] = useState<Record<string, boolean>>({});
   const [editSaving, setEditSaving] = useState(false);
 
   const handleEditOpen = () => {
-    onEditCategory(category);
+    onEditScope(scope);
     setEditModalOpen(true);
     setEditErrors([]);
     setEditTouched({});
@@ -71,14 +71,14 @@ export default function CategoryCard({
 
   const handleEditClose = () => {
     setEditModalOpen(false);
-    setCategoryEdit(null);
+    setScopeEdit(null);
   };
 
   const handleEditSubmit = async () => {
-    const validation = validateCategoryForm({
-      name: categoryEdit.name,
-      projectId: category.projectId || "",
-      budgetAllocated: Number(categoryEdit.budgetAllocated) || 0,
+    const validation = validateScopeForm({
+      name: scopeEdit.name,
+      projectId: scope.projectId || "",
+      budgetAllocated: Number(scopeEdit.budgetAllocated) || 0,
     });
 
     if (!validation.isValid) {
@@ -94,13 +94,13 @@ export default function CategoryCard({
     try {
       setEditSaving(true);
       setEditErrors([]);
-      onUpdateCategory();
+      onUpdateScope();
       handleEditClose();
     } catch (err: any) {
       setEditErrors([
         {
           field: "submit",
-          message: err?.message || "Failed to update category",
+          message: err?.message || "Failed to update scope",
         },
       ]);
     } finally {
@@ -113,8 +113,8 @@ export default function CategoryCard({
   };
 
   const budgetPercent = calculateBudgetPercent(
-    Number(category.budgetAllocated) || 0,
-    Number(category.budgetAllocated) || 0
+    Number(scope.budgetAllocated) || 0,
+    Number(scope.budgetAllocated) || 0
   );
 
   return (
@@ -130,23 +130,23 @@ export default function CategoryCard({
           transition: "all 0.2s",
           "&:hover": {
             boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-            "& .cat-actions": { opacity: 1 },
+            "& .scope-actions": { opacity: 1 },
           },
         }}
       >
-        {/* CATEGORY HEADER */}
+        {/* SCOPE HEADER */}
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Box>
             <Typography variant="subtitle1" fontWeight={700}>
-              {category.name}
+              {scope.name}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              ₱{(Number(category.budgetAllocated) || 0).toLocaleString()} ({category.budgetPercent?.toFixed(2)}%)
+              ₱{(Number(scope.budgetAllocated) || 0).toLocaleString()} ({scope.budgetPercent?.toFixed(2)}%)
             </Typography>
           </Box>
 
           <Box
-            className="cat-actions"
+            className="scope-actions"
             sx={{
               display: "flex",
               gap: 1,
@@ -164,7 +164,7 @@ export default function CategoryCard({
             <IconButton
               size="small"
               color="error"
-              onClick={() => onDeleteCategory(category.id)}
+              onClick={() => onDeleteScope(scope.id)}
             >
               <DeleteIcon fontSize="small" />
             </IconButton>
@@ -173,21 +173,21 @@ export default function CategoryCard({
 
         {/* TASK INPUT */}
         <TaskForm
-          categoryId={category.id}
-          categoryBudget={Number(category.budgetAllocated) || 0}
+          scopeId={scope.id}
+          scopeBudget={Number(scope.budgetAllocated) || 0}
           taskInputs={taskInputs}
           setTaskInputs={setTaskInputs}
           onAddTask={onAddTask}
-          existingTasks={category.tasks || []}
+          existingTasks={scope.tasks || []}
         />
 
         {/* TASK LIST */}
         <Box mt={3}>
-          {category.tasks?.map((task: any) => (
+          {scope.tasks?.map((task: any) => (
             <TaskCard
               key={task.id}
               task={task}
-              categoryBudget={Number(category.budgetAllocated) || 0}
+              scopeBudget={Number(scope.budgetAllocated) || 0}
               subtaskInputs={subtaskInputs}
               setSubtaskInputs={setSubtaskInputs}
               members={members}
@@ -203,7 +203,7 @@ export default function CategoryCard({
         </Box>
       </Box>
 
-      {/* EDIT CATEGORY MODAL */}
+      {/* EDIT SCOPE MODAL */}
       <Dialog
         open={editModalOpen}
         onClose={handleEditClose}
@@ -218,7 +218,7 @@ export default function CategoryCard({
             borderBottom: "1px solid #e5e7eb",
           }}
         >
-          Edit Category
+          Edit Scope
           <IconButton size="small" onClick={handleEditClose}>
             <CloseIcon />
           </IconButton>
@@ -249,20 +249,20 @@ export default function CategoryCard({
             </Alert>
           )}
 
-          {/* CATEGORY NAME */}
+          {/* SCOPE NAME */}
           <Box sx={{ mb: 2.5 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
               <Typography variant="subtitle2" fontWeight={600}>
-                Category Name
+                Scope Name
               </Typography>
               <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
             </Box>
             <TextField
               fullWidth
-              value={categoryEdit?.name || ""}
+              value={scopeEdit?.name || ""}
               onChange={(e) =>
-                setCategoryEdit({
-                  ...categoryEdit,
+                setScopeEdit({
+                  ...scopeEdit,
                   name: e.target.value,
                 })
               }
@@ -271,7 +271,7 @@ export default function CategoryCard({
               helperText={editTouched.name && getFieldError("name", editErrors)}
               variant="outlined"
               size="small"
-              placeholder="Enter category name"
+              placeholder="Enter scope name"
               inputProps={{ maxLength: 100 }}
               sx={{
                 "& .MuiOutlinedInput-root": {
@@ -292,10 +292,10 @@ export default function CategoryCard({
             <TextField
               fullWidth
               type="number"
-              value={categoryEdit?.budgetAllocated || ""}
+              value={scopeEdit?.budgetAllocated || ""}
               onChange={(e) =>
-                setCategoryEdit({
-                  ...categoryEdit,
+                setScopeEdit({
+                  ...scopeEdit,
                   budgetAllocated: e.target.value,
                 })
               }
@@ -327,16 +327,16 @@ export default function CategoryCard({
             </Box>
             <TextField
               fullWidth
-              value={categoryEdit?.description || ""}
+              value={scopeEdit?.description || ""}
               onChange={(e) =>
-                setCategoryEdit({
-                  ...categoryEdit,
+                setScopeEdit({
+                  ...scopeEdit,
                   description: e.target.value,
                 })
               }
               variant="outlined"
               size="small"
-              placeholder="Describe this category..."
+              placeholder="Describe this scope..."
               multiline
               rows={2}
               inputProps={{ maxLength: 500 }}
@@ -361,7 +361,7 @@ export default function CategoryCard({
               fontWeight: 600,
             }}
           >
-            {editSaving ? "Updating..." : "Update Category"}
+            {editSaving ? "Updating..." : "Update Scope"}
           </Button>
         </DialogActions>
       </Dialog>

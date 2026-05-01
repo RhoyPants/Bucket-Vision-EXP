@@ -24,7 +24,7 @@ interface SubtaskCardProps {
     id: string;
     title: string;
   } | null;
-  category?: {
+  Scope?: {
     id: string;
     name: string;
   } | null;
@@ -63,7 +63,7 @@ export default function SubtaskCard({
   progress,
   priority,
   task,
-  category,
+  Scope,
   project,
   onUpdateProgress,
   onViewDetails,
@@ -151,7 +151,7 @@ export default function SubtaskCard({
           pb: 1.5,
         }}
       >
-        {/* Project, Category, Task Info */}
+        {/* Project, Scope, Task Info */}
         <Box sx={{ mb: 2 }}>
           {/* Project */}
           {project?.name && (
@@ -183,8 +183,8 @@ export default function SubtaskCard({
             </Box>
           )}
 
-          {/* Category */}
-          {category && (
+          {/* Scope */}
+          {Scope && (
             <Box sx={{ mb: 1.5 }}>
               <Typography
                 variant="caption"
@@ -197,7 +197,7 @@ export default function SubtaskCard({
                   letterSpacing: "0.5px",
                 }}
               >
-                Category
+                Scope
               </Typography>
               <Typography
                 sx={{
@@ -207,7 +207,7 @@ export default function SubtaskCard({
                   mt: 0.3,
                 }}
               >
-                {category?.name || "N/A"}
+                {Scope?.name || "N/A"}
               </Typography>
             </Box>
           )}

@@ -24,21 +24,21 @@ import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import {
   loadMyBoard,
   loadBoardFilterData,
-  loadCategoriesForProject,
-  loadTasksForCategory,
+  loadScopesForProject,
+  loadTasksForScope,
 } from "@/app/redux/controllers/subTaskController";
 import type { SubtaskCardData } from "@/app/api-service/myBoardService";
 
 interface FilterState {
   searchQuery: string;
   projectId: string | null;
-  categoryId: string | null;
+  scopeId: string | null;
   taskId: string | null;
 }
 
 export default function TaskBoardPage() {
   // ========================================
-  // 🔥 REDUX HOOKS
+  // Ã°Å¸â€Â¥ REDUX HOOKS
   // ========================================
   const dispatch = useAppDispatch();
   const subtasks = useAppSelector((state) => {
@@ -48,13 +48,13 @@ export default function TaskBoardPage() {
   });
   const boardFilters = useAppSelector((state) => state.kanban.boardFilters);
   
-  // ✅ Ensure arrays are always defined
+  // Ã¢Å“â€¦ Ensure arrays are always defined
   const projects = (boardFilters?.projects || []) as any[];
-  const categories = (boardFilters?.categories || []) as any[];
+  const scopes = (boardFilters?.scopes || []) as any[];
   const tasks = (boardFilters?.tasks || []) as any[];
 
   // ========================================
-  // 🔥 LOCAL STATE
+  // Ã°Å¸â€Â¥ LOCAL STATE
   // ========================================
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -62,7 +62,7 @@ export default function TaskBoardPage() {
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: "",
     projectId: null,
-    categoryId: null,
+    scopeId: null,
     taskId: null,
   });
 
@@ -71,7 +71,7 @@ export default function TaskBoardPage() {
   const [selectedSubtask, setSelectedSubtask] = useState<SubtaskCardData | null>(null);
 
   // ========================================
-  // 🔥 INITIAL LOAD - Fetch filters dropdown data
+  // Ã°Å¸â€Â¥ INITIAL LOAD - Fetch filters dropdown data
   // ========================================
   useEffect(() => {
     const loadInitialData = async () => {
@@ -79,9 +79,9 @@ export default function TaskBoardPage() {
       setError("");
 
       try {
-        // ✅ Load filter dropdown data (projects, categories, tasks)
+        // Ã¢Å“â€¦ Load filter dropdown data (projects, scopes, tasks)
         await dispatch(loadBoardFilterData());
-        // ✅ Load initial subtasks (no filters yet)
+        // Ã¢Å“â€¦ Load initial subtasks (no filters yet)
         await dispatch(loadMyBoard());
       } catch (err: any) {
         console.error("Error loading board:", err);
@@ -97,7 +97,7 @@ export default function TaskBoardPage() {
   }, [dispatch]);
 
   // ========================================
-  // 🔥 WHEN FILTERS CHANGE - RELOAD SUBTASKS FROM BACKEND
+  // Ã°Å¸â€Â¥ WHEN FILTERS CHANGE - RELOAD SUBTASKS FROM BACKEND
   // ========================================
   useEffect(() => {
     if (loading) return; // Skip if still loading initial data
@@ -108,7 +108,7 @@ export default function TaskBoardPage() {
         await dispatch(
           loadMyBoard({
             projectId: filters.projectId || undefined,
-            categoryId: filters.categoryId || undefined,
+            scopeId: filters.scopeId || undefined,
             taskId: filters.taskId || undefined,
             search: filters.searchQuery || undefined,
           })
@@ -119,10 +119,10 @@ export default function TaskBoardPage() {
     };
 
     reloadBoard();
-  }, [filters.projectId, filters.categoryId, filters.taskId, filters.searchQuery, dispatch, loading]);
+  }, [filters.projectId, filters.scopeId, filters.taskId, filters.searchQuery, dispatch, loading]);
 
   // ========================================
-  // 🔥 LOAD CATEGORIES WHEN PROJECT CHANGES
+  // Ã°Å¸â€Â¥ LOAD scopes WHEN PROJECT CHANGES
   // ========================================
   useEffect(() => {
     if (!filters.projectId) {
@@ -131,15 +131,15 @@ export default function TaskBoardPage() {
 
     const loadCategories = async () => {
       try {
-        await dispatch(loadCategoriesForProject(filters.projectId!));
+        await dispatch(loadScopesForProject(filters.projectId!));
         setFilters((prev) => ({
           ...prev,
-          categoryId: null,
+          scopeId: null,
           taskId: null,
         }));
       } catch (err: any) {
-        const errorMessage = err?.response?.data?.message || "Failed to load categories";
-        console.error("Error loading categories:", errorMessage);
+        const errorMessage = err?.response?.data?.message || "Failed to load scopes";
+        console.error("Error loading scopes:", errorMessage);
       }
     };
 
@@ -147,16 +147,16 @@ export default function TaskBoardPage() {
   }, [filters.projectId, dispatch]);
 
   // ========================================
-  // 🔥 LOAD TASKS WHEN CATEGORY CHANGES
+  // Ã°Å¸â€Â¥ LOAD TASKS WHEN Scope CHANGES
   // ========================================
   useEffect(() => {
-    if (!filters.categoryId) {
+    if (!filters.scopeId) {
       return;
     }
 
     const loadTasks = async () => {
       try {
-        await dispatch(loadTasksForCategory(filters.categoryId!));
+        await dispatch(loadTasksForScope(filters.scopeId!));
         setFilters((prev) => ({
           ...prev,
           taskId: null,
@@ -168,19 +168,19 @@ export default function TaskBoardPage() {
     };
 
     loadTasks();
-  }, [filters.categoryId, dispatch]);
+  }, [filters.scopeId, dispatch]);
 
   // ========================================
-  // 🔥 HANDLE PROJECT CHANGE - Clear subcategories
+  // Ã°Å¸â€Â¥ HANDLE PROJECT CHANGE - Clear subcategories
   // ========================================
   const handleFilterChange = useCallback((newFilters: FilterState) => {
-    // If project changed, clear category and task
+    // If project changed, clear Scope and task
     if (newFilters.projectId !== filters.projectId) {
-      newFilters.categoryId = null;
+      newFilters.scopeId = null;
       newFilters.taskId = null;
     }
-    // If category changed, clear task
-    else if (newFilters.categoryId !== filters.categoryId) {
+    // If Scope changed, clear task
+    else if (newFilters.scopeId !== filters.scopeId) {
       newFilters.taskId = null;
     }
     
@@ -188,11 +188,11 @@ export default function TaskBoardPage() {
   }, [filters]);
 
   // ========================================
-  // 🔥 FILTERED SUBTASKS (Backend filtered already)
+  // Ã°Å¸â€Â¥ FILTERED SUBTASKS (Backend filtered already)
   // ========================================
   const filteredSubtasks = useMemo(
     () => {
-      // ✅ Subtasks are already filtered by backend
+      // Ã¢Å“â€¦ Subtasks are already filtered by backend
       // Just ensure they're in the correct format
       return subtasks && Array.isArray(subtasks) ? subtasks : [];
     },
@@ -200,7 +200,7 @@ export default function TaskBoardPage() {
   );
 
   // ========================================
-  // 🔥 KANBAN COLUMNS COMPUTATION
+  // Ã°Å¸â€Â¥ KANBAN COLUMNS COMPUTATION
   // ========================================
   const kanbanColumns = useMemo(
     () => [
@@ -212,7 +212,7 @@ export default function TaskBoardPage() {
   );
 
   // ========================================
-  // 🔥 TYPE GUARD FOR FILTERED SUBTASKS
+  // Ã°Å¸â€Â¥ TYPE GUARD FOR FILTERED SUBTASKS
   // ========================================
   const safeFilteredSubtasks = useMemo(
     () =>
@@ -221,7 +221,7 @@ export default function TaskBoardPage() {
   );
 
   // ========================================
-  // 🔥 HANDLERS
+  // Ã°Å¸â€Â¥ HANDLERS
   // ========================================
   const handleUpdateProgress = useCallback((subtask: SubtaskCardData) => {
     setSelectedSubtask(subtask);
@@ -234,14 +234,14 @@ export default function TaskBoardPage() {
   };
 
   const handleProgressSuccess = useCallback(() => {
-    // ✅ Reload the board WITHOUT filters to get a fresh complete list
+    // Ã¢Å“â€¦ Reload the board WITHOUT filters to get a fresh complete list
     // AND refresh filter dropdowns to ensure consistency
     const reloadBoard = async () => {
       try {
-        // 🔥 CRITICAL: Reload subtasks AND filter data for consistency
+        // Ã°Å¸â€Â¥ CRITICAL: Reload subtasks AND filter data for consistency
         await Promise.all([
           dispatch(loadMyBoard()), // No filters - get ALL assigned from backend
-          dispatch(loadBoardFilterData()), // Refresh projects/categories/tasks dropdowns
+          dispatch(loadBoardFilterData()), // Refresh projects/scopes/tasks dropdowns
         ]);
       } catch (err) {
         console.error("Error reloading board:", err);
@@ -252,7 +252,7 @@ export default function TaskBoardPage() {
   }, [dispatch]);
 
   // ========================================
-  // 🔥 RENDER
+  // Ã°Å¸â€Â¥ RENDER
   // ========================================
   return (
     <Layout>
@@ -268,7 +268,7 @@ export default function TaskBoardPage() {
               mb: 0.5,
             }}
           >
-            📋 My Task Board
+            Ã°Å¸â€œâ€¹ My Task Board
           </Typography>
           <Typography
             sx={{
@@ -300,24 +300,24 @@ export default function TaskBoardPage() {
                 }))
               : []
           }
-          categories={
+          scopes={
             (filters.projectId
-              ? categories
-              : categories.filter(
+              ? scopes
+              : scopes.filter(
                   (cat) =>
                     subtasks.some(
-                      (sub) => sub?.category?.id === cat.id
+                      (sub) => sub?.scope?.id === cat.id
                     )
                 )
             )
               .filter((c: any) => c) // Remove nulls
               .map((c: any) => ({
                 id: c.id || c.ID || "",
-                name: c.name || c.categoryName || "Unknown Category",
+                name: c.name || c.scopeName || "Unknown Scope",
               }))
           }
           tasks={
-            (filters.categoryId
+            (filters.scopeId
               ? tasks
               : []
             )

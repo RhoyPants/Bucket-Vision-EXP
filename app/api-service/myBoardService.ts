@@ -21,7 +21,7 @@ export interface SubtaskCardData {
     id: string;
     title: string;
   };
-  category: {
+  scope: {
     id: string;
     name: string;
   };
@@ -63,7 +63,7 @@ export interface MyBoardResponse {
 
 export interface FilterParams {
   projectId?: string;
-  categoryId?: string;
+  scopeId?: string;
   taskId?: string;
   search?: string;
 }
@@ -76,7 +76,7 @@ export const filterSubtasks = (
   filters: {
     search?: string;
     projectId?: string;
-    categoryId?: string;
+    scopeId?: string;
     taskId?: string;
   }
 ): SubtaskCardData[] => {
@@ -94,18 +94,18 @@ export const filterSubtasks = (
       return false;
     }
 
-    // Project filter - Match via task.category.project hierarchy
+    // Project filter - Match via task.scope.project hierarchy
     if (filters.projectId) {
-      const projectId = (subtask.task as any)?.category?.project?.id;
+      const projectId = (subtask.task as any)?.scope?.project?.id;
       if (projectId !== filters.projectId) {
         return false;
       }
     }
 
-    // Category filter - Match via task.category hierarchy
-    if (filters.categoryId) {
-      const categoryId = (subtask.task as any)?.category?.id;
-      if (categoryId !== filters.categoryId) {
+    // Scope filter - Match via task.scope hierarchy
+    if (filters.scopeId) {
+      const scopeId = (subtask.task as any)?.scope?.id;
+      if (scopeId !== filters.scopeId) {
         return false;
       }
     }

@@ -2,39 +2,39 @@ import { Box, Button, TextField, Alert, Typography, Chip } from "@mui/material";
 import { useState } from "react";
 import WarningIcon from "@mui/icons-material/Warning";
 import {
-  validateCategoryForm,
+  validateScopeForm,
   getFieldError,
   hasFieldError,
   calculateBudgetPercent,
   ValidationError,
-} from "@/app/utils/categoryValidation";
+} from "@/app/utils/scopeValidation";
 
-interface CategoryFormProps {
-  categoryForm: { name: string; budgetAllocated: string; description?: string };
-  setCategoryForm: (form: any) => void;
-  onAddCategory: () => void;
+interface ScopeFormProps {
+  scopeForm: { name: string; budgetAllocated: string; description?: string };
+  setScopeForm: (form: any) => void;
+  onAddScope: () => void;
   projectBudget?: number;
-  existingCategories?: any[];
+  existingScopes?: any[];
 }
 
-export default function CategoryForm({
-  categoryForm,
-  setCategoryForm,
-  onAddCategory,
+export default function ScopeForm({
+  scopeForm,
+  setScopeForm,
+  onAddScope,
   projectBudget = 0,
-  existingCategories = [],
-}: CategoryFormProps) {
+  existingScopes = [],
+}: ScopeFormProps) {
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async () => {
-    const validation = validateCategoryForm(
+    const validation = validateScopeForm(
       {
-        name: categoryForm.name,
-        description: categoryForm.description,
+        name: scopeForm.name,
+        description: scopeForm.description,
         projectId: "",
-        budgetAllocated: Number(categoryForm.budgetAllocated) || 0,
+        budgetAllocated: Number(scopeForm.budgetAllocated) || 0,
       },
       projectBudget
     );
@@ -52,14 +52,14 @@ export default function CategoryForm({
     try {
       setSaving(true);
       setErrors([]);
-      onAddCategory();
-      setCategoryForm({ name: "", budgetAllocated: "", description: "" });
+      onAddScope();
+      setScopeForm({ name: "", budgetAllocated: "", description: "" });
       setTouched({});
     } catch (err: any) {
       setErrors([
         {
           field: "submit",
-          message: err?.message || "Failed to add category",
+          message: err?.message || "Failed to add scope",
         },
       ]);
     } finally {
@@ -71,13 +71,13 @@ export default function CategoryForm({
     setTouched((prev) => ({ ...prev, [fieldName]: true }));
   };
 
-  const budgetPercent = projectBudget > 0 ? calculateBudgetPercent(Number(categoryForm.budgetAllocated) || 0, projectBudget) : 0;
+  const budgetPercent = projectBudget > 0 ? calculateBudgetPercent(Number(scopeForm.budgetAllocated) || 0, projectBudget) : 0;
 
   return (
     <Box sx={{ mb: 3, p: 2.5, bgcolor: "white", borderRadius: 2, border: "1px solid #e5e7eb" }}>
       {/* HEADER */}
       <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2 }}>
-        Create New Category
+        Create New Scope
       </Typography>
 
       {/* ERROR ALERT */}
@@ -114,20 +114,20 @@ export default function CategoryForm({
 
       {/* FORM GRID */}
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2, mb: 2 }}>
-        {/* CATEGORY NAME */}
+        {/* SCOPE NAME */}
         <Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
             <Typography variant="caption" fontWeight={600}>
-              Category Name
+              Scope Name
             </Typography>
             <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
           </Box>
           <TextField
             fullWidth
             placeholder="e.g., Frontend Development, Design, Testing"
-            value={categoryForm.name}
+            value={scopeForm.name}
             onChange={(e) =>
-              setCategoryForm({ ...categoryForm, name: e.target.value })
+              setScopeForm({ ...scopeForm, name: e.target.value })
             }
             onBlur={() => handleFieldBlur("name")}
             error={touched.name && hasFieldError("name", errors)}
@@ -156,10 +156,10 @@ export default function CategoryForm({
             fullWidth
             type="number"
             placeholder="0.00"
-            value={categoryForm.budgetAllocated}
+            value={scopeForm.budgetAllocated}
             onChange={(e) =>
-              setCategoryForm({
-                ...categoryForm,
+              setScopeForm({
+                ...scopeForm,
                 budgetAllocated: e.target.value,
               })
             }
@@ -196,10 +196,10 @@ export default function CategoryForm({
           </Box>
           <TextField
             fullWidth
-            placeholder="Describe this category..."
-            value={categoryForm.description || ""}
+            placeholder="Describe this scope..."
+            value={scopeForm.description || ""}
             onChange={(e) =>
-              setCategoryForm({ ...categoryForm, description: e.target.value })
+              setScopeForm({ ...scopeForm, description: e.target.value })
             }
             variant="outlined"
             size="small"
@@ -226,7 +226,7 @@ export default function CategoryForm({
             Project Total: ₱{projectBudget.toLocaleString()}
           </Typography>
           <Typography variant="caption" color="text.secondary" display="block">
-            Allocating: ₱{(Number(categoryForm.budgetAllocated) || 0).toLocaleString()} ({budgetPercent.toFixed(2)}%)
+            Allocating: ₱{(Number(scopeForm.budgetAllocated) || 0).toLocaleString()} ({budgetPercent.toFixed(2)}%)
           </Typography>
         </Box>
       )}
@@ -243,7 +243,7 @@ export default function CategoryForm({
             fontWeight: 600,
           }}
         >
-          {saving ? "Adding..." : "+ Add Category"}
+          {saving ? "Adding..." : "+ Add Scope"}
         </Button>
       </Box>
     </Box>

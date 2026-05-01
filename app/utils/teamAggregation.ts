@@ -92,11 +92,11 @@ export const aggregateTeamStats = (
 
   // Iterate through all projects
   projectsToAggregate.forEach((project: any) => {
-    if (!project?.categories) return;
+    if (!project?.scopes) return;
 
-    project.categories.forEach((category: any) => {
-      if (category.tasks) {
-        category.tasks.forEach((task: any) => {
+    project.scopes.forEach((scope: any) => {
+      if (scope.tasks) {
+        scope.tasks.forEach((task: any) => {
           if (task.subtasks) {
             task.subtasks.forEach((subtask: any) => {
               totalAssignedSubtasks++;
@@ -167,11 +167,11 @@ export const aggregateMemberWorkload = (
 
   // Iterate through all projects
   projectsToAggregate.forEach((project: any) => {
-    if (!project?.categories) return;
+    if (!project?.scopes) return;
 
-    project.categories.forEach((category: any) => {
-      if (category.tasks) {
-        category.tasks.forEach((task: any) => {
+    project.scopes.forEach((scope: any) => {
+      if (scope.tasks) {
+        scope.tasks.forEach((task: any) => {
           if (task.subtasks) {
             task.subtasks.forEach((subtask: any) => {
               if (subtask.assignees && Array.isArray(subtask.assignees)) {

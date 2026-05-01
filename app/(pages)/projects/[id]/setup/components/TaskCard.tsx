@@ -25,7 +25,7 @@ import SubtaskList from "./SubtaskList";
 
 interface TaskCardProps {
   task: any;
-  categoryBudget: number;
+  scopeBudget: number;
   subtaskInputs: Record<string, any>;
   setSubtaskInputs: (inputs: any) => void;
   members: any[];
@@ -40,7 +40,7 @@ interface TaskCardProps {
 
 export default function TaskCard({
   task,
-  categoryBudget,
+  scopeBudget,
   subtaskInputs,
   setSubtaskInputs,
   members,
@@ -90,7 +90,7 @@ export default function TaskCard({
   };
 
   const handleEditSubmit = async () => {
-    const validation = validateTaskForm(editForm, categoryBudget);
+    const validation = validateTaskForm(editForm, scopeBudget);
 
     if (!validation.isValid) {
       setErrors(validation.errors);
@@ -108,7 +108,7 @@ export default function TaskCard({
     }
   };
 
-  const budgetPercent = calculateBudgetPercent(task.budgetAllocated, categoryBudget);
+  const budgetPercent = calculateBudgetPercent(task.budgetAllocated, scopeBudget);
   const titleError = touched["title"] && getFieldError("title", errors);
   const budgetError = touched["budgetAllocated"] && getFieldError("budgetAllocated", errors);
 

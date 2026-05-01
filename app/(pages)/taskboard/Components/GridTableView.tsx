@@ -32,7 +32,7 @@ export default function GridTableView({
   onUpdateProgress,
 }: GridTableViewProps) {
   // ========================================
-  // 🔥 FORMATTERS
+  // Ã°Å¸â€Â¥ FORMATTERS
   // ========================================
   const formatDate = (date?: string | Date) => {
     if (!date) return "-";
@@ -48,12 +48,12 @@ export default function GridTableView({
   };
 
   const formatBudget = (budget?: number) => {
-    if (!budget) return "₱0";
-    return `₱${budget.toLocaleString()}`;
+    if (!budget) return "0";
+    return `${budget.toLocaleString()}`;
   };
 
   // ========================================
-  // 🔥 CALCULATE STATISTICS
+  // Ã°Å¸â€Â¥ CALCULATE STATISTICS
   // ========================================
   const totalBudget = useMemo(() => {
     return subtasks.reduce((sum, sub) => sum + (sub.budgetAllocated || 0), 0);
@@ -71,7 +71,7 @@ export default function GridTableView({
   };
 
   // ========================================
-  // 🔥 RENDER
+  // Ã°Å¸â€Â¥ RENDER
   // ========================================
   if (!subtasks || subtasks.length === 0) {
     return (
@@ -114,7 +114,7 @@ export default function GridTableView({
                   textTransform: "uppercase",
                 }}
               >
-                Budget (₱)
+                Budget ()
               </TableCell>
               <TableCell
                 align="right"
@@ -226,7 +226,7 @@ export default function GridTableView({
                   "&:hover": { backgroundColor: "#F7F8FA" },
                 }}
               >
-                {/* Subtask Name with Category & Task */}
+                {/* Subtask Name with Scope & Task */}
                 <TableCell sx={{ fontWeight: 600, color: "#1D1F26", fontSize: "13px" }}>
                   <Stack spacing={0.5}>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -249,8 +249,8 @@ export default function GridTableView({
                         ml: 2.5,
                       }}
                     >
-                      Task: {subtask.task?.title || "-"} | Category:{" "}
-                      {subtask.category?.name || "-"}
+                      Task: {subtask.task?.title || "-"} | Scope:{" "}
+                      {subtask.Scope?.name || "-"}
                     </Typography>
                   </Stack>
                 </TableCell>

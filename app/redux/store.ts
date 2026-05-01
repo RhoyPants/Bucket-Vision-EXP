@@ -3,7 +3,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "./slices/authSlice";
 import kanbanReducer from "./slices/kanbanSlice";
-import categoryReducer from "./slices/categorySlice";
+import scopeReducer from "./slices/scopeSlice";
 import progressReducer from "./slices/progressSlice";
 import scurveReducer from "./slices/scurveSlice";
 import projectReducer from "./slices/projectSlice";
@@ -20,7 +20,7 @@ export const store = configureStore({
   reducer: {
     auth: authReducer,
     kanban: kanbanReducer,
-    category: categoryReducer,
+    scope: scopeReducer,
     progress: progressReducer,
     scurve: scurveReducer,
     project: projectReducer,

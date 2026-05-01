@@ -1,11 +1,12 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 export interface Task {
+  name: string;
   id: string;
   title: string;
   description?: string;
   budgetAllocated?: number;
-  categoryId: string; // 🔥 FIX (was projectId ❌)
+  scopeId: string; // 🔥 FIX (was projectId ❌)
   order?: number;
 
   createdAt?: string;

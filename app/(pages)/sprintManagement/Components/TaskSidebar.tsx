@@ -21,7 +21,7 @@ interface TaskItem {
   progress?: number;
 }
 
-export default function TaskList({
+export default function TaskSidebar({
   tasks,
   activeTaskId,
   onSelectTask,
@@ -59,9 +59,8 @@ export default function TaskList({
         display: "flex",
         flexDirection: "column",
         gap: 1.5,
-        width: "100%",
-        minWidth: 0,
-        overflow: "hidden",
+        width: "auto",
+        overflow: "hidden", 
       }}
     >
       {/* Header with Add Button */}
@@ -101,17 +100,14 @@ export default function TaskList({
       <Box
         sx={{
           display: "flex",
-          flexWrap: "nowrap",
           gap: { xs: 1.5, sm: 1.8, md: 2 },
-          overflowX: "auto",
+          overflowX: "scroll",
           overflowY: "hidden",
           pb: 1.2,
           pr: 1,
           scrollBehavior: "smooth",
-          width: "100%",
-          maxWidth: "100%",
+          flex: 1,
           minWidth: 0,
-          height: "auto",
           "&::-webkit-scrollbar": {
             height: "8px",
           },
@@ -135,13 +131,11 @@ export default function TaskList({
               alignItems: "center",
               justifyContent: "center",
               width: "100%",
-              minWidth: 0,
               minHeight: "100px",
               color: "#888",
-              flexShrink: 0,
             }}
           >
-            <Typography variant="body2">No tasks in this Scope</Typography>
+            <Typography variant="body2">No tasks in this scope</Typography>
           </Box>
         ) : (
           tasks.map((task) => {
@@ -154,6 +148,7 @@ export default function TaskList({
                 key={task.id}
                 onClick={() => onSelectTask(task.id)}
                 sx={{
+                  minWidth: "240px",
                   flex: "0 0 240px",
                   padding: "16px",
                   borderRadius: "10px",
@@ -167,8 +162,6 @@ export default function TaskList({
                   display: "flex",
                   flexDirection: "column",
                   gap: 1.5,
-                  minWidth: 0,
-                  overflow: "hidden",
                   "&:hover": {
                     boxShadow: "0 4px 16px rgba(33, 14, 100, 0.12)",
                     border: isActive
@@ -339,7 +332,7 @@ export default function TaskList({
                           color: "#1e40af",
                         }}
                       >
-                        {(task.budgetAllocated || 0).toLocaleString()}
+                        ₱{(task.budgetAllocated || 0).toLocaleString()}
                       </Typography>
                       <Chip
                         label={`${(task.budgetPercent || 0).toFixed(1)}%`}

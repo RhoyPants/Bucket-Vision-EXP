@@ -90,14 +90,14 @@ export const loadCompleteDashboard = (projectId: string) => {
       // Set disciplines
       const fullProject = projectFullRes.data.data || {};
       const disciplines: DisciplineProgress[] =
-        fullProject.categories?.map(
-          (cat: any): DisciplineProgress => ({
-            id: cat.id,
-            name: cat.name,
-            progress: cat.progress || 0,
-            budgetAllocated: cat.budgetAllocated || 0,
-            tasks: cat.tasks || 0,
-            subtasks: cat.subtasks || 0,
+        fullProject.scopes?.map(
+          (scope: any): DisciplineProgress => ({
+            id: scope.id,
+            name: scope.name,
+            progress: scope.progress || 0,
+            budgetAllocated: scope.budgetAllocated || 0,
+            tasks: scope.tasks || 0,
+            subtasks: scope.subtasks || 0,
           })
         ) || [];
 
@@ -263,7 +263,7 @@ export const getDashboardDisciplines = (projectId: string) => {
       const fullProject = res.data.data || {};
 
       const disciplines: DisciplineProgress[] =
-        fullProject.categories?.map(
+        fullProject.scopes?.map(
           (cat: any): DisciplineProgress => ({
             id: cat.id,
             name: cat.name,

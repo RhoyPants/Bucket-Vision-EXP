@@ -15,7 +15,7 @@ import ViewAgendaIcon from "@mui/icons-material/ViewAgenda";
 
 import Layout from "@/app/components/shared/Layout";
 import ProjectSelector from "@/app/components/shared/selectors/ProjectSelector";
-import CategorySelector from "@/app/components/shared/selectors/CategorySelector";
+import ScopeSelector from "@/app/components/shared/selectors/ScopeSelector";
 import TaskList from "@/app/(pages)/sprintManagement/Components/TaskList";
 import KanbanBoard from "@/app/components/shared/kanban/KanbanBoard";
 import TaskModal from "@/app/components/shared/modals/AddTaskModal";
@@ -28,8 +28,8 @@ import { getProjects } from "@/app/redux/controllers/projectController";
 import { loadKanbanByTask } from "@/app/redux/controllers/subTaskController";
 
 import { setCurrentTask } from "@/app/redux/slices/taskSlice";
-import { setCurrentCategory } from "@/app/redux/slices/categorySlice";
-import { setCategories } from "@/app/redux/slices/categorySlice";
+import { setCurrentScope } from "@/app/redux/slices/scopeSlice";
+import { setScopes } from "@/app/redux/slices/scopeSlice";
 import { setTasks } from "@/app/redux/slices/taskSlice";
 
 import SCurveChart from "@/app/components/shared/Scurved/SCurveChart";
@@ -43,8 +43,8 @@ function SprintManagementContent() {
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
 
   const { currentProjectId } = useAppSelector((state) => state.project);
-  const { currentCategoryId, categories } = useAppSelector(
-    (state) => state.category,
+  const { currentScopeId, scopes } = useAppSelector(
+    (state) => state.scope,
   );
   const { tasks, currentTaskId } = useAppSelector((state) => state.task);
   const { subtasks } = useAppSelector((state) => state.kanban);
@@ -58,16 +58,16 @@ function SprintManagementContent() {
   const searchParams = useSearchParams();
   const projectIdFromUrl = searchParams.get("projectId");
 
-  const currentCategory = categories.find((c) => c.id === currentCategoryId);
+  const currentScope = scopes.find((c) => c.id === currentScopeId);
   const currentTask = tasks.find((t) => t.id === currentTaskId);
 
   // ========================================
-  // 📌 FILTER TASKS BY CATEGORY (NO API CALL)
+  // Ã°Å¸â€œÅ’ FILTER TASKS BY Scope (NO API CALL)
   // ========================================
-  const filteredTasksForCategory = useMemo(() => {
-    if (!currentCategoryId || !tasks) return [];
+  const filteredTasksForScope = useMemo(() => {
+    if (!currentScopeId || !tasks) return [];
     return tasks
-      .filter((task: any) => task.categoryId === currentCategoryId)
+      .filter((task: any) => task.scopeId === currentScopeId)
       .map((task: any) => ({
         id: task.id,
         title: task.title || task.name,
@@ -76,10 +76,10 @@ function SprintManagementContent() {
         budgetAllocated: task.budgetAllocated || 0,
         budgetPercent: task.budgetPercent || 0,
       }));
-  }, [currentCategoryId, tasks]);
+  }, [currentScopeId, tasks]);
 
   // ========================================
-  // 📌 LOAD CASCADE: Project → Categories → Tasks → Subtasks
+  // Ã°Å¸â€œÅ’ LOAD CASCADE: Project Ã¢â€ â€™ scopes Ã¢â€ â€™ Tasks Ã¢â€ â€™ Subtasks
   // ========================================
   useEffect(() => {
     const loadInitial = async () => {
@@ -99,7 +99,7 @@ function SprintManagementContent() {
     loadInitial();
   }, [dispatch, projectIdFromUrl]);
 
-  // Step 3: Once project is set, load full project data (categories + tasks)
+  // Step 3: Once project is set, load full project data (scopes + tasks)
   useEffect(() => {
     if (!currentProjectId) return;
 
@@ -108,25 +108,25 @@ function SprintManagementContent() {
 
       if (!fullProjectData) return;
 
-      // ✅ POPULATE REDUX STATE WITH FULL PROJECT DATA
-      // Step 4A: Set all categories in Redux
-      if (fullProjectData.categories?.length) {
-        dispatch(setCategories(fullProjectData.categories));
+      // Ã¢Å“â€¦ POPULATE REDUX STATE WITH FULL PROJECT DATA
+      // Step 4A: Set all scopes in Redux
+      if (fullProjectData.scopes?.length) {
+        dispatch(setScopes(fullProjectData.scopes));
 
-        // Step 4B: Extract tasks from nested structure (categories.tasks)
+        // Step 4B: Extract tasks from nested structure (scopes.tasks)
         const allTasks: any[] = [];
-        let firstCategoryId = fullProjectData.categories[0].id;
+        let firstScopeId = fullProjectData.scopes[0].id;
         let firstTaskId: string | null = null;
 
-        fullProjectData.categories.forEach((category: any) => {
-          if (category.tasks && Array.isArray(category.tasks)) {
-            category.tasks.forEach((task: any) => {
+        fullProjectData.scopes.forEach((scope: any) => {
+          if (scope.tasks && Array.isArray(scope.tasks)) {
+            scope.tasks.forEach((task: any) => {
               allTasks.push({
                 ...task,
-                categoryId: category.id, // 🔥 Ensure categoryId is set
+                scopeId: scope.id, // 🔥 Ensure scopeId is set
               });
-              // Remember first task from first category
-              if (category.id === firstCategoryId && !firstTaskId) {
+              // Remember first task from first scope
+              if (scope.id === firstScopeId && !firstTaskId) {
                 firstTaskId = task.id;
               }
             });
@@ -138,8 +138,8 @@ function SprintManagementContent() {
           dispatch(setTasks(allTasks));
         }
 
-        // Step 4D: Select first category and its first task
-        dispatch(setCurrentCategory(firstCategoryId));
+        // Step 4D: Select first Scope and its first task
+        dispatch(setCurrentScope(firstScopeId));
         if (firstTaskId) {
           dispatch(setCurrentTask(firstTaskId));
         }
@@ -162,28 +162,28 @@ function SprintManagementContent() {
   }, [currentTaskId, dispatch]);
 
   // ========================================
-  // 📌 WHEN CATEGORY CHANGES: Auto-select first task in new category
+  // Ã°Å¸â€œÅ’ WHEN Scope CHANGES: Auto-select first task in new Scope
   // ========================================
   useEffect(() => {
-    if (!currentCategoryId || filteredTasksForCategory.length === 0) {
+    if (!currentScopeId || filteredTasksForScope.length === 0) {
       dispatch(setCurrentTask(null));
       return;
     }
 
-    // Keep current task if it's in the new category
-    const taskInCategory = filteredTasksForCategory.find(
+    // Keep current task if it's in the new Scope
+    const taskInScope = filteredTasksForScope.find(
       (t: any) => t.id === currentTaskId,
     );
-    if (taskInCategory) return;
+    if (taskInScope) return;
 
-    // Otherwise, select first task in new category
-    if (filteredTasksForCategory.length > 0) {
-      dispatch(setCurrentTask(filteredTasksForCategory[0].id));
+    // Otherwise, select first task in new Scope
+    if (filteredTasksForScope.length > 0) {
+      dispatch(setCurrentTask(filteredTasksForScope[0].id));
     }
-  }, [currentCategoryId, filteredTasksForCategory, currentTaskId, dispatch]);
+  }, [currentScopeId, filteredTasksForScope, currentTaskId, dispatch]);
 
   const handleProgressSuccess = async () => {
-    // ✅ Reload only subtasks for current task (don't reset project/category)
+    // Ã¢Å“â€¦ Reload only subtasks for current task (don't reset project/Scope)
     if (currentTaskId) {
       const kanban = await dispatch(loadKanbanByTask(currentTaskId));
       if (kanban) setColumns(kanban.columns);
@@ -203,26 +203,26 @@ function SprintManagementContent() {
     setOpenTaskModal(true);
   };
 
-  // 🔧 REFETCH CATEGORIES & TASKS AFTER MODAL CLOSES (to maintain order)
+  // Ã°Å¸â€Â§ REFETCH scopes & TASKS AFTER MODAL CLOSES (to maintain order)
   const handleTaskModalClose = async () => {
     setOpenTaskModal(false);
     setSelectedTaskForModal(null);
 
-    // Refetch full project data to ensure categories maintain sort order
+    // Refetch full project data to ensure scopes maintain sort order
     if (currentProjectId) {
       const fullProjectData = await dispatch(getProjectFull(currentProjectId));
 
-      if (fullProjectData?.categories?.length) {
-        dispatch(setCategories(fullProjectData.categories));
+      if (fullProjectData?.scopes?.length) {
+        dispatch(setScopes(fullProjectData.scopes));
 
         // Re-extract tasks from updated nested structure
         const allTasks: any[] = [];
-        fullProjectData.categories.forEach((category: any) => {
-          if (category.tasks && Array.isArray(category.tasks)) {
-            category.tasks.forEach((task: any) => {
+        fullProjectData.scopes.forEach((scope: any) => {
+          if (scope.tasks && Array.isArray(scope.tasks)) {
+            scope.tasks.forEach((task: any) => {
               allTasks.push({
                 ...task,
-                categoryId: category.id,
+                scopeId: scope.id,
               });
             });
           }
@@ -279,7 +279,7 @@ function SprintManagementContent() {
             },
           }}
         >
-          {/* 📌 PROJECT SELECTOR */}
+          {/* Ã°Å¸â€œÅ’ PROJECT SELECTOR */}
           <Paper
             sx={{
               p: { xs: 1.5, sm: 2, md: 2.5 },
@@ -290,7 +290,7 @@ function SprintManagementContent() {
             <ProjectSelector />
           </Paper>
 
-          {/* 📌 VIEW TOGGLE */}
+          {/* Ã°Å¸â€œÅ’ VIEW TOGGLE */}
           <Box
             sx={{
               display: "flex",
@@ -326,10 +326,10 @@ function SprintManagementContent() {
             </ButtonGroup>
           </Box>
 
-          {/* 📌 KANBAN VIEW */}
+          {/* Ã°Å¸â€œÅ’ KANBAN VIEW */}
           {viewMode === "kanban" && (
             <>
-              {/* 📌 S-CURVE */}
+              {/* Ã°Å¸â€œÅ’ S-CURVE */}
               <Paper
                 sx={{
                   p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 },
@@ -361,7 +361,7 @@ function SprintManagementContent() {
                 </Box>
               </Paper>
 
-              {/* 📌 TOP STACKED LAYOUT: CATEGORY + TASK HORIZONTAL SLIDER */}
+              {/* Ã°Å¸â€œÅ’ TOP STACKED LAYOUT: Scope + TASK HORIZONTAL SLIDER */}
               <Box
                 sx={{
                   display: "flex",
@@ -372,7 +372,7 @@ function SprintManagementContent() {
                   minWidth: 0,
                 }}
               >
-                {/* TOP ROW: CATEGORY + TASK HORIZONTAL SCROLL */}
+                {/* TOP ROW: Scope + TASK HORIZONTAL SCROLL */}
                 <Box
                   sx={{
                     display: "flex",
@@ -389,7 +389,7 @@ function SprintManagementContent() {
                     mb: 3,
                   }}
                 >
-                  {/* CATEGORY KPI CARD */}
+                  {/* Scope KPI CARD */}
                   <Paper
                     elevation={0}
                     sx={{
@@ -421,11 +421,11 @@ function SprintManagementContent() {
                       boxShadow: "0 4px 18px rgba(0,0,0,.06)",
                     }}
                   >
-                    <CategorySelector
-                      categories={categories}
-                      currentCategoryId={currentCategoryId}
+                    <ScopeSelector
+                      scopes={scopes}
+                      currentScopeId={currentScopeId}
                       onChange={(id: string) =>
-                        dispatch(setCurrentCategory(id))
+                        dispatch(setCurrentScope(id))
                       }
                     />
                   </Paper>
@@ -434,9 +434,9 @@ function SprintManagementContent() {
                   <Paper
                     elevation={0}
                     sx={{
-                      flex: 1, // 🔥 simplify this (no need object)
-                      width: 0, // ✅ CRITICAL FIX
-                      minWidth: 0, // ✅ prevents overflow pushing
+                      flex: 1, // Ã°Å¸â€Â¥ simplify this (no need object)
+                      width: 0, // Ã¢Å“â€¦ CRITICAL FIX
+                      minWidth: 0, // Ã¢Å“â€¦ prevents overflow pushing
                       maxWidth: "100%",
 
                       borderRadius: 4,
@@ -449,7 +449,7 @@ function SprintManagementContent() {
                   >
                     {/* TASK LIST - Always-Visible Scrollbar */}
                     <TaskList
-                      tasks={filteredTasksForCategory}
+                      tasks={filteredTasksForScope}
                       activeTaskId={currentTaskId}
                       onSelectTask={(taskId: string) => {
                         dispatch(setCurrentTask(taskId));
@@ -495,7 +495,7 @@ function SprintManagementContent() {
             </>
           )}
 
-          {/* 📌 GRID VIEW */}
+          {/* Ã°Å¸â€œÅ’ GRID VIEW */}
           {viewMode === "grid" && (
             <>
               <Paper sx={{ p: { xs: 2, md: 2.5, lg: 3 }, borderRadius: 3 }}>
@@ -525,14 +525,14 @@ function SprintManagementContent() {
       </Box>
 
       {/* TASK MODAL */}
-      {currentCategoryId && (
+      {currentScopeId && (
         <TaskModal
           open={openTaskModal}
           onClose={handleTaskModalClose}
           mode={taskModalMode}
           task={selectedTaskForModal}
-          categoryId={currentCategoryId}
-          categoryBudget={currentCategory?.budgetAllocated || 0}
+          scopeId={currentScopeId}
+          scopeBudget={currentScope?.budgetAllocated || 0}
         />
       )}
     </Layout>

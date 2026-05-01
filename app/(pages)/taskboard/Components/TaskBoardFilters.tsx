@@ -18,7 +18,7 @@ import SearchIcon from "@mui/icons-material/Search";
 interface FilterOptions {
   searchQuery: string;
   projectId: string | null;
-  categoryId: string | null;
+  scopeId: string | null;
   taskId: string | null;
 }
 
@@ -31,7 +31,7 @@ interface TaskBoardFiltersProps {
   filters: FilterOptions;
   onFilterChange: (filters: FilterOptions) => void;
   projects: FilterItem[];
-  categories: FilterItem[];
+  scopes: FilterItem[];
   tasks: FilterItem[];
   isLoading?: boolean;
 }
@@ -40,21 +40,21 @@ export default function TaskBoardFilters({
   filters,
   onFilterChange,
   projects,
-  categories,
+  scopes,
   tasks,
   isLoading = false,
 }: TaskBoardFiltersProps) {
   const hasActiveFilters =
     filters.searchQuery ||
     filters.projectId ||
-    filters.categoryId ||
+    filters.scopeId ||
     filters.taskId;
 
   const handleClearFilters = () => {
     onFilterChange({
       searchQuery: "",
       projectId: null,
-      categoryId: null,
+      scopeId: null,
       taskId: null,
     });
   };
@@ -63,8 +63,8 @@ export default function TaskBoardFilters({
     return projects.find((p) => p.id === id)?.name || "";
   };
 
-  const getCategoryName = (id: string | null) => {
-    return categories.find((c) => c.id === id)?.name || "";
+  const getScopeName = (id: string | null) => {
+    return scopes.find((c) => c.id === id)?.name || "";
   };
 
   const getTaskName = (id: string | null) => {
@@ -200,18 +200,18 @@ export default function TaskBoardFilters({
           </Select>
         </FormControl>
 
-        {/* Category Filter */}
+        {/* Scope Filter */}
         <FormControl size="small" sx={{ flex: 1 }} disabled={isLoading}>
-          <InputLabel id="category-label">Category</InputLabel>
+          <InputLabel id="Scope-label">Scope</InputLabel>
           <Select
-            labelId="category-label"
-            id="category-select"
-            value={filters.categoryId || ""}
-            label="Category"
+            labelId="Scope-label"
+            id="Scope-select"
+            value={filters.scopeId || ""}
+            label="Scope"
             onChange={(e) =>
               onFilterChange({
                 ...filters,
-                categoryId: e.target.value || null,
+                scopeId: e.target.value || null,
               })
             }
             sx={{
@@ -222,10 +222,10 @@ export default function TaskBoardFilters({
               },
             }}
           >
-            <MenuItem value="">All Categories</MenuItem>
-            {categories.map((category) => (
-              <MenuItem key={category.id} value={category.id}>
-                {category.name}
+            <MenuItem value="">All scopes</MenuItem>
+            {scopes.map((Scope) => (
+              <MenuItem key={Scope.id} value={Scope.id}>
+                {Scope.name}
               </MenuItem>
             ))}
           </Select>
@@ -298,11 +298,11 @@ export default function TaskBoardFilters({
             />
           )}
 
-          {filters.categoryId && (
+          {filters.scopeId && (
             <Chip
-              label={`Category: ${getCategoryName(filters.categoryId)}`}
+              label={`scope: ${getScopeName(filters.scopeId)}`}
               onDelete={() =>
-                onFilterChange({ ...filters, categoryId: null })
+                onFilterChange({ ...filters, scopeId: null })
               }
               size="small"
               variant="outlined"

@@ -45,7 +45,7 @@ export interface BoardFilterItem {
 
 export interface BoardFiltersState {
   projects: BoardFilterItem[];
-  categories: BoardFilterItem[];
+  scopes: BoardFilterItem[];
   tasks: BoardFilterItem[];
 }
 
@@ -60,7 +60,7 @@ const initialState: KanbanState = {
   loading: false,
   boardFilters: {
     projects: [],
-    categories: [],
+    scopes: [],
     tasks: [],
   },
 };
