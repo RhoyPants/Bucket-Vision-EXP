@@ -24,6 +24,7 @@ import AddIcon from "@mui/icons-material/Add";
 
 import ProgressCalendarModal from "../modals/ProgressCalendarModal";
 import SubtaskModal from "../modals/SubtaskModal";
+import { formatBudget } from "@/app/utils/formatters";
 
 export default function KanbanSortableCard({
   subtask,
@@ -354,7 +355,7 @@ export default function KanbanSortableCard({
           {/* BUDGET INFO */}
           <Stack direction="row" spacing={2} mb={1}>
             <Typography variant="caption">
-              {subtask.budgetAllocated || 0}
+              ₱{formatBudget(subtask.budgetAllocated || 0)}
             </Typography>
             <Typography variant="caption">
              {subtask.budgetPercent?.toFixed(1) || 0}%

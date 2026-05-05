@@ -135,3 +135,38 @@ export const removeProjectMember = (
     }
   };
 };
+
+// 🔄 UPDATE MEMBER ROLE (SUB_OWNER ↔ MEMBER)
+export const updateProjectMemberRole = (
+  projectId: string,
+  userId: string,
+  newRole: "SUB_OWNER" | "MEMBER"
+) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      dispatch(setLoading(true));
+      dispatch(setError(null));
+
+      const res = await axiosApi.patch(
+        `/projects/${projectId}/members/${userId}/role`,
+        { newRole }
+      );
+
+      // Refresh members to get updated state
+      const updatedMember = res.data?.data;
+
+      // Refresh full members list
+      dispatch(getProjectMembers(projectId) as any);
+
+      return updatedMember;
+    } catch (err: any) {
+      const errorMsg =
+        err?.response?.data?.message ||
+        "Failed to update member role";
+      dispatch(setError(errorMsg));
+      throw err;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
+};

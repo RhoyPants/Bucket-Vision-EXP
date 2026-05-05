@@ -8,8 +8,11 @@ import {
   Tooltip,
   CircularProgress,
   Typography,
+  Backdrop,
+  Stack,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import { formatBudget } from "@/app/utils/formatters";
 import {
   validateTaskForm,
   calculateBudgetPercent,
@@ -68,7 +71,7 @@ export default function TaskForm({
 
     setSaving(true);
     try {
-      onAddTask(scopeId);
+      await onAddTask(scopeId);
       setTaskInputs((prev: any) => ({
         ...prev,
         [scopeId]: {},
@@ -114,11 +117,10 @@ export default function TaskForm({
         <TextField
           size="small"
           label="Budget"
-          placeholder="0.00"
-          type="number"
-          inputProps={{ step: "0.01" }}
-          value={form.budgetAllocated || ""}
-          onChange={(e) => handleChange("budgetAllocated", parseFloat(e.target.value) || 0)}
+          placeholder="0"
+          type="text"
+          value={form.budgetAllocated ? formatBudget(form.budgetAllocated) : ""}
+          onChange={(e) => handleChange("budgetAllocated", parseFloat(e.target.value.replace(/,/g, "")) || 0)}
           onBlur={() => handleBlur("budgetAllocated")}
           error={!!budgetError}
           sx={{ flex: "0 1 200px" }}
@@ -162,6 +164,23 @@ export default function TaskForm({
       >
         {saving ? "Adding..." : "Task"}
       </Button>
+
+      {/* LOADING MODAL */}
+      <Backdrop
+        open={saving}
+        sx={{
+          color: "#fff",
+          zIndex: 1300,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+        }}
+      >
+        <Stack alignItems="center" gap={2}>
+          <CircularProgress color="inherit" size={50} />
+          <Typography fontWeight={600} fontSize={16}>
+            Adding Task...
+          </Typography>
+        </Stack>
+      </Backdrop>
     </Box>
   );
 }

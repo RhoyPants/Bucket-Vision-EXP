@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import PieChartOutlineIcon from "@mui/icons-material/PieChartOutline";
+import { formatBudgetShort } from "@/app/utils/formatters";
 
 interface Scope {
   id: string;
@@ -632,10 +633,7 @@ export default function ScopeSelector({
                                         }}
                                       >
                                         
-                                        {(cat.budgetAllocated / 1000).toFixed(
-                                          0,
-                                        )}
-                                        k
+                                        {formatBudgetShort(cat.budgetAllocated)}
                                       </Typography>
                                     </Box>
                                   )}

@@ -23,6 +23,7 @@ import {
   getProjectMembers,
   removeProjectMember,
   assignProjectMembers,
+  updateProjectMemberRole,
 } from "@/app/redux/controllers/projectMemberController";
 import { getUsers } from "@/app/redux/controllers/userController";
 import { getProjectById } from "@/app/redux/controllers/projectController";
@@ -52,6 +53,7 @@ export default function ProjectTeamPanel({
   const { fullProject } = useAppSelector((state) => state.project);
 
   const [removing, setRemoving] = useState<string | null>(null);
+  const [toggling, setToggling] = useState<string | null>(null);
   const [assignSuccess, setAssignSuccess] = useState<string | null>(null);
   const [selectedForRemoval, setSelectedForRemoval] = useState<Set<string>>(new Set());
   const [optimisticMembers, setOptimisticMembers] = useState<any>({
@@ -181,6 +183,31 @@ export default function ProjectTeamPanel({
       });
     } finally {
       setRemoving(null);
+    }
+  };
+
+  // 🔄 TOGGLE MEMBER ROLE
+  const handleToggleRole = async (userId: string, currentRole: string) => {
+    try {
+      setToggling(userId);
+      const newRole = currentRole === "SUB_OWNER" ? "MEMBER" : "SUB_OWNER";
+
+      await dispatch(
+        updateProjectMemberRole(projectId, userId, newRole) as any
+      );
+
+      setAssignSuccess(
+        `Member role changed to ${newRole === "SUB_OWNER" ? "Sub-Owner" : "Member"}`
+      );
+
+      // Refresh
+      dispatch(getProjectMembers(projectId) as any);
+
+      setTimeout(() => setAssignSuccess(null), 2000);
+    } catch (err) {
+      console.error("Error toggling role:", err);
+    } finally {
+      setToggling(null);
     }
   };
 
@@ -369,6 +396,37 @@ export default function ProjectTeamPanel({
                     fontWeight: 600,
                   }}
                 />
+
+                {/* TOGGLE ROLE BUTTON (for LEADER users only) */}
+                {getRole(member)?.toLowerCase() === "leader" && title !== "Owners" && (
+                  <Tooltip
+                    title={`Change to ${title === "Sub Owners" ? "Member" : "Sub-Owner"}`}
+                  >
+                    <Button
+                      size="small"
+                      onClick={() => handleToggleRole(uid, title === "Sub Owners" ? "SUB_OWNER" : "MEMBER")}
+                      disabled={toggling === uid}
+                      sx={{
+                        textTransform: "none",
+                        fontSize: 11,
+                        mr: 1,
+                        color: "#667eea",
+                        border: "1px solid #667eea",
+                        "&:hover": {
+                          bgcolor: "rgba(102, 126, 234, 0.1)",
+                        },
+                      }}
+                    >
+                      {toggling === uid ? (
+                        <CircularProgress size={14} sx={{ mr: 0.5 }} />
+                      ) : title === "Sub Owners" ? (
+                        "To Member"
+                      ) : (
+                        "To Sub-Owner"
+                      )}
+                    </Button>
+                  </Tooltip>
+                )}
 
                 {/* QUICK DELETE BUTTON */}
                 <Tooltip title="Remove member">

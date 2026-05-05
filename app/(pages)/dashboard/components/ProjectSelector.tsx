@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import { CheckCircle2, FolderOpen } from "lucide-react";
 import { Projects } from "@/app/redux/slices/projectSlice";
+import { formatBudgetShort } from "@/app/utils/formatters";
 
 interface ProjectSelectorProps {
   projects: Projects[];
@@ -134,9 +135,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
 
                             {project.totalBudget && (
                               <Typography variant="caption" sx={{ color: "#6b7280", fontSize: "0.7rem" }}>
-                                <span style={{ fontWeight: 600 }}>Budget:</span> ${(
-                                  project.totalBudget / 1000
-                                ).toFixed(0)}K
+                                <span style={{ fontWeight: 600 }}>Budget:</span> ₱{formatBudgetShort(project.totalBudget)}
                               </Typography>
                             )}
 

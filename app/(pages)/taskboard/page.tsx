@@ -257,29 +257,7 @@ export default function TaskBoardPage() {
   return (
     <Layout>
       <Container maxWidth="xl" sx={{ py: 3 }}>
-        {/* Page Header */}
-        <Box sx={{ mb: 3 }}>
-          <Typography
-            variant="h4"
-            sx={{
-              fontSize: "28px",
-              fontWeight: 700,
-              color: "#1D1F26",
-              mb: 0.5,
-            }}
-          >
-            Ã°Å¸â€œâ€¹ My Task Board
-          </Typography>
-          <Typography
-            sx={{
-              fontSize: "14px",
-              color: "#7D8693",
-              fontWeight: 500,
-            }}
-          >
-            Manage and track your assigned subtasks
-          </Typography>
-        </Box>
+      
 
         {/* Error Alert */}
         {error && (

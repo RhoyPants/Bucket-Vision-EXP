@@ -40,6 +40,7 @@ import {
   ProjectFormData,
   ValidationError,
 } from "@/app/utils/projectValidation";
+import { formatBudget } from "@/app/utils/formatters";
 import ProjectTeamPanel from "@/app/(pages)/projects/[id]/setup/components/ProjectTeamPanel";
 
 export default function ProjectModal({
@@ -477,15 +478,18 @@ export default function ProjectModal({
                   </Box>
                   <TextField
                     fullWidth
-                    type="number"
-                    placeholder="0.00"
-                    value={form.totalBudget || ""}
-                    onChange={(e) =>
+                    type="text"
+                    placeholder="0"
+                    value={form.totalBudget ? formatBudget(form.totalBudget) : ""}
+                    onChange={(e) => {
+                      // Remove commas and get numeric value
+                      const numericValue = e.target.value.replace(/,/g, "");
+                      const cleanValue = Math.max(0, Number(numericValue) || 0);
                       setForm({
                         ...form,
-                        totalBudget: Math.max(0, Number(e.target.value) || 0),
-                      })
-                    }
+                        totalBudget: cleanValue,
+                      });
+                    }}
                     onBlur={() => handleFieldBlur("totalBudget")}
                     error={touched.totalBudget && hasFieldError("totalBudget", errors)}
                     helperText={touched.totalBudget && getFieldError("totalBudget", errors)}
@@ -494,7 +498,6 @@ export default function ProjectModal({
                     InputProps={{
                       startAdornment: "₱ ",
                     }}
-                    inputProps={{ step: "0.01", min: "0" }}
                     sx={{
                       "& .MuiOutlinedInput-root": {
                         borderRadius: 1.5,
@@ -717,6 +720,9 @@ export default function ProjectModal({
                       helperText={touched.startDate && getFieldError("startDate", errors)}
                       variant="outlined"
                       size="small"
+                      inputProps={{
+                        min: new Date().toISOString().split("T")[0],
+                      }}
                       sx={{
                         "& .MuiOutlinedInput-root": {
                           borderRadius: 1.5,
@@ -724,6 +730,11 @@ export default function ProjectModal({
                         },
                       }}
                     />
+                    {!touched.startDate && (
+                      <Typography variant="caption" sx={{ display: "block", mt: 0.5, color: "#6b7280", fontSize: "0.75rem" }}>
+                        ℹ️ Must be today or later
+                      </Typography>
+                    )}
                   </Box>
 
                   <Box>
@@ -746,6 +757,16 @@ export default function ProjectModal({
                       helperText={touched.expectedEndDate && getFieldError("expectedEndDate", errors)}
                       variant="outlined"
                       size="small"
+                      inputProps={{
+                        min: form.startDate 
+                          ? new Date(form.startDate + "T00:00:00")
+                              .getTime() > 0 
+                            ? new Date(new Date(form.startDate).getTime() + 86400000)
+                                .toISOString()
+                                .split("T")[0]
+                            : new Date().toISOString().split("T")[0]
+                          : new Date().toISOString().split("T")[0],
+                      }}
                       sx={{
                         "& .MuiOutlinedInput-root": {
                           borderRadius: 1.5,
@@ -753,6 +774,11 @@ export default function ProjectModal({
                         },
                       }}
                     />
+                    {!touched.expectedEndDate && form.startDate && (
+                      <Typography variant="caption" sx={{ display: "block", mt: 0.5, color: "#6b7280", fontSize: "0.75rem" }}>
+                        ℹ️ Must be after start date (cannot be the same day)
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
               </Grid>

@@ -14,10 +14,12 @@ import { useAppSelector } from "@/app/redux/hook";
 
 interface Props {
   projectId?: string | null;
+  project?: any; // Optional external project data (for approval review mode)
 }
 
-export default function GanttGridView({ projectId }: Props) {
-  const fullProject = useAppSelector((state) => state.project.fullProject);
+export default function GanttGridView({ projectId, project: externalProject }: Props) {
+  const reduxProject = useAppSelector((state) => state.project.fullProject);
+  const fullProject = externalProject || reduxProject;
 
   const [expandedScopes, setExpandedCategories] = useState<Set<string>>(new Set());
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
@@ -205,7 +207,7 @@ export default function GanttGridView({ projectId }: Props) {
 
   const isWeekend = (date: Date) => date.getDay() === 0 || date.getDay() === 6;
 
-  // Ã°Å¸â€Â¥ BAR POSITIONING HELPERS
+  const isMonday = (date: Date) => date.getDay() === 1;
   const totalDays = dates.length > 0 ? dates.length : 1;
 
   const getOffset = (start: any) => {
@@ -270,16 +272,16 @@ export default function GanttGridView({ projectId }: Props) {
       <Paper sx={{ display: "flex", overflow: "hidden" }}>
         
         {/* Ã°Å¸â€Â¥ LEFT PANEL (DATA COLUMNS) */}
-        <Box sx={{ minWidth: 680, borderRight: "2px solid #DDE1E8" }}>
+        <Box sx={{ minWidth: 580, borderRight: "2px solid #DDE1E8" }}>
           
           {/* HEADER ROW */}
-          <Box sx={{ position: "sticky", top: 0, zIndex: 5, background: "#F7F8FA", display: "flex", fontWeight: 700, fontSize: 12, borderBottom: "1px solid #DDE1E8" }}>
+          <Box sx={{ position: "sticky", top: 0, zIndex: 5, background: "#F7F8FA", display: "flex", fontWeight: 700, fontSize: 12, borderBottom: "1px solid #DDE1E8" , pt: 1, pb: 0.9 }}>
             <Box sx={{ width: 60, px: 1, py: 1 }}>WBS</Box>
-            <Box sx={{ width: 280, px: 1, py: 1 }}>Phase / Task</Box>
+            <Box sx={{ width: 200, px: 1, py: 1 }}>Phase / Task</Box>
             <Box sx={{ width: 90, px: 1, py: 1, textAlign: "right" }}>Start</Box>
             <Box sx={{ width: 90, px: 1, py: 1, textAlign: "right" }}>End</Box>
             <Box sx={{ width: 70, px: 1, py: 1, textAlign: "center" }}>Days</Box>
-            <Box sx={{ width: 110, px: 1, py: 1, textAlign: "center" }}>Status</Box>
+            <Box sx={{ width: 50, px: 1, py: 1, textAlign: "center" }}>Status</Box>
           </Box>
 
           {/* DATA ROWS */}
@@ -290,7 +292,7 @@ export default function GanttGridView({ projectId }: Props) {
             const { start, end } = getRowDates(row);
             const duration = getDuration(start, end);
             const wbs = isScope ? row.id?.substring(0, 2)?.toUpperCase() : isTask ? `${row.parentId?.substring(0, 2)?.toUpperCase()}.${idx % 10}` : "-";
-            const status = row.progress === 100 ? "Ã¢Å“â€œ Done" : row.progress ? `${Math.round(row.progress)}%` : "Planned";
+            const status = row.progress === 100 ? "✅ Done" : row.progress ? `${Math.round(row.progress)}%` : "Planned";
 
             return (
               <Box
@@ -311,7 +313,7 @@ export default function GanttGridView({ projectId }: Props) {
                 </Box>
 
                 {/* NAME WITH EXPAND ICONS */}
-                <Box sx={{ width: 280, px: 1, display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Box sx={{ width: 200, px: 1, display: "flex", alignItems: "center", gap: 0.5 }}>
                   {isScope && (
                     <IconButton size="small" onClick={() => toggleScope(row.id)} sx={{ p: 0.25 }}>
                       {expandedScopes.has(row.id) ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
@@ -350,7 +352,7 @@ export default function GanttGridView({ projectId }: Props) {
                 </Box>
 
                 {/* STATUS */}
-                <Box sx={{ width: 110, px: 1, fontSize: 11, textAlign: "center" }}>
+                <Box sx={{ width: 50, px: 1, fontSize: 11, textAlign: "center" }}>
                   <Typography sx={{ fontSize: 10, color: row.progress === 100 ? "#00C853" : "#FFA726", fontWeight: 600 }}>
                     {status}
                   </Typography>
@@ -364,7 +366,7 @@ export default function GanttGridView({ projectId }: Props) {
         <Box sx={{ overflowX: "auto", flex: 1, position: "relative" }}>
           
           {/* MONTH HEADER */}
-          <Box sx={{ display: "flex", position: "sticky", top: 0, zIndex: 3, background: "#EEF2F6", borderBottom: "2px solid #DDE1E8" }}>
+          <Box sx={{ display: "flex", position: "sticky", top: 0, zIndex: 3, background: "#EEF2F6" }}>
             {dates.length > 0 && groupByMonth(dates).map((month, i) => (
               <Box
                 key={i}
@@ -384,7 +386,7 @@ export default function GanttGridView({ projectId }: Props) {
           </Box>
 
           {/* DAY HEADER */}
-          <Box sx={{ display: "flex", position: "sticky", top: 32, zIndex: 4, background: "#F7F8FA", borderBottom: "1px solid #DDE1E8" }}>
+          <Box sx={{ display: "flex", position: "sticky", top: 27, zIndex: 4, background: "#F7F8FA", borderBottom: "1px solid #DDE1E8", pt: -1 }}>
             {dates.map((d, i) => (
               <Box
                 key={i}
@@ -410,11 +412,17 @@ export default function GanttGridView({ projectId }: Props) {
             const offset = getOffset(start);
             const duration = getDuration(start, end);
 
+            // Fixed pixel width matching the day-header grid (40px per day)
+            const contentWidth = dates.length * 40;
+
             return (
               <Box
                 key={i}
                 sx={{
-                  display: "flex",
+                  // Must equal the scrollable content width so that position:absolute
+                  // children resolve against the same px coordinate space as the
+                  // day-header columns — not against the viewport-clipped flex width.
+                  minWidth: contentWidth,
                   height: 40,
                   position: "relative",
                   borderBottom: "1px solid #E0E0E0",
@@ -430,17 +438,18 @@ export default function GanttGridView({ projectId }: Props) {
                   )` : "none",
                 }}
               >
-                {/* Ã°Å¸â€Â¥ WEEKEND SHADING */}
+                {/* WEEKEND SHADING — px aligned to 40px grid */}
                 {dates.map((d, idx) => (
                   isWeekend(d) && (
                     <Box
                       key={idx}
                       sx={{
                         position: "absolute",
-                        left: `${(idx / dates.length) * 100}%`,
-                        width: `${(1 / dates.length) * 100}%`,
+                        left: idx * 40,
+                        width: 40,
                         height: "100%",
-                        backgroundColor: "#FAFAFA",
+                        backgroundColor: "#f1c9a1a2",
+                        opacity: 0.4,
                         pointerEvents: "none",
                         zIndex: 0,
                       }}
@@ -448,16 +457,15 @@ export default function GanttGridView({ projectId }: Props) {
                   )
                 ))}
 
-                {/* Ã°Å¸â€Â¥ TODAY VERTICAL LINE */}
+                {/* TODAY VERTICAL LINE — px aligned */}
                 {dates.length > 0 && (() => {
                   const todayIdx = dates.findIndex((d) => isToday(d));
-                  const todayOffset = (todayIdx / totalDays) * 100;
                   return (
                     todayIdx >= 0 && (
                       <Box
                         sx={{
                           position: "absolute",
-                          left: `${todayOffset}%`,
+                          left: todayIdx * 40,
                           top: 0,
                           bottom: 0,
                           width: "2px",
@@ -469,13 +477,32 @@ export default function GanttGridView({ projectId }: Props) {
                   );
                 })()}
 
-                {/* Ã°Å¸â€Â¥ CONTINUOUS BAR */}
+                {/* MONDAY VERTICAL LINES — week markers */}
+                {dates.map((d, idx) => (
+                  isMonday(d) && (
+                    <Box
+                      key={`monday-${idx}`}
+                      sx={{
+                        position: "absolute",
+                        left: idx * 40,
+                        top: 0,
+                        bottom: 0,
+                        width: "1px",
+                        backgroundColor: "#BCC4CD",
+                        opacity: 0.6,
+                        zIndex: 1,
+                      }}
+                    />
+                  )
+                ))}
+
+                {/* GANTT BAR — px aligned to 40px-per-day grid */}
                 {start && end && (
                   <Box
                     sx={{
                       position: "absolute",
-                      left: `${(offset / totalDays) * 100}%`,
-                      width: `${(duration / totalDays) * 100}%`,
+                      left: offset * 40,
+                      width: duration * 40,
                       height: 16,
                       top: "50%",
                       transform: "translateY(-50%)",

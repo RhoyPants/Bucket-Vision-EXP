@@ -66,8 +66,8 @@ export default function MemberCard({
     
     projectsData.forEach((project: any) => {
       project.scopes?.forEach((scope: any) => {
-        if (Scope.tasks) {
-          Scope.tasks.forEach((task: any) => {
+        if (scope.tasks) {
+          scope.tasks.forEach((task: any) => {
             if (task.subtasks) {
               task.subtasks.forEach((subtask: any) => {
                 if (
@@ -79,7 +79,7 @@ export default function MemberCard({
                     id: subtask.id,
                     subtaskName: subtask.title,
                     taskName: task.title,
-                    scopeName: Scope.name,
+                    scopeName: scope.name,
                     projectName: project.name,
                     progress: subtask.progress,
                     status:

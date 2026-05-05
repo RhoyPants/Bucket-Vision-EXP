@@ -71,7 +71,7 @@ export default function GridTableView({
   };
 
   // ========================================
-  // Ã°Å¸â€Â¥ RENDER
+  //  RENDER
   // ========================================
   if (!subtasks || subtasks.length === 0) {
     return (
@@ -97,7 +97,7 @@ export default function GridTableView({
                   fontWeight: 700,
                   color: "#1D1F26",
                   backgroundColor: "#F7F8FA",
-                  fontSize: "12px",
+                  fontSize: "10px",
                   textTransform: "uppercase",
                   width: "25%",
                 }}
@@ -110,7 +110,7 @@ export default function GridTableView({
                   fontWeight: 700,
                   color: "#1D1F26",
                   backgroundColor: "#F7F8FA",
-                  fontSize: "12px",
+                  fontSize: "10px",
                   textTransform: "uppercase",
                 }}
               >
@@ -122,7 +122,7 @@ export default function GridTableView({
                   fontWeight: 700,
                   color: "#1D1F26",
                   backgroundColor: "#F7F8FA",
-                  fontSize: "12px",
+                  fontSize: "10px",
                   textTransform: "uppercase",
                 }}
               >
@@ -134,7 +134,7 @@ export default function GridTableView({
                   fontWeight: 700,
                   color: "#1D1F26",
                   backgroundColor: "#F7F8FA",
-                  fontSize: "12px",
+                  fontSize: "10px",
                   textTransform: "uppercase",
                 }}
               >
@@ -146,7 +146,7 @@ export default function GridTableView({
                   fontWeight: 700,
                   color: "#1D1F26",
                   backgroundColor: "#F7F8FA",
-                  fontSize: "12px",
+                  fontSize: "10px",
                   textTransform: "uppercase",
                 }}
               >
@@ -158,7 +158,7 @@ export default function GridTableView({
                   fontWeight: 700,
                   color: "#1D1F26",
                   backgroundColor: "#F7F8FA",
-                  fontSize: "12px",
+                  fontSize: "10px",
                   textTransform: "uppercase",
                 }}
               >
@@ -170,7 +170,7 @@ export default function GridTableView({
                   fontWeight: 700,
                   color: "#1D1F26",
                   backgroundColor: "#F7F8FA",
-                  fontSize: "12px",
+                  fontSize: "10px",
                   textTransform: "uppercase",
                 }}
               >
@@ -182,7 +182,7 @@ export default function GridTableView({
                   fontWeight: 700,
                   color: "#1D1F26",
                   backgroundColor: "#F7F8FA",
-                  fontSize: "12px",
+                  fontSize: "10px",
                   textTransform: "uppercase",
                 }}
               >
@@ -194,7 +194,7 @@ export default function GridTableView({
                   fontWeight: 700,
                   color: "#1D1F26",
                   backgroundColor: "#F7F8FA",
-                  fontSize: "12px",
+                  fontSize: "10px",
                   textTransform: "uppercase",
                 }}
               >
@@ -206,7 +206,7 @@ export default function GridTableView({
                   fontWeight: 700,
                   color: "#1D1F26",
                   backgroundColor: "#F7F8FA",
-                  fontSize: "12px",
+                  fontSize: "10px",
                   textTransform: "uppercase",
                   width: "100px",
                 }}
@@ -250,7 +250,7 @@ export default function GridTableView({
                       }}
                     >
                       Task: {subtask.task?.title || "-"} | Scope:{" "}
-                      {subtask.Scope?.name || "-"}
+                      {subtask.scope?.name || "-"}
                     </Typography>
                   </Stack>
                 </TableCell>

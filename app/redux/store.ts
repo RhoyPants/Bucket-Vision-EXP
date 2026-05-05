@@ -13,6 +13,8 @@ import userReducer from "./slices/userSlice";
 import dashboardReducer from "./slices/dashboardSlice";
 import dailyReportReducer from "./slices/dailyReportSlice";
 import weeklyReportReducer from "./slices/weeklyReportSlice";
+import approvalReducer from "./slices/approvalSlice";
+import approvalFlowReducer from "./slices/approvalFlowSlice";
 // @ts-ignore
 import logger from "redux-logger";
 
@@ -30,6 +32,8 @@ export const store = configureStore({
     dashboard: dashboardReducer,
     dailyReport: dailyReportReducer,
     weeklyReport: weeklyReportReducer,
+    approval: approvalReducer,
+    approvalFlow: approvalFlowReducer,
   },
   middleware: (getDefault) => getDefault().concat(logger),
   devTools: true,

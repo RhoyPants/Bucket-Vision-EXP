@@ -14,14 +14,31 @@ export const getProjects = () => {
     try {
       dispatch(setLoading(true));
 
+      console.log("📤 Fetching projects from:", axiosApi.defaults.baseURL + "/projects?full=true");
+
       // 🔥 FETCH FULL PROJECT DATA WITH MEMBERS
       const res = await axiosApi.get("/projects?full=true");
+      
+      console.log("📥 Response status:", res.status);
+      console.log("📥 Response headers:", res.headers);
+      console.log("📥 Response data:", res.data);
+      
+      // Handle both direct array and nested data structure
+      const projectsData = res.data.data || res.data;
+      
+      console.log("✅ Projects loaded:", projectsData?.length || 0, "projects");
+      
+      dispatch(setProjects(projectsData));
 
-      dispatch(setProjects(res.data));
-
-      return res.data;
+      return projectsData;
     } catch (err) {
       console.error("❌ Error fetching projects:", err);
+      console.error("Error details:", {
+        message: (err as any)?.message,
+        code: (err as any)?.code,
+        status: (err as any)?.response?.status,
+        response: (err as any)?.response?.data,
+      });
       throw err;
     } finally {
       dispatch(setLoading(false));

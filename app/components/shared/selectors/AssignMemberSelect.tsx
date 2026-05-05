@@ -52,19 +52,25 @@ export default function AssignMemberSelect({
     );
   }, [assignedUsers]);
 
-  // ✅ filter available users (non-leaders, not already assigned, not already selected)
+  // ✅ filter available users (all users, not already assigned as SUB_OWNER, not already selected)
   const availableMembers = useMemo(() => {
     const selectedIds = new Set(selectedUsers.map((u) => u.id));
+    // Get all users assigned as SUB_OWNER (not MEMBER)
+    const subOwnerAssignedIds = new Set(
+      assignedUsers
+        .filter((u) => u?.projectRole === "SUB_OWNER")
+        .map((u) => u?.userId || u?.user?.id || u?.id)
+    );
     return members
       .filter((m) => m && m.id)
-      .filter((m) => !isLeader(m)) // Members can't be leaders
       .filter((m) => !assignedIds.has(m.id)) // Not already in project
+      .filter((m) => !subOwnerAssignedIds.has(m.id)) // Not assigned as SUB_OWNER
       .filter((m) => !selectedIds.has(m.id)) // Not already selected
       .filter(
         (m, i, self) =>
           i === self.findIndex((x) => x.id === m.id) // Remove duplicates
       );
-  }, [members, assignedIds, selectedUsers]);
+  }, [members, assignedIds, assignedUsers, selectedUsers]);
 
   const handleAddSelected = () => {
     if (selectedUsers.length > 0) {
@@ -93,7 +99,7 @@ export default function AssignMemberSelect({
         }}
         getOptionLabel={(option) => option?.name || ""}
         isOptionEqualToValue={(o, v) => o.id === v.id}
-        noOptionsText={loading ? "Loading..." : "No available members"}
+        noOptionsText={loading ? "Loading..." : "No available users"}
         loading={loading}
         sx={{
           flex: 1,

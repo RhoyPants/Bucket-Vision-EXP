@@ -26,11 +26,15 @@ export interface ValidationResult {
  * Validates a complete subtask form
  * @param form - The subtask form data to validate
  * @param taskBudget - The parent task budget (for percent validation)
+ * @param projectStartDate - The project's expected start date
+ * @param projectEndDate - The project's expected end date
  * @returns ValidationResult with errors array if any
  */
 export const validateSubtaskForm = (
   form: Partial<SubtaskFormData>,
-  taskBudget: number = 0
+  taskBudget: number = 0,
+  projectStartDate?: string,
+  projectEndDate?: string
 ): ValidationResult => {
   const errors: ValidationError[] = [];
 
@@ -90,6 +94,35 @@ export const validateSubtaskForm = (
       errors.push({
         field: "projectedEndDate",
         message: "End date must be after start date",
+      });
+    }
+  }
+
+  // ✅ Project date boundary validation
+  if (projectStartDate && form.projectedStartDate) {
+    const subtaskStart = new Date(form.projectedStartDate);
+    const projectStart = new Date(projectStartDate);
+    subtaskStart.setHours(0, 0, 0, 0);
+    projectStart.setHours(0, 0, 0, 0);
+
+    if (subtaskStart < projectStart) {
+      errors.push({
+        field: "projectedStartDate",
+        message: "Subtask start date cannot be earlier than project start date",
+      });
+    }
+  }
+
+  if (projectEndDate && form.projectedEndDate) {
+    const subtaskEnd = new Date(form.projectedEndDate);
+    const projectEnd = new Date(projectEndDate);
+    subtaskEnd.setHours(0, 0, 0, 0);
+    projectEnd.setHours(0, 0, 0, 0);
+
+    if (subtaskEnd > projectEnd) {
+      errors.push({
+        field: "projectedEndDate",
+        message: "Subtask end date cannot be later than project end date",
       });
     }
   }

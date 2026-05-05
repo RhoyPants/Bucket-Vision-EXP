@@ -50,16 +50,23 @@ export default function AssignSubOwnerSelect({
     m?.role?.name?.toLowerCase() === "leader" ||
     m?.role?.id?.toLowerCase() === "leader";
 
-  // ✅ Filter: only leaders, not already assigned, not already selected
+  // ✅ Filter: only leaders, not already assigned as MEMBER, not already selected
   const leaders = useMemo(() => {
     const selectedIds = new Set(selectedUsers.map((u) => u.id));
+    // Get all users assigned as MEMBER (not SUB_OWNER)
+    const memberAssignedIds = new Set(
+      assignedUsers
+        .filter((u) => u?.projectRole === "MEMBER")
+        .map((u) => u?.userId || u?.user?.id || u?.id)
+    );
     return members
       .filter((m) => m && m.id)
       .filter((m) => isLeader(m))
-      .filter((m) => !assignedIds.has(m.id))
+      .filter((m) => !assignedIds.has(m.id)) // Not already assigned at all
+      .filter((m) => !memberAssignedIds.has(m.id)) // Not assigned as MEMBER
       .filter((m) => !selectedIds.has(m.id))
       .filter((m, i, self) => i === self.findIndex((x) => x.id === m.id));
-  }, [members, assignedIds, selectedUsers]);
+  }, [members, assignedIds, assignedUsers, selectedUsers]);
 
   const handleAddSelected = () => {
     if (selectedUsers.length > 0) {

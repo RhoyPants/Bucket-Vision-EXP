@@ -38,37 +38,40 @@ declare module '@mui/material/Typography' {
 
 const typography: any = {
   fontFamily: "var(--font-ftsterling), sans-serif",
+  // Base font size scale: ~87.5% of original (16px root → ~14px effective)
+  htmlFontSize: 16,
+  fontSize: 13,
   h1: {
-    fontSize: "2.5rem",
+    fontSize: "1.875rem",
     fontWeight: 700,
     color: "#1E1E1E",
   },
   h2: {
-    fontSize: "2rem",
+    fontSize: "1.5rem",
     fontWeight: 600,
     color: "#1E1E1E",
   },
   h3: {
-    fontSize: "1.5rem",
+    fontSize: "1.25rem",
     fontWeight: 600,
     color: "#333333",
   },
 
   // Subheadings / Section titles
   subtitle1: {
-    fontSize: "1.125rem",
+    fontSize: "0.9375rem",
     fontWeight: 500,
     color: "#4A4A4A",
   },
 
   // Table and labels
   body1: {
-    fontSize: "1rem",
+    fontSize: "0.875rem",
     fontWeight: 400,
     color: "#2C2C2C",
   },
   body2: {
-    fontSize: "0.875rem",
+    fontSize: "0.8125rem",
     fontWeight: 400,
     color: "#555555",
   },

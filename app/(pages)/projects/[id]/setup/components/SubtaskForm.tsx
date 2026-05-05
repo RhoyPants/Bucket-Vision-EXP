@@ -9,6 +9,8 @@ import {
   CircularProgress,
   FormHelperText,
   FormControl,
+  Backdrop,
+  Stack,
 } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { getEngagedUsers } from "@/app/redux/controllers/projectMemberController";
@@ -23,6 +25,7 @@ import {
   formatDateForInput,
   ValidationError,
 } from "@/app/utils/subtaskValidation";
+import { formatBudget } from "@/app/utils/formatters";
 
 interface SubtaskFormProps {
   taskId: string;
@@ -113,7 +116,12 @@ export default function SubtaskForm({
       userIds,
     };
 
-    const validation = validateSubtaskForm(formData, taskBudget);
+    const validation = validateSubtaskForm(
+      formData,
+      taskBudget,
+      fullProject?.startDate,
+      fullProject?.expectedEndDate
+    );
 
     if (!validation.isValid) {
       setErrors(validation.errors);
@@ -122,7 +130,7 @@ export default function SubtaskForm({
 
     setSaving(true);
     try {
-      onAddSubtask(taskId);
+      await onAddSubtask(taskId);
       setSubtaskInputs((prev: any) => ({
         ...prev,
         [taskId]: {},
@@ -225,11 +233,10 @@ export default function SubtaskForm({
         <TextField
           size="small"
           label="Budget"
-          placeholder="0.00"
-          type="number"
-          inputProps={{ step: "0.01" }}
-          value={form.budgetAllocated || ""}
-          onChange={(e) => handleChange("budgetAllocated", parseFloat(e.target.value) || 0)}
+          placeholder="0"
+          type="text"
+          value={form.budgetAllocated ? formatBudget(form.budgetAllocated) : ""}
+          onChange={(e) => handleChange("budgetAllocated", parseFloat(e.target.value.replace(/,/g, "")) || 0)}
           onBlur={() => handleBlur("budgetAllocated")}
           error={hasFieldError("budgetAllocated", errors)}
           helperText={getFieldError("budgetAllocated", errors) || ""}
@@ -266,9 +273,13 @@ export default function SubtaskForm({
           onChange={(e) => handleChange("projectedStartDate", e.target.value)}
           onBlur={() => handleBlur("projectedStartDate")}
           error={hasFieldError("projectedStartDate", errors)}
-          helperText={getFieldError("projectedStartDate", errors) || ""}
+          helperText={getFieldError("projectedStartDate", errors) || (fullProject?.startDate ? `Min: ${new Date(fullProject.startDate).toLocaleDateString()}` : "")}
           InputLabelProps={{ shrink: true }}
-          inputProps={{ "aria-label": "start date" }}
+          inputProps={{ 
+            "aria-label": "start date",
+            min: fullProject?.startDate ? fullProject.startDate.split("T")[0] : undefined,
+            max: form.projectedEndDate ? form.projectedEndDate : (fullProject?.expectedEndDate ? fullProject.expectedEndDate.split("T")[0] : undefined),
+          }}
           sx={{ flex: 1 }}
           disabled={saving}
         />
@@ -281,9 +292,13 @@ export default function SubtaskForm({
           onChange={(e) => handleChange("projectedEndDate", e.target.value)}
           onBlur={() => handleBlur("projectedEndDate")}
           error={hasFieldError("projectedEndDate", errors)}
-          helperText={getFieldError("projectedEndDate", errors) || ""}
+          helperText={getFieldError("projectedEndDate", errors) || (fullProject?.expectedEndDate ? `Max: ${new Date(fullProject.expectedEndDate).toLocaleDateString()}` : "")}
           InputLabelProps={{ shrink: true }}
-          inputProps={{ "aria-label": "end date" }}
+          inputProps={{ 
+            "aria-label": "end date",
+            min: form.projectedStartDate ? form.projectedStartDate : (fullProject?.startDate ? fullProject.startDate.split("T")[0] : undefined),
+            max: fullProject?.expectedEndDate ? fullProject.expectedEndDate.split("T")[0] : undefined,
+          }}
           sx={{ flex: 1 }}
           disabled={saving}
         />
@@ -381,6 +396,23 @@ export default function SubtaskForm({
           Cancel
         </Button>
       </Box>
+
+      {/* LOADING MODAL */}
+      <Backdrop
+        open={saving}
+        sx={{
+          color: "#fff",
+          zIndex: 1300,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+        }}
+      >
+        <Stack alignItems="center" gap={2}>
+          <CircularProgress color="inherit" size={50} />
+          <Typography fontWeight={600} fontSize={16}>
+            Adding Subtask...
+          </Typography>
+        </Stack>
+      </Backdrop>
     </Box>
   );
 }

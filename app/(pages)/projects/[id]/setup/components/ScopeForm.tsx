@@ -1,6 +1,7 @@
-import { Box, Button, TextField, Alert, Typography, Chip } from "@mui/material";
+import { Box, Button, TextField, Alert, Typography, Chip, Backdrop, CircularProgress, Stack } from "@mui/material";
 import { useState } from "react";
 import WarningIcon from "@mui/icons-material/Warning";
+import { formatBudget } from "@/app/utils/formatters";
 import {
   validateScopeForm,
   getFieldError,
@@ -52,7 +53,7 @@ export default function ScopeForm({
     try {
       setSaving(true);
       setErrors([]);
-      onAddScope();
+      await onAddScope();
       setScopeForm({ name: "", budgetAllocated: "", description: "" });
       setTouched({});
     } catch (err: any) {
@@ -154,13 +155,13 @@ export default function ScopeForm({
           </Box>
           <TextField
             fullWidth
-            type="number"
-            placeholder="0.00"
-            value={scopeForm.budgetAllocated}
+            type="text"
+            placeholder="0"
+            value={scopeForm.budgetAllocated ? formatBudget(scopeForm.budgetAllocated) : ""}
             onChange={(e) =>
               setScopeForm({
                 ...scopeForm,
-                budgetAllocated: e.target.value,
+                budgetAllocated: e.target.value.replace(/,/g, ""),
               })
             }
             onBlur={() => handleFieldBlur("budgetAllocated")}
@@ -171,7 +172,6 @@ export default function ScopeForm({
             InputProps={{
               startAdornment: "₱ ",
             }}
-            inputProps={{ step: "0.01", min: "0" }}
             sx={{
               "& .MuiOutlinedInput-root": {
                 borderRadius: 1.5,
@@ -246,6 +246,23 @@ export default function ScopeForm({
           {saving ? "Adding..." : "+ Add Scope"}
         </Button>
       </Box>
+
+      {/* LOADING MODAL */}
+      <Backdrop
+        open={saving}
+        sx={{
+          color: "#fff",
+          zIndex: 1300,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+        }}
+      >
+        <Stack alignItems="center" gap={2}>
+          <CircularProgress color="inherit" size={50} />
+          <Typography fontWeight={600} fontSize={16}>
+            Adding Scope...
+          </Typography>
+        </Stack>
+      </Backdrop>
     </Box>
   );
 }

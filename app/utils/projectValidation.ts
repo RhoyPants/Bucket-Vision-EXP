@@ -178,23 +178,37 @@ export const validateProjectForm = (form: Partial<ProjectFormData>): ValidationR
   if (form.startDate && form.expectedEndDate) {
     const startDate = new Date(form.startDate);
     const endDate = new Date(form.expectedEndDate);
+    const today = new Date();
+    
+    // Set time to midnight for fair comparison
+    today.setHours(0, 0, 0, 0);
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
 
-    if (startDate >= endDate) {
+    // ✅ Start date must not be earlier than today
+    if (startDate < today) {
       errors.push({
-        field: "expectedEndDate",
-        message: "End date must be after start date",
+        field: "startDate",
+        message: "Start date cannot be earlier than today",
       });
     }
 
-    // Check if dates are in reasonable range (not in distant past or future)
-    const now = new Date();
-    const twoYearsAgo = new Date(now);
-    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-
-    if (startDate < twoYearsAgo) {
+    // ✅ End date must be AFTER start date (not equal)
+    if (startDate >= endDate) {
       errors.push({
-        field: "startDate",
-        message: "Start date cannot be more than 2 years in the past",
+        field: "expectedEndDate",
+        message: "End date must be after start date (cannot be the same day)",
+      });
+    }
+
+    // Check if dates are in reasonable range (not in distant future)
+    const tenYearsFromNow = new Date(today);
+    tenYearsFromNow.setFullYear(tenYearsFromNow.getFullYear() + 10);
+
+    if (endDate > tenYearsFromNow) {
+      errors.push({
+        field: "expectedEndDate",
+        message: "End date cannot be more than 10 years in the future",
       });
     }
   }
