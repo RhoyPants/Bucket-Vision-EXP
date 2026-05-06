@@ -7,8 +7,9 @@ import PendingActionsIcon from "@mui/icons-material/PendingActions";
 import BlockIcon from "@mui/icons-material/Block";
 import EditIcon from "@mui/icons-material/Edit";
 import CallMadeIcon from "@mui/icons-material/CallMade";
+import ArchiveIcon from "@mui/icons-material/Archive";
 
-export type ProjectStatus = "DRAFT" | "FOR_REVIEW" | "FOR_APPROVAL" | "ACTIVE" | "INACTIVE" | "NEEDS_REVISION" | "REJECTED";
+export type ProjectStatus = "DRAFT" | "FOR_REVIEW" | "FOR_APPROVAL" | "ACTIVE" | "INACTIVE" | "NEEDS_REVISION" | "REJECTED" | "ARCHIVED";
 
 interface ProjectStatusBadgeProps {
   status: ProjectStatus;
@@ -66,6 +67,13 @@ const statusConfig: Record<ProjectStatus, { label: string; color: any; bgColor: 
     icon: BlockIcon,
     description: "Project has been rejected",
   },
+  ARCHIVED: {
+    label: "Archived",
+    color: "#6b7280",
+    bgColor: "#f3f4f6",
+    icon: ArchiveIcon,
+    description: "Superseded by a newer approved version",
+  },
 };
 
 export default function ProjectStatusBadge({
@@ -73,7 +81,7 @@ export default function ProjectStatusBadge({
   size = "small",
   isLatestVersion = true,
 }: ProjectStatusBadgeProps) {
-  const config = statusConfig[status];
+  const config = statusConfig[status] ?? statusConfig["DRAFT"];
   const Icon = config.icon;
 
   const badge = (

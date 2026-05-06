@@ -1,525 +1,571 @@
-"use client";
+﻿"use client";
 
-import React, { useMemo, useState } from "react";
+import React, {
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+} from "react";
 import {
   Box,
-  Paper,
   Typography,
   IconButton,
   Stack,
+  Tooltip,
+  ToggleButtonGroup,
+  ToggleButton,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { useAppSelector } from "@/app/redux/hook";
 
+const LEFT_W     = 580;
+const ROW_H      = 40;
+const HDR_MONTH  = 26;
+const HDR_SUB    = 26;
+const HDR_H      = HDR_MONTH + HDR_SUB;
+const VIEWPORT_H = 600;
+const MIN_ROWS   = 10;
+const OVERSCAN   = 6;
+const MS_DAY     = 86_400_000;
+
+type ZoomLevel = "day" | "week" | "month";
+const ZOOM_PX: Record<ZoomLevel, number> = { day: 40, week: 10, month: 3 };
+
 interface Props {
   projectId?: string | null;
-  project?: any; // Optional external project data (for approval review mode)
+  project?: any;
 }
 
+interface DragState {
+  type: "move" | "resize-left" | "resize-right";
+  id: string;
+  startX: number;
+  origStart: number;
+  origEnd: number;
+}
+
+const toMs = (v: any): number | null => {
+  if (v == null) return null;
+  if (typeof v === "number") return isNaN(v) ? null : v;
+  const ms = new Date(v).getTime();
+  return isNaN(ms) ? null : ms;
+};
+
+const fmtDate = (ms: number | null | undefined): string => {
+  if (!ms) return "0";
+  return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+
+const isWeekend = (d: Date) => d.getDay() === 0 || d.getDay() === 6;
+const isMonday  = (d: Date) => d.getDay() === 1;
+const isToday   = (d: Date) => d.toDateString() === new Date().toDateString();
+
+const barColor = (row: any): string => {
+  if (row.type === "scope") return "#5E35B1";
+  if (row.type === "task")  return "#0D47A1";
+  if (row.progress === 100) return "#00C853";
+  if (!row.actualStartDate) return "#FFA726";
+  return "#29B6F6";
+};
 export default function GanttGridView({ projectId, project: externalProject }: Props) {
-  const reduxProject = useAppSelector((state) => state.project.fullProject);
-  const fullProject = externalProject || reduxProject;
+  const reduxProject = useAppSelector((s) => s.project.fullProject);
+  const fullProject  = externalProject || reduxProject;
 
-  const [expandedScopes, setExpandedCategories] = useState<Set<string>>(new Set());
-  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [expandedScopes, setExpandedScopes] = useState<Set<string>>(new Set());
+  const [expandedTasks,  setExpandedTasks]  = useState<Set<string>>(new Set());
+  const [zoom,           setZoom]           = useState<ZoomLevel>("day");
+  const [scrollTop,      setScrollTop]      = useState(0);
+  const [overrides,      setOverrides]      = useState<Record<string, { start: number; end: number }>>({});
 
-  // Ã°Å¸â€Â¥ DATE RESOLVER - AGGREGATE UPWARD FROM SUBTASKS
-  const getRowDates = (row: any) => {
-    // Ã°Å¸â€Â¹ SUBTASK Ã¢â€ â€™ direct dates
-    if (row.type === "subtask") {
-      return {
-        start: row.projectedStartDate || row.startDate,
-        end: row.projectedEndDate || row.endDate,
-      };
-    }
+  const dragRef   = useRef<DragState | null>(null);
+  const rafRef    = useRef<number>(0);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-    // Ã°Å¸â€Â¹ TASK Ã¢â€ â€™ derive from subtasks
-    if (row.type === "task") {
-      const subs = row.subtasks || [];
-      const valid = subs.filter(
-        (s: any) => s.projectedStartDate || s.startDate
-      );
-
-      if (valid.length === 0) return { start: undefined, end: undefined };
-
-      const startDates = valid.map(
-        (s: any) => new Date((s.projectedStartDate || s.startDate) as string).getTime()
-      );
-      const endDates = valid.map(
-        (s: any) => new Date((s.projectedEndDate || s.endDate) as string).getTime()
-      );
-
-      return {
-        start: new Date(Math.min(...startDates)),
-        end: new Date(Math.max(...endDates)),
-      };
-    }
-
-    // Ã°Å¸â€Â¹ Scope Ã¢â€ â€™ derive from all subtasks across tasks
-    if (row.type === "scope") {
-      let allSubs: any[] = [];
-      row.tasks?.forEach((t: any) => {
-        allSubs = [...allSubs, ...(t.subtasks || [])];
-      });
-
-      const valid = allSubs.filter(
-        (s) => s.projectedStartDate || s.startDate
-      );
-
-      if (valid.length === 0) return { start: undefined, end: undefined };
-
-      const startDates = valid.map(
-        (s: any) => new Date((s.projectedStartDate || s.startDate) as string).getTime()
-      );
-      const endDates = valid.map(
-        (s: any) => new Date((s.projectedEndDate || s.endDate) as string).getTime()
-      );
-
-      return {
-        start: new Date(Math.min(...startDates)),
-        end: new Date(Math.max(...endDates)),
-      };
-    }
-
-    return { start: undefined, end: undefined };
-  };
-
-  // Ã°Å¸â€Â¥ GENERATE DATE RANGE (GLOBAL) - FROM SUBTASKS ONLY
-  const dates = useMemo(() => {
+  const pxPerDay = ZOOM_PX[zoom];
+const dates = useMemo<Date[]>(() => {
     if (!fullProject?.scopes) return [];
-
-    const allDates: number[] = [];
-
-    fullProject.scopes.forEach((cat: any) => {
-      cat.tasks?.forEach((task: any) => {
-        task.subtasks?.forEach((sub: any) => {
-          const start = sub.projectedStartDate || sub.startDate;
-          const end = sub.projectedEndDate || sub.endDate;
-
-          // Ã°Å¸â€Â¥ STRICT CHECK - BOTH must exist
-          if (!start || !end) return;
-
-          const s = new Date(start).getTime();
-          const e = new Date(end).getTime();
-
-          // Ã°Å¸â€Â¥ Validate dates are valid numbers
-          if (!isNaN(s) && !isNaN(e)) {
-            allDates.push(s, e);
-          }
-        });
-      });
-    });
-
-    // Ã°Å¸â€Â´ CRITICAL: no valid dates
-    if (allDates.length === 0) {
-      console.warn("Ã¢ÂÅ’ No valid subtask dates found in project");
-      return [];
-    }
-
-    const min = Math.min(...allDates);
-    const max = Math.max(...allDates);
-
-    const result: Date[] = [];
-    let current = new Date(min);
-
-    while (current.getTime() <= max) {
-      result.push(new Date(current));
-      current.setDate(current.getDate() + 1);
-    }
-
-    console.log("Ã¢Å“â€¦ GENERATED DATES:", result.length, "from", new Date(min), "to", new Date(max));
-
-    return result;
+    const all: number[] = [];
+    fullProject.scopes.forEach((sc: any) =>
+      sc.tasks?.forEach((t: any) =>
+        t.subtasks?.forEach((s: any) => {
+          const a = toMs(s.projectedStartDate || s.startDate);
+          const b = toMs(s.projectedEndDate   || s.endDate);
+          if (a && b) all.push(a, b);
+        })
+      )
+    );
+    if (!all.length) return [];
+    const min = Math.min(...all);
+    const max = Math.max(...all);
+    const out: Date[] = [];
+    const cur = new Date(min);
+    while (cur.getTime() <= max) { out.push(new Date(cur)); cur.setDate(cur.getDate() + 1); }
+    return out;
   }, [fullProject]);
 
-  // Ã°Å¸â€Â¥ FLATTEN DATA (FOR ROW ALIGNMENT)
-  const rows = useMemo(() => {
-    if (!fullProject?.scopes) return [];
-
-    const result: any[] = [];
-
-    fullProject.scopes.forEach((scope: any) => {
-      result.push({ type: "scope", ...scope });
-
-      if (expandedScopes.has(scope.id)) {
-        scope.tasks?.forEach((task: any) => {
-          result.push({ type: "task", ...task, parentId: scope.id });
-
-          if (expandedTasks.has(task.id)) {
-            task.subtasks?.forEach((subtask: any) => {
-              result.push({ type: "subtask", ...subtask, parentId: task.id });
-            });
-          }
-        });
-      }
+  const timelineW = Math.max(dates.length * pxPerDay, 200);
+const monthGroups = useMemo(() => {
+    const groups: { label: string; days: number }[] = [];
+    let cur = "", cnt = 0;
+    dates.forEach((d) => {
+      const k = d.toLocaleString("default", { month: "short", year: "numeric" });
+      if (k !== cur) { if (cur) groups.push({ label: cur, days: cnt }); cur = k; cnt = 1; }
+      else cnt++;
     });
-
-    return result;
+    if (cur) groups.push({ label: cur, days: cnt });
+    return groups;
+  }, [dates]);
+ const weekGroups = useMemo(() => {
+    if (zoom !== "week") return [];
+    const isoWeek = (d: Date) => {
+      const tmp = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      tmp.setDate(tmp.getDate() + 4 - (tmp.getDay() || 7));
+      const y0 = new Date(tmp.getFullYear(), 0, 1);
+      return Math.ceil(((tmp.getTime() - y0.getTime()) / 86400000 + 1) / 7);
+    };
+    const groups: { label: string; days: number }[] = [];
+    let wk = -1, cnt = 0;
+    dates.forEach((d) => {
+      const w = isoWeek(d);
+      if (w !== wk) { if (wk >= 0) groups.push({ label: `W${wk}`, days: cnt }); wk = w; cnt = 1; }
+      else cnt++;
+    });
+    if (wk >= 0) groups.push({ label: `W${wk}`, days: cnt });
+    return groups;
+  }, [dates, zoom]);
+ const weekendBg = useMemo((): string | undefined => {
+    if (zoom !== "day" || !dates.length) return undefined;
+    const stops: string[] = [];
+    let inWe = false;
+    dates.forEach((d, i) => {
+      const pos = i * pxPerDay;
+      const we  = isWeekend(d);
+      if (we && !inWe)  { stops.push(`transparent ${pos}px`, `rgba(241,201,161,0.3) ${pos}px`); inWe = true; }
+      if (!we && inWe)  { stops.push(`rgba(241,201,161,0.3) ${pos}px`, `transparent ${pos}px`); inWe = false; }
+    });
+    if (inWe) stops.push(`rgba(241,201,161,0.3) ${timelineW}px`);
+    return stops.length ? `linear-gradient(to right, transparent, ${stops.join(",")})` : undefined;
+  }, [dates, pxPerDay, zoom, timelineW]);
+ const todayX   = useMemo(() => { const i = dates.findIndex(isToday); return i >= 0 ? i * pxPerDay : null; }, [dates, pxPerDay]);
+  const mondayXs = useMemo(() => zoom === "day" ? dates.reduce<number[]>((a, d, i) => { if (isMonday(d)) a.push(i * pxPerDay); return a; }, []) : [], [dates, pxPerDay, zoom]);
+const baseRows = useMemo(() => {
+    if (!fullProject?.scopes) return [];
+    const out: any[] = [];
+    fullProject.scopes.forEach((sc: any, si: number) => {
+      out.push({ ...sc, type: "scope", _si: si });
+      if (!expandedScopes.has(sc.id)) return;
+      sc.tasks?.forEach((t: any, ti: number) => {
+        out.push({ ...t, type: "task", _si: si, _ti: ti });
+        if (!expandedTasks.has(t.id)) return;
+        t.subtasks?.forEach((sub: any, xi: number) => {
+          out.push({ ...sub, type: "subtask", _si: si, _ti: ti, _xi: xi });
+        });
+      });
+    });
+    return out;
   }, [fullProject, expandedScopes, expandedTasks]);
 
-  const toggleScope = (id: string) => {
-    const set = new Set(expandedScopes);
-    set.has(id) ? set.delete(id) : set.add(id);
-    setExpandedCategories(set);
-  };
+  // Pad to MIN_ROWS so the UI never looks empty
+  const rows = useMemo(() => {
+    const pad = Math.max(0, MIN_ROWS - baseRows.length);
+    return [...baseRows, ...Array.from({ length: pad }, (_, i) => ({ type: "empty", _pad: i }))];
+  }, [baseRows]);
+ const visStart = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
+  const visEnd   = Math.min(rows.length, Math.ceil((scrollTop + VIEWPORT_H) / ROW_H) + OVERSCAN);
+  const topSp    = visStart * ROW_H;
+  const botSp    = (rows.length - visEnd) * ROW_H;
+ const getRowMs = useCallback((row: any): { start: number | null; end: number | null } => {
+    if (row.type === "empty") return { start: null, end: null };
 
-  const toggleTask = (id: string) => {
-    const set = new Set(expandedTasks);
-    set.has(id) ? set.delete(id) : set.add(id);
-    setExpandedTasks(set);
-  };
-
-  const isActive = (date: Date, start?: any, end?: any) => {
-    if (!start || !end) return false;
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    return date >= startDate && date <= endDate;
-  };
-
-  const getColor = (item: any) => {
-    // Different colors by type (HIERARCHY)
-    if (item.type === "scope") return "#5E35B1"; // Purple (thick bars)
-    if (item.type === "task") return "#0D47A1"; // Dark Blue (medium bars)
-    
-    // Subtask - color by status
-    if (item.progress === 100) return "#00C853"; // Bright Green (complete)
-    if (!item.actualStartDate) return "#FFA726"; // Orange (planned)
-    return "#29B6F6"; // Light Blue (ongoing)
-  };
-
-  const isToday = (date: Date) => {
-    const today = new Date();
-    return (
-      date.getDate() === today.getDate() &&
-      date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear()
-    );
-  };
-
-  const formatDate = (date: any) => {
-    if (!date) return "-";
-    return new Date(date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  const isWeekend = (date: Date) => date.getDay() === 0 || date.getDay() === 6;
-
-  const isMonday = (date: Date) => date.getDay() === 1;
-  const totalDays = dates.length > 0 ? dates.length : 1;
-
-  const getOffset = (start: any) => {
-    if (!start || dates.length === 0) return 0;
-    const diff =
-      (new Date(start).getTime() - dates[0]?.getTime()) /
-      (1000 * 60 * 60 * 24);
-    return Math.max(0, diff);
-  };
-
-  const getDuration = (start: any, end: any) => {
-    if (!start || !end) return 0;
-    const duration =
-      (new Date(end).getTime() - new Date(start).getTime()) /
-      (1000 * 60 * 60 * 24) + 1; // +1 to include end day
-    return Math.max(0, duration);
-  };
-
-  // Ã°Å¸â€Â¥ GROUP DATES BY MONTH
-  const groupByMonth = (dateList: Date[]) => {
-    const groups: Array<{ month: string; days: number; startIndex: number }> = [];
-    let currentMonth = "";
-    let monthStart = 0;
-
-    dateList.forEach((d, idx) => {
-      const key = d.toLocaleString("default", { month: "short", year: "numeric" });
-      if (key !== currentMonth) {
-        if (currentMonth) {
-          groups.push({
-            month: currentMonth,
-            days: idx - monthStart,
-            startIndex: monthStart,
-          });
-        }
-        currentMonth = key;
-        monthStart = idx;
-      }
-    });
-
-    if (currentMonth) {
-      groups.push({
-        month: currentMonth,
-        days: dateList.length - monthStart,
-        startIndex: monthStart,
-      });
+    if (row.type === "subtask") {
+      const ov = overrides[row.id];
+      return {
+        start: ov ? ov.start : toMs(row.projectedStartDate || row.startDate),
+        end:   ov ? ov.end   : toMs(row.projectedEndDate   || row.endDate),
+      };
     }
 
-    return groups;
-  };
+    if (row.type === "task") {
+      const subs = row.subtasks || [];
+      const starts = subs.map((s: any) => { const ov = overrides[s.id]; return ov ? ov.start : toMs(s.projectedStartDate || s.startDate); }).filter(Boolean) as number[];
+      const ends   = subs.map((s: any) => { const ov = overrides[s.id]; return ov ? ov.end   : toMs(s.projectedEndDate   || s.endDate);   }).filter(Boolean) as number[];
+      if (!starts.length) return { start: null, end: null };
+      return { start: Math.min(...starts), end: Math.max(...ends) };
+    }
 
-  if (!projectId || !fullProject) {
+    if (row.type === "scope") {
+      const starts: number[] = [], ends: number[] = [];
+      row.tasks?.forEach((t: any) =>
+        t.subtasks?.forEach((s: any) => {
+          const ov = overrides[s.id];
+          const a  = ov ? ov.start : toMs(s.projectedStartDate || s.startDate);
+          const b  = ov ? ov.end   : toMs(s.projectedEndDate   || s.endDate);
+          if (a) starts.push(a);
+          if (b) ends.push(b);
+        })
+      );
+      if (!starts.length) return { start: null, end: null };
+      return { start: Math.min(...starts), end: Math.max(...ends) };
+    }
+
+    return { start: null, end: null };
+  }, [overrides]);
+
+  const getOffsetPx = useCallback((ms: number | null) =>
+    !ms || !dates.length ? 0 : Math.max(0, (ms - dates[0].getTime()) / MS_DAY * pxPerDay),
+  [dates, pxPerDay]);
+
+  const getDurPx = useCallback((s: number | null, e: number | null) =>
+    !s || !e ? 0 : Math.max(2, ((e - s) / MS_DAY + 1) * pxPerDay),
+  [pxPerDay]);
+const toggleScope = (id: string) => setExpandedScopes(p => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const toggleTask  = (id: string) => setExpandedTasks(p  => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; });
+ const startDrag = useCallback((e: React.MouseEvent, row: any, type: DragState["type"]) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const { start, end } = getRowMs(row);
+    if (!start || !end) return;
+    dragRef.current = { type, id: row.id, startX: e.clientX, origStart: start, origEnd: end };
+  }, [getRowMs]);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const d = dragRef.current;
+      if (!d) return;
+      const delta = ((e.clientX - d.startX) / pxPerDay) * MS_DAY;
+      let ns = d.origStart, ne = d.origEnd;
+      if      (d.type === "move")         { ns = d.origStart + delta; ne = d.origEnd + delta; }
+      else if (d.type === "resize-left")  { ns = Math.min(d.origStart + delta, d.origEnd - MS_DAY); }
+      else if (d.type === "resize-right") { ne = Math.max(d.origEnd + delta, d.origStart + MS_DAY); }
+      setOverrides(prev => ({ ...prev, [d.id]: { start: ns, end: ne } }));
+    };
+    const onUp = () => { dragRef.current = null; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, [pxPerDay]);
+const wbs = (row: any) => {
+    const s = (row._si ?? 0) + 1, t = (row._ti ?? 0) + 1, x = (row._xi ?? 0) + 1;
+    if (row.type === "scope")   return `${s}`;
+    if (row.type === "task")    return `${s}.${t}`;
+    if (row.type === "subtask") return `${s}.${t}.${x}`;
+    return "";
+  };
+ if (!projectId || !fullProject) {
     return (
-      <Paper sx={{ p: 3, textAlign: "center" }}>
-        <Typography>Select project</Typography>
-      </Paper>
+      <Box sx={{ p: 4, textAlign: "center" }}>
+        <Typography color="text.secondary">Select a project to view the timeline</Typography>
+      </Box>
     );
   }
-  console.log("DATES:", dates.length, dates);  
 
-  return (
-    <Box sx={{ overflow: "hidden" }}>
-      <Paper sx={{ display: "flex", overflow: "hidden" }}>
-        
-        {/* Ã°Å¸â€Â¥ LEFT PANEL (DATA COLUMNS) */}
-        <Box sx={{ minWidth: 580, borderRight: "2px solid #DDE1E8" }}>
-          
-          {/* HEADER ROW */}
-          <Box sx={{ position: "sticky", top: 0, zIndex: 5, background: "#F7F8FA", display: "flex", fontWeight: 700, fontSize: 12, borderBottom: "1px solid #DDE1E8" , pt: 1, pb: 0.9 }}>
-            <Box sx={{ width: 60, px: 1, py: 1 }}>WBS</Box>
-            <Box sx={{ width: 200, px: 1, py: 1 }}>Phase / Task</Box>
-            <Box sx={{ width: 90, px: 1, py: 1, textAlign: "right" }}>Start</Box>
-            <Box sx={{ width: 90, px: 1, py: 1, textAlign: "right" }}>End</Box>
-            <Box sx={{ width: 70, px: 1, py: 1, textAlign: "center" }}>Days</Box>
-            <Box sx={{ width: 50, px: 1, py: 1, textAlign: "center" }}>Status</Box>
+  if (!dates.length) {
+    return (
+      <Box sx={{ p: 4, textAlign: "center" }}>
+        <Typography color="text.secondary">
+          No subtask dates defined â€” add start/end dates to subtasks to generate the Gantt chart
+        </Typography>
+      </Box>
+    );
+  }
+
+   return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1, userSelect: "none" }}>
+
+      {/* TOOLBAR */}
+      <Stack direction="row" spacing={2} alignItems="center" sx={{ px: 0.5 }}>
+        <Typography variant="caption" fontWeight={700} color="text.secondary">Zoom:</Typography>
+        <ToggleButtonGroup
+          exclusive
+          value={zoom}
+          onChange={(_, v) => v && setZoom(v)}
+          size="small"
+          sx={{ "& .MuiToggleButton-root": { px: 2, py: 0.5, fontSize: 12, textTransform: "none" } }}
+        >
+          {(["month", "week", "day"] as ZoomLevel[]).map(z => (
+            <ToggleButton key={z} value={z}>{z.charAt(0).toUpperCase() + z.slice(1)}</ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+        <Typography variant="caption" color="text.secondary">
+          {dates.length} days Â· {baseRows.length} rows
+        </Typography>
+        {Object.keys(overrides).length > 0 && (
+          <Box
+            component="span"
+            onClick={() => setOverrides({})}
+            sx={{ fontSize: 12, color: "#ef4444", cursor: "pointer", textDecoration: "underline" }}
+          >
+            Reset changes ({Object.keys(overrides).length})
           </Box>
+        )}
+      </Stack>
 
-          {/* DATA ROWS */}
-          {rows.map((row: any, idx: number) => {
-            const isScope = row.type === "scope";
-            const isTask = row.type === "task";
-            const isSubtask = row.type === "subtask";
-            const { start, end } = getRowDates(row);
-            const duration = getDuration(start, end);
-            const wbs = isScope ? row.id?.substring(0, 2)?.toUpperCase() : isTask ? `${row.parentId?.substring(0, 2)?.toUpperCase()}.${idx % 10}` : "-";
-            const status = row.progress === 100 ? "✅ Done" : row.progress ? `${Math.round(row.progress)}%` : "Planned";
+      {/* MAIN SCROLL CONTAINER â€” single overflow:auto for both axes */}
+      <Box
+        ref={containerRef}
+        onScroll={(e) => {
+          const top = (e.target as HTMLDivElement).scrollTop;
+          if (rafRef.current) cancelAnimationFrame(rafRef.current);
+          rafRef.current = requestAnimationFrame(() => setScrollTop(top));
+        }}
+        sx={{
+          height: VIEWPORT_H,
+          overflow: "auto",
+          border: "1px solid #DDE1E8",
+          borderRadius: 1,
+          position: "relative",
+          "&::-webkit-scrollbar": { width: 8, height: 8 },
+          "&::-webkit-scrollbar-track": { bgcolor: "#f8f9fa" },
+          "&::-webkit-scrollbar-thumb": { bgcolor: "#c8cdd4", borderRadius: 4 },
+        }}
+      >
+        {/* INNER â€” sets total scrollable dimensions */}
+        <Box sx={{ minWidth: LEFT_W + timelineW, minHeight: HDR_H + rows.length * ROW_H }}>
 
-            return (
-              <Box
-                key={idx}
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  height: 40,
-                  background:
-                    isScope ? "#EEF2F6" :
-                    isTask ? "#FFFFFF" : "#FAFBFC",
-                  borderBottom: "1px solid #E0E0E0",
-                }}
-              >
-                {/* WBS */}
-                <Box sx={{ width: 60, px: 1, fontSize: 11, fontWeight: 600 }}>
-                  {wbs}
-                </Box>
+          {/* â”€â”€ STICKY HEADER (top) â”€â”€ */}
+          <Box sx={{ position: "sticky", top: 0, zIndex: 30, display: "flex", height: HDR_H }}>
 
-                {/* NAME WITH EXPAND ICONS */}
-                <Box sx={{ width: 200, px: 1, display: "flex", alignItems: "center", gap: 0.5 }}>
-                  {isScope && (
-                    <IconButton size="small" onClick={() => toggleScope(row.id)} sx={{ p: 0.25 }}>
-                      {expandedScopes.has(row.id) ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
-                    </IconButton>
-                  )}
-                  {isTask && (
-                    <IconButton size="small" onClick={() => toggleTask(row.id)} sx={{ p: 0.25 }}>
-                      {expandedTasks.has(row.id) ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
-                    </IconButton>
-                  )}
-                  <Typography
-                    sx={{
-                      fontSize: isScope ? 13 : isTask ? 12 : 11,
-                      fontWeight: isScope ? 700 : isTask ? 600 : 400,
-                      pl: isTask ? 1 : isSubtask ? 2 : 0,
-                      flex: 1,
-                    }}
-                  >
-                    {row.name || row.title}
-                  </Typography>
-                </Box>
+            {/* Left header â€” sticky both top AND left */}
+            <Box sx={{
+              position: "sticky", left: 0, zIndex: 40,
+              width: LEFT_W, flexShrink: 0, height: HDR_H,
+              display: "flex", alignItems: "center",
+              background: "#F0F2F8",
+              borderRight: "2px solid #C8CDD8",
+              borderBottom: "2px solid #C8CDD8",
+              fontWeight: 700, fontSize: 12, color: "#444",
+            }}>
+              <Box sx={{ width: 60, px: 1, flexShrink: 0 }}>WBS</Box>
+              <Box sx={{ flex: 1, px: 1, overflow: "hidden" }}>Phase / Task</Box>
+              <Box sx={{ width: 88, px: 1, textAlign: "right", flexShrink: 0 }}>Start</Box>
+              <Box sx={{ width: 88, px: 1, textAlign: "right", flexShrink: 0 }}>End</Box>
+              <Box sx={{ width: 60, px: 1, textAlign: "center", flexShrink: 0 }}>Days</Box>
+              <Box sx={{ width: 50, px: 1, textAlign: "center", flexShrink: 0 }}>%</Box>
+            </Box>
 
-                {/* START DATE */}
-                <Box sx={{ width: 90, px: 1, fontSize: 11, textAlign: "right" }}>
-                  {formatDate(start)}
-                </Box>
-
-                {/* END DATE */}
-                <Box sx={{ width: 90, px: 1, fontSize: 11, textAlign: "right" }}>
-                  {formatDate(end)}
-                </Box>
-
-                {/* DURATION (DAYS) */}
-                <Box sx={{ width: 70, px: 1, fontSize: 11, textAlign: "center", fontWeight: 500 }}>
-                  {duration > 0 ? `${Math.round(duration)}d` : "-"}
-                </Box>
-
-                {/* STATUS */}
-                <Box sx={{ width: 50, px: 1, fontSize: 11, textAlign: "center" }}>
-                  <Typography sx={{ fontSize: 10, color: row.progress === 100 ? "#00C853" : "#FFA726", fontWeight: 600 }}>
-                    {status}
-                  </Typography>
-                </Box>
-              </Box>
-            );
-          })}
-        </Box>
-
-        {/* Ã°Å¸â€Â¥ RIGHT PANEL (TIMELINE) */}
-        <Box sx={{ overflowX: "auto", flex: 1, position: "relative" }}>
-          
-          {/* MONTH HEADER */}
-          <Box sx={{ display: "flex", position: "sticky", top: 0, zIndex: 3, background: "#EEF2F6" }}>
-            {dates.length > 0 && groupByMonth(dates).map((month, i) => (
-              <Box
-                key={i}
-                sx={{
-                  width: month.days * 40,
-                  textAlign: "center",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  p: 0.5,
-                  borderRight: "1px solid #BCC4CD",
-                  color: "#4B2E83",
-                }}
-              >
-                {month.month}
-              </Box>
-            ))}
-          </Box>
-
-          {/* DAY HEADER */}
-          <Box sx={{ display: "flex", position: "sticky", top: 27, zIndex: 4, background: "#F7F8FA", borderBottom: "1px solid #DDE1E8", pt: -1 }}>
-            {dates.map((d, i) => (
-              <Box
-                key={i}
-                sx={{
-                  width: 40,
-                  textAlign: "center",
-                  fontSize: 10,
-                  borderRight: "1px solid #E0E0E0",
-                  p: 0.5,
-                  backgroundColor: isToday(d) ? "#FFE082" : isWeekend(d) ? "#FAFAFA" : "transparent",
-                  fontWeight: isToday(d) ? 700 : 400,
-                  color: isToday(d) ? "#F57F17" : "#666",
-                }}
-              >
-                {d.getDate()}
-              </Box>
-            ))}
-          </Box>
-
-          {/* TIMELINE BARS WITH GRID */}
-          {rows.map((row: any, i: number) => {
-            const { start, end } = getRowDates(row);
-            const offset = getOffset(start);
-            const duration = getDuration(start, end);
-
-            // Fixed pixel width matching the day-header grid (40px per day)
-            const contentWidth = dates.length * 40;
-
-            return (
-              <Box
-                key={i}
-                sx={{
-                  // Must equal the scrollable content width so that position:absolute
-                  // children resolve against the same px coordinate space as the
-                  // day-header columns — not against the viewport-clipped flex width.
-                  minWidth: contentWidth,
-                  height: 40,
-                  position: "relative",
-                  borderBottom: "1px solid #E0E0E0",
-                  backgroundColor:
-                    row.type === "scope" ? "#EEF2F6" :
-                    row.type === "task" ? "#FFFFFF" : "#FAFBFC",
-                  backgroundImage: dates.length > 0 ? `repeating-linear-gradient(
-                    to right,
-                    transparent 0px,
-                    transparent 39px,
-                    #E0E0E0 39px,
-                    #E0E0E0 40px
-                  )` : "none",
-                }}
-              >
-                {/* WEEKEND SHADING — px aligned to 40px grid */}
-                {dates.map((d, idx) => (
-                  isWeekend(d) && (
-                    <Box
-                      key={idx}
-                      sx={{
-                        position: "absolute",
-                        left: idx * 40,
-                        width: 40,
-                        height: "100%",
-                        backgroundColor: "#f1c9a1a2",
-                        opacity: 0.4,
-                        pointerEvents: "none",
-                        zIndex: 0,
-                      }}
-                    />
-                  )
+            {/* Right header */}
+            <Box sx={{ minWidth: timelineW }}>
+              {/* Month row */}
+              <Box sx={{ display: "flex", height: HDR_MONTH, bgcolor: "#E8EBF4", borderBottom: "1px solid #C8CDD8", overflow: "hidden" }}>
+                {monthGroups.map((m, i) => (
+                  <Box key={i} sx={{
+                    width: m.days * pxPerDay, flexShrink: 0,
+                    textAlign: "center", fontSize: 11, fontWeight: 700,
+                    lineHeight: `${HDR_MONTH}px`,
+                    borderRight: "1px solid #B0B8C8",
+                    color: "#4B2E83", overflow: "hidden", whiteSpace: "nowrap", px: 0.5,
+                  }}>
+                    {m.label}
+                  </Box>
                 ))}
+              </Box>
+              {/* Day / Week sub-header row */}
+              <Box sx={{ display: "flex", height: HDR_SUB, bgcolor: "#F0F2F8", borderBottom: "2px solid #C8CDD8", overflow: "hidden" }}>
+                {zoom === "day" && dates.map((d, i) => (
+                  <Box key={i} sx={{
+                    width: pxPerDay, flexShrink: 0,
+                    textAlign: "center", fontSize: 10,
+                    lineHeight: `${HDR_SUB}px`,
+                    borderRight: "1px solid #E0E4EC",
+                    bgcolor: isToday(d) ? "#FFE082" : isWeekend(d) ? "#E8EAEF" : "transparent",
+                    fontWeight: isToday(d) ? 700 : 400,
+                    color: isToday(d) ? "#E65100" : isWeekend(d) ? "#AAA" : "#666",
+                    overflow: "hidden",
+                  }}>
+                    {pxPerDay >= 20 ? d.getDate() : ""}
+                  </Box>
+                ))}
+                {zoom === "week" && weekGroups.map((w, i) => (
+                  <Box key={i} sx={{
+                    width: w.days * pxPerDay, flexShrink: 0,
+                    textAlign: "center", fontSize: 10, lineHeight: `${HDR_SUB}px`,
+                    borderRight: "1px solid #C8CDD8", color: "#666", overflow: "hidden",
+                  }}>
+                    {w.label}
+                  </Box>
+                ))}
+                {zoom === "month" && (
+                  <Box sx={{ flex: 1, lineHeight: `${HDR_SUB}px`, textAlign: "center", fontSize: 10, color: "#999" }}>
+                    Monthly view
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          </Box>
 
-                {/* TODAY VERTICAL LINE — px aligned */}
-                {dates.length > 0 && (() => {
-                  const todayIdx = dates.findIndex((d) => isToday(d));
-                  return (
-                    todayIdx >= 0 && (
+          {/* TOP SPACER */}
+          {topSp > 0 && <Box sx={{ height: topSp, minWidth: LEFT_W + timelineW }} />}
+
+          {/* VISIBLE ROWS */}
+          {rows.slice(visStart, visEnd).map((row, vIdx) => {
+            const absIdx = visStart + vIdx;
+
+            if (row.type === "empty") {
+              return (
+                <Box key={`e-${absIdx}`} sx={{ display: "flex", height: ROW_H, minWidth: LEFT_W + timelineW }}>
+                  <Box sx={{ position: "sticky", left: 0, zIndex: 8, width: LEFT_W, flexShrink: 0, height: ROW_H, bgcolor: "#fff", borderRight: "2px solid #C8CDD8", borderBottom: "1px solid #F2F2F2" }} />
+                  <Box sx={{ minWidth: timelineW, height: ROW_H, bgcolor: "#FAFBFF", borderBottom: "1px solid #F2F2F2" }} />
+                </Box>
+              );
+            }
+
+            const isSc = row.type === "scope";
+            const isTk = row.type === "task";
+            const isSb = row.type === "subtask";
+            const { start, end } = getRowMs(row);
+            const durDays  = start && end ? Math.round((end - start) / MS_DAY + 1) : 0;
+            const progress = Math.round(row.progress ?? 0);
+            const rowBg    = isSc ? "#EEF1F8" : isTk ? "#FFFFFF" : "#FAFBFF";
+            const leftPx   = getOffsetPx(start);
+            const widthPx  = getDurPx(start, end);
+            const color    = barColor(row);
+
+            return (
+              <Box key={row.id ?? `r-${absIdx}`} sx={{ display: "flex", height: ROW_H, minWidth: LEFT_W + timelineW }}>
+
+                {/* LEFT CELL â€” sticky left */}
+                <Box sx={{
+                  position: "sticky", left: 0, zIndex: 8,
+                  width: LEFT_W, flexShrink: 0, height: ROW_H,
+                  display: "flex", alignItems: "center",
+                  bgcolor: rowBg,
+                  borderRight: "2px solid #C8CDD8",
+                  borderBottom: "1px solid #E8E8E8",
+                  borderLeft: isSc ? "3px solid #4B2E83" : "3px solid transparent",
+                }}>
+                  <Box sx={{ width: 60, px: 1, flexShrink: 0, fontSize: 10, fontWeight: 600, color: "#888", whiteSpace: "nowrap" }}>
+                    {wbs(row)}
+                  </Box>
+
+                  <Box sx={{ flex: 1, px: 0.5, display: "flex", alignItems: "center", gap: 0.5, overflow: "hidden", minWidth: 0 }}>
+                    {isSc && (
+                      <IconButton size="small" onClick={() => toggleScope(row.id)} sx={{ p: 0.2, flexShrink: 0 }}>
+                        {expandedScopes.has(row.id)
+                          ? <ExpandMoreIcon sx={{ fontSize: 16, color: "#4B2E83" }} />
+                          : <ChevronRightIcon sx={{ fontSize: 16, color: "#4B2E83" }} />}
+                      </IconButton>
+                    )}
+                    {isTk && (
+                      <IconButton size="small" onClick={() => toggleTask(row.id)} sx={{ p: 0.2, flexShrink: 0 }}>
+                        {expandedTasks.has(row.id)
+                          ? <ExpandMoreIcon sx={{ fontSize: 15, color: "#0D47A1" }} />
+                          : <ChevronRightIcon sx={{ fontSize: 15, color: "#0D47A1" }} />}
+                      </IconButton>
+                    )}
+                    {isSb && <Box sx={{ width: 20, flexShrink: 0 }} />}
+                    <Typography noWrap sx={{
+                      fontSize: isSc ? 12 : isTk ? 11 : 10,
+                      fontWeight: isSc ? 700 : isTk ? 600 : 400,
+                      color: isSc ? "#1a1040" : isTk ? "#1a2560" : "#555",
+                    }}>
+                      {row.name || row.title}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ width: 88, px: 1, flexShrink: 0, fontSize: 10, textAlign: "right", color: "#666", whiteSpace: "nowrap" }}>{fmtDate(start)}</Box>
+                  <Box sx={{ width: 88, px: 1, flexShrink: 0, fontSize: 10, textAlign: "right", color: "#666", whiteSpace: "nowrap" }}>{fmtDate(end)}</Box>
+                  <Box sx={{ width: 60, px: 1, flexShrink: 0, fontSize: 10, textAlign: "center", fontWeight: 500 }}>{durDays > 0 ? `${durDays}d` : "0"}</Box>
+                  <Box sx={{ width: 50, px: 1, flexShrink: 0, fontSize: 10, textAlign: "center" }}>
+                    {progress > 0
+                      ? <Typography sx={{ fontSize: 10, fontWeight: 700, color: progress === 100 ? "#00C853" : "#FFA726" }}>{progress}%</Typography>
+                      : "0"}
+                  </Box>
+                </Box>
+
+                {/* TIMELINE CELL */}
+                <Box sx={{
+                  minWidth: timelineW,
+                  height: ROW_H,
+                  position: "relative",
+                  bgcolor: rowBg,
+                  backgroundImage: weekendBg,
+                  backgroundRepeat: "no-repeat",
+                  borderBottom: "1px solid #E8E8E8",
+                }}>
+                  {/* Monday separator lines */}
+                  {mondayXs.map((x, i) => (
+                    <Box key={i} sx={{ position: "absolute", left: x, top: 0, bottom: 0, width: 1, bgcolor: "#C8D0DE", opacity: 0.8, zIndex: 1, pointerEvents: "none" }} />
+                  ))}
+
+                  {/* Today line */}
+                  {todayX !== null && (
+                    <Box sx={{ position: "absolute", left: todayX, top: 0, bottom: 0, width: 2, bgcolor: "#E65100", zIndex: 3, pointerEvents: "none" }} />
+                  )}
+
+                  {/* GANTT BAR */}
+                  {start && end && (
+                    <Tooltip
+                      title={`${row.name || row.title}  Â·  ${fmtDate(start)} â†’ ${fmtDate(end)}  (${durDays}d)`}
+                      placement="top"
+                      arrow
+                    >
                       <Box
                         sx={{
                           position: "absolute",
-                          left: todayIdx * 40,
-                          top: 0,
-                          bottom: 0,
-                          width: "2px",
-                          backgroundColor: "#F57F17",
-                          zIndex: 5,
+                          left: leftPx,
+                          width: Math.max(widthPx, 4),
+                          height: isSc ? 20 : isTk ? 16 : 13,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          borderRadius: isSc ? "3px" : "4px",
+                          bgcolor: color,
+                          border: isSc ? "2px solid #4527A0" : isTk ? "1.5px solid #0A3D91" : "1px solid rgba(0,0,0,0.12)",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+                          zIndex: 2,
+                          cursor: isSb ? "grab" : "default",
+                          "&:active": isSb ? { cursor: "grabbing" } : {},
+                          "&:hover": isSb ? { filter: "brightness(1.1)", boxShadow: "0 2px 6px rgba(0,0,0,0.25)" } : {},
+                          overflow: "hidden",
                         }}
-                      />
-                    )
-                  );
-                })()}
+                        onMouseDown={isSb ? (e) => startDrag(e, row, "move") : undefined}
+                      >
+                        {/* Progress fill overlay */}
+                        {progress > 0 && (
+                          <Box sx={{ position: "absolute", inset: 0, width: `${progress}%`, bgcolor: "rgba(255,255,255,0.35)", pointerEvents: "none" }} />
+                        )}
 
-                {/* MONDAY VERTICAL LINES — week markers */}
-                {dates.map((d, idx) => (
-                  isMonday(d) && (
-                    <Box
-                      key={`monday-${idx}`}
-                      sx={{
-                        position: "absolute",
-                        left: idx * 40,
-                        top: 0,
-                        bottom: 0,
-                        width: "1px",
-                        backgroundColor: "#BCC4CD",
-                        opacity: 0.6,
-                        zIndex: 1,
-                      }}
-                    />
-                  )
-                ))}
+                        {/* Resize handles (subtask only) */}
+                        {isSb && widthPx > 24 && (
+                          <>
+                            <Box
+                              sx={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 7, cursor: "w-resize", zIndex: 5, bgcolor: "transparent", "&:hover": { bgcolor: "rgba(0,0,0,0.15)" } }}
+                              onMouseDown={(e) => { e.stopPropagation(); startDrag(e, row, "resize-left"); }}
+                            />
+                            <Box
+                              sx={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 7, cursor: "e-resize", zIndex: 5, bgcolor: "transparent", "&:hover": { bgcolor: "rgba(0,0,0,0.15)" } }}
+                              onMouseDown={(e) => { e.stopPropagation(); startDrag(e, row, "resize-right"); }}
+                            />
+                          </>
+                        )}
 
-                {/* GANTT BAR — px aligned to 40px-per-day grid */}
-                {start && end && (
-                  <Box
-                    sx={{
-                      position: "absolute",
-                      left: offset * 40,
-                      width: duration * 40,
-                      height: 16,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      borderRadius: 2,
-                      backgroundColor: getColor(row),
-                      border: row.type === "scope" ? "2px solid #5E35B1" : row.type === "task" ? "2px solid #0D47A1" : "1px solid rgba(0,0,0,0.1)",
-                      boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                      zIndex: 2,
-                    }}
-                  />
-                )}
+                        {/* Bar label (wide bars only) */}
+                        {widthPx > 50 && (
+                          <Typography noWrap sx={{
+                            fontSize: 9,
+                            color: "rgba(255,255,255,0.92)",
+                            pl: 1,
+                            lineHeight: `${isSc ? 20 : isTk ? 16 : 13}px`,
+                            pointerEvents: "none",
+                          }}>
+                            {row.name || row.title}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Tooltip>
+                  )}
+                </Box>
               </Box>
             );
           })}
-        </Box>
 
-      </Paper>
+          {/* BOTTOM SPACER */}
+          {botSp > 0 && <Box sx={{ height: botSp, minWidth: LEFT_W + timelineW }} />}
+
+        </Box>
+      </Box>
     </Box>
   );
 }
+
