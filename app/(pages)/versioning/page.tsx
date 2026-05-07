@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/app/redux/store";
 import {
@@ -53,7 +53,8 @@ function CustomTabPanel(props: TabPanelProps) {
   );
 }
 
-export default function VersioningPage() {
+// ─── Inner component that uses useSearchParams() ──────────────────────────────
+function VersioningPageContent() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -245,5 +246,22 @@ export default function VersioningPage() {
         </Paper>
       </Container>
     </Layout>
+  );
+}
+
+// ─── Main page export wrapped in Suspense ────────────────────────────────────
+export default function VersioningPage() {
+  return (
+    <Suspense
+      fallback={
+        <Layout>
+          <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+            <CircularProgress />
+          </Box>
+        </Layout>
+      }
+    >
+      <VersioningPageContent />
+    </Suspense>
   );
 }

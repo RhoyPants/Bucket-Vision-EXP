@@ -28,6 +28,7 @@ import {
 } from "@/app/redux/controllers/approvalController";
 
 import Layout from "@/app/components/shared/Layout";
+import Guard from "@/app/components/shared/Guard";
 import ProjectModal from "@/app/components/shared/modals/ProjectModal";
 import { ApprovalDetailModal, ApprovalSubmitModal } from "@/app/components/shared/modals/ApprovalModals";
 import VersioningActionModal from "@/app/components/shared/modals/VersioningActionModal";
@@ -185,18 +186,20 @@ const [activeTab, setActiveTab] = useState<ProjectTab>("all");
               </Tooltip>
             </ToggleButtonGroup>
 
-            <Button
-              variant="contained"
-              sx={{
-                borderRadius: 2,
-                textTransform: "none",
-                backgroundColor: "#4B2E83",
-                "&:hover": { backgroundColor: "#3d2363" },
-              }}
-              onClick={actions.onCreateProject}
-            >
-              + New Project
-            </Button>
+            <Guard module="PROJECTS" action="CREATE">
+              <Button
+                variant="contained"
+                sx={{
+                  borderRadius: 2,
+                  textTransform: "none",
+                  backgroundColor: "#4B2E83",
+                  "&:hover": { backgroundColor: "#3d2363" },
+                }}
+                onClick={actions.onCreateProject}
+              >
+                + New Project
+              </Button>
+            </Guard>
           </Stack>
         </Stack>
 

@@ -16,8 +16,9 @@ import UserRelations from "./components/UserRelations";
 import UserProfile from "./components/UserProfile";
 import ApprovalFlowsList from "./components/ApprovalFlowsList";
 import ProjectApprovalManagement from "./components/ProjectApprovalManagement";
+import Modules from "./components/Modules";
 
-type TabType = "profile" | "roles" | "users" | "relations" | "approvals" | "projectApprovals";
+type TabType = "profile" | "roles" | "users" | "relations" | "approvals" | "projectApprovals" | "modules";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabType>("profile");
@@ -81,6 +82,13 @@ export default function SettingsPage() {
             >
               <ListItemText primary="Project Approvals" />
             </ListItemButton>
+
+            <ListItemButton
+              selected={activeTab === "modules"}
+              onClick={() => setActiveTab("modules")}
+            >
+              <ListItemText primary="Modules" />
+            </ListItemButton>
           </List>
         </Paper>
 
@@ -102,6 +110,7 @@ export default function SettingsPage() {
             {activeTab === "relations" && <UserRelations />}
             {activeTab === "approvals" && <ApprovalFlowsList />}
             {activeTab === "projectApprovals" && <ProjectApprovalManagement />}
+            {activeTab === "modules" && <Modules />}
           </Box>
         </Paper>
       </Box>

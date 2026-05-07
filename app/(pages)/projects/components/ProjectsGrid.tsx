@@ -4,6 +4,7 @@ import { Box, Grid, Card, Typography, Button } from "@mui/material";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import ProjectCard from "./ProjectCard";
 import { ProjectCardActions, ViewType } from "./types";
+import Guard from "@/app/components/shared/Guard";
 
 interface ProjectsGridProps {
   projects: any[];
@@ -35,13 +36,15 @@ export default function ProjectsGrid({
           </Typography>
         )}
         {showCreateButton && (
-          <Button
-            variant="contained"
-            sx={{ backgroundColor: "#4B2E83", "&:hover": { backgroundColor: "#3d2363" } }}
-            onClick={actions.onCreateProject}
-          >
-            + New Project
-          </Button>
+          <Guard module="PROJECTS" action="CREATE">
+            <Button
+              variant="contained"
+              sx={{ backgroundColor: "#4B2E83", "&:hover": { backgroundColor: "#3d2363" } }}
+              onClick={actions.onCreateProject}
+            >
+              + New Project
+            </Button>
+          </Guard>
         )}
       </Card>
     );
