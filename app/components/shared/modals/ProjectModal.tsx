@@ -170,11 +170,15 @@ export default function ProjectModal({
 
       if (mode === "edit") {
         await dispatch(updateProject(project.id, form));
+        onClose();
       } else {
-        await dispatch(createProject(form));
+        const createdProject = await dispatch(createProject(form));
+        onClose();
+        // Navigate to setup wizard after creating project
+        if (createdProject?.id) {
+          router.push(`/projects/${createdProject.id}/setup`);
+        }
       }
-
-      onClose();
     } catch (err: any) {
       setErrors([
         {

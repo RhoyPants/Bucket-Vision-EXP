@@ -142,7 +142,7 @@ export default function ApprovalReviewPage() {
         sx={{
           background: "linear-gradient(135deg, #4B2E83 0%, #6d40a0 100%)",
           color: "white",
-          p: { xs: 2, sm: 3 },
+          p: { xs: 1, sm: 1.5 },
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -151,11 +151,8 @@ export default function ApprovalReviewPage() {
         }}
       >
         <Box>
-          <Typography variant="h5" fontWeight={700} mb={0.5} sx={{ fontSize: { xs: "18px", sm: "24px" } }}>
+          <Typography variant="h6" fontWeight={700} sx={{ fontSize: { xs: "16px", sm: "20px" } }}>
             {project.name}
-          </Typography>
-          <Typography variant="body2" sx={{ opacity: 0.9, fontSize: { xs: "12px", sm: "14px" } }}>
-            Review & Approve
           </Typography>
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -221,7 +218,7 @@ export default function ApprovalReviewPage() {
           {/* PROJECT SUMMARY - IN UPPER PART */}
           <Card sx={{ p: { xs: 1.5, sm: 2.5 }, border: "1px solid #e5e7eb" }}>
             <Box
-              sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}
+              sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" }, gap: 2 }}
             >
               <Box>
                 <Typography
@@ -249,12 +246,80 @@ export default function ApprovalReviewPage() {
                     mb: 0.5,
                   }}
                 >
-                  Budget
+                  Total Budget
                 </Typography>
                 <Typography
                   sx={{ fontSize: { xs: 12, sm: 14 }, fontWeight: 700, color: "#1f2937" }}
                 >
-                  ${project.totalBudget?.toLocaleString() || "N/A"}
+                  ₱{project.totalBudget?.toLocaleString() || "N/A"}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 10, sm: 11 },
+                    color: "#6b7280",
+                    fontWeight: 600,
+                    mb: 0.5,
+                  }}
+                >
+                  Status
+                </Typography>
+                <Typography
+                  sx={{ fontSize: { xs: 12, sm: 14 }, fontWeight: 700, color: "#1f2937" }}
+                >
+                  {project.status}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 10, sm: 11 },
+                    color: "#6b7280",
+                    fontWeight: 600,
+                    mb: 0.5,
+                  }}
+                >
+                  Start Date
+                </Typography>
+                <Typography
+                  sx={{ fontSize: { xs: 12, sm: 14 }, fontWeight: 700, color: "#1f2937" }}
+                >
+                  {project.startDate ? new Date(project.startDate).toLocaleDateString() : "N/A"}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 10, sm: 11 },
+                    color: "#6b7280",
+                    fontWeight: 600,
+                    mb: 0.5,
+                  }}
+                >
+                  Expected End Date
+                </Typography>
+                <Typography
+                  sx={{ fontSize: { xs: 12, sm: 14 }, fontWeight: 700, color: "#1f2937" }}
+                >
+                  {project.expectedEndDate ? new Date(project.expectedEndDate).toLocaleDateString() : "N/A"}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 10, sm: 11 },
+                    color: "#6b7280",
+                    fontWeight: 600,
+                    mb: 0.5,
+                  }}
+                >
+                  Scopes
+                </Typography>
+                <Typography
+                  sx={{ fontSize: { xs: 12, sm: 14 }, fontWeight: 700, color: "#1f2937" }}
+                >
+                  {project.scopes?.length || 0}
                 </Typography>
               </Box>
               {project.description && (

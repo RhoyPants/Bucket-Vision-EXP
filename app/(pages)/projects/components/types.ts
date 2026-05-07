@@ -1,7 +1,6 @@
 export type ViewType = "card" | "list";
 
 export type ProjectTab =
-  | "all"
   | "active"
   | "pending"
   | "draft"

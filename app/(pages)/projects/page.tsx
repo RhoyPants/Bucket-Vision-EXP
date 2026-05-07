@@ -34,7 +34,6 @@ import { ApprovalDetailModal, ApprovalSubmitModal } from "@/app/components/share
 import VersioningActionModal from "@/app/components/shared/modals/VersioningActionModal";
 import TeamManagementModal from "@/app/components/shared/modals/TeamManagementModal";
 
-import AllProjectsTab from "./components/AllProjectsTab";
 import ActiveProjectsTab from "./components/ActiveProjectsTab";
 import PendingProjectsTab from "./components/PendingProjectsTab";
 import DraftProjectsTab from "./components/DraftProjectsTab";
@@ -51,7 +50,7 @@ export default function ProjectsPage() {
   const { allApprovals, auditTrail } = useAppSelector((state) => state.approval);
   const { user } = useAppSelector((state) => state.auth);
 
-const [activeTab, setActiveTab] = useState<ProjectTab>("all");
+const [activeTab, setActiveTab] = useState<ProjectTab>("active");
   const [viewType, setViewType] = useState<ViewType>("card");
 
   const [projectModalOpen, setProjectModalOpen] = useState(false);
@@ -128,7 +127,6 @@ const [activeTab, setActiveTab] = useState<ProjectTab>("all");
   const allProjects = projects || [];
 
   const tabDef: { value: ProjectTab; label: string }[] = [
-    { value: "all", label: "All Projects" },
     { value: "active", label: "Active" },
     { value: "pending", label: "Pending" },
     { value: "draft", label: "Draft" },
@@ -138,7 +136,6 @@ const [activeTab, setActiveTab] = useState<ProjectTab>("all");
   ];
 
   const tabContent: Record<ProjectTab, React.JSX.Element> = {
-    all: <AllProjectsTab projects={allProjects} actions={actions} viewType={viewType} />,
     active: <ActiveProjectsTab projects={allProjects} actions={actions} viewType={viewType} />,
     pending: <PendingProjectsTab projects={allProjects} actions={actions} viewType={viewType} />,
     draft: <DraftProjectsTab projects={allProjects} actions={actions} viewType={viewType} />,

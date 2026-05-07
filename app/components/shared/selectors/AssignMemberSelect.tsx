@@ -9,8 +9,10 @@ import {
   Chip,
   CircularProgress,
   Button,
+  Checkbox,
 } from "@mui/material";
 import PersonAddOutlinedIcon from "@mui/icons-material/PersonAddOutlined";
+import CheckIcon from "@mui/icons-material/Check";
 import { useMemo, useState } from "react";
 
 type User = {
@@ -27,6 +29,8 @@ type Props = {
   members: User[];
   assignedUsers?: any[];
   onSelectMultiple: (users: User[]) => void;
+  onSelectionChange?: (users: User[]) => void;
+  excludedUserIds?: string[];
   loading?: boolean;
 };
 
@@ -34,10 +38,23 @@ export default function AssignMemberSelect({
   members = [],
   assignedUsers = [],
   onSelectMultiple,
+  onSelectionChange,
+  excludedUserIds = [],
   loading = false,
 }: Props) {
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [inputValue, setInputValue] = useState("");
+
+  // Handle select all
+  const handleSelectAll = () => {
+    if (selectedUsers.length === availableMembers.length) {
+      setSelectedUsers([]);
+      onSelectionChange?.([]);
+    } else {
+      setSelectedUsers(availableMembers);
+      onSelectionChange?.(availableMembers);
+    }
+  };
 
   const isLeader = (m: User) =>
     m?.role?.name?.toLowerCase() === "leader" ||
@@ -52,25 +69,28 @@ export default function AssignMemberSelect({
     );
   }, [assignedUsers]);
 
-  // ✅ filter available users (all users, not already assigned as SUB_OWNER, not already selected)
+  // ✅ filter available users (all users, not already assigned as SUB_OWNER, not already selected, not pending as sub-owner)
   const availableMembers = useMemo(() => {
     const selectedIds = new Set(selectedUsers.map((u) => u.id));
+    const excludedIds = new Set(excludedUserIds);
     // Get all users assigned as SUB_OWNER (not MEMBER)
     const subOwnerAssignedIds = new Set(
       assignedUsers
         .filter((u) => u?.projectRole === "SUB_OWNER")
         .map((u) => u?.userId || u?.user?.id || u?.id)
     );
-    return members
+    const filtered = members
       .filter((m) => m && m.id)
       .filter((m) => !assignedIds.has(m.id)) // Not already in project
       .filter((m) => !subOwnerAssignedIds.has(m.id)) // Not assigned as SUB_OWNER
       .filter((m) => !selectedIds.has(m.id)) // Not already selected
+      .filter((m) => !excludedIds.has(m.id)) // Not pending as sub-owner in SubOwnerSelect
       .filter(
         (m, i, self) =>
           i === self.findIndex((x) => x.id === m.id) // Remove duplicates
       );
-  }, [members, assignedIds, assignedUsers, selectedUsers]);
+    return filtered;
+  }, [members, assignedIds, assignedUsers, selectedUsers, excludedUserIds]);
 
   const handleAddSelected = () => {
     if (selectedUsers.length > 0) {
@@ -81,7 +101,9 @@ export default function AssignMemberSelect({
   };
 
   const handleRemoveFromSelected = (userId: string) => {
-    setSelectedUsers((prev) => prev.filter((u) => u.id !== userId));
+    const updated = selectedUsers.filter((u) => u.id !== userId);
+    setSelectedUsers(updated);
+    onSelectionChange?.(updated);
   };
 
   return (
@@ -92,6 +114,7 @@ export default function AssignMemberSelect({
         value={selectedUsers}
         onChange={(e, newValue) => {
           setSelectedUsers(newValue);
+          onSelectionChange?.(newValue);
         }}
         inputValue={inputValue}
         onInputChange={(e, newInputValue) => {
@@ -101,6 +124,7 @@ export default function AssignMemberSelect({
         isOptionEqualToValue={(o, v) => o.id === v.id}
         noOptionsText={loading ? "Loading..." : "No available users"}
         loading={loading}
+        disableCloseOnSelect
         sx={{
           flex: 1,
           "& .MuiOutlinedInput-root": {
@@ -116,6 +140,7 @@ export default function AssignMemberSelect({
         }}
         renderOption={(props, option) => {
           const { key, ...rest } = props;
+          const isSelected = selectedUsers.some((u) => u.id === option.id);
 
           return (
             <Box
@@ -123,14 +148,26 @@ export default function AssignMemberSelect({
               key={key}
               {...rest}
               sx={{
-                p: "8px 10px",
+                p: "8px 10px !important",
                 transition: "all 0.2s ease",
+                backgroundColor: isSelected ? "rgba(102, 126, 234, 0.08)" : "transparent",
                 "&:hover": {
                   bgcolor: "#f0f4ff",
                 },
               }}
             >
-              <Box display="flex" gap={1.2} alignItems="center" width="100%">
+              <Checkbox
+                checked={isSelected}
+                size="small"
+                sx={{
+                  mr: 1,
+                  color: "#667eea",
+                  "&.Mui-checked": {
+                    color: "#667eea",
+                  },
+                }}
+              />
+              <Box display="flex" gap={1.2} alignItems="center" flex={1}>
                 <Avatar
                   sx={{
                     width: 32,
@@ -152,16 +189,12 @@ export default function AssignMemberSelect({
                   </Typography>
                 </Box>
 
-                {assignedIds.has(option.id) && (
-                  <Chip
-                    label="Added"
-                    size="small"
+                {isSelected && (
+                  <CheckIcon
                     sx={{
-                      height: 22,
-                      fontSize: 11,
-                      bgcolor: "#e0f2fe",
-                      color: "#0284c7",
-                      fontWeight: 600,
+                      fontSize: 18,
+                      color: "#667eea",
+                      fontWeight: 700,
                     }}
                   />
                 )}
@@ -175,6 +208,7 @@ export default function AssignMemberSelect({
             size="small"
             placeholder="Select members..."
             label="Add Members"
+            helperText={selectedUsers.length > 0 ? `${selectedUsers.length} selected` : ""}
             InputProps={{
               ...params.InputProps,
               startAdornment: (
@@ -204,6 +238,11 @@ export default function AssignMemberSelect({
             }}
           />
         )}
+        ListboxProps={{
+          sx: {
+            p: 0,
+          },
+        }}
         componentsProps={{
           paper: {
             sx: {
@@ -214,6 +253,27 @@ export default function AssignMemberSelect({
           },
         }}
       />
+
+      {/* SELECT ALL BUTTON */}
+      {availableMembers.length > 0 && (
+        <Button
+          size="small"
+          onClick={handleSelectAll}
+          variant="outlined"
+          sx={{
+            textTransform: "none",
+            fontSize: 12,
+            color: selectedUsers.length === availableMembers.length ? "#667eea" : "#6b7280",
+            borderColor: selectedUsers.length === availableMembers.length ? "#667eea" : "#d1d5db",
+            "&:hover": {
+              borderColor: "#667eea",
+              bgcolor: "rgba(102, 126, 234, 0.05)",
+            },
+          }}
+        >
+          {selectedUsers.length === availableMembers.length ? "Deselect All" : "Select All"}
+        </Button>
+      )}
 
       {/* SELECTED CHIPS */}
       {selectedUsers.length > 0 && (

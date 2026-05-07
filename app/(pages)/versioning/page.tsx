@@ -79,7 +79,7 @@ function VersioningPageContent() {
     if (!projects || projects.length === 0) {
       dispatch(getProjects() as any);
     }
-  }, [dispatch, projects]);
+  }, [dispatch]);
 
   // Load versions when projectId is selected — use PIN to get ALL versions in the group
   useEffect(() => {

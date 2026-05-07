@@ -56,6 +56,8 @@ export default function ProjectTeamPanel({
   const [toggling, setToggling] = useState<string | null>(null);
   const [assignSuccess, setAssignSuccess] = useState<string | null>(null);
   const [selectedForRemoval, setSelectedForRemoval] = useState<Set<string>>(new Set());
+  const [pendingSubOwnerIds, setPendingSubOwnerIds] = useState<string[]>([]);
+  const [pendingMemberIds, setPendingMemberIds] = useState<string[]>([]);
   const [optimisticMembers, setOptimisticMembers] = useState<any>({
     owner: [],
     subOwners: [],
@@ -578,8 +580,11 @@ export default function ProjectTeamPanel({
             <AssignSubOwnerSelect
               members={users}
               assignedUsers={assignedUsers}
+              excludedUserIds={pendingMemberIds}
+              onSelectionChange={(selected) => setPendingSubOwnerIds(selected.map((u) => u.id))}
               onSelectMultiple={(selectedUsers) => {
                 if (selectedUsers.length > 0) {
+                  setPendingSubOwnerIds([]);
                   handleAddMultipleMembers(selectedUsers, "SUB_OWNER");
                 }
               }}
@@ -589,8 +594,11 @@ export default function ProjectTeamPanel({
             <AssignMemberSelect
               members={users}
               assignedUsers={assignedUsers}
+              excludedUserIds={pendingSubOwnerIds}
+              onSelectionChange={(selected) => setPendingMemberIds(selected.map((u) => u.id))}
               onSelectMultiple={(selectedUsers) => {
                 if (selectedUsers.length > 0) {
+                  setPendingMemberIds([]);
                   handleAddMultipleMembers(selectedUsers, "MEMBER");
                 }
               }}
