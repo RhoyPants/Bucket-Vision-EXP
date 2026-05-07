@@ -16,6 +16,7 @@ import weeklyReportReducer from "./slices/weeklyReportSlice";
 import approvalReducer from "./slices/approvalSlice";
 import approvalFlowReducer from "./slices/approvalFlowSlice";
 import versioningReducer from "./slices/versioningSlice";
+import projectCalendarReducer from "./slices/projectCalendarSlice";
 // @ts-ignore
 import logger from "redux-logger";
 
@@ -36,6 +37,7 @@ export const store = configureStore({
     approval: approvalReducer,
     approvalFlow: approvalFlowReducer,
     versioning: versioningReducer,
+    projectCalendar: projectCalendarReducer,
   },
   middleware: (getDefault) => getDefault().concat(logger),
   devTools: true,

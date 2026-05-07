@@ -6,3 +6,4 @@ export { DisciplinesProgress } from "./DisciplinesProgress";
 export { ProjectsRequiringAttention } from "./ProjectsRequiringAttention";
 export { CriticalAlerts } from "./CriticalAlerts";
 export { ProjectSelector } from "./ProjectSelector";
+export { default as DashboardCalendar } from "./DashboardCalendar";

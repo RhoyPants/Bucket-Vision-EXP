@@ -39,7 +39,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
       <Card sx={{ mb: 4, backgroundColor: "#f8f9fa", border: "1px solid #e5e7eb" }}>
         <CardContent>
           <Typography variant="body2" sx={{ color: "#6b7280", textAlign: "center" }}>
-            No projects available. Create a project to get started.
+            No active projects available. Activate a project to view its dashboard.
           </Typography>
         </CardContent>
       </Card>

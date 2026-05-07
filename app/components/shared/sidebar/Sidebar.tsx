@@ -57,6 +57,7 @@ export default function Sidebar() {
       <SidebarItem label="Versioning" href="/versioning" />
       <SidebarItem label="Reports" href="/reports" />
       <SidebarItem label="Settings" href="/settings" />
+      <SidebarItem label="Calendar" href="/projectCalendar" />
     </Box>
   );
 
