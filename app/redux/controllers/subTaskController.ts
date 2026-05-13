@@ -230,6 +230,36 @@ export const deleteChecklist = (checklistId: string) => {
 };
 
 // ========================================
+// UPDATE CHECKLIST TITLE
+// ========================================
+export const updateChecklist = (checklistId: string, title: string) => {
+  return async () => {
+    try {
+      const res = await axiosApi.patch(`/subtasks/checklists/${checklistId}`, { title });
+      return res.data;
+    } catch (err) {
+      console.error("❌ Error updating checklist:", err);
+      throw err;
+    }
+  };
+};
+
+// ========================================
+// MOVE CHECKLIST (reorder)
+// ========================================
+export const moveChecklist = (checklistId: string, newOrder: number) => {
+  return async () => {
+    try {
+      const res = await axiosApi.patch(`/subtasks/checklists/${checklistId}/move`, { newOrder });
+      return res.data;
+    } catch (err) {
+      console.error("❌ Error moving checklist:", err);
+      throw err;
+    }
+  };
+};
+
+// ========================================
 // 🔥 LOAD MY BOARD (Task Board)
 // ========================================
 export const loadMyBoard = (filters?: {

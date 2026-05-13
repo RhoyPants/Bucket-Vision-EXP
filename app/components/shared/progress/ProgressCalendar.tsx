@@ -60,12 +60,12 @@ export default function ProgressCalendar({
 
   const isLoading = useSelector((state: RootState) => state.progress.loading);
 
-  // Ã°Å¸â€Â¥ Get projectId from Redux state (already set when user navigates to project)
+  // Get projectId from Redux state (already set when user navigates to project)
   const currentProjectId = useSelector(
     (state: RootState) => state.project?.currentProjectId
   );
 
-  // Ã¢Å“â€¦ STABLE logs map
+  // STABLE logs map
   const logs = useMemo(() => {
     const map: any = {};
     logsArray.forEach((log: any) => {
@@ -121,7 +121,7 @@ export default function ProgressCalendar({
         });
         setCurrentProgress(data.progress || 0);
       } catch (err: any) {
-        console.error("Ã¢ÂÅ’ Error loading subtask:", err);
+        console.error(" Error loading subtask:", err);
         setError("Failed to load subtask details");
       } finally {
         setLoadingSubtask(false);
@@ -179,7 +179,7 @@ export default function ProgressCalendar({
     const isBeforeStart = date.isBefore(start, "day");
     const isAfterEnd = date.isAfter(end, "day");
 
-    if (log?.cumulativePercent >= 100) return "#1B5E20"; // Ã¢Å“â€¦ DARK GREEN for 100% Complete
+    if (log?.cumulativePercent >= 100) return "#1B5E20"; // DARK GREEN for 100% Complete
     if (isBeforeStart && log) return "#7B1FA2"; // PURPLE for early logs (before start date)
     if (isBeforeStart) return "#f5f5f5"; // LIGHT GRAY before start date
     
@@ -248,7 +248,7 @@ export default function ProgressCalendar({
     try {
       const value = Number(dailyPercent);
 
-      // Ã°Å¸â€Â¥ saveProgressLog now handles ALL refresh logic internally
+      //  saveProgressLog now handles ALL refresh logic internally
       await dispatch(
         saveProgressLog({
           subtaskId,
@@ -261,16 +261,16 @@ export default function ProgressCalendar({
         }),
       );
 
-      // Ã°Å¸â€Â¥ FALLBACK: Manually refresh S-Curve with projectId from Redux
+      //  FALLBACK: Manually refresh S-Curve with projectId from Redux
       try {
         if (currentProjectId) {
           await dispatch(getSCurve(currentProjectId) as any);
-          console.log("Ã¢Å“â€¦ S-Curve manually refreshed:", currentProjectId);
+          console.log(" S-Curve manually refreshed:", currentProjectId);
         } else {
-          console.warn("Ã¢Å¡Â Ã¯Â¸Â No projectId available for S-Curve refresh");
+          console.warn(" No projectId available for S-Curve refresh");
         }
       } catch (scurveErr) {
-        console.warn("Ã¢Å¡Â Ã¯Â¸Â S-Curve manual refresh warning:", scurveErr);
+        console.warn(" S-Curve manual refresh warning:", scurveErr);
       }
 
       setSuccess(true);
@@ -288,7 +288,7 @@ export default function ProgressCalendar({
         setSuccess(false);
         // Refresh logs
         dispatch(getProgressLogs(subtaskId));
-        // Ã°Å¸â€Â¥ CALL onSuccess callback to notify parent to reload
+        // CALL onSuccess callback to notify parent to reload
         // TaskBoard: Reloads all assigned subtasks
         // SprintManagement: Reloads subtasks for current task (preserves project/Scope selection)
         if (onSuccess) {
@@ -296,7 +296,7 @@ export default function ProgressCalendar({
         }
       }, 2000);
     } catch (err: any) {
-      console.error("Ã¢ÂÅ’ Error saving progress:", err);
+      console.error(" Error saving progress:", err);
       setError(err.response?.data?.message || "Failed to save progress");
       setSaveModalOpen(false);
     }
@@ -394,7 +394,7 @@ export default function ProgressCalendar({
         {/* Progress Overview */}
         <Box sx={{ mt: 3, p: 2, backgroundColor: "#f5f5f5", borderRadius: 1 }}>
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            Ã°Å¸â€œÅ  Overall Progress
+            Overall Progress
           </Typography>
           <LinearProgress 
             variant="determinate" 
@@ -402,59 +402,59 @@ export default function ProgressCalendar({
             sx={{ mb: 1, height: 8, borderRadius: 1 }}
           />
           <Typography variant="caption">
-            {cumulativeProgress.toFixed(1)}% of 100% Ã¢â‚¬Â¢ Remaining: {remainingProgress.toFixed(1)}%
+            {cumulativeProgress.toFixed(1)}% of 100% • Remaining: {remainingProgress.toFixed(1)}%
           </Typography>
         </Box>
 
         {/* COLOR LEGEND */}
         <Box sx={{ mt: 3, p: 2, backgroundColor: "#fafafa", borderRadius: 1, border: "1px solid #e0e0e0" }}>
           <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: "bold" }}>
-            Ã°Å¸Å½Â¨ Color Guide
+            Color Guide
           </Typography>
           
           <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
             {/* Row 1 */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Box sx={{ width: 20, height: 20, backgroundColor: "#1B5E20", borderRadius: "3px", border: "1px solid #ccc" }} />
-              <Typography variant="caption">Ã¢Å“â€¦ 100% Complete</Typography>
+              <Typography variant="caption">✔ 100% Complete</Typography>
             </Box>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Box sx={{ width: 20, height: 20, backgroundColor: "#388E3C", borderRadius: "3px", border: "1px solid #ccc" }} />
-              <Typography variant="caption">Ã°Å¸â€™Å¡ 75%+ Progress</Typography>
+              <Typography variant="caption">⚡ 75%+ Progress</Typography>
             </Box>
 
             {/* Row 2 */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Box sx={{ width: 20, height: 20, backgroundColor: "#66BB6A", borderRadius: "3px", border: "1px solid #ccc" }} />
-              <Typography variant="caption">Ã°Å¸â€œË† 50-75% Progress</Typography>
+              <Typography variant="caption">🔹 50-75% Progress</Typography>
             </Box>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Box sx={{ width: 20, height: 20, backgroundColor: "#81C784", borderRadius: "3px", border: "1px solid #ccc" }} />
-              <Typography variant="caption">Ã¢Å¡Â¡ Started (under 50%)</Typography>
+              <Typography variant="caption">🟢 Started (under 50%)</Typography>
             </Box>
 
             {/* Row 3 */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Box sx={{ width: 20, height: 20, backgroundColor: "#C8E6C9", borderRadius: "3px", border: "1px solid #ccc" }} />
-              <Typography variant="caption">Ã¢ÂÂ³ In Range (no log)</Typography>
+              <Typography variant="caption">🔵 In Range (no log)</Typography>
             </Box>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Box sx={{ width: 20, height: 20, backgroundColor: "#FFA726", borderRadius: "3px", border: "1px solid #ccc" }} />
-              <Typography variant="caption">Ã¢Å¡Â Ã¯Â¸Â Overdue (partial)</Typography>
+              <Typography variant="caption">⚠️ Overdue (partial)</Typography>
             </Box>
 
             {/* Row 4 */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Box sx={{ width: 20, height: 20, backgroundColor: "#D32F2F", borderRadius: "3px", border: "1px solid #ccc" }} />
-              <Typography variant="caption">Ã¢ÂÅ’ Overdue (no progress)</Typography>
+              <Typography variant="caption">❌ Overdue (no progress)</Typography>
             </Box>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Box sx={{ width: 20, height: 20, backgroundColor: "#7B1FA2", borderRadius: "3px", border: "1px solid #ccc" }} />
-              <Typography variant="caption">Ã°Å¸â€œÅ’ Early Log</Typography>
+              <Typography variant="caption">⏱️ Early Log</Typography>
             </Box>
           </Box>
         </Box>
@@ -573,7 +573,7 @@ export default function ProgressCalendar({
                   startIcon={<CloudUploadIcon />}
                   sx={{ mt: 1 }}
                 >
-                  {photo ? "Ã°Å¸â€œÂ¸ Photo Selected" : "Upload Photo"}
+                  {photo ? " Photo Selected" : "Upload Photo"}
                 </Button>
               </label>
 
@@ -623,7 +623,7 @@ export default function ProgressCalendar({
               <>
                 <CheckCircleIcon sx={{ fontSize: 60, color: "#2E7D32", mb: 2 }} />
                 <Typography sx={{ fontWeight: "bold", color: "#2E7D32", fontSize: 18 }}>
-                  Progress Saved Successfully! Ã¢Å“â€¦
+                  Progress Saved Successfully! ✔
                 </Typography>
                 <Typography sx={{ mt: 1, color: "#666" }}>
                   +{dailyPercent}% added to your progress
@@ -641,7 +641,7 @@ export default function ProgressCalendar({
         maxWidth="sm" 
         fullWidth
       >
-        <DialogTitle>Ã°Å¸â€œâ€¹ Progress Log Details</DialogTitle>
+        <DialogTitle>✔ Progress Log Details</DialogTitle>
         <DialogContent>
           {selectedLog && (
             <Stack spacing={2} sx={{ mt: 2 }}>
@@ -673,7 +673,7 @@ export default function ProgressCalendar({
               {selectedLog.location && (
                 <Box>
                   <Typography variant="caption" sx={{ color: "#666" }}>
-                    Ã°Å¸â€œÂ Location
+                    📍 Location
                   </Typography>
                   <Typography variant="body2">{selectedLog.location}</Typography>
                 </Box>
@@ -700,7 +700,7 @@ export default function ProgressCalendar({
               {selectedLog.photoUrl && (
                 <Box>
                   <Typography variant="caption" sx={{ color: "#666", display: "block", mb: 1 }}>
-                    Ã°Å¸â€œÂ¸ Photo
+                    📷 Photo
                   </Typography>
                   <Box
                     component="img"

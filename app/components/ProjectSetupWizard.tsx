@@ -19,15 +19,20 @@ import {
   DialogContent,
   DialogActions,
   Backdrop,
+  Grid,
+  Chip as MuiChip,
 } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { useRouter } from "next/navigation";
 import SaveIcon from "@mui/icons-material/Save";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import PeopleIcon from "@mui/icons-material/People";
+import AssignmentIcon from "@mui/icons-material/Assignment";
 import {
   getProjectFull,
   updateProject,
+  createProject,
 } from "@/app/redux/controllers/projectController";
 import {
   createScope,
@@ -45,22 +50,40 @@ import {
   deleteSubtask,
 } from "@/app/redux/controllers/subTaskController";
 import { submitProjectForApproval } from "@/app/redux/controllers/approvalController";
+import {
+  validateProjectForm,
+  hasFieldError,
+  getFieldError,
+} from "@/app/utils/projectValidation";
+import { formatBudget } from "@/app/utils/formatters";
 import ProjectTeamPanel from "@/app/(pages)/projects/[id]/setup/components/ProjectTeamPanel";
 import ScopeForm from "@/app/(pages)/projects/[id]/setup/components/ScopeForm";
 import ScopeList from "@/app/(pages)/projects/[id]/setup/components/ScopeList";
+import CreateProject from "@/app/(pages)/projects/components/CreateProject";
+import {
+  getAllRegions,
+  getProvincesByRegion,
+  getCitiesByProvince,
+  getBarangaysByCity,
+} from "@/app/api-service/geographicalService";
+import {
+  getBusinessUnitsDropdown,
+} from "@/app/api-service/businessUnitService";
 
-const WIZARD_STEPS = ["Team Management", "Project Structure", "Review & Submit"];
+const WIZARD_STEPS = ["Create Project", "Team Management", "Project Structure", "Confirmation & Summary"];
 
 interface ProjectSetupWizardProps {
-  projectId: string;
+  projectId?: string;
   initialStep?: number;
   initialData?: any;
+  mode?: "create" | "edit";
 }
 
 export default function ProjectSetupWizard({
   projectId,
   initialStep = 0,
   initialData,
+  mode = "edit",
 }: ProjectSetupWizardProps) {
   const dispatch = useAppDispatch();
   const router = useRouter();
@@ -70,8 +93,53 @@ export default function ProjectSetupWizard({
   // WIZARD STATE
   const [activeStep, setActiveStep] = useState(initialStep);
   const [project, setProject] = useState<any>(initialData ?? null);
-  const [loading, setLoading] = useState(!initialData);
+  const [loading, setLoading] = useState(!initialData && !!projectId);
   const [saving, setSaving] = useState(false);
+  const isCreatingNew = mode === "create" || !projectId;
+
+  // ===== PROJECT FORM STATE =====
+  const [projectForm, setProjectForm] = useState<any>({
+    name: "",
+    description: "",
+    location: {
+      regionCode: "",
+      regionName: "",
+      provinceCode: "",
+      provinceName: "",
+      cityCode: "",
+      cityName: "",
+      barangayCode: "",
+      barangayName: "",
+      street: "",
+    },
+    businessUnit: "",
+    entity: "",
+    startDate: "",
+    expectedEndDate: "",
+    pin: "",
+    priority: "Medium",
+    totalBudget: 0,
+  });
+  const [projectErrors, setProjectErrors] = useState<any[]>([]);
+  const [projectTouched, setProjectTouched] = useState<Record<string, boolean>>({});
+  const [regions, setRegions] = useState<any[]>([]);
+  const [provinces, setProvinces] = useState<any[]>([]);
+  const [cities, setCities] = useState<any[]>([]);
+  const [barangays, setBarangays] = useState<any[]>([]);
+  const [businessUnits, setBusinessUnits] = useState<any[]>([]);
+  const [entities, setEntities] = useState<string[]>(["GVI", "GVE", "HULMA"]);
+
+  // ===== WORK SCHEDULE STATE =====
+  const [workSchedule, setWorkSchedule] = useState({
+    monday: true,
+    tuesday: true,
+    wednesday: true,
+    thursday: true,
+    friday: true,
+    saturday: false,
+    sunday: false,
+    includeGlobalHolidays: true,
+  });
 
   // SCOPE STATE
   const [scopeForm, setScopeForm] = useState({ name: "", budgetAllocated: "" });
@@ -87,13 +155,51 @@ export default function ProjectSetupWizard({
   const [submitConfirm, setSubmitConfirm] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
 
-  // FETCH PROJECT
+  // FETCH PROJECT (if editing)
   useEffect(() => {
     const fetchProject = async () => {
       try {
         setLoading(true);
-        const data = await dispatch(getProjectFull(projectId));
+        const data = await dispatch(getProjectFull(projectId!));
         setProject(data);
+        // Pre-fill form with existing project data
+        if (data) {
+          setProjectForm({
+            name: data.name || "",
+            description: data.description || "",
+            location: {
+              regionCode: data.location?.regionCode || "",
+              regionName: data.location?.regionName || "",
+              provinceCode: data.location?.provinceCode || "",
+              provinceName: data.location?.provinceName || "",
+              cityCode: data.location?.cityCode || "",
+              cityName: data.location?.cityName || "",
+              barangayCode: data.location?.barangayCode || "",
+              barangayName: data.location?.barangayName || "",
+              street: data.location?.street || "",
+            },
+            businessUnit: data.businessUnit || "",
+            entity: data.entity || "",
+            startDate: data.startDate?.slice(0, 10) || "",
+            expectedEndDate: data.expectedEndDate?.slice(0, 10) || "",
+            pin: data.pin || "",
+            priority: data.priority || "Medium",
+            totalBudget: data.totalBudget || 0,
+          });
+          // Pre-fill work schedule if exists
+          if (data.monday !== undefined) {
+            setWorkSchedule({
+              monday: data.monday ?? true,
+              tuesday: data.tuesday ?? true,
+              wednesday: data.wednesday ?? true,
+              thursday: data.thursday ?? true,
+              friday: data.friday ?? true,
+              saturday: data.saturday ?? false,
+              sunday: data.sunday ?? false,
+              includeGlobalHolidays: data.includeGlobalHolidays ?? true,
+            });
+          }
+        }
       } catch (error) {
         console.error("Error loading project:", error);
       } finally {
@@ -106,10 +212,102 @@ export default function ProjectSetupWizard({
     }
   }, [projectId, dispatch]);
 
+  // Load regions from backend
+  useEffect(() => {
+    const loadRegions = async () => {
+      try {
+        const data = await getAllRegions();
+        setRegions(data);
+      } catch (err) {
+        console.error("Failed to load regions:", err);
+      }
+    };
+    loadRegions();
+  }, []);
+
+  // Load business units from backend
+  useEffect(() => {
+    const loadBusinessUnits = async () => {
+      try {
+        const data = await getBusinessUnitsDropdown();
+        setBusinessUnits(data);
+      } catch (err) {
+        console.error("Failed to load business units:", err);
+      }
+    };
+    loadBusinessUnits();
+  }, []);
+
+  // Load provinces when region code changes
+  useEffect(() => {
+    if (!projectForm.location.regionCode) return;
+    const loadProvinces = async () => {
+      try {
+        const data = await getProvincesByRegion(projectForm.location.regionCode);
+        setProvinces(data);
+        setCities([]);
+        setBarangays([]);
+        // Clear dependent fields
+        setProjectForm((prev: any) => ({
+          ...prev,
+          location: { ...prev.location, provinceCode: "", cityCode: "", barangayCode: "" },
+        }));
+      } catch (err) {
+        console.error("Failed to load provinces:", err);
+      }
+    };
+    loadProvinces();
+  }, [projectForm.location.regionCode]);
+
+  // Load cities when province changes
+  useEffect(() => {
+    if (!projectForm.location.provinceCode) return;
+    const loadCities = async () => {
+      try {
+        const data = await getCitiesByProvince(projectForm.location.provinceCode);
+        setCities(data);
+        setBarangays([]);
+        // Clear dependent fields
+        setProjectForm((prev: any) => ({
+          ...prev,
+          location: { ...prev.location, cityCode: "", barangayCode: "" },
+        }));
+      } catch (err) {
+        console.error("Failed to load cities:", err);
+      }
+    };
+    loadCities();
+  }, [projectForm.location.provinceCode]);
+
+  // Load barangays when city changes
+  useEffect(() => {
+    if (!projectForm.location.cityCode) return;
+    const loadBarangays = async () => {
+      try {
+        const data = await getBarangaysByCity(projectForm.location.cityCode);
+        setBarangays(data);
+        // Clear dependent fields
+        setProjectForm((prev: any) => ({
+          ...prev,
+          location: { ...prev.location, barangayCode: "" },
+        }));
+      } catch (err) {
+        console.error("Failed to load barangays:", err);
+      }
+    };
+    loadBarangays();
+  }, [projectForm.location.cityCode]);
+
   // REFRESH PROJECT AFTER CHANGES
   const refreshProject = async () => {
+    if (!projectId) return;
     const data = await dispatch(getProjectFull(projectId));
     setProject(data);
+  };
+
+  // Field blur handler for project form
+  const handleProjectFieldBlur = (fieldName: string) => {
+    setProjectTouched((prev) => ({ ...prev, [fieldName]: true }));
   };
 
   // ===========================
@@ -118,6 +316,11 @@ export default function ProjectSetupWizard({
   const handleAddScope = async () => {
     if (!scopeForm.name.trim()) {
       alert("Scope name is required");
+      return;
+    }
+
+    if (!projectId) {
+      alert("Project must be saved first");
       return;
     }
 
@@ -196,9 +399,11 @@ export default function ProjectSetupWizard({
       return;
     }
 
+    if (!projectId) return;
+
     try {
       setSaving(true);
-      const scope = project.scopes.find((s: any) => s.id === scopeId);
+      const scope = project?.scopes.find((s: any) => s.id === scopeId);
       const percent =
         scope?.budgetAllocated > 0
           ? (data.budgetAllocated / scope.budgetAllocated) * 100
@@ -211,6 +416,7 @@ export default function ProjectSetupWizard({
           scopeId,
           budgetAllocated: Number(data.budgetAllocated) || 0,
           budgetPercent: percent,
+          order: scope?.tasks?.length || 0,
         })
       );
 
@@ -227,10 +433,9 @@ export default function ProjectSetupWizard({
   const handleUpdateTask = async (taskId: string, updates: any) => {
     try {
       setSaving(true);
-      const scope = project.scopes.find((s: any) =>
+      const scope = project?.scopes.find((s: any) => 
         s.tasks?.find((t: any) => t.id === taskId)
       );
-
       const percent =
         scope?.budgetAllocated > 0
           ? (updates.budgetAllocated / scope.budgetAllocated) * 100
@@ -277,6 +482,8 @@ export default function ProjectSetupWizard({
       alert("Subtask title is required");
       return;
     }
+
+    if (!projectId) return;
 
     try {
       setSaving(true);
@@ -370,27 +577,62 @@ export default function ProjectSetupWizard({
     }
   };
 
-  // ===========================
-  // WIZARD ACTIONS
-  // ===========================
-  const handleSaveDraft = async () => {
+  // SAVE PROJECT DETAILS (called from project setup step)
+  const handleSaveProjectDetails = async () => {
+    const validation = validateProjectForm(projectForm);
+    
+    if (!validation.isValid) {
+      setProjectErrors(validation.errors);
+      const allTouched: Record<string, boolean> = {};
+      validation.errors.forEach((err) => {
+        allTouched[err.field] = true;
+      });
+      setProjectTouched(allTouched);
+      return false;
+    }
+
     try {
       setSaving(true);
-      await dispatch(
-        updateProject(projectId, {
-          status: "DRAFT",
-        })
-      );
-      alert("✅ Project saved as draft");
-    } catch (error) {
-      console.error("Error saving draft:", error);
-      alert("Failed to save draft");
+      const payload = {
+        ...projectForm,
+        ...workSchedule,
+      };
+
+      if (isCreatingNew && !projectId) {
+        // Create new project
+        const created = await dispatch(createProject(payload));
+        if (created?.id) {
+          // Update our projectId reference
+          window.history.replaceState({}, '', `/projects/${created.id}/setup`);
+          setProject(created);
+        }
+      } else if (projectId) {
+        // Update existing project
+        await dispatch(updateProject(projectId, payload));
+        await refreshProject();
+      }
+      
+      setProjectErrors([]);
+      return true;
+    } catch (err: any) {
+      setProjectErrors([
+        {
+          field: "submit",
+          message: err?.message || "Failed to save project details",
+        },
+      ]);
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
   const handleSubmitForApproval = async () => {
+    if (!projectId) {
+      setSubmitMessage("❌ Error: Project not found");
+      return;
+    }
+
     // Validate project structure
     if (!project.scopes || project.scopes.length === 0) {
       setSubmitMessage(
@@ -430,7 +672,30 @@ export default function ProjectSetupWizard({
     }
   };
 
-  const handleNext = () => {
+  const handleSaveDraft = async () => {
+    try {
+      setSaving(true);
+      if (projectId) {
+        await dispatch(updateProject(projectId, { status: "DRAFT" }));
+        alert("✅ Project saved as draft");
+      } else {
+        alert("⚠️ Please save project details first");
+      }
+    } catch (error) {
+      console.error("Error saving draft:", error);
+      alert("Failed to save draft");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleNext = async () => {
+    // Step 0 (Create Project) requires save before moving forward
+    if (activeStep === 0) {
+      const success = await handleSaveProjectDetails();
+      if (!success) return;
+    }
+
     if (activeStep === WIZARD_STEPS.length - 1) {
       // Final step - trigger submit dialog
       setSubmitConfirm(true);
@@ -443,7 +708,7 @@ export default function ProjectSetupWizard({
     setActiveStep((prev) => Math.max(prev - 1, 0));
   };
 
-  if (loading) {
+  if (loading && projectId) {
     return (
       <Box
         sx={{
@@ -458,7 +723,7 @@ export default function ProjectSetupWizard({
     );
   }
 
-  if (!project) {
+  if (loading === false && projectId && !project && !isCreatingNew) {
     return (
       <Alert severity="error">
         Failed to load project. Please try again.
@@ -477,122 +742,168 @@ export default function ProjectSetupWizard({
         ))}
       </Stepper>
 
-      {/* PROJECT HEADER */}
-      <Card sx={{ mb: 3, backgroundColor: "#f3f4f6" }}>
-        <CardContent>
-          <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-            <Box flex={1}>
-              <Typography variant="h6" fontWeight={700}>
-                {project.name}
+      {/* PROJECT HEADER - Show if project exists */}
+      {(project || projectForm.name) && (
+        <Card sx={{ mb: 3, backgroundColor: "#f3f4f6" }}>
+          <CardContent>
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+              <Box flex={1}>
+                <Typography variant="h6" fontWeight={700}>
+                  {projectForm.name || project?.name || "New Project"}
+                </Typography>
+                <Typography sx={{ fontSize: 12, color: "#666", mt: 0.5 }}>
+                  PIN: {projectForm.pin || project?.pin || "—"} | Budget: ₱{formatBudget(projectForm.totalBudget || project?.totalBudget || 0)}
+                </Typography>
+                <Typography sx={{ fontSize: 12, color: "#666", mt: 0.5 }}>
+                  📅 {projectForm.startDate ? new Date(projectForm.startDate).toLocaleDateString() : "—"} - {projectForm.expectedEndDate ? new Date(projectForm.expectedEndDate).toLocaleDateString() : "—"}
+                </Typography>
+              </Box>
+              <Typography
+                sx={{
+                  fontSize: 12,
+                  px: 2,
+                  py: 1,
+                  backgroundColor: "#fef3c7",
+                  borderRadius: 1,
+                  fontWeight: 600,
+                  color: "#92400e",
+                }}
+              >
+                {project?.status || "DRAFT"}
               </Typography>
-              <Typography sx={{ fontSize: 12, color: "#666", mt: 0.5 }}>
-                PIN: {project.pin} | Budget: ₱{project.totalBudget?.toLocaleString()}
-              </Typography>
-              <Typography sx={{ fontSize: 12, color: "#666", mt: 0.5 }}>
-                📅 {project.startDate ? new Date(project.startDate).toLocaleDateString() : "N/A"} - {project.expectedEndDate ? new Date(project.expectedEndDate).toLocaleDateString() : "N/A"}
-              </Typography>
-            </Box>
-            <Typography
-              sx={{
-                fontSize: 12,
-                px: 2,
-                py: 1,
-                backgroundColor: "#fef3c7",
-                borderRadius: 1,
-                fontWeight: 600,
-                color: "#92400e",
-              }}
-            >
-              {project.status || "DRAFT"}
-            </Typography>
-          </Stack>
-        </CardContent>
-      </Card>
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
 
       {/* STEP CONTENT */}
       <Box sx={{ minHeight: "500px" }}>
-        {/* STEP 0: TEAM MANAGEMENT */}
+        {/* STEP 0: CREATE PROJECT (all fields + work schedule) */}
         {activeStep === 0 && (
           <Card>
             <CardContent>
-              <Typography variant="h6" fontWeight={700} mb={2}>
-                👥 Team Management
-              </Typography>
-              <Typography sx={{ fontSize: 13, color: "#666", mb: 3 }}>
-                Add sub-owners and team members to manage this project
-              </Typography>
-              <ProjectTeamPanel projectId={projectId} />
+              {projectErrors.length > 0 && projectErrors.some((e) => e.field === "submit") && (
+                <Alert severity="error" sx={{ mb: 3 }}>
+                  {projectErrors.find((e) => e.field === "submit")?.message}
+                </Alert>
+              )}
+              <CreateProject
+                form={projectForm}
+                setForm={setProjectForm}
+                workSchedule={workSchedule}
+                setWorkSchedule={setWorkSchedule}
+                errors={projectErrors}
+                touched={projectTouched}
+                onFieldBlur={handleProjectFieldBlur}
+                regions={regions}
+                provinces={provinces}
+                cities={cities}
+                barangays={barangays}
+                businessUnits={businessUnits}
+                entities={entities}
+              />
             </CardContent>
           </Card>
         )}
 
-        {/* STEP 1: PROJECT STRUCTURE */}
+        {/* STEP 1: TEAM MANAGEMENT */}
         {activeStep === 1 && (
+          <Card>
+            <CardContent>
+              <Stack direction="row" spacing={1} alignItems="center" mb={2}>
+                <PeopleIcon sx={{ color: "#6366f1" }} />
+                <Typography variant="h6" fontWeight={700}>
+                  Team Management
+                </Typography>
+              </Stack>
+              <Typography sx={{ fontSize: 13, color: "#666", mb: 3 }}>
+                Add sub-owners and team members to manage this project
+              </Typography>
+              {projectId && <ProjectTeamPanel projectId={projectId} />}
+              {!projectId && (
+                <Alert severity="info">
+                  Team members will be available to add after project details are saved.
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* STEP 2: PROJECT STRUCTURE (scopes / tasks / subtasks) */}
+        {activeStep === 2 && (
           <Box>
-            <Typography variant="h6" fontWeight={700} mb={3}>
-              📊 Project Structure
+            <Typography variant="h6" fontWeight={700} mb={3} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <AssignmentIcon /> Project Structure
             </Typography>
             <Typography sx={{ fontSize: 13, color: "#666", mb: 3 }}>
-              Create scopes, tasks, and subtasks for your project
+              Define your project's scopes, tasks, and subtasks.
             </Typography>
 
-            {/* Scope Input */}
-            <ScopeForm
-              scopeForm={scopeForm}
-              setScopeForm={setScopeForm}
-              onAddScope={handleAddScope}
-              projectBudget={project?.totalBudget || 0}
-              existingScopes={project?.scopes || []}
-            />
+            {/* PLACEHOLDER so the giant old block is replaced */}
+            {/* Project structure section starts here */}
+            {project && (
+              <Box>
+                {/* Scope Input */}
+                <ScopeForm
+                  scopeForm={scopeForm}
+                  setScopeForm={setScopeForm}
+                  onAddScope={handleAddScope}
+                  projectBudget={project?.totalBudget || 0}
+                  existingScopes={project?.scopes || []}
+                />
 
-            <Divider sx={{ my: 3 }} />
+                <Divider sx={{ my: 3 }} />
 
-            {/* Scope List with Tasks & Subtasks */}
-            <ScopeList
-              scopes={[...(project?.scopes || [])].sort((a: any, b: any) => {
-                const orderA = a.order ?? 0;
-                const orderB = b.order ?? 0;
-                return orderA - orderB;
-              })}
-              scopeEdit={scopeEdit}
-              setScopeEdit={setScopeEdit}
-              taskInputs={taskInputs}
-              setTaskInputs={setTaskInputs}
-              subtaskInputs={subtaskInputs}
-              setSubtaskInputs={setSubtaskInputs}
-              members={members}
-              projectId={projectId}
-              onEditScope={(scope: any) => setScopeEdit(scope)}
-              onDeleteScope={handleDeleteScope}
-              onUpdateScope={handleUpdateScope}
-              onAddTask={handleAddTask}
-              onUpdateTask={handleUpdateTask}
-              onDeleteTask={handleDeleteTask}
-              onAddSubtask={handleAddSubtask}
-              onUpdateSubtask={handleUpdateSubtask}
-              onDeleteSubtask={handleDeleteSubtask}
-              onEditSubtask={(sub: any, taskId: string) => {
-                setSubtaskInputs((prev) => ({
-                  ...prev,
-                  [taskId]: {
-                    editId: sub.id,
-                    title: sub.title,
-                    description: sub.description || "",
-                    priority: sub.priority || "",
-                    budgetAllocated: sub.budgetAllocated,
-                    projectedStartDate: sub.projectedStartDate || "",
-                    projectedEndDate: sub.projectedEndDate || "",
-                    remarks: sub.remarks || "",
-                    users: sub.assignees?.map((a: any) => a.user) || [],
-                  },
-                }));
-              }}
-            />
+                {/* Scope List with Tasks & Subtasks */}
+                <ScopeList
+                  scopes={[...(project?.scopes || [])].sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))}
+                  scopeEdit={scopeEdit}
+                  setScopeEdit={setScopeEdit}
+                  taskInputs={taskInputs}
+                  setTaskInputs={setTaskInputs}
+                  subtaskInputs={subtaskInputs}
+                  setSubtaskInputs={setSubtaskInputs}
+                  members={members}
+                  projectId={projectId!}
+                  onEditScope={(scope: any) => setScopeEdit(scope)}
+                  onDeleteScope={handleDeleteScope}
+                  onUpdateScope={handleUpdateScope}
+                  onAddTask={handleAddTask}
+                  onUpdateTask={handleUpdateTask}
+                  onDeleteTask={handleDeleteTask}
+                  onAddSubtask={handleAddSubtask}
+                  onUpdateSubtask={handleUpdateSubtask}
+                  onDeleteSubtask={handleDeleteSubtask}
+                  onEditSubtask={(sub: any, taskId: string) => {
+                    setSubtaskInputs((prev) => ({
+                      ...prev,
+                      [taskId]: {
+                        editId: sub.id,
+                        title: sub.title,
+                        description: sub.description || "",
+                        priority: sub.priority || "",
+                        budgetAllocated: sub.budgetAllocated,
+                        projectedStartDate: sub.projectedStartDate || "",
+                        projectedEndDate: sub.projectedEndDate || "",
+                        remarks: sub.remarks || "",
+                        users: sub.assignees?.map((a: any) => a.user) || [],
+                      },
+                    }));
+                  }}
+                />
+              </Box>
+            )}
+
+            {!project && (
+              <Alert severity="info">
+                Save project details in step 1 to proceed with defining the structure.
+              </Alert>
+            )}
           </Box>
         )}
 
-        {/* STEP 2: REVIEW & SUBMIT */}
-        {activeStep === 2 && (
+        {/* STEP 3: CONFIRMATION & SUMMARY */}
+        {activeStep === 3 && (
           <Stack spacing={3}>
             <Card sx={{ backgroundColor: "#f0fdf4", borderLeft: "4px solid #22c55e" }}>
               <CardContent>
@@ -601,74 +912,275 @@ export default function ProjectSetupWizard({
                   <Box>
                     <Typography fontWeight={700}>Setup Complete!</Typography>
                     <Typography sx={{ fontSize: 13, color: "#666", mt: 0.5 }}>
-                      Review your project structure and click Submit to send for approval
+                      Review all your project details before submission for approval
                     </Typography>
                   </Box>
                 </Stack>
               </CardContent>
             </Card>
 
-            {/* PROJECT SUMMARY */}
-            <Card>
-              <CardContent>
-                <Typography variant="h6" fontWeight={700} mb={2}>
-                  📋 Project Summary
-                </Typography>
+            {/* COMPREHENSIVE SUMMARY */}
+            <Grid container spacing={2}>
+              {/* PROJECT DETAILS CARD */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" fontWeight={700} mb={2}>
+                      📋 Project Information
+                    </Typography>
+                    <Stack spacing={2}>
+                      <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>
+                        <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase" }}>
+                          Name
+                        </Typography>
+                        <Typography fontWeight={600}>{projectForm.name || project?.name || "—"}</Typography>
+                      </Box>
 
-                <Stack spacing={2}>
-                  <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>
-                    <Typography sx={{ fontSize: 12, color: "#666" }}>
-                      NAME
-                    </Typography>
-                    <Typography fontWeight={600}>{project.name}</Typography>
-                  </Box>
+                      <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>
+                        <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase" }}>
+                          Code (PIN)
+                        </Typography>
+                        <Typography fontWeight={600}>{projectForm.pin || project?.pin || "—"}</Typography>
+                      </Box>
 
-                  <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>
-                    <Typography sx={{ fontSize: 12, color: "#666" }}>
-                      DESCRIPTION
-                    </Typography>
-                    <Typography>{project.description || "—"}</Typography>
-                  </Box>
+                      <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>
+                        <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase" }}>
+                          Business Unit
+                        </Typography>
+                        <Typography>{projectForm.businessUnit || project?.businessUnit || "—"}</Typography>
+                      </Box>
 
-                  <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>
-                    <Typography sx={{ fontSize: 12, color: "#666" }}>
-                      TOTAL BUDGET
-                    </Typography>
-                    <Typography fontWeight={600}>
-                      ₱{project.totalBudget?.toLocaleString()}
-                    </Typography>
-                  </Box>
+                      <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>
+                        <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase" }}>
+                          Entity
+                        </Typography>
+                        <Typography>{projectForm.entity || project?.entity || "—"}</Typography>
+                      </Box>
 
-                  <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>
-                    <Typography sx={{ fontSize: 12, color: "#666" }}>
-                      TEAM MEMBERS
-                    </Typography>
-                    <Typography>
-                      {project._count?.projectMembers || 0} member(s)
-                    </Typography>
-                  </Box>
+                      <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>
+                        <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase" }}>
+                          Priority
+                        </Typography>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
+                          <Box
+                            sx={{
+                              width: 12,
+                              height: 12,
+                              borderRadius: "50%",
+                              bgcolor:
+                                projectForm.priority === "High"
+                                  ? "#ef4444"
+                                  : projectForm.priority === "Medium"
+                                    ? "#f59e0b"
+                                    : "#10b981",
+                            }}
+                          />
+                          <Typography fontWeight={600}>{projectForm.priority || project?.priority || "—"}</Typography>
+                        </Box>
+                      </Box>
 
-                  <Box>
-                    <Typography sx={{ fontSize: 12, color: "#666" }}>
-                      SCOPES & TASKS
+                      <Box>
+                        <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase" }}>
+                          Total Budget
+                        </Typography>
+                        <Typography fontWeight={600}>
+                          ₱{formatBudget(projectForm.totalBudget || project?.totalBudget || 0)}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* TIMELINE & LOCATION CARD */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" fontWeight={700} mb={2}>
+                      📍 Timeline & Location
                     </Typography>
-                    <Typography>
-                      {project.scopes?.length || 0} scope(s) with{" "}
-                      {project.scopes?.reduce(
-                        (sum: number, s: any) => sum + (s.tasks?.length || 0),
-                        0
-                      ) || 0} task(s)
+                    <Stack spacing={2}>
+                      <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>
+                        <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase" }}>
+                          Start - End Date
+                        </Typography>
+                        <Typography fontWeight={600}>
+                          {projectForm.startDate ? new Date(projectForm.startDate).toLocaleDateString() : "—"} →{" "}
+                          {projectForm.expectedEndDate ? new Date(projectForm.expectedEndDate).toLocaleDateString() : "—"}
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>
+                        <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase" }}>
+                          Province
+                        </Typography>
+                        <Typography>{projectForm.location.provinceName || "—"}</Typography>
+                      </Box>
+
+                      <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>
+                        <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase" }}>
+                          City / Municipality
+                        </Typography>
+                        <Typography>{projectForm.location.cityName || "—"}</Typography>
+                      </Box>
+
+                      <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>
+                        <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase" }}>
+                          Barangay
+                        </Typography>
+                        <Typography>{projectForm.location.barangayName || "—"}</Typography>
+                      </Box>
+
+                      <Box>
+                        <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase" }}>
+                          Street Address
+                        </Typography>
+                        <Typography>{projectForm.location.street || "—"}</Typography>
+                      </Box>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* WORK SCHEDULE CARD */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" fontWeight={700} mb={2}>
+                      📅 Work Schedule
                     </Typography>
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
+                    <Stack spacing={2}>
+                      {/* Day circles */}
+                      <Box>
+                        <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase", mb: 1 }}>
+                          Working Days
+                        </Typography>
+                        <Box display="flex" gap={0.75}>
+                          {[
+                            { key: "monday", label: "M" },
+                            { key: "tuesday", label: "T" },
+                            { key: "wednesday", label: "W" },
+                            { key: "thursday", label: "T" },
+                            { key: "friday", label: "F" },
+                            { key: "saturday", label: "S" },
+                            { key: "sunday", label: "S" },
+                          ].map((d) => {
+                            const active = workSchedule[d.key as keyof typeof workSchedule] as boolean;
+                            return (
+                              <Box
+                                key={d.key}
+                                sx={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: "50%",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontWeight: 700,
+                                  fontSize: "0.75rem",
+                                  backgroundColor: active ? "#6366f1" : "#e5e7eb",
+                                  color: active ? "#fff" : "#9ca3af",
+                                }}
+                              >
+                                {d.label}
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                      </Box>
+
+                      {/* Global holidays toggle */}
+                      <Box sx={{ pt: 2, borderTop: "1px solid #e5e7eb" }}>
+                        <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase", mb: 1 }}>
+                          Global Holidays
+                        </Typography>
+                        <MuiChip
+                          label={workSchedule.includeGlobalHolidays ? "✓ Included in calculations" : "✗ Not included"}
+                          color={workSchedule.includeGlobalHolidays ? "success" : "default"}
+                          variant="outlined"
+                        />
+                      </Box>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* TEAM MEMBERS CARD */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" fontWeight={700} mb={2}>
+                      👥 Team Members
+                    </Typography>
+                    <Typography sx={{ color: "#666", fontSize: "0.95rem" }}>
+                      {project?._count?.projectMembers || 0} member(s) assigned to this project
+                    </Typography>
+                    {project?.projectMembers && project.projectMembers.length > 0 && (
+                      <Stack spacing={1} sx={{ mt: 2 }}>
+                        {project.projectMembers.map((member: any) => (
+                          <Box key={member.userId} sx={{ p: 1.5, backgroundColor: "#f3f4f6", borderRadius: 1 }}>
+                            <Typography fontWeight={600} sx={{ fontSize: "0.9rem" }}>
+                              {member.user?.name}
+                            </Typography>
+                            <Typography sx={{ fontSize: "0.75rem", color: "#666" }}>
+                              {member.role} • {member.user?.email}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Stack>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* PROJECT STRUCTURE CARD */}
+              <Grid size={{ xs: 12 }}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" fontWeight={700} mb={2}>
+                      📊 Project Structure
+                    </Typography>
+                    {project?.scopes && project.scopes.length > 0 ? (
+                      <Stack spacing={2}>
+                        {project.scopes.map((scope: any) => (
+                          <Box key={scope.id} sx={{ p: 1.5, backgroundColor: "#f8faff", borderRadius: 1, border: "1px solid #e0e7ff" }}>
+                            <Typography fontWeight={700} sx={{ color: "#6366f1", mb: 1 }}>
+                              {scope.name}
+                            </Typography>
+                            <Typography sx={{ fontSize: "0.85rem", color: "#666", mb: 1 }}>
+                              Budget: ₱{formatBudget(scope.budgetAllocated)} ({scope.budgetPercent.toFixed(1)}%)
+                            </Typography>
+                            {scope.tasks && scope.tasks.length > 0 && (
+                              <Box sx={{ ml: 2, mt: 1 }}>
+                                <Typography sx={{ fontSize: "0.8rem", fontWeight: 600, color: "#999", mb: 1 }}>
+                                  {scope.tasks.length} task(s):
+                                </Typography>
+                                <Stack spacing={0.5} sx={{ ml: 2 }}>
+                                  {scope.tasks.map((task: any) => (
+                                    <Typography
+                                      key={task.id}
+                                      sx={{ fontSize: "0.8rem", color: "#666", pl: 1, borderLeft: "2px solid #e5e7eb", ml: 0.5 }}
+                                    >
+                                      • {task.title} {task.subtasks?.length ? `(${task.subtasks.length} subtask${task.subtasks.length !== 1 ? "s" : ""})` : ""}
+                                    </Typography>
+                                  ))}
+                                </Stack>
+                              </Box>
+                            )}
+                          </Box>
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Typography sx={{ color: "#999" }}>No scopes defined yet</Typography>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
 
             {/* STATUS MESSAGE */}
             {submitMessage && (
-              <Alert
-                severity={submitMessage.includes("✅") ? "success" : "warning"}
-              >
+              <Alert severity={submitMessage.includes("✅") ? "success" : "warning"}>
                 {submitMessage}
               </Alert>
             )}
@@ -708,11 +1220,9 @@ export default function ProjectSetupWizard({
           <Button
             variant="contained"
             onClick={handleNext}
-            disabled={saving}
+            disabled={saving || (activeStep === 2 && !project)}
           >
-            {activeStep === WIZARD_STEPS.length - 1
-              ? "Submit for Approval"
-              : "Next"}
+            {activeStep === WIZARD_STEPS.length - 1 ? "Submit for Approval" : "Next"}
           </Button>
         </Stack>
       </Box>
@@ -731,32 +1241,37 @@ export default function ProjectSetupWizard({
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 2 }}>
             <Typography>
-              Your project structure is complete. Once submitted, it will be reviewed by your Business Unit Head(s), then the Office of President for final approval.
+              Your project is ready for review. Once submitted, it will be reviewed by your Business Unit Head(s), then forwarded to the Office of President for final approval.
             </Typography>
 
             <Alert severity="info">
-              ℹ️ You can still edit the project while it's in review. The latest version submitted will be reviewed.
+              ℹ️ You can continue editing the project while it's in review. The latest version will be reviewed.
             </Alert>
 
             <Box sx={{ backgroundColor: "#f9fafb", p: 2, borderRadius: 1 }}>
-              <Typography sx={{ fontSize: 12, fontWeight: 600, mb: 1 }}>
-                PROJECT DETAILS:
+              <Typography sx={{ fontSize: 12, fontWeight: 600, mb: 2 }}>
+                📋 PROJECT SNAPSHOT:
               </Typography>
-              <Typography sx={{ fontSize: 12 }}>
-                • Name: <strong>{project.name}</strong>
-              </Typography>
-              <Typography sx={{ fontSize: 12 }}>
-                • Scopes: <strong>{project.scopes?.length}</strong>
-              </Typography>
-              <Typography sx={{ fontSize: 12 }}>
-                • Tasks: 
-                <strong>
-                  {project.scopes?.reduce(
-                    (sum: number, s: any) => sum + (s.tasks?.length || 0),
-                    0
-                  )}
-                </strong>
-              </Typography>
+              <Stack spacing={1}>
+                <Typography sx={{ fontSize: 12 }}>
+                  • <strong>Name:</strong> {projectForm.name || project?.name}
+                </Typography>
+                <Typography sx={{ fontSize: 12 }}>
+                  • <strong>Code:</strong> {projectForm.pin || project?.pin}
+                </Typography>
+                <Typography sx={{ fontSize: 12 }}>
+                  • <strong>Timeline:</strong> {projectForm.startDate ? new Date(projectForm.startDate).toLocaleDateString() : "—"} • {projectForm.expectedEndDate ? new Date(projectForm.expectedEndDate).toLocaleDateString() : "—"}
+                </Typography>
+                <Typography sx={{ fontSize: 12 }}>
+                  • <strong>Budget:</strong> ₱{formatBudget(projectForm.totalBudget || project?.totalBudget || 0)}
+                </Typography>
+                <Typography sx={{ fontSize: 12 }}>
+                  • <strong>Team:</strong> {project?._count?.projectMembers || 0} member(s)
+                </Typography>
+                <Typography sx={{ fontSize: 12 }}>
+                  • <strong>Structure:</strong> {project?.scopes?.length || 0} scope(s), {project?.scopes?.reduce((sum: number, s: any) => sum + (s.tasks?.length || 0), 0) || 0} task(s)
+                </Typography>
+              </Stack>
             </Box>
           </Stack>
         </DialogContent>

@@ -11,7 +11,15 @@ import {
   FormHelperText,
   FormControl,
 } from "@mui/material";
-import { useAppSelector } from "@/app/redux/hook";
+import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
+import ChecklistForm from "./ChecklistForm";
+import {
+  addChecklist,
+  deleteChecklist,
+  toggleChecklist,
+  updateChecklist,
+  moveChecklist,
+} from "@/app/redux/controllers/subTaskController";
 import AssignUsersSelect from "@/app/components/shared/selectors/AssignUsersSelect";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -55,6 +63,7 @@ export default function SubtaskCard({
   onDelete,
   onEdit,
 }: SubtaskCardProps) {
+  const dispatch = useAppDispatch();
   const { engagedUsers } = useAppSelector((state) => state.projectMembers);
   const { fullProject } = useAppSelector((state) => state.project);
   const { users = [] } = useAppSelector((state) => state.user);
@@ -62,6 +71,7 @@ export default function SubtaskCard({
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
+  const [checklistsLocal, setChecklistsLocal] = useState<any[]>(sub.checklists || []);
 
   const form = subtaskInputs[taskId] || {};
 
@@ -233,6 +243,48 @@ export default function SubtaskCard({
           </Box>
         )}
 
+        {/* Inline Checklist — always visible in view mode, no need to enter edit */}
+        <Box mb={1}>
+          <ChecklistForm
+            subtaskId={sub.id}
+            checklists={checklistsLocal}
+            onAddChecklist={async (subtaskId: string, title: string) => {
+              const result = await dispatch(addChecklist({ subtaskId, title }) as any);
+              if (result) setChecklistsLocal((prev: any[]) => [...prev, result]);
+            }}
+            onDeleteChecklist={async (checklistId: string) => {
+              await dispatch(deleteChecklist(checklistId) as any);
+              setChecklistsLocal((prev: any[]) => prev.filter((c) => c.id !== checklistId));
+            }}
+            onToggleChecklist={async (checklistId: string) => {
+              await dispatch(toggleChecklist(checklistId) as any);
+              setChecklistsLocal((prev: any[]) =>
+                prev.map((c) => c.id === checklistId ? { ...c, isCompleted: !c.isCompleted } : c)
+              );
+            }}
+            onEditChecklist={async (checklistId: string, title: string) => {
+              await dispatch(updateChecklist(checklistId, title) as any);
+              setChecklistsLocal((prev: any[]) =>
+                prev.map((c) => c.id === checklistId ? { ...c, title } : c)
+              );
+            }}
+            onMoveChecklist={async (checklistId: string, newOrder: number) => {
+              await dispatch(moveChecklist(checklistId, newOrder) as any);
+              // Re-fetch order from server response by shifting local orders optimistically
+              setChecklistsLocal((prev: any[]) => {
+                const sorted = [...prev].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+                const fromIdx = sorted.findIndex((c) => c.id === checklistId);
+                const toIdx = sorted.findIndex((c) => c.order === newOrder);
+                if (fromIdx < 0 || toIdx < 0) return prev;
+                const reordered = [...sorted];
+                const [moved] = reordered.splice(fromIdx, 1);
+                reordered.splice(toIdx, 0, moved);
+                return reordered.map((c, i) => ({ ...c, order: i }));
+              });
+            }}
+          />
+        </Box>
+
         {/* Actions */}
         <Box
           className="sub-actions"
@@ -398,6 +450,11 @@ export default function SubtaskCard({
           onClick={() => {
             setErrors([]);
             setTouched({});
+            // Clear editId so isEditing becomes false in parent
+            setSubtaskInputs((prev: any) => ({
+              ...prev,
+              [taskId]: { ...prev[taskId], editId: undefined },
+            }));
           }}
           disabled={saving}
           sx={{ color: "#6b7280", flex: 1 }}

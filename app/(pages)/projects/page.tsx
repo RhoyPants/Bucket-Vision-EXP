@@ -118,9 +118,7 @@ const [activeTab, setActiveTab] = useState<ProjectTab>("active");
     },
     onSprint: (projectId) => router.push(`/sprintManagement?projectId=${projectId}`),
     onCreateProject: () => {
-      setProjectModalMode("create");
-      setSelectedProject(null);
-      setProjectModalOpen(true);
+      router.push("/projects/new/setup");
     },
   };
 

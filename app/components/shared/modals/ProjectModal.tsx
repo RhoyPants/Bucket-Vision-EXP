@@ -42,6 +42,15 @@ import {
 } from "@/app/utils/projectValidation";
 import { formatBudget } from "@/app/utils/formatters";
 import ProjectTeamPanel from "@/app/(pages)/projects/[id]/setup/components/ProjectTeamPanel";
+import {
+  getAllRegions,
+  getProvincesByRegion,
+  getCitiesByProvince,
+  getBarangaysByCity,
+} from "@/app/api-service/geographicalService";
+import {
+  getBusinessUnitsDropdown,
+} from "@/app/api-service/businessUnitService";
 
 export default function ProjectModal({
   open,
@@ -61,6 +70,8 @@ export default function ProjectModal({
     name: "",
     description: "",
     location: {
+      regionCode: "",
+      regionName: "",
       provinceCode: "",
       provinceName: "",
       cityCode: "",
@@ -78,9 +89,12 @@ export default function ProjectModal({
     totalBudget: 0,
   });
 
+  const [regions, setRegions] = useState<any[]>([]);
   const [provinces, setProvinces] = useState<any[]>([]);
   const [cities, setCities] = useState<any[]>([]);
   const [barangays, setBarangays] = useState<any[]>([]);
+  const [businessUnits, setBusinessUnits] = useState<any[]>([]);
+  const [entities, setEntities] = useState<string[]>(["GVI", "GVE", "HULMA"]);
 
   const validationStatus = useMemo(() => validateProjectForm(form), [form]);
 
@@ -93,9 +107,26 @@ export default function ProjectModal({
         setForm({
           ...form,
           ...data,
-          location: data.location || form.location,
-          startDate: data.startDate?.slice(0, 10) || "",
-          expectedEndDate: data.expectedEndDate?.slice(0, 10) || "",
+          location: {
+            regionCode: data.location?.regionCode ?? "",
+            regionName: data.location?.regionName ?? "",
+            provinceCode: data.location?.provinceCode ?? "",
+            provinceName: data.location?.provinceName ?? "",
+            cityCode: data.location?.cityCode ?? "",
+            cityName: data.location?.cityName ?? "",
+            barangayCode: data.location?.barangayCode ?? "",
+            barangayName: data.location?.barangayName ?? "",
+            street: data.location?.street ?? "",
+          },
+          startDate: data.startDate?.slice(0, 10) ?? "",
+          expectedEndDate: data.expectedEndDate?.slice(0, 10) ?? "",
+          pin: data.pin ?? "",
+          priority: data.priority ?? "Medium",
+          businessUnit: data.businessUnit ?? "",
+          entity: data.entity ?? "",
+          totalBudget: data.totalBudget ?? 0,
+          description: data.description ?? "",
+          name: data.name ?? "",
         });
       });
     }
@@ -105,6 +136,8 @@ export default function ProjectModal({
         name: "",
         description: "",
         location: {
+          regionCode: "",
+          regionName: "",
           provinceCode: "",
           provinceName: "",
           cityCode: "",
@@ -124,31 +157,87 @@ export default function ProjectModal({
     }
   }, [open, project, mode]);
 
+  // Load regions from backend
   useEffect(() => {
-    fetch("https://psgc.gitlab.io/api/provinces/")
-      .then((res) => res.json())
-      .then(setProvinces);
+    const loadRegions = async () => {
+      try {
+        const data = await getAllRegions();
+        setRegions(data);
+      } catch (err) {
+        console.error("Failed to load regions:", err);
+      }
+    };
+    loadRegions();
   }, []);
 
+  // Load business units from backend
+  useEffect(() => {
+    const loadBusinessUnits = async () => {
+      try {
+        const data = await getBusinessUnitsDropdown();
+        setBusinessUnits(data);
+      } catch (err) {
+        console.error("Failed to load business units:", err);
+      }
+    };
+    loadBusinessUnits();
+  }, []);
+
+  // Load provinces when region code changes
+  useEffect(() => {
+    if (!form.location.regionCode) return;
+    const loadProvinces = async () => {
+      try {
+        const data = await getProvincesByRegion(form.location.regionCode);
+        setProvinces(data);
+        setCities([]);
+        setBarangays([]);
+        setForm((prev: any) => ({
+          ...prev,
+          location: { ...prev.location, provinceCode: "", cityCode: "", barangayCode: "" },
+        }));
+      } catch (err) {
+        console.error("Failed to load provinces:", err);
+      }
+    };
+    loadProvinces();
+  }, [form.location.regionCode]);
+
+  // Load cities when province changes
   useEffect(() => {
     if (!form.location.provinceCode) return;
-    fetch(
-      `https://psgc.gitlab.io/api/provinces/${form.location.provinceCode}/cities/`
-    )
-      .then((res) => res.json())
-      .then((data) => {
+    const loadCities = async () => {
+      try {
+        const data = await getCitiesByProvince(form.location.provinceCode);
         setCities(data);
         setBarangays([]);
-      });
+        setForm((prev: any) => ({
+          ...prev,
+          location: { ...prev.location, cityCode: "", barangayCode: "" },
+        }));
+      } catch (err) {
+        console.error("Failed to load cities:", err);
+      }
+    };
+    loadCities();
   }, [form.location.provinceCode]);
 
+  // Load barangays when city changes
   useEffect(() => {
     if (!form.location.cityCode) return;
-    fetch(
-      `https://psgc.gitlab.io/api/cities/${form.location.cityCode}/barangays/`
-    )
-      .then((res) => res.json())
-      .then(setBarangays);
+    const loadBarangays = async () => {
+      try {
+        const data = await getBarangaysByCity(form.location.cityCode);
+        setBarangays(data);
+        setForm((prev: any) => ({
+          ...prev,
+          location: { ...prev.location, barangayCode: "" },
+        }));
+      } catch (err) {
+        console.error("Failed to load barangays:", err);
+      }
+    };
+    loadBarangays();
   }, [form.location.cityCode]);
 
   const handleSubmit = async () => {
@@ -421,25 +510,37 @@ export default function ProjectModal({
                     <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
                   </Box>
                   <TextField
+                    select
                     fullWidth
-                    placeholder="e.g., Engineering, Marketing, Sales"
                     value={form.businessUnit}
-                    onChange={(e) =>
-                      setForm({ ...form, businessUnit: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const selected = businessUnits.find((bu) => bu.id === e.target.value);
+                      setForm({
+                        ...form,
+                        businessUnit: selected?.id,
+                        businessUnitCode: selected?.code,
+                        businessUnitName: selected?.name,
+                      });
+                    }}
                     onBlur={() => handleFieldBlur("businessUnit")}
                     error={touched.businessUnit && hasFieldError("businessUnit", errors)}
                     helperText={touched.businessUnit && getFieldError("businessUnit", errors)}
                     variant="outlined"
                     size="small"
-                    inputProps={{ maxLength: 100 }}
                     sx={{
                       "& .MuiOutlinedInput-root": {
                         borderRadius: 1.5,
                         backgroundColor: "white",
                       },
                     }}
-                  />
+                  >
+                    <MenuItem value="">---Select Business Unit---</MenuItem>
+                    {businessUnits.map((bu) => (
+                      <MenuItem key={bu.id} value={bu.id}>
+                        {bu.name} ({bu.code})
+                      </MenuItem>
+                    ))}
+                  </TextField>
                 </Box>
 
                 {/* ENTITY */}
@@ -451,8 +552,8 @@ export default function ProjectModal({
                     <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
                   </Box>
                   <TextField
+                    select
                     fullWidth
-                    placeholder="e.g., Department, Team, Organization"
                     value={form.entity}
                     onChange={(e) =>
                       setForm({ ...form, entity: e.target.value })
@@ -462,14 +563,20 @@ export default function ProjectModal({
                     helperText={touched.entity && getFieldError("entity", errors)}
                     variant="outlined"
                     size="small"
-                    inputProps={{ maxLength: 100 }}
                     sx={{
                       "& .MuiOutlinedInput-root": {
                         borderRadius: 1.5,
                         backgroundColor: "white",
                       },
                     }}
-                  />
+                  >
+                    <MenuItem value="">---Select Entity---</MenuItem>
+                    {entities.map((e) => (
+                      <MenuItem key={e} value={e}>
+                        {e}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                 </Box>
 
                 {/* TOTAL BUDGET */}
@@ -525,6 +632,56 @@ export default function ProjectModal({
                     <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
                   </Typography>
 
+                  {/* REGION */}
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 500, mb: 0.5, display: "block" }}>
+                      Region
+                    </Typography>
+                    <TextField
+                      select
+                      fullWidth
+                      value={form.location.regionCode}
+                      onChange={(e) => {
+                        const selected = regions.find(
+                          (r) => r.regCode === e.target.value
+                        );
+
+                        setForm({
+                          ...form,
+                          location: {
+                            ...form.location,
+                            regionCode: selected.regCode,
+                            regionName: selected.regName,
+                            provinceCode: "",
+                            provinceName: "",
+                            cityCode: "",
+                            cityName: "",
+                            barangayCode: "",
+                            barangayName: "",
+                          },
+                        });
+                      }}
+                      onBlur={() => handleFieldBlur("location.region")}
+                      error={touched["location.region"] && hasFieldError("location.region", errors)}
+                      helperText={touched["location.region"] && getFieldError("location.region", errors)}
+                      variant="outlined"
+                      size="small"
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: 1.5,
+                          backgroundColor: "white",
+                        },
+                      }}
+                    >
+                      <MenuItem value="">---Select Region---</MenuItem>
+                      {regions.map((r) => (
+                        <MenuItem key={r.regCode} value={r.regCode}>
+                          {r.regName}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Box>
+
                   {/* PROVINCE */}
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="caption" sx={{ fontWeight: 500, mb: 0.5, display: "block" }}>
@@ -533,18 +690,19 @@ export default function ProjectModal({
                     <TextField
                       select
                       fullWidth
+                      disabled={!form.location.regionCode}
                       value={form.location.provinceCode}
                       onChange={(e) => {
                         const selected = provinces.find(
-                          (p) => p.code === e.target.value
+                          (p) => p.provCode === e.target.value
                         );
 
                         setForm({
                           ...form,
                           location: {
                             ...form.location,
-                            provinceCode: selected.code,
-                            provinceName: selected.name,
+                            provinceCode: selected.provCode,
+                            provinceName: selected.provName,
                             cityCode: "",
                             cityName: "",
                             barangayCode: "",
@@ -566,8 +724,8 @@ export default function ProjectModal({
                     >
                       <MenuItem value="">---Select Province---</MenuItem>
                       {provinces.map((p) => (
-                        <MenuItem key={p.code} value={p.code}>
-                          {p.name}
+                        <MenuItem key={p.provCode} value={p.provCode}>
+                          {p.provName}
                         </MenuItem>
                       ))}
                     </TextField>
@@ -585,15 +743,15 @@ export default function ProjectModal({
                       value={form.location.cityCode}
                       onChange={(e) => {
                         const selected = cities.find(
-                          (c) => c.code === e.target.value
+                          (c) => c.cityCode === e.target.value
                         );
 
                         setForm({
                           ...form,
                           location: {
                             ...form.location,
-                            cityCode: selected.code,
-                            cityName: selected.name,
+                            cityCode: selected.cityCode,
+                            cityName: selected.cityName,
                             barangayCode: "",
                             barangayName: "",
                           },
@@ -613,8 +771,8 @@ export default function ProjectModal({
                     >
                       <MenuItem value="">---Select City---</MenuItem>
                       {cities.map((c) => (
-                        <MenuItem key={c.code} value={c.code}>
-                          {c.name}
+                        <MenuItem key={c.cityCode} value={c.cityCode}>
+                          {c.cityName}
                         </MenuItem>
                       ))}
                     </TextField>
@@ -632,15 +790,15 @@ export default function ProjectModal({
                       value={form.location.barangayCode}
                       onChange={(e) => {
                         const selected = barangays.find(
-                          (b) => b.code === e.target.value
+                          (b) => b.brgyCode === e.target.value
                         );
 
                         setForm({
                           ...form,
                           location: {
                             ...form.location,
-                            barangayCode: selected.code,
-                            barangayName: selected.name,
+                            barangayCode: selected.brgyCode,
+                            barangayName: selected.brgyName,
                           },
                         });
                       }}
@@ -658,8 +816,8 @@ export default function ProjectModal({
                     >
                       <MenuItem value="">---Select Barangay---</MenuItem>
                       {barangays.map((b) => (
-                        <MenuItem key={b.code} value={b.code}>
-                          {b.name}
+                        <MenuItem key={b.brgyCode} value={b.brgyCode}>
+                          {b.brgyName}
                         </MenuItem>
                       ))}
                     </TextField>

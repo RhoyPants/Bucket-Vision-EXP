@@ -17,6 +17,11 @@ export default function ProjectSelector() {
     (state) => state.project
   );
 
+  // Filter to show only ACTIVE projects
+  const activeProjects = projects.filter(
+    (p) => (p as any).status === "ACTIVE" && (p as any).isActive === true
+  );
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -47,11 +52,15 @@ export default function ProjectSelector() {
           borderRadius: 2,
         }}
       >
-        {projects.map((project) => (
-          <MenuItem key={project.id} value={project.id}>
-            {project.name}
-          </MenuItem>
-        ))}
+        {activeProjects.length > 0 ? (
+          activeProjects.map((project) => (
+            <MenuItem key={project.id} value={project.id}>
+              {project.name}
+            </MenuItem>
+          ))
+        ) : (
+          <MenuItem disabled>No active projects available</MenuItem>
+        )}
       </TextField>
     </Box>
   );

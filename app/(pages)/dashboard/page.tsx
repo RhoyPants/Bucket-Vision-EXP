@@ -15,6 +15,7 @@ import {
   DisciplinesProgress,
   ProjectsRequiringAttention,
   CriticalAlerts,
+  DashboardCalendar,
 } from "./components";
 import { ProjectSelector } from "./components/ProjectSelector";
 import { Box, Container, Typography, CircularProgress, Alert } from "@mui/material";
@@ -26,19 +27,31 @@ export default function DashboardPage() {
   const { loading, error } = useAppSelector((state) => state.dashboard);
   const projects = useAppSelector((state) => state.project.projects);
 
+  // Only show ACTIVE projects in the selector
+  const activeProjects = projects?.filter(
+    (p) => (p as any).status === "ACTIVE" && (p as any).isActive === true
+  ) ?? [];
+
+  // Derive the selected project's start date for calendar auto-navigation
+  const selectedProject = projects?.find((p) => p.id === projectId) ?? null;
+  const projectStartDate = (selectedProject as any)?.startDate ?? null;
+
   useEffect(() => {
     // First, fetch all projects if not already loaded
     if (!projects || projects.length === 0) {
       dispatch(getProjects() as any).then((result: any) => {
         if (result && result.length > 0) {
-          setProjectId(result[0].id);
+          // Auto-select the first ACTIVE project
+          const firstActive = result.find(
+            (p: any) => p.status === "ACTIVE" && p.isActive === true
+          );
+          if (firstActive) setProjectId(firstActive.id);
         }
       });
-    } else if (projects.length > 0 && !projectId) {
-      // Use first project if available
-      setProjectId(projects[0].id);
+    } else if (activeProjects.length > 0 && !projectId) {
+      setProjectId(activeProjects[0].id);
     }
-  }, [projects, projectId, dispatch]);
+  }, [projects, activeProjects, projectId, dispatch]);
 
   useEffect(() => {
     // Load complete dashboard data once projectId is set
@@ -71,7 +84,7 @@ export default function DashboardPage() {
 
         {/* Project Selector */}
         <ProjectSelector
-          projects={projects}
+          projects={activeProjects}
           selectedProjectId={projectId}
           onSelectProject={setProjectId}
           loading={!projects || projects.length === 0}
@@ -112,6 +125,9 @@ export default function DashboardPage() {
             <Box sx={{ mb: 3 }}>
               <SCurveChart projectId={projectId} />
             </Box>
+
+            {/* Section 3.5: Subtask Calendar */}
+            <DashboardCalendar projectId={projectId} projectStartDate={projectStartDate} />
 
             {/* Section 4: Budget Snapshot */}
             <BudgetSnapshot />

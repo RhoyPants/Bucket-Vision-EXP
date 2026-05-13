@@ -23,6 +23,9 @@ import {
   CardContent,
   Stack,
   Typography,
+  Chip,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import {
   Delete as DeleteIcon,
@@ -64,6 +67,7 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
     name: "",
     description: "",
     isDefault: false,
+    executionMode: "SEQUENTIAL" as "SEQUENTIAL" | "PARALLEL",
     steps: [] as ApprovalStep[],
   });
 
@@ -83,6 +87,7 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
         name: selectedFlow.name,
         description: selectedFlow.description || "",
         isDefault: selectedFlow.isDefault,
+        executionMode: selectedFlow.executionMode || "SEQUENTIAL",
         steps: [...selectedFlow.steps],
       });
     }
@@ -157,6 +162,7 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
             name: formData.name,
             description: formData.description,
             isDefault: formData.isDefault,
+            executionMode: formData.executionMode,
             steps: formData.steps,
           })
         );
@@ -166,6 +172,7 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
             name: formData.name,
             description: formData.description,
             isDefault: formData.isDefault,
+            executionMode: formData.executionMode,
             steps: formData.steps,
           })
         );
@@ -230,6 +237,31 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
               }
               label="Set as default approval flow"
             />
+
+            {/* Execution Mode Selector */}
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 600, mb: 1, display: "block" }}>
+                Execution Mode
+              </Typography>
+              <Typography variant="caption" color="#6b7280" sx={{ display: "block", mb: 1 }}>
+                Sequential: Steps execute one after another. Parallel: All steps execute simultaneously
+              </Typography>
+              <ToggleButtonGroup
+                value={formData.executionMode}
+                exclusive
+                onChange={(_, newMode) => {
+                  if (newMode) setFormData({ ...formData, executionMode: newMode });
+                }}
+                sx={{ display: "flex", gap: 1 }}
+              >
+                <ToggleButton value="SEQUENTIAL" sx={{ flex: 1 }}>
+                  Sequential
+                </ToggleButton>
+                <ToggleButton value="PARALLEL" sx={{ flex: 1 }}>
+                  Parallel
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
 
             <Divider />
 
@@ -335,21 +367,55 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
                             </FormControl>
                           </Box>
 
-                          <Box sx={{ pl: 5 }}>
+                          {/* Specific User Assignment */}
+                          <Box sx={{ pl: 5, pt: 1 }}>
                             <FormControlLabel
                               control={
                                 <Checkbox
-                                  checked={step.canReject}
+                                  checked={step.useSpecificUsers || false}
                                   onChange={(e) =>
                                     handleUpdateStep(index, {
-                                      canReject: e.target.checked,
+                                      useSpecificUsers: e.target.checked,
                                     })
                                   }
                                 />
                               }
-                              label="Approver can reject project"
+                              label="Assign to specific users only (instead of all with this role)"
                             />
                           </Box>
+
+                          {step.useSpecificUsers && (
+                            <Box sx={{ pl: 5, pt: 1 }}>
+                              <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 1 }}>
+                                Select Users ({AVAILABLE_ROLES.indexOf(step.role) !== -1 ? step.role : ""})
+                              </Typography>
+                              <FormControl fullWidth size="small">
+                                <TextField
+                                  placeholder={`Search and select users with role: ${step.role}`}
+                                  variant="outlined"
+                                  size="small"
+                                  helperText="Note: Fetch users dropdown by clicking field (backend API call required)"
+                                  disabled
+                                  sx={{ mb: 1 }}
+                                />
+                              </FormControl>
+                              {step.assignedUsers && step.assignedUsers.length > 0 && (
+                                <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 1 }}>
+                                  {step.assignedUsers.map((user: any) => (
+                                    <Chip
+                                      key={user.id}
+                                      label={user.name || user.email}
+                                      onDelete={() => {
+                                        const filtered = step.assignedUsers!.filter((u: any) => u.id !== user.id);
+                                        handleUpdateStep(index, { assignedUsers: filtered });
+                                      }}
+                                      size="small"
+                                    />
+                                  ))}
+                                </Box>
+                              )}
+                            </Box>
+                          )}
                         </Stack>
                       </CardContent>
                     </Card>

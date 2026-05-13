@@ -360,6 +360,20 @@ export default function SubtaskForm({
         disabled={saving}
       /> */}
 
+      {/* Checklist Hint */}
+      <Box
+        sx={{
+          p: 1,
+          backgroundColor: "#f0fdf4",
+          border: "1px solid #bbf7d0",
+          borderRadius: 1,
+        }}
+      >
+        <Typography variant="caption" fontWeight={600} color="#166534">
+          💡 Tip: Add checklist items after creating the subtask by clicking Edit
+        </Typography>
+      </Box>
+
       {/* Actions */}
       <Box display="flex" gap={1}>
         <Button
