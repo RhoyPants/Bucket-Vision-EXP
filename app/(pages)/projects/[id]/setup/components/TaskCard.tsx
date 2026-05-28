@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   Box,
   Button,
@@ -38,7 +38,7 @@ interface TaskCardProps {
   onAddSubtask: (taskId: string) => void;
 }
 
-export default function TaskCard({
+function TaskCard({
   task,
   scopeBudget,
   subtaskInputs,
@@ -108,14 +108,23 @@ export default function TaskCard({
     }
   };
 
-  const budgetPercent = calculateBudgetPercent(task.budgetAllocated, scopeBudget);
+  const budgetPercent = calculateBudgetPercent(
+    task.budgetAllocated,
+    scopeBudget,
+  );
   const titleError = touched["title"] && getFieldError("title", errors);
-  const budgetError = touched["budgetAllocated"] && getFieldError("budgetAllocated", errors);
+  const budgetError =
+    touched["budgetAllocated"] && getFieldError("budgetAllocated", errors);
 
   return (
     <>
       <Box
         sx={{
+          maxWidth: "100%",
+          minWidth: 0,
+
+          overflow: "hidden",
+
           backgroundColor: "#f0f9ff",
           p: 2,
           mt: 1.5,
@@ -152,7 +161,12 @@ export default function TaskCard({
                 type="number"
                 inputProps={{ step: "0.01" }}
                 value={editForm.budgetAllocated}
-                onChange={(e) => handleEditChange("budgetAllocated", parseFloat(e.target.value) || 0)}
+                onChange={(e) =>
+                  handleEditChange(
+                    "budgetAllocated",
+                    parseFloat(e.target.value) || 0,
+                  )
+                }
                 onBlur={() => handleEditBlur("budgetAllocated")}
                 error={!!budgetError}
                 sx={{ flex: "0 1 90px" }}
@@ -167,7 +181,11 @@ export default function TaskCard({
                 disabled={saving}
                 sx={{ color: "#10b981" }}
               >
-                {saving ? <CircularProgress size={20} /> : <SaveIcon fontSize="small" />}
+                {saving ? (
+                  <CircularProgress size={20} />
+                ) : (
+                  <SaveIcon fontSize="small" />
+                )}
               </IconButton>
               <IconButton
                 size="small"
@@ -181,15 +199,26 @@ export default function TaskCard({
           </Box>
         ) : (
           // DISPLAY MODE
-          <Box display="flex" justifyContent="space-between" alignItems="center" gap={1}>
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+            gap={1}
+          >
             <Box flex={1} minWidth={0}>
               <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                <Typography variant="body2" sx={{ fontWeight: 600, color: "#0369a1" }}>
+                <Typography
+                  variant="body2"
+                  sx={{ fontWeight: 600, color: "#0369a1" }}
+                >
                   {task.title}
                 </Typography>
               </Box>
               <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-                <Typography variant="caption" sx={{ color: "#0c4a6e", fontWeight: 500 }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "#0c4a6e", fontWeight: 500 }}
+                >
                   ₱{task.budgetAllocated?.toLocaleString()}
                 </Typography>
                 <Typography
@@ -259,3 +288,5 @@ export default function TaskCard({
     </>
   );
 }
+
+export default React.memo(TaskCard);

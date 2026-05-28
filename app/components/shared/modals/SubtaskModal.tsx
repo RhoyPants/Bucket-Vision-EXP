@@ -101,7 +101,6 @@ export default function SubtaskModal({
               name: user.name || "Unknown", // Ensure name is present
             };
           }).filter((u: any) => u && u.id); // Filter out invalid users
-          console.log("📌 Assigned Users from subtask:", assignedUsers);
         } else if (subtask.userIds?.length > 0) {
           // If only userIds provided, map to user objects from engagedUsers
           assignedUsers = subtask.userIds
@@ -156,7 +155,6 @@ export default function SubtaskModal({
     }
     
     const result = Array.from(userMap.values());
-    console.log("📌 Assignable Users:", result);
     return result;
   }, [engagedUsers, fullProject?.ownerId, users, form.users]);
 

@@ -378,34 +378,24 @@ export default function UserProfile() {
   const [userProjects, setUserProjects] = useState<any[]>([]);
   const [viewType, setViewType] = useState<"card" | "table">("card");
 
-  useEffect(() => {
-    if (projects.length === 0) {
-      console.log("Fetching projects..."); // Debug log
-      dispatch(getProjects() as any);
-    } else {
-      console.log("Projects loaded:", projects); // Debug log
-    }
-  }, []);
 
   useEffect(() => {
     // Filter projects where user is a member, owner, or subowner
     if (projects && projects.length > 0 && user) {
-      console.log("Current user ID:", user.id); // Debug log
-      console.log("All projects:", projects); // Debug log
+
       
       const filtered = projects.filter((project: any) => {
         const isMember = project.projectMembers?.some((member: any) => {
-          console.log("Checking member:", member.userId, "against user:", user.id);
           return member.userId === user.id;
         });
         const isOwner = project.ownerId === user.id;
         
-        console.log(`Project ${project.name}: isMember=${isMember}, isOwner=${isOwner}`);
+
         
         return isMember || isOwner;
       });
       
-      console.log("Filtered projects:", filtered); // Debug log
+
       setUserProjects(filtered);
     }
   }, [projects, user]);

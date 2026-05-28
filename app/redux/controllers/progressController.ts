@@ -115,7 +115,6 @@ export const saveProgressLog = (data: {
         const currentState = getState();
         let projectId = currentState.project?.currentProjectId;
         
-        console.log("📊 Task ID:", taskId, "Project ID:", projectId);
 
         // Step 2: Refresh the task and subtask via kanban (updates subtask progress)
         if (taskId) {
@@ -123,7 +122,6 @@ export const saveProgressLog = (data: {
           if (kanbanPromise && typeof kanbanPromise.then === "function") {
             await kanbanPromise;
           }
-          console.log("✅ Task refreshed:", taskId);
         }
 
         // Step 3: Refresh the ENTIRE project to recalculate all progress
@@ -132,13 +130,11 @@ export const saveProgressLog = (data: {
           if (projectPromise && typeof projectPromise.then === "function") {
             await projectPromise;
           }
-          console.log("✅ Project data refreshed:", projectId);
 
           // Step 3b: CRITICAL - Refresh S-Curve with proper await
           const scurvePromise = dispatch(getSCurve(projectId) as any);
           if (scurvePromise && typeof scurvePromise.then === "function") {
             await scurvePromise;
-            console.log("✅ S-Curve updated from controller:", projectId);
           }
         } else {
           console.warn("⚠️ No projectId available in Redux state");

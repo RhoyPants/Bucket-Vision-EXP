@@ -112,9 +112,6 @@ export default function ReportsPage() {
     });
   }, [currentReports, searchQuery, reportTypeTab]);
 
-  console.log({filteredReports: filteredReports
-    
-  });
   
 
   // Format date helper

@@ -12,8 +12,7 @@ import {
   Backdrop,
   Stack,
 } from "@mui/material";
-import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
-import { getEngagedUsers } from "@/app/redux/controllers/projectMemberController";
+import { useAppSelector } from "@/app/redux/hook";
 import AssignUsersSelect from "@/app/components/shared/selectors/AssignUsersSelect";
 import AddIcon from "@mui/icons-material/Add";
 import {
@@ -46,7 +45,6 @@ export default function SubtaskForm({
   members,
   onAddSubtask,
 }: SubtaskFormProps) {
-  const dispatch = useAppDispatch();
   const { engagedUsers } = useAppSelector((state) => state.projectMembers);
   const { fullProject } = useAppSelector((state) => state.project);
   const { users = [] } = useAppSelector((state) => state.user);
@@ -54,13 +52,6 @@ export default function SubtaskForm({
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
-
-  // Load engaged users if projectId is provided
-  useEffect(() => {
-    if (projectId) {
-      dispatch(getEngagedUsers(projectId) as any);
-    }
-  }, [projectId, dispatch]);
 
   const isOpen = subtaskInputs[taskId]?.open;
   const form = subtaskInputs[taskId] || {};

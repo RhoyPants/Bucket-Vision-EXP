@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -50,7 +50,7 @@ interface SubtaskCardProps {
   onEdit: () => void;
 }
 
-export default function SubtaskCard({
+function SubtaskCard({
   sub,
   taskId,
   taskBudget,
@@ -465,3 +465,5 @@ export default function SubtaskCard({
     </Box>
   );
 }
+
+export default React.memo(SubtaskCard);

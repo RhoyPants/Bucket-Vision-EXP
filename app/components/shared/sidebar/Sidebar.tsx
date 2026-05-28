@@ -19,9 +19,7 @@ export default function Sidebar() {
 
   const handleLogout = async () => {
     router.push("/"); // navigate to root (login)
-    console.log("Before logout dispatch");
     dispatch(logout()); // no need to await a plain reducer
-    console.log("After logout dispatch");
   };
 
   const sidebarContent = (

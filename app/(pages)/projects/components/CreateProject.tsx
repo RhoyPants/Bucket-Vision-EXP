@@ -262,8 +262,8 @@ export default function CreateProject({
                     ...form,
                     location: {
                       ...form.location,
-                      regionCode: selected.regCode,
-                      regionName: selected.regName,
+                      regionCode: selected?.regCode || "",
+                      regionName: selected?.regName || "",
                       provinceCode: "",
                       provinceName: "",
                       cityCode: "",
@@ -301,8 +301,8 @@ export default function CreateProject({
                     ...form,
                     location: {
                       ...form.location,
-                      provinceCode: selected.provCode,
-                      provinceName: selected.provName,
+                      provinceCode: selected?.provCode || "",
+                      provinceName: selected?.provName || "",
                       cityCode: "",
                       cityName: "",
                       barangayCode: "",
@@ -338,8 +338,8 @@ export default function CreateProject({
                     ...form,
                     location: {
                       ...form.location,
-                      cityCode: selected.cityCode,
-                      cityName: selected.cityName,
+                      cityCode: selected?.cityCode || "",
+                      cityName: selected?.cityName || "",
                       barangayCode: "",
                       barangayName: "",
                     },
@@ -373,8 +373,8 @@ export default function CreateProject({
                     ...form,
                     location: {
                       ...form.location,
-                      barangayCode: selected.brgyCode,
-                      barangayName: selected.brgyName,
+                      barangayCode: selected?.brgyCode || "",
+                      barangayName: selected?.brgyName || "",
                     },
                   });
                 }}

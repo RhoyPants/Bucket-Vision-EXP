@@ -31,7 +31,6 @@ import Layout from "@/app/components/shared/Layout";
 import Guard from "@/app/components/shared/Guard";
 import ProjectModal from "@/app/components/shared/modals/ProjectModal";
 import { ApprovalDetailModal, ApprovalSubmitModal } from "@/app/components/shared/modals/ApprovalModals";
-import VersioningActionModal from "@/app/components/shared/modals/VersioningActionModal";
 import TeamManagementModal from "@/app/components/shared/modals/TeamManagementModal";
 
 import ActiveProjectsTab from "./components/ActiveProjectsTab";
@@ -60,9 +59,6 @@ const [activeTab, setActiveTab] = useState<ProjectTab>("active");
   const [approvalDetailOpen, setApprovalDetailOpen] = useState(false);
   const [approvalSubmitOpen, setApprovalSubmitOpen] = useState(false);
   const [selectedProjectForApproval, setSelectedProjectForApproval] = useState<any>(null);
-
-  const [versioningModalOpen, setVersioningModalOpen] = useState(false);
-  const [selectedProjectForVersioning, setSelectedProjectForVersioning] = useState<any>(null);
 
   const [teamManagementModalOpen, setTeamManagementModalOpen] = useState(false);
   const [selectedProjectForTeam, setSelectedProjectForTeam] = useState<any>(null);
@@ -113,8 +109,7 @@ const [activeTab, setActiveTab] = useState<ProjectTab>("active");
       setTeamManagementModalOpen(true);
     },
     onVersion: (project) => {
-      setSelectedProjectForVersioning(project);
-      setVersioningModalOpen(true);
+      router.push(`/versioning?projectId=${project.id}`);
     },
     onSprint: (projectId) => router.push(`/sprintManagement?projectId=${projectId}`),
     onCreateProject: () => {
@@ -253,27 +248,12 @@ const [activeTab, setActiveTab] = useState<ProjectTab>("active");
 
         {tabContent[activeTab]}
 
-        {/* â”€â”€â”€ MODALS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        
         <ProjectModal
           open={projectModalOpen}
           onClose={() => setProjectModalOpen(false)}
           mode={projectModalMode}
           project={selectedProject}
-        />
-
-        <VersioningActionModal
-          open={versioningModalOpen}
-          onClose={() => {
-            setVersioningModalOpen(false);
-            setSelectedProjectForVersioning(null);
-          }}
-          projectId={selectedProjectForVersioning?.id}
-          projectName={selectedProjectForVersioning?.name}
-          activeVersion={{
-            versionLabel: "v1",
-            expectedEndDate: selectedProjectForVersioning?.expectedEndDate,
-            totalBudget: selectedProjectForVersioning?.totalBudget,
-          }}
         />
 
         <TeamManagementModal

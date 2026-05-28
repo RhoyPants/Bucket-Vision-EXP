@@ -164,7 +164,7 @@ export default function ApprovalFlowUI({ projectId, projectStatus = "DRAFT" }: A
                 animation: isCurrent ? "pulse 2s infinite" : "none",
                 "@keyframes pulse": {
                   "0%, 100%": {
-                    boxShadow: "0 0 0 0 rgba(245, 158, 11, 0.4)",
+                    boxShadow: "0 0 0 100px rgba(245, 159, 11, 0.8)",
                   },
                   "50%": {
                     boxShadow: "0 0 0 4px rgba(245, 158, 11, 0)",

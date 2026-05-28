@@ -1,6 +1,13 @@
 "use client";
 
-import { Box, Typography, Card, CircularProgress, Alert, Stack } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Card,
+  CircularProgress,
+  Alert,
+  Stack,
+} from "@mui/material";
 import { ApprovalAuditLog } from "@/app/redux/slices/approvalSlice";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import BlockIcon from "@mui/icons-material/Block";
@@ -13,7 +20,16 @@ interface ApprovalAuditTrailProps {
   empty?: boolean;
 }
 
-const actionConfig: Record<string, { label: string; color: string; bgColor: string; borderColor: string; icon: any }> = {
+const actionConfig: Record<
+  string,
+  {
+    label: string;
+    color: string;
+    bgColor: string;
+    borderColor: string;
+    icon: any;
+  }
+> = {
   SUBMITTED: {
     label: "Project Submitted",
     color: "#f59e0b",
@@ -59,7 +75,14 @@ export default function ApprovalAuditTrail({
 
   if (empty || auditLogs.length === 0) {
     return (
-      <Alert severity="info" sx={{ backgroundColor: "#eff6ff", borderColor: "#3b82f6", color: "#1e40af" }}>
+      <Alert
+        severity="info"
+        sx={{
+          backgroundColor: "#eff6ff",
+          borderColor: "#3b82f6",
+          color: "#1e40af",
+        }}
+      >
         No approval history yet
       </Alert>
     );
@@ -67,7 +90,9 @@ export default function ApprovalAuditTrail({
 
   return (
     <Box sx={{ p: 2 }}>
-      <Typography sx={{ fontSize: 14, fontWeight: 600, color: "#1f2937", mb: 2.5 }}>
+      <Typography
+        sx={{ fontSize: 14, fontWeight: 600, color: "#1f2937", mb: 2.5 }}
+      >
         📋 Approval Timeline
       </Typography>
 
@@ -83,10 +108,10 @@ export default function ApprovalAuditTrail({
                 <Box
                   sx={{
                     position: "absolute",
-                    left: 19,
-                    top: 50,
+                    left: 9,
+                    top: 25,
                     width: 2,
-                    height: 60,
+                    height: 90,
                     backgroundColor: "#e5e7eb",
                   }}
                 />
@@ -100,8 +125,8 @@ export default function ApprovalAuditTrail({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    width: 40,
-                    height: 40,
+                    width: 20,
+                    height: 20,
                     borderRadius: "50%",
                     flexShrink: 0,
                     backgroundColor: config.color,
@@ -109,7 +134,7 @@ export default function ApprovalAuditTrail({
                     mt: 0,
                   }}
                 >
-                  <Icon sx={{ color: "white", fontSize: 20 }} />
+                  <Icon sx={{ color: "white", fontSize: 12 }} />
                 </Box>
 
                 {/* Card content */}
@@ -122,23 +147,69 @@ export default function ApprovalAuditTrail({
                     boxShadow: "none",
                   }}
                 >
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: 2,
+                    }}
+                  >
                     <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#1f2937", mb: 0.5 }}>
+                      <Typography
+                        sx={{
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: "#1f2937",
+                          mb: 0.5,
+                        }}
+                      >
                         {config.label}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: 11,
+                          color: "#9ca3af",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {new Date(log.createdAt).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
                       </Typography>
 
                       {log.approverName && (
-                        <Box sx={{ mb: 1.5, p: 1, backgroundColor: "rgba(0,0,0,0.05)", borderRadius: 0.75 }}>
-                          <Typography sx={{ fontSize: 12, fontWeight: 600, color: "#1f2937", mb: 0.25 }}>
+                        <Box
+                          sx={{
+                            mb: 1.5,
+                            p: 1,
+                            backgroundColor: "rgba(0,0,0,0.05)",
+                            borderRadius: 0.75,
+                          }}
+                        >
+                          <Typography
+                            sx={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: "#1f2937",
+                              mb: 0.25,
+                            }}
+                          >
                             👤 {log.approverName || "N/A"}
                           </Typography>
-                          {log.approverEmail && (
-                            <Typography sx={{ fontSize: 11, color: "#6b7280" }}>
-                              {log.approverEmail || "No email"}
-                            </Typography>
-                          )}
-                          <Typography sx={{ fontSize: 11, color: "#9ca3af", fontWeight: 500, mt: 0.25 }}>
+                          <Typography
+                            sx={{
+                              fontSize: 11,
+                              color: "#9ca3af",
+                              fontWeight: 500,
+                              mt: 0.25,
+                            }}
+                          >
                             Role: {log.level}
                           </Typography>
                         </Box>
@@ -160,10 +231,6 @@ export default function ApprovalAuditTrail({
                         </Box>
                       )}
                     </Box>
-
-                    <Typography sx={{ fontSize: 11, color: "#9ca3af", whiteSpace: "nowrap" }}>
-                      {new Date(log.createdAt).toLocaleDateString()}
-                    </Typography>
                   </Box>
                 </Card>
               </Box>

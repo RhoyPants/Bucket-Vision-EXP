@@ -1,5 +1,5 @@
 import { Box, Card, Typography, Chip, LinearProgress, Stack } from "@mui/material";
-import { Subtask, Priority } from "./types";
+import { Subtask, Priority, CompareTheme } from "./types";
 
 const PRIORITY_COLOR_MAP: Record<Priority, { chip: string; text: string }> = {
   LOW: { chip: "#9ca3af", text: "#fff" },
@@ -9,9 +9,12 @@ const PRIORITY_COLOR_MAP: Record<Priority, { chip: string; text: string }> = {
 
 interface SubtaskCardProps {
   subtask: Subtask;
+  theme?: CompareTheme;
 }
 
-export default function SubtaskCard({ subtask }: SubtaskCardProps) {
+export default function SubtaskCard({ subtask, theme }: SubtaskCardProps) {
+  const ct = theme;
+  const isModified = ct !== undefined && subtask.changeStatus === "MODIFIED";
   const priorityColor = subtask.priority
     ? PRIORITY_COLOR_MAP[subtask.priority]
     : { chip: "#9ca3af", text: "#fff" };
@@ -33,15 +36,16 @@ export default function SubtaskCard({ subtask }: SubtaskCardProps) {
     <Card
       sx={{
         p: 2,
-        minWidth: 240,
+        maxWidth: 240,
         flexShrink: 0,
-        border: "2px solid #a78bfa",
-        bgcolor: "#f5f3ff",
+        border: ct ? `1px solid ${ct.border}` : "2px solid #a78bfa",
+        ...(isModified && { borderLeft: `4px solid ${ct!.accent}` }),
+        bgcolor: ct ? ct.background : "#f5f3ff",
         borderRadius: 1.5,
         boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
         transition: "all 0.2s",
         "&:hover": {
-          boxShadow: "0 4px 12px rgba(167, 139, 250, 0.2)",
+          boxShadow: ct ? "0 4px 12px rgba(0,0,0,0.08)" : "0 4px 12px rgba(167, 139, 250, 0.2)",
         },
       }}
     >
@@ -50,7 +54,7 @@ export default function SubtaskCard({ subtask }: SubtaskCardProps) {
         <Typography
           fontWeight={600}
           fontSize={13}
-          sx={{ color: "#1f2937", flex: 1, wordBreak: "break-word" }}
+          sx={{ color: ct ? ct.text : "#1f2937", flex: 1, wordBreak: "break-word" }}
         >
           {subtask.title}
         </Typography>
@@ -81,7 +85,7 @@ export default function SubtaskCard({ subtask }: SubtaskCardProps) {
             label={`${subtask.progress}%`}
             size="small"
             sx={{
-              backgroundColor: "#6366f1",
+              backgroundColor: ct ? ct.accent : "#6366f1",
               color: "#fff",
               height: 20,
               fontWeight: 600,
@@ -98,7 +102,7 @@ export default function SubtaskCard({ subtask }: SubtaskCardProps) {
             bgcolor: "#e5e7eb",
             "& .MuiLinearProgress-bar": {
               borderRadius: 1,
-              bgcolor: "#a78bfa",
+              bgcolor: ct ? ct.accent : "#a78bfa",
             },
           }}
         />

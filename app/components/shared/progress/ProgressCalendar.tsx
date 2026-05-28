@@ -265,7 +265,6 @@ export default function ProgressCalendar({
       try {
         if (currentProjectId) {
           await dispatch(getSCurve(currentProjectId) as any);
-          console.log(" S-Curve manually refreshed:", currentProjectId);
         } else {
           console.warn(" No projectId available for S-Curve refresh");
         }

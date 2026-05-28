@@ -23,6 +23,11 @@ import {
   Tooltip,
   Stack,
   Typography,
+  useMediaQuery,
+  useTheme,
+  Card,
+  CardContent,
+  CardActions,
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -55,6 +60,9 @@ export default function ApprovalFlowsList() {
   const [showForm, setShowForm] = useState(false);
   const [editFlowId, setEditFlowId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   useEffect(() => {
     dispatch(getApprovalFlows());
@@ -107,13 +115,10 @@ export default function ApprovalFlowsList() {
 
   return (
     <Box>
-      <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-        ⚙️ Approval Flow Configuration
-      </Typography>
-
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-      <Box sx={{ mb: 3 }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Typography variant="h5" fontWeight={700}>
+          Approval Flows
+        </Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -121,126 +126,194 @@ export default function ApprovalFlowsList() {
             setEditFlowId(null);
             setShowForm(true);
           }}
+          sx={{ textTransform: "none" }}
         >
-          Create New Flow
+          Create Flow
         </Button>
       </Box>
 
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
       {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
           <CircularProgress />
         </Box>
-      ) : (
-        <>
-          <TableContainer component={Paper}>
-            <Table size="small">
-              <TableHead sx={{ backgroundColor: "#f5f5f5" }}>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="center">
-                    Steps
+      ) : flows.length === 0 ? (
+        <Alert severity="info">No approval flows yet. Create your first flow to get started.</Alert>
+      ) : !isMobile ? (
+        // Desktop Table View
+        <TableContainer component={Paper} sx={{ boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.1)" }}>
+          <Table>
+            <TableHead sx={{ backgroundColor: "#f5f5f5" }}>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700 }}>Name</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
+                <TableCell sx={{ fontWeight: 700, textAlign: "center" }}>
+                  Steps
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700, textAlign: "center" }}>
+                  Status
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700, textAlign: "right" }}>
+                  Actions
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {flows.map((flow) => (
+                <TableRow key={flow.id} hover sx={{ "&:last-child td": { border: 0 } }}>
+                  <TableCell sx={{ fontWeight: 600 }}>{flow.name}</TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="textSecondary">
+                      {flow.description || "—"}
+                    </Typography>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="center">
-                    Status
+                  <TableCell align="center">
+                    <Chip label={flow.steps.length} size="small" variant="outlined" />
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="center">
-                    Actions
+                  <TableCell align="center">
+                    <Stack direction="row" spacing={1} justifyContent="center">
+                      {flow.isDefault && (
+                        <Chip label="Default" size="small" color="primary" variant="outlined" />
+                      )}
+                      <Chip
+                        label={flow.isActive ? "Active" : "Inactive"}
+                        size="small"
+                        color={flow.isActive ? "success" : "default"}
+                        variant="outlined"
+                      />
+                    </Stack>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                      {!flow.isDefault && (
+                        <Tooltip title="Set as default">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleSetDefault(flow.id)}
+                          >
+                            <StarBorderIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {flow.isDefault && (
+                        <Tooltip title="Currently default">
+                          <IconButton size="small" disabled>
+                            <StarIcon fontSize="small" sx={{ color: "#FBC02D" }} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Edit">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditClick(flow.id)}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteClick(flow.id)}
+                          disabled={flow.isDefault}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
                   </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {flows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
-                      No approval flows yet. Create your first flow.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  flows.map((flow) => (
-                    <TableRow key={flow.id} hover>
-                      <TableCell sx={{ fontWeight: 500 }}>{flow.name}</TableCell>
-                      <TableCell>{flow.description || "-"}</TableCell>
-                      <TableCell align="center">{flow.steps.length}</TableCell>
-                      <TableCell align="center">
-                        <Stack direction="row" spacing={1} justifyContent="center">
-                          {flow.isDefault && (
-                            <Chip label="Default" size="small" color="primary" variant="outlined" />
-                          )}
-                          <Chip
-                            label={flow.isActive ? "Active" : "Inactive"}
-                            size="small"
-                            color={flow.isActive ? "success" : "default"}
-                            variant="outlined"
-                          />
-                        </Stack>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Stack direction="row" spacing={0.5} justifyContent="center">
-                          {!flow.isDefault && (
-                            <Tooltip title="Set as default">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleSetDefault(flow.id)}
-                              >
-                                <StarBorderIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {flow.isDefault && (
-                            <Tooltip title="Currently default">
-                              <IconButton size="small" disabled>
-                                <StarIcon fontSize="small" color="warning" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          <Tooltip title="Edit">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleEditClick(flow.id)}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDeleteClick(flow.id)}
-                              disabled={flow.isDefault}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ))
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      ) : (
+        // Mobile Card View
+        <Stack spacing={2}>
+          {flows.map((flow) => (
+            <Card key={flow.id} sx={{ boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)" }}>
+              <CardContent>
+                <Box display="flex" justifyContent="space-between" alignItems="start" mb={1}>
+                  <Typography variant="h6" fontWeight={700}>
+                    {flow.name}
+                  </Typography>
+                  <Stack direction="row" spacing={0.5}>
+                    {flow.isDefault && (
+                      <Chip label="Default" size="small" color="primary" variant="outlined" />
+                    )}
+                    <Chip
+                      label={flow.isActive ? "Active" : "Inactive"}
+                      size="small"
+                      color={flow.isActive ? "success" : "default"}
+                      variant="outlined"
+                    />
+                  </Stack>
+                </Box>
+                {flow.description && (
+                  <Typography variant="body2" color="textSecondary" gutterBottom>
+                    {flow.description}
+                  </Typography>
                 )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          <Dialog open={deleteDialog} onClose={() => setDeleteDialog(false)}>
-            <DialogTitle>Delete Approval Flow?</DialogTitle>
-            <DialogContent>
-              <DialogContentText>
-                Are you sure? This action cannot be undone.
-              </DialogContentText>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setDeleteDialog(false)}>Cancel</Button>
-              <Button
-                onClick={handleConfirmDelete}
-                color="error"
-                variant="contained"
-                disabled={deleting}
-              >
-                {deleting ? <CircularProgress size={20} /> : "Delete"}
-              </Button>
-            </DialogActions>
-          </Dialog>
-        </>
+                <Typography variant="caption" color="textSecondary">
+                  Steps: {flow.steps.length}
+                </Typography>
+              </CardContent>
+              <CardActions>
+                <Stack direction="row" spacing={1}>
+                  {!flow.isDefault && (
+                    <Button
+                      size="small"
+                      startIcon={<StarBorderIcon />}
+                      onClick={() => handleSetDefault(flow.id)}
+                      sx={{ textTransform: "none" }}
+                    >
+                      Default
+                    </Button>
+                  )}
+                  <Button
+                    size="small"
+                    startIcon={<EditIcon />}
+                    onClick={() => handleEditClick(flow.id)}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="small"
+                    color="error"
+                    startIcon={<DeleteIcon />}
+                    onClick={() => handleDeleteClick(flow.id)}
+                    disabled={flow.isDefault}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Delete
+                  </Button>
+                </Stack>
+              </CardActions>
+            </Card>
+          ))}
+        </Stack>
       )}
+
+      <Dialog open={deleteDialog} onClose={() => setDeleteDialog(false)}>
+        <DialogTitle>Delete Approval Flow?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this approval flow? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialog(false)}>Cancel</Button>
+          <Button
+            onClick={handleConfirmDelete}
+            color="error"
+            variant="contained"
+            disabled={deleting}
+          >
+            {deleting ? <CircularProgress size={20} /> : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

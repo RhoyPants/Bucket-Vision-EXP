@@ -1,8 +1,8 @@
 import { Box, Typography, Stack, Alert } from "@mui/material";
-import { StructuredViewProps } from "./types";
+import { StructuredViewProps, getCompareTheme } from "./types";
 import ScopeCard from "./ScopeCard";
 
-export default function StructuredView({ project }: StructuredViewProps) {
+export default function StructuredView({ project, compareMode }: StructuredViewProps) {
   if (!project.scopes || project.scopes.length === 0) {
     return (
       <Box sx={{ p: 3, textAlign: "center" }}>
@@ -26,7 +26,11 @@ export default function StructuredView({ project }: StructuredViewProps) {
       {/* SCOPES LIST */}
       <Box>
         {project.scopes.map((scope) => (
-          <ScopeCard key={scope.id} scope={scope} />
+          <ScopeCard
+            key={scope.id}
+            scope={scope}
+            theme={compareMode ? getCompareTheme(scope.changeStatus) : undefined}
+          />
         ))}
       </Box>
     </Stack>

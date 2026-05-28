@@ -14,19 +14,14 @@ export const getProjects = () => {
     try {
       dispatch(setLoading(true));
 
-      console.log("📤 Fetching projects from:", axiosApi.defaults.baseURL + "/projects?full=true");
 
       // 🔥 FETCH FULL PROJECT DATA WITH MEMBERS
       const res = await axiosApi.get("/projects?full=true");
       
-      console.log("📥 Response status:", res.status);
-      console.log("📥 Response headers:", res.headers);
-      console.log("📥 Response data:", res.data);
       
       // Handle both direct array and nested data structure
       const projectsData = res.data.data || res.data;
       
-      console.log("✅ Projects loaded:", projectsData?.length || 0, "projects");
       
       dispatch(setProjects(projectsData));
 
@@ -110,7 +105,22 @@ export const createProject = (data: any) => {
 export const updateProject = (projectId: string, data: any) => {
   return async (dispatch: AppDispatch) => {
     try {
-      const res = await axiosApi.put(`/projects/${projectId}`, data);
+      let res;
+      try {
+        // Project update can be heavy (scopes/tasks sync), allow longer timeout.
+        res = await axiosApi.put(`/projects/${projectId}`, data, {
+          timeout: 45000,
+        });
+      } catch (err: any) {
+        // Retry once on timeout to handle transient backend slowdowns.
+        if (err?.code === "ECONNABORTED" || String(err?.message || "").toLowerCase().includes("timeout")) {
+          res = await axiosApi.put(`/projects/${projectId}`, data, {
+            timeout: 45000,
+          });
+        } else {
+          throw err;
+        }
+      }
 
       dispatch(updateProjectLocal(res.data)); // 🔥 no reload
 

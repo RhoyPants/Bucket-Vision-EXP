@@ -3,10 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/app/redux/store";
-import {
-  fetchVersionComparison,
-  selectVersionsForComparison,
-} from "@/app/redux/controllers/versioningController";
+import { fetchVersionComparison } from "@/app/redux/controllers/versioningController";
 import {
   Box,
   Button,
@@ -22,232 +19,153 @@ import {
   Grid,
   Card,
   CardContent,
-  Collapse,
-  IconButton,
-  Divider,
-  Tooltip,
+  ButtonGroup,
 } from "@mui/material";
-import {
-  ArrowRight,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  ChevronDown,
-  ChevronRight,
-} from "lucide-react";
+import ViewWeekIcon from "@mui/icons-material/ViewWeek";
+import ViewAgendaIcon from "@mui/icons-material/ViewAgenda";
+import { ArrowRight, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import StructuredViewComponent from "@/app/(pages)/approvals/[projectId]/components/StructuredView";
+import GanttGridView from "@/app/(pages)/sprintManagement/Components/GridTableView";
+
+type ViewMode = "structured" | "gantt";
 
 interface CompareVersionsTabProps {
   projectId: string;
   pin: string;
 }
 
-//  Change status colors
-const statusColor = (status: string) => {
-  switch (status) {
-    case "MODIFIED":  return { bg: "#fef9c3", border: "#facc15", text: "#854d0e" };
-    case "ADDED":     return { bg: "#dcfce7", border: "#22c55e", text: "#14532d" };
-    case "REMOVED":   return { bg: "#fee2e2", border: "#ef4444", text: "#7f1d1d" };
-    default:          return { bg: "#f8fafc", border: "#e2e8f0", text: "#64748b" };
-  }
+const CHANGE_COLORS = {
+  ADDED: { bg: "#dcfce7", text: "#166534" },
+  REMOVED: { bg: "#fee2e2", text: "#991b1b" },
+  MODIFIED: { bg: "#dbeafe", text: "#1e40af" },
 };
 
-const statusLabel = (status: string) => {
-  switch (status) {
-    case "MODIFIED":  return { label: "Modified",  color: "warning" as const };
-    case "ADDED":     return { label: "Added",      color: "success" as const };
-    case "REMOVED":   return { label: "Removed",    color: "error"   as const };
-    default:          return { label: "Unchanged",  color: "default" as const };
-  }
+const getChangeCounts = (items: any[] = []) => {
+  return items.reduce(
+    (acc, item) => {
+      const status = item?.changeStatus;
+      if (status === "ADDED") acc.ADDED += 1;
+      if (status === "REMOVED") acc.REMOVED += 1;
+      if (status === "MODIFIED") acc.MODIFIED += 1;
+      return acc;
+    },
+    { ADDED: 0, REMOVED: 0, MODIFIED: 0 },
+  );
 };
 
-// Renders a single field diff inline — only colors the changed value
-function FieldDiff({ fieldName, v1, v2 }: { fieldName: string; v1: any; v2: any }) {
-  const fmt = (v: any) => {
-    if (v == null) return "—";
-    if (typeof v === "number" && fieldName.toLowerCase().includes("budget"))
-      return `₱${Number(v).toLocaleString()}`;
-    if (typeof v === "number" && fieldName.toLowerCase().includes("progress"))
-      return `${Number(v).toFixed(1)}%`;
-    return String(v);
-  };
-
-  return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
-      <Typography variant="caption" sx={{ color: "#6b7280", fontWeight: 600, mr: 0.5 }}>
-        {fieldName}:
-      </Typography>
-      <Typography
-        variant="caption"
-        sx={{ color: "#9ca3af", textDecoration: "line-through" }}
-      >
-        {fmt(v1)}
-      </Typography>
-      <Typography variant="caption" sx={{ color: "#6b7280", mx: 0.25 }}>→</Typography>
-      <Box
-        component="span"
-        sx={{
-          bgcolor: "#fef9c3",
-          border: "1px solid #facc15",
-          borderRadius: "4px",
-          px: 0.75,
-          py: 0.1,
-          fontSize: 11,
-          fontWeight: 700,
-          color: "#854d0e",
-        }}
-      >
-        {fmt(v2)}
-      </Box>
-    </Box>
+const filterBySide = (items: any[] = [], side: "v1" | "v2") => {
+  return items.filter((item) =>
+    side === "v1"
+      ? item?.changeStatus !== "ADDED"
+      : item?.changeStatus !== "REMOVED",
   );
-}
+};
 
-//  Subtask row
-function SubtaskRow({ subtask }: { subtask: any }) {
-  const { label, color } = statusLabel(subtask.changeStatus);
-  const isChanged = subtask.changeStatus !== "UNCHANGED";
+const toProgress = (value: any) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return Math.max(0, Math.min(100, num));
+};
 
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 0.5,
-        px: 2,
-        py: 0.75,
-        ml: 4,
-        borderLeft: "2px solid #e2e8f0",
-        bgcolor: "#fff",
-        mb: 0.5,
-        borderRadius: "0 4px 4px 0",
-      }}
-    >
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "#94a3b8", flexShrink: 0 }} />
-        <Typography variant="body2" sx={{ flex: 1, color: "#374151" }}>
-          {subtask.title}
-        </Typography>
-        <Chip label={label} color={color} size="small" sx={{ fontSize: 10, height: 18 }} />
-      </Box>
-      {isChanged && subtask.changedFields?.length > 0 && subtask.v1 && subtask.v2 && (
-        <Box sx={{ ml: 2.5, display: "flex", flexWrap: "wrap", gap: 1 }}>
-          {subtask.changedFields.map((f: string) => (
-            <FieldDiff key={f} fieldName={f} v1={subtask.v1[f]} v2={subtask.v2[f]} />
-          ))}
-        </Box>
-      )}
-    </Box>
-  );
-}
+const createSubtaskMap = (scopes: any[] = []) => {
+  const map = new Map();
 
-//  Task row
-function TaskRow({ task }: { task: any }) {
-  const [expanded, setExpanded] = useState(task.changeStatus !== "UNCHANGED");
-  const { label, color } = statusLabel(task.changeStatus);
-  const isChanged = task.changeStatus !== "UNCHANGED";
+  scopes.forEach((scope: any) => {
+    scope.tasks?.forEach((task: any) => {
+      task.subtasks?.forEach((subtask: any) => {
+        map.set(subtask.id, subtask);
+      });
+    });
+  });
 
-  return (
-    <Box sx={{ mb: 0.5 }}>
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 0.5,
-          px: 2,
-          py: 0.75,
-          ml: 2,
-          bgcolor: "#f9fafb",
-          border: "1px solid #e5e7eb",
-          borderRadius: 1,
-          cursor: task.subtasks?.length ? "pointer" : "default",
-        }}
-        onClick={() => task.subtasks?.length && setExpanded(!expanded)}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          {task.subtasks?.length > 0 ? (
-            expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />
-          ) : (
-            <Box sx={{ width: 12 }} />
-          )}
-          <Typography variant="body2" sx={{ flex: 1, fontWeight: 600, color: "#374151" }}>
-            {task.title}
-          </Typography>
-          <Chip label={label} color={color} size="small" sx={{ fontSize: 10, height: 18 }} />
-        </Box>
-        {isChanged && task.changedFields?.length > 0 && task.v1 && task.v2 && (
-          <Box sx={{ ml: 3, display: "flex", flexWrap: "wrap", gap: 1 }} onClick={(e) => e.stopPropagation()}>
-            {task.changedFields.map((f: string) => (
-              <FieldDiff key={f} fieldName={f} v1={task.v1[f]} v2={task.v2[f]} />
-            ))}
-          </Box>
-        )}
-      </Box>
-      <Collapse in={expanded}>
-        {task.subtasks?.map((sub: any) => (
-          <SubtaskRow key={sub.id} subtask={sub} />
-        ))}
-      </Collapse>
-    </Box>
-  );
-}
+  return map;
+};
 
-//  Scope card
-function ScopeCard({ scope }: { scope: any }) {
-  const [expanded, setExpanded] = useState(scope.changeStatus !== "UNCHANGED");
-  const { label, color } = statusLabel(scope.changeStatus);
-  const isChanged = scope.changeStatus !== "UNCHANGED";
+const mapScopesForSide = (
+  scopes: any[] = [],
+  side: "v1" | "v2",
+  subtaskMap: Map<string, any>,
+) => {
+  return filterBySide(scopes, side).map((scope: any, sIdx: number) => {
+    const scopeData = scope?.[side] || {};
 
-  return (
-    <Box sx={{ mb: 2 }}>
-      <Paper sx={{ border: "1px solid #e5e7eb", bgcolor: "#fff", overflow: "hidden" }}>
-        {/* Scope header */}
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 0.5,
-            px: 2,
-            py: 1.5,
-            cursor: scope.tasks?.length ? "pointer" : "default",
-            borderBottom: expanded && scope.tasks?.length ? "1px solid #f0f0f0" : "none",
-          }}
-          onClick={() => scope.tasks?.length && setExpanded(!expanded)}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <IconButton size="small" sx={{ p: 0 }}>
-              {scope.tasks?.length > 0
-                ? (expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)
-                : <Box sx={{ width: 16 }} />}
-            </IconButton>
-            <Typography variant="subtitle2" sx={{ flex: 1, fontWeight: 700, color: "#1f2937" }}>
-              {scope.name}
-            </Typography>
-            <Chip label={label} color={color} size="small" sx={{ fontWeight: 600, fontSize: 11 }} />
-          </Box>
-          {/* Only the changed fields are highlighted */}
-          {isChanged && scope.changedFields?.length > 0 && scope.v1 && scope.v2 && (
-            <Box sx={{ ml: 4.5, display: "flex", flexWrap: "wrap", gap: 1 }} onClick={(e) => e.stopPropagation()}>
-              {scope.changedFields.map((f: string) => (
-                <FieldDiff key={f} fieldName={f} v1={scope.v1[f]} v2={scope.v2[f]} />
-              ))}
-            </Box>
-          )}
-        </Box>
+    return {
+      id: scope?.id ?? `scope-${sIdx}`,
+      name: scope?.name ?? "Untitled Scope",
 
-        {/* Tasks */}
-        <Collapse in={expanded}>
-          {scope.tasks?.length > 0 && (
-            <Box sx={{ px: 1, pb: 1.5, pt: 0.5 }}>
-              {scope.tasks.map((task: any) => (
-                <TaskRow key={task.id} task={task} />
-              ))}
-            </Box>
-          )}
-        </Collapse>
-      </Paper>
-    </Box>
-  );
-}
+      description: scopeData?.description ?? "",
+      budgetAllocated: scopeData?.budgetAllocated ?? 0,
+
+      progress: toProgress(scopeData?.progress),
+      overallProgress: toProgress(scopeData?.progress),
+
+      changeStatus: scope?.changeStatus,
+      changedFields: scope?.changedFields || [],
+
+      tasks: filterBySide(scope?.tasks || [], side).map(
+        (task: any, tIdx: number) => {
+          const taskData = task?.[side] || {};
+
+          return {
+            id: task?.id ?? `task-${sIdx}-${tIdx}`,
+            title: task?.title ?? "Untitled Task",
+
+            budgetAllocated: taskData?.budgetAllocated ?? 0,
+
+            progress: toProgress(taskData?.progress),
+            overallProgress: toProgress(taskData?.progress),
+
+            changeStatus: task?.changeStatus,
+            changedFields: task?.changedFields || [],
+
+            subtasks: filterBySide(task?.subtasks || [], side).map(
+              (subtask: any, stIdx: number) => {
+                // 🔥 MERGE FULL DETAIL DATA
+                let fullSubtask = subtaskMap.get(subtask.id);
+
+                // 🔥 FALLBACK USING TITLE
+                if (!fullSubtask) {
+                  fullSubtask = Array.from(subtaskMap.values()).find(
+                    (s: any) =>
+                      s.title?.trim()?.toLowerCase() ===
+                      (subtask?.[side]?.title ?? subtask?.title ?? "")
+                        .trim()
+                        .toLowerCase(),
+                  );
+                }
+
+                const subtaskData = {
+                  ...(subtask?.[side] || {}),
+                  ...(fullSubtask || {}),
+                };
+
+                return {
+                  id: subtask?.id ?? `subtask-${sIdx}-${tIdx}-${stIdx}`,
+
+                  title: subtaskData?.title ?? "Untitled Subtask",
+
+                  progress: toProgress(subtaskData?.progress),
+                  overallProgress: toProgress(subtaskData?.progress),
+
+                  projectedStartDate: subtaskData?.projectedStartDate ?? null,
+
+                  projectedEndDate: subtaskData?.projectedEndDate ?? null,
+
+                  budgetAllocated: subtaskData?.budgetAllocated ?? 0,
+
+                  budgetPercent: subtaskData?.budgetPercent ?? 0,
+
+                  changeStatus: subtask?.changeStatus,
+                  changedFields: subtask?.changedFields || [],
+                };
+              },
+            ),
+          };
+        },
+      ),
+    };
+  });
+};
 //  Main component
 export default function CompareVersionsTab({
   projectId,
@@ -259,6 +177,11 @@ export default function CompareVersionsTab({
 
   const [selectedV1, setSelectedV1] = useState<string>("");
   const [selectedV2, setSelectedV2] = useState<string>("");
+  const [v1Details, setV1Details] = useState<any>(null);
+  const [v2Details, setV2Details] = useState<any>(null);
+  const [v1ViewMode, setV1ViewMode] = useState<ViewMode>("structured");
+  const [v2ViewMode, setV2ViewMode] = useState<ViewMode>("structured");
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
   const versions = useMemo(() => {
     return allVersions.length > 0 ? allVersions : versionHistory;
@@ -275,17 +198,55 @@ export default function CompareVersionsTab({
   const handleCompare = async () => {
     if (selectedV1 && selectedV2 && selectedV1 !== selectedV2) {
       try {
-        await dispatch(fetchVersionComparison(selectedV1, selectedV2));
+        setDetailsLoading(true);
+        setV1Details(null);
+        setV2Details(null);
+
+        // Backend now returns both full details + comparison in one response.
+        const compareData = await dispatch(
+          fetchVersionComparison(selectedV1, selectedV2) as any,
+        );
+
+        setV1Details(compareData?.v1Detail || null);
+        setV2Details(compareData?.v2Detail || null);
+
+        setV1ViewMode("structured");
+        setV2ViewMode("structured");
       } catch (err) {
         console.error("Error comparing versions:", err);
+      } finally {
+        setDetailsLoading(false);
       }
     }
   };
 
-  const comparison = comparisonVersions.comparison;
+  const comparePayload = comparisonVersions.comparison;
+  const comparison = comparePayload?.comparison || comparePayload;
   const summary = comparison?.summary;
   const cVersions = comparison?.versions;
+  const v1SubtaskMap = useMemo(
+    () => createSubtaskMap(v1Details?.scopes || []),
+    [v1Details],
+  );
+
+  const v2SubtaskMap = useMemo(
+    () => createSubtaskMap(v2Details?.scopes || []),
+    [v2Details],
+  );
   const scopes = comparison?.scopes ?? [];
+
+  const scopedV1 = useMemo(
+    () => scopes.length > 0 ? mapScopesForSide(scopes, "v1", v1SubtaskMap) : v1Details?.scopes || [],
+    [scopes, v1SubtaskMap, v1Details],
+  );
+
+  const scopedV2 = useMemo(
+    () => scopes.length > 0 ? mapScopesForSide(scopes, "v2", v2SubtaskMap) : v2Details?.scopes || [],
+    [scopes, v2SubtaskMap, v2Details],
+  );
+
+  const changeCounts = useMemo(() => getChangeCounts(scopes), [scopes]);
+  const compareMode = scopes.length > 0;
 
   const formatBudget = (v: number) =>
     new Intl.NumberFormat("en-US", {
@@ -488,165 +449,223 @@ export default function CompareVersionsTab({
             </Box>
           )}
 
-          {/* Version header compare */}
-          {cVersions && (
-            <Paper sx={{ mb: 3, p: 2, border: "1px solid #e5e7eb" }}>
-              <Grid container spacing={0}>
-                <Grid size={{ xs: 3 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{ fontWeight: 700, color: "#6b7280" }}
-                  >
-                    FIELD
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 4 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{ fontWeight: 700, color: "#6b7280" }}
-                  >
-                    {cVersions.v1?.versionLabel ?? "v1"} (Base)
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 4 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{ fontWeight: 700, color: "#6b7280" }}
-                  >
-                    {cVersions.v2?.versionLabel ?? "v2"} (New)
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 1 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{ fontWeight: 700, color: "#6b7280" }}
-                  >
-                    DIFF
-                  </Typography>
-                </Grid>
-              </Grid>
-              <Divider sx={{ my: 1 }} />
-              {[
-                {
-                  field: "Total Budget",
-                  v1: formatBudget(cVersions.v1?.totalBudget ?? 0),
-                  v2: formatBudget(cVersions.v2?.totalBudget ?? 0),
-                  diff: `${summary?.headerChanges?.budgetDiff > 0 ? "+" : ""}${formatBudget(summary?.headerChanges?.budgetDiff ?? 0)}`,
-                  changed: (summary?.headerChanges?.budgetDiff ?? 0) !== 0,
-                },
-                {
-                  field: "Expected End Date",
-                  v1: new Date(
-                    cVersions.v1?.expectedEndDate ?? "",
-                  ).toLocaleDateString(),
-                  v2: new Date(
-                    cVersions.v2?.expectedEndDate ?? "",
-                  ).toLocaleDateString(),
-                  diff: `${summary?.headerChanges?.endDateDiff > 0 ? "+" : ""}${summary?.headerChanges?.endDateDiff ?? 0} days`,
-                  changed: (summary?.headerChanges?.endDateDiff ?? 0) !== 0,
-                },
-                {
-                  field: "Progress",
-                  v1: `${cVersions.v1?.progress?.toFixed(1) ?? 0}%`,
-                  v2: `${cVersions.v2?.progress?.toFixed(1) ?? 0}%`,
-                  diff: `${summary?.headerChanges?.progressDiff > 0 ? "+" : ""}${(summary?.headerChanges?.progressDiff ?? 0).toFixed(1)}%`,
-                  changed: (summary?.headerChanges?.progressDiff ?? 0) !== 0,
-                },
-                {
-                  field: "Status",
-                  v1: cVersions.v1?.status ?? "",
-                  v2: cVersions.v2?.status ?? "",
-                  diff:
-                    cVersions.v1?.status !== cVersions.v2?.status
-                      ? "Changed"
-                      : "Same",
-                  changed: cVersions.v1?.status !== cVersions.v2?.status,
-                },
-              ].map((row) => (
-                <Grid
-                  container
-                  spacing={0}
-                  key={row.field}
-                  sx={{
-                    py: 0.75,
-                    bgcolor: row.changed ? "#fef9c3" : "transparent",
-                    borderRadius: 0.5,
-                    px: 0.5,
-                  }}
-                >
-                  <Grid size={{ xs: 3 }}>
-                    <Typography
-                      variant="body2"
-                      sx={{ fontWeight: 600, color: "#374151" }}
-                    >
-                      {row.field}
-                    </Typography>
-                  </Grid>
-                  <Grid size={{ xs: 4 }}>
-                    <Typography variant="body2" color="textSecondary">
-                      {row.v1}
-                    </Typography>
-                  </Grid>
-                  <Grid size={{ xs: 4 }}>
-                    <Typography variant="body2" color="textSecondary">
-                      {row.v2}
-                    </Typography>
-                  </Grid>
-                  <Grid size={{ xs: 1 }}>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        fontWeight: 700,
-                        color: row.changed ? "#b45309" : "#6b7280",
-                      }}
-                    >
-                      {row.diff}
-                    </Typography>
-                  </Grid>
-                </Grid>
-              ))}
-            </Paper>
-          )}
+          {/* VERSION DETAILS - SIDE BY SIDE WITH TOGGLES */}
+          <Box sx={{ mt: 4, mb: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
+              📊 Version Details Comparison
+            </Typography>
 
-          {/* Scope tree */}
-          {scopes.length > 0 && (
-            <Box>
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 700, mb: 2, color: "#1f2937" }}
-              >
-                Scope Changes
-              </Typography>
-              <Box sx={{ mb: 2, display: "flex", gap: 1 }}>
-                {[
-                  { label: "Unchanged", bg: "#f8fafc", border: "#e2e8f0" },
-                  { label: "Modified", bg: "#fef9c3", border: "#facc15" },
-                  { label: "Added", bg: "#dcfce7", border: "#22c55e" },
-                  { label: "Removed", bg: "#fee2e2", border: "#ef4444" },
-                ].map((l) => (
-                  <Box
-                    key={l.label}
-                    sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
+              <Chip
+                size="small"
+                label={`Added: ${changeCounts.ADDED}`}
+                sx={{
+                  bgcolor: CHANGE_COLORS.ADDED.bg,
+                  color: CHANGE_COLORS.ADDED.text,
+                  fontWeight: 700,
+                }}
+              />
+              <Chip
+                size="small"
+                label={`Removed: ${changeCounts.REMOVED}`}
+                sx={{
+                  bgcolor: CHANGE_COLORS.REMOVED.bg,
+                  color: CHANGE_COLORS.REMOVED.text,
+                  fontWeight: 700,
+                }}
+              />
+              <Chip
+                size="small"
+                label={`Modified: ${changeCounts.MODIFIED}`}
+                sx={{
+                  bgcolor: CHANGE_COLORS.MODIFIED.bg,
+                  color: CHANGE_COLORS.MODIFIED.text,
+                  fontWeight: 700,
+                }}
+              />
+            </Box>
+
+            {detailsLoading ? (
+              <Card sx={{ p: 4, textAlign: "center" }}>
+                <CircularProgress size={40} sx={{ mb: 2 }} />
+                <Typography variant="body2" color="textSecondary">
+                  Loading version details...
+                </Typography>
+              </Card>
+            ) : (
+              <Grid container spacing={2}>
+                {/* VERSION 1 - LEFT COLUMN */}
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Paper
+                    sx={{
+                      p: 2,
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 1.5,
+                      bgcolor: "#ffffff",
+                    }}
                   >
                     <Box
                       sx={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: "50%",
-                        bgcolor: l.border,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        mb: 2,
+                        pb: 1.5,
+                        borderBottom: "1px solid #e5e7eb",
                       }}
-                    />
-                    <Typography variant="caption" color="textSecondary">
-                      {l.label}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-              {scopes.map((scope: any) => (
-                <ScopeCard key={scope.id} scope={scope} />
-              ))}
-            </Box>
-          )}
+                    >
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                      >
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ fontWeight: 700 }}
+                        >
+                          📌 Version 1 (Base)
+                        </Typography>
+                        <Chip
+                          size="small"
+                          label="Removed + Modified"
+                          sx={{
+                            bgcolor: "#fff7ed",
+                            color: "#9a3412",
+                            fontWeight: 700,
+                            height: 20,
+                            fontSize: 10,
+                          }}
+                        />
+                      </Box>
+                      <ButtonGroup variant="outlined" size="small">
+                        <Button
+                          onClick={() => setV1ViewMode("structured")}
+                          variant={
+                            v1ViewMode === "structured"
+                              ? "contained"
+                              : "outlined"
+                          }
+                          startIcon={<ViewWeekIcon sx={{ fontSize: 16 }} />}
+                        >
+                          Structured
+                        </Button>
+                        <Button
+                          onClick={() => setV1ViewMode("gantt")}
+                          variant={
+                            v1ViewMode === "gantt" ? "contained" : "outlined"
+                          }
+                          startIcon={<ViewAgendaIcon sx={{ fontSize: 16 }} />}
+                        >
+                          Gantt
+                        </Button>
+                      </ButtonGroup>
+                    </Box>
+
+                    <Box sx={{ overflowX: "auto", minHeight: 400 }}>
+                      {v1ViewMode === "structured" ? (
+                        <StructuredViewComponent
+                          project={{
+                            id: v1Details?.id,
+                            name: v1Details?.name,
+                            scopes: scopedV1,
+                          }}
+                          compareMode={compareMode}
+                        />
+                      ) : (
+                        <GanttGridView
+                          projectId={v1Details?.id}
+                          project={v1Details}
+                        />
+                      )}
+                    </Box>
+                  </Paper>
+                </Grid>
+
+                {/* VERSION 2 - RIGHT COLUMN */}
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Paper
+                    sx={{
+                      p: 2,
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 1.5,
+                      bgcolor: "#ffffff",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        mb: 2,
+                        pb: 1.5,
+                        borderBottom: "1px solid #e5e7eb",
+                      }}
+                    >
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                      >
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ fontWeight: 700 }}
+                        >
+                          📌 Version 2 (Comparison)
+                        </Typography>
+                        <Chip
+                          size="small"
+                          label="Added + Modified"
+                          sx={{
+                            bgcolor: "#ecfdf5",
+                            color: "#065f46",
+                            fontWeight: 700,
+                            height: 20,
+                            fontSize: 10,
+                          }}
+                        />
+                      </Box>
+                      <ButtonGroup variant="outlined" size="small">
+                        <Button
+                          onClick={() => setV2ViewMode("structured")}
+                          variant={
+                            v2ViewMode === "structured"
+                              ? "contained"
+                              : "outlined"
+                          }
+                          startIcon={<ViewWeekIcon sx={{ fontSize: 16 }} />}
+                        >
+                          Structured
+                        </Button>
+                        <Button
+                          onClick={() => setV2ViewMode("gantt")}
+                          variant={
+                            v2ViewMode === "gantt" ? "contained" : "outlined"
+                          }
+                          startIcon={<ViewAgendaIcon sx={{ fontSize: 16 }} />}
+                        >
+                          Gantt
+                        </Button>
+                      </ButtonGroup>
+                    </Box>
+
+                    <Box sx={{ overflowX: "auto", minHeight: 400 }}>
+                      {v2ViewMode === "structured" ? (
+                        <StructuredViewComponent
+                          project={{
+                            id: v2Details?.id,
+                            name: v2Details?.name,
+                            scopes: scopedV2,
+                          }}
+                          compareMode={compareMode}
+                        />
+                      ) : (
+                        <GanttGridView
+                          projectId={v2Details?.id}
+                          project={v2Details}
+                        />
+                      )}
+                    </Box>
+                  </Paper>
+                </Grid>
+              </Grid>
+            )}
+          </Box>
         </Box>
       )}
 

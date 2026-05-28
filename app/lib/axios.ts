@@ -15,8 +15,8 @@ const axiosApi = axios.create({
     "Content-Type": "application/json",
     "Accept": "application/json",
   },
-  // Add timeout
-  timeout: 10000,
+  // Keep a safer global timeout for heavier endpoints
+  timeout: 30000,
   // Don't validate status to handle all responses
   validateStatus: () => true,
   // Allow credentials (cookies, auth headers)
@@ -41,7 +41,6 @@ axiosApi.interceptors.request.use(
       config.params = { ...config.params };
     }
 
-    console.log(`📤 [${config.method?.toUpperCase()}] ${config.baseURL}${config.url}`);
 
     return config;
   },
@@ -56,7 +55,6 @@ axiosApi.interceptors.response.use(
   (response) => {
     // Log successful responses
     if (response.status >= 200 && response.status < 300) {
-      console.log(`✅ [${response.status}] Response received`);
       return response;
     }
 
@@ -95,7 +93,7 @@ axiosApi.interceptors.response.use(
 
     // Network-level error handling
     if (error.code === "ECONNABORTED") {
-      const msg = "❌ Request timeout - Server not responding";
+      const msg = "❌ Request timeout - Server not responding in time";
       console.error(msg);
       return Promise.reject(new Error(msg));
     }

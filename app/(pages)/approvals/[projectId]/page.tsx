@@ -203,7 +203,7 @@ export default function ApprovalReviewPage() {
               border: "1px solid #e5e7eb",
               flex: 1,
               overflowY: "auto",
-              height: { xs: "auto", md: "calc(100% - 200px)" },
+              maxHeight: "auto",
             }}
           >
             <ApprovalAuditTrail

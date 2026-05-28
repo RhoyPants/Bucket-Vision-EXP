@@ -1,5 +1,5 @@
 import { Box, Button, TextField, Typography, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Alert, Chip } from "@mui/material";
-import { useState } from "react";
+import React, { useState } from "react";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import WarningIcon from "@mui/icons-material/Warning";
@@ -36,7 +36,7 @@ interface ScopeCardProps {
   onAddSubtask: (taskId: string) => void;
 }
 
-export default function ScopeCard({
+function ScopeCard({
   scope,
   scopeEdit,
   setScopeEdit,
@@ -368,3 +368,5 @@ export default function ScopeCard({
     </>
   );
 }
+
+export default React.memo(ScopeCard);

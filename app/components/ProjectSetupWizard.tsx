@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Box,
   Stepper,
@@ -49,6 +49,7 @@ import {
   updateSubtask,
   deleteSubtask,
 } from "@/app/redux/controllers/subTaskController";
+import { getEngagedUsers, getProjectMembers } from "@/app/redux/controllers/projectMemberController";
 import { submitProjectForApproval } from "@/app/redux/controllers/approvalController";
 import {
   validateProjectForm,
@@ -69,6 +70,7 @@ import {
 import {
   getBusinessUnitsDropdown,
 } from "@/app/api-service/businessUnitService";
+
 
 const WIZARD_STEPS = ["Create Project", "Team Management", "Project Structure", "Confirmation & Summary"];
 
@@ -154,6 +156,10 @@ export default function ProjectSetupWizard({
   // DIALOG STATE
   const [submitConfirm, setSubmitConfirm] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
+  const [draftSuccessOpen, setDraftSuccessOpen] = useState(false);
+
+  // GET PROJECT MEMBERS FROM REDUX
+  const { projectMembers } = useAppSelector((state) => state.projectMembers);
 
   // FETCH PROJECT (if editing)
   useEffect(() => {
@@ -162,44 +168,6 @@ export default function ProjectSetupWizard({
         setLoading(true);
         const data = await dispatch(getProjectFull(projectId!));
         setProject(data);
-        // Pre-fill form with existing project data
-        if (data) {
-          setProjectForm({
-            name: data.name || "",
-            description: data.description || "",
-            location: {
-              regionCode: data.location?.regionCode || "",
-              regionName: data.location?.regionName || "",
-              provinceCode: data.location?.provinceCode || "",
-              provinceName: data.location?.provinceName || "",
-              cityCode: data.location?.cityCode || "",
-              cityName: data.location?.cityName || "",
-              barangayCode: data.location?.barangayCode || "",
-              barangayName: data.location?.barangayName || "",
-              street: data.location?.street || "",
-            },
-            businessUnit: data.businessUnit || "",
-            entity: data.entity || "",
-            startDate: data.startDate?.slice(0, 10) || "",
-            expectedEndDate: data.expectedEndDate?.slice(0, 10) || "",
-            pin: data.pin || "",
-            priority: data.priority || "Medium",
-            totalBudget: data.totalBudget || 0,
-          });
-          // Pre-fill work schedule if exists
-          if (data.monday !== undefined) {
-            setWorkSchedule({
-              monday: data.monday ?? true,
-              tuesday: data.tuesday ?? true,
-              wednesday: data.wednesday ?? true,
-              thursday: data.thursday ?? true,
-              friday: data.friday ?? true,
-              saturday: data.saturday ?? false,
-              sunday: data.sunday ?? false,
-              includeGlobalHolidays: data.includeGlobalHolidays ?? true,
-            });
-          }
-        }
       } catch (error) {
         console.error("Error loading project:", error);
       } finally {
@@ -211,6 +179,77 @@ export default function ProjectSetupWizard({
       fetchProject();
     }
   }, [projectId, dispatch]);
+
+  // FETCH PROJECT MEMBERS FROM REDUX
+  useEffect(() => {
+    if (projectId) {
+      dispatch(getProjectMembers(projectId) as any);
+    }
+  }, [projectId, dispatch]);
+
+  useEffect(() => {
+    if (!project) return;
+
+    setProjectForm({
+      name: project.name || "",
+      description: project.description || "",
+      location: {
+        regionCode: project.location?.regionCode || "",
+        regionName: project.location?.regionName || "",
+        provinceCode: project.location?.provinceCode || "",
+        provinceName: project.location?.provinceName || "",
+        cityCode: project.location?.cityCode || "",
+        cityName: project.location?.cityName || "",
+        barangayCode: project.location?.barangayCode || "",
+        barangayName: project.location?.barangayName || "",
+        street: project.location?.street || "",
+      },
+      businessUnit: project.businessUnit || "",
+      entity: project.entity || "",
+      startDate: project.startDate ? project.startDate.split("T")[0] : "",
+      expectedEndDate: project.expectedEndDate
+        ? project.expectedEndDate.split("T")[0]
+        : "",
+      pin: project.pin || "",
+      priority: project.priority || "Medium",
+      totalBudget: project.totalBudget || 0,
+    });
+
+    setWorkSchedule({
+      monday: project.monday ?? true,
+      tuesday: project.tuesday ?? true,
+      wednesday: project.wednesday ?? true,
+      thursday: project.thursday ?? true,
+      friday: project.friday ?? true,
+      saturday: project.saturday ?? false,
+      sunday: project.sunday ?? false,
+      includeGlobalHolidays:
+        project.includeHolidays ?? project.includeGlobalHolidays ?? false,
+    });
+
+    const hydrateLocationHierarchy = async () => {
+      try {
+        if (project.location?.regionCode) {
+          const provinceRes = await getProvincesByRegion(project.location.regionCode);
+          setProvinces(provinceRes || []);
+        }
+
+        if (project.location?.provinceCode) {
+          const cityRes = await getCitiesByProvince(project.location.provinceCode);
+          setCities(cityRes || []);
+        }
+
+        if (project.location?.cityCode) {
+          const brgyRes = await getBarangaysByCity(project.location.cityCode);
+          setBarangays(brgyRes || []);
+        }
+      } catch (err) {
+        console.error("Failed location hydration", err);
+      }
+    };
+
+    hydrateLocationHierarchy();
+  }, [project]);
 
   // Load regions from backend
   useEffect(() => {
@@ -247,11 +286,6 @@ export default function ProjectSetupWizard({
         setProvinces(data);
         setCities([]);
         setBarangays([]);
-        // Clear dependent fields
-        setProjectForm((prev: any) => ({
-          ...prev,
-          location: { ...prev.location, provinceCode: "", cityCode: "", barangayCode: "" },
-        }));
       } catch (err) {
         console.error("Failed to load provinces:", err);
       }
@@ -267,11 +301,6 @@ export default function ProjectSetupWizard({
         const data = await getCitiesByProvince(projectForm.location.provinceCode);
         setCities(data);
         setBarangays([]);
-        // Clear dependent fields
-        setProjectForm((prev: any) => ({
-          ...prev,
-          location: { ...prev.location, cityCode: "", barangayCode: "" },
-        }));
       } catch (err) {
         console.error("Failed to load cities:", err);
       }
@@ -286,11 +315,6 @@ export default function ProjectSetupWizard({
       try {
         const data = await getBarangaysByCity(projectForm.location.cityCode);
         setBarangays(data);
-        // Clear dependent fields
-        setProjectForm((prev: any) => ({
-          ...prev,
-          location: { ...prev.location, barangayCode: "" },
-        }));
       } catch (err) {
         console.error("Failed to load barangays:", err);
       }
@@ -298,12 +322,29 @@ export default function ProjectSetupWizard({
     loadBarangays();
   }, [projectForm.location.cityCode]);
 
+  // Load engaged users once when entering Project Structure step.
+  useEffect(() => {
+    if (activeStep === 2 && projectId) {
+      dispatch(getEngagedUsers(projectId) as any);
+    }
+  }, [activeStep, projectId, dispatch]);
+
+  // Auto-redirect when draft is saved
+  useEffect(() => {
+    if (draftSuccessOpen) {
+      const timer = setTimeout(() => {
+        router.push("/projects");
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [draftSuccessOpen, router]);
+
   // REFRESH PROJECT AFTER CHANGES
-  const refreshProject = async () => {
+  const refreshProject = useCallback(async () => {
     if (!projectId) return;
     const data = await dispatch(getProjectFull(projectId));
     setProject(data);
-  };
+  }, [projectId, dispatch]);
 
   // Field blur handler for project form
   const handleProjectFieldBlur = (fieldName: string) => {
@@ -313,7 +354,7 @@ export default function ProjectSetupWizard({
   // ===========================
   // SCOPE HANDLERS
   // ===========================
-  const handleAddScope = async () => {
+  const handleAddScope = useCallback(async () => {
     if (!scopeForm.name.trim()) {
       alert("Scope name is required");
       return;
@@ -348,9 +389,9 @@ export default function ProjectSetupWizard({
     } finally {
       setSaving(false);
     }
-  };
+  }, [scopeForm, projectId, project, dispatch, refreshProject]);
 
-  const handleUpdateScope = async () => {
+  const handleUpdateScope = useCallback(async () => {
     if (!scopeEdit?.name.trim()) {
       alert("Scope name is required");
       return;
@@ -372,9 +413,9 @@ export default function ProjectSetupWizard({
     } finally {
       setSaving(false);
     }
-  };
+  }, [scopeEdit, dispatch, refreshProject]);
 
-  const handleDeleteScope = async (scopeId: string) => {
+  const handleDeleteScope = useCallback(async (scopeId: string) => {
     if (window.confirm("Delete this scope and all tasks?")) {
       try {
         setSaving(true);
@@ -387,12 +428,12 @@ export default function ProjectSetupWizard({
         setSaving(false);
       }
     }
-  };
+  }, [dispatch, refreshProject]);
 
   // ===========================
   // TASK HANDLERS
   // ===========================
-  const handleAddTask = async (scopeId: string) => {
+  const handleAddTask = useCallback(async (scopeId: string) => {
     const data = taskInputs[scopeId];
     if (!data?.title) {
       alert("Task title is required");
@@ -428,9 +469,9 @@ export default function ProjectSetupWizard({
     } finally {
       setSaving(false);
     }
-  };
+  }, [taskInputs, projectId, project, dispatch, refreshProject]);
 
-  const handleUpdateTask = async (taskId: string, updates: any) => {
+  const handleUpdateTask = useCallback(async (taskId: string, updates: any) => {
     try {
       setSaving(true);
       const scope = project?.scopes.find((s: any) => 
@@ -456,9 +497,9 @@ export default function ProjectSetupWizard({
     } finally {
       setSaving(false);
     }
-  };
+  }, [project, dispatch, refreshProject]);
 
-  const handleDeleteTask = async (taskId: string) => {
+  const handleDeleteTask = useCallback(async (taskId: string) => {
     if (window.confirm("Delete this task and all subtasks?")) {
       try {
         setSaving(true);
@@ -471,12 +512,12 @@ export default function ProjectSetupWizard({
         setSaving(false);
       }
     }
-  };
+  }, [dispatch, refreshProject]);
 
   // ===========================
   // SUBTASK HANDLERS
   // ===========================
-  const handleAddSubtask = async (taskId: string) => {
+  const handleAddSubtask = useCallback(async (taskId: string) => {
     const data = subtaskInputs[taskId];
     if (!data?.title) {
       alert("Subtask title is required");
@@ -522,9 +563,9 @@ export default function ProjectSetupWizard({
     } finally {
       setSaving(false);
     }
-  };
+  }, [subtaskInputs, projectId, project, dispatch, refreshProject]);
 
-  const handleUpdateSubtask = async (id: string, taskId: string) => {
+  const handleUpdateSubtask = useCallback(async (id: string, taskId: string) => {
     const data = subtaskInputs[taskId];
 
     try {
@@ -560,9 +601,9 @@ export default function ProjectSetupWizard({
     } finally {
       setSaving(false);
     }
-  };
+  }, [subtaskInputs, project, dispatch, refreshProject]);
 
-  const handleDeleteSubtask = async (id: string, taskId: string) => {
+  const handleDeleteSubtask = useCallback(async (id: string, taskId: string) => {
     if (window.confirm("Delete this subtask?")) {
       try {
         setSaving(true);
@@ -575,7 +616,13 @@ export default function ProjectSetupWizard({
         setSaving(false);
       }
     }
-  };
+  }, [dispatch, refreshProject]);
+
+  const sortedScopes = useMemo(() => {
+    return [...(project?.scopes || [])].sort(
+      (a: any, b: any) => (a.order ?? 0) - (b.order ?? 0)
+    );
+  }, [project?.scopes]);
 
   // SAVE PROJECT DETAILS (called from project setup step)
   const handleSaveProjectDetails = async () => {
@@ -608,8 +655,12 @@ export default function ProjectSetupWizard({
         }
       } else if (projectId) {
         // Update existing project
-        await dispatch(updateProject(projectId, payload));
-        await refreshProject();
+        const updated = await dispatch(updateProject(projectId, payload));
+        if (updated) {
+          setProject(updated);
+        }
+        // Do not block step transition on full refresh; run it in background.
+        void refreshProject();
       }
       
       setProjectErrors([]);
@@ -677,14 +728,15 @@ export default function ProjectSetupWizard({
       setSaving(true);
       if (projectId) {
         await dispatch(updateProject(projectId, { status: "DRAFT" }));
-        alert("✅ Project saved as draft");
+        setDraftSuccessOpen(true);
+        setSaving(false);
       } else {
-        alert("⚠️ Please save project details first");
+        setSubmitMessage("⚠️ Please save project details first");
+        setSaving(false);
       }
     } catch (error) {
       console.error("Error saving draft:", error);
-      alert("Failed to save draft");
-    } finally {
+      setSubmitMessage("❌ Failed to save draft");
       setSaving(false);
     }
   };
@@ -856,7 +908,7 @@ export default function ProjectSetupWizard({
 
                 {/* Scope List with Tasks & Subtasks */}
                 <ScopeList
-                  scopes={[...(project?.scopes || [])].sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))}
+                  scopes={sortedScopes}
                   scopeEdit={scopeEdit}
                   setScopeEdit={setScopeEdit}
                   taskInputs={taskInputs}
@@ -1112,22 +1164,74 @@ export default function ProjectSetupWizard({
                     <Typography variant="h6" fontWeight={700} mb={2}>
                       👥 Team Members
                     </Typography>
-                    <Typography sx={{ color: "#666", fontSize: "0.95rem" }}>
-                      {project?._count?.projectMembers || 0} member(s) assigned to this project
-                    </Typography>
-                    {project?.projectMembers && project.projectMembers.length > 0 && (
-                      <Stack spacing={1} sx={{ mt: 2 }}>
-                        {project.projectMembers.map((member: any) => (
-                          <Box key={member.userId} sx={{ p: 1.5, backgroundColor: "#f3f4f6", borderRadius: 1 }}>
-                            <Typography fontWeight={600} sx={{ fontSize: "0.9rem" }}>
-                              {member.user?.name}
-                            </Typography>
-                            <Typography sx={{ fontSize: "0.75rem", color: "#666" }}>
-                              {member.role} • {member.user?.email}
-                            </Typography>
-                          </Box>
-                        ))}
-                      </Stack>
+
+                    {/* OWNERS */}
+                    {projectMembers?.owner && projectMembers.owner.length > 0 && (
+                      <Box mb={2.5}>
+                        <Typography variant="subtitle2" fontWeight={700} sx={{ color: "#dc2626", mb: 1 }}>
+                          Owner
+                        </Typography>
+                        <Stack spacing={1}>
+                          {projectMembers.owner.map((member: any) => (
+                            <Box key={member.id} sx={{ p: 1.5, backgroundColor: "#fee2e2", borderRadius: 1, borderLeft: "3px solid #dc2626" }}>
+                              <Typography fontWeight={600} sx={{ fontSize: "0.9rem" }}>
+                                {member.user?.name || member.name || "Unknown"}
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.75rem", color: "#666" }}>
+                                {member.projectRole || member.role} • {member.user?.email || member.email || "—"}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
+
+                    {/* SUB-OWNERS */}
+                    {projectMembers?.subOwners && projectMembers.subOwners.length > 0 && (
+                      <Box mb={2.5}>
+                        <Typography variant="subtitle2" fontWeight={700} sx={{ color: "#ea580c", mb: 1 }}>
+                          Sub-Owners
+                        </Typography>
+                        <Stack spacing={1}>
+                          {projectMembers.subOwners.map((member: any) => (
+                            <Box key={member.id} sx={{ p: 1.5, backgroundColor: "#fed7aa", borderRadius: 1, borderLeft: "3px solid #ea580c" }}>
+                              <Typography fontWeight={600} sx={{ fontSize: "0.9rem" }}>
+                                {member.user?.name || member.name || "Unknown"}
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.75rem", color: "#666" }}>
+                                {member.projectRole || member.role} • {member.user?.email || member.email || "—"}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
+
+                    {/* MEMBERS */}
+                    {projectMembers?.members && projectMembers.members.length > 0 && (
+                      <Box>
+                        <Typography variant="subtitle2" fontWeight={700} sx={{ color: "#0369a1", mb: 1 }}>
+                          Members ({projectMembers.members.length})
+                        </Typography>
+                        <Stack spacing={1}>
+                          {projectMembers.members.map((member: any) => (
+                            <Box key={member.id} sx={{ p: 1.5, backgroundColor: "#e0f2fe", borderRadius: 1, borderLeft: "3px solid #0369a1" }}>
+                              <Typography fontWeight={600} sx={{ fontSize: "0.9rem" }}>
+                                {member.user?.name || member.name || "Unknown"}
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.75rem", color: "#666" }}>
+                                {member.projectRole || member.role} • {member.user?.email || member.email || "—"}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
+
+                    {!projectMembers?.owner?.length && !projectMembers?.subOwners?.length && !projectMembers?.members?.length && (
+                      <Typography sx={{ color: "#999", fontSize: "0.9rem" }}>
+                        No team members assigned yet
+                      </Typography>
                     )}
                   </CardContent>
                 </Card>
@@ -1295,6 +1399,32 @@ export default function ProjectSetupWizard({
         </DialogActions>
       </Dialog>
 
+      {/* SAVE DRAFT SUCCESS DIALOG */}
+      <Dialog
+        open={draftSuccessOpen}
+        onClose={() => setDraftSuccessOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>✅ Draft Saved</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mt: 1 }}>
+            Project was successfully saved as draft. Redirecting to Projects...
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setDraftSuccessOpen(false);
+              router.push("/projects");
+            }}
+          >
+            Go to Projects
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* SUBMISSION LOADING MODAL */}
       <Backdrop
         open={saving && submitConfirm === false && (submitMessage.includes("submitted") || !submitMessage)}
@@ -1306,9 +1436,6 @@ export default function ProjectSetupWizard({
       >
         <Stack alignItems="center" gap={3}>
           <CircularProgress color="inherit" size={60} />
-          <Typography fontWeight={600} fontSize={18}>
-            Submitting Project for Approval...
-          </Typography>
           <Typography fontSize={14} color="rgba(255, 255, 255, 0.8)">
             Please wait while we process your submission
           </Typography>

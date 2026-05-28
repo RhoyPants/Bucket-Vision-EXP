@@ -54,7 +54,6 @@ export const getPendingProjectsForApproval = () => async (dispatch: AppDispatch)
   dispatch(fetchPendingApprovalsStart());
   try {
     const response = await axios.get("/approvals/pending-projects");
-    console.log("✅ [getPendingProjectsForApproval] Response:", response.status, response.data);
     
     // Map nested approver data to flattened fields for frontend
     const mappedApprovals = (response.data.data || []).map((approval: any) => ({
