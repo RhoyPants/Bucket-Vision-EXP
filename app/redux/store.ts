@@ -20,7 +20,8 @@ import projectCalendarReducer from "./slices/projectCalendarSlice";
 import workScheduleReducer from "./slices/workScheduleSlice";
 import approvalStepUserReducer from "./slices/approvalStepUserSlice";
 import businessUnitReducer from "./slices/businessUnitSlice";
-// @ts-ignore
+import personalDashboardReducer from "./slices/personalDashboardSlice";
+// @ts-expect-error redux-logger has no bundled TypeScript declarations in this project.
 import logger from "redux-logger";
 
 export const store = configureStore({
@@ -44,6 +45,7 @@ export const store = configureStore({
     workSchedule: workScheduleReducer,
     approvalStepUser: approvalStepUserReducer,
     businessUnit: businessUnitReducer,
+    personalDashboard: personalDashboardReducer,
   },
   middleware: (getDefault) => getDefault().concat(logger),
   devTools: true,

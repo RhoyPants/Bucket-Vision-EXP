@@ -138,6 +138,7 @@ export default function SubtaskForm({
       <Box
         sx={{
           minWidth: 200,
+          minHeight: 270,
           borderRadius: 1,
           border: "2px dashed #6366f1",
           p: 2,
@@ -332,38 +333,7 @@ export default function SubtaskForm({
         disabled={saving}
       />
 
-      {/* Remarks */}
-      {/* <TextField
-        size="small"
-        label="Remarks (Optional)"
-        placeholder="Add remarks..."
-        multiline
-        rows={2}
-        value={form.remarks || ""}
-        onChange={(e) => handleChange("remarks", e.target.value)}
-        onBlur={() => handleBlur("remarks")}
-        error={touched.remarks && hasFieldError("remarks", errors)}
-        helperText={
-          touched.remarks
-            ? getFieldError("remarks", errors)
-            : `${form.remarks?.length || 0}/500`
-        }
-        disabled={saving}
-      /> */}
 
-      {/* Checklist Hint */}
-      <Box
-        sx={{
-          p: 1,
-          backgroundColor: "#f0fdf4",
-          border: "1px solid #bbf7d0",
-          borderRadius: 1,
-        }}
-      >
-        <Typography variant="caption" fontWeight={600} color="#166534">
-          💡 Tip: Add checklist items after creating the subtask by clicking Edit
-        </Typography>
-      </Box>
 
       {/* Actions */}
       <Box display="flex" gap={1}>

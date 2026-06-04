@@ -226,7 +226,6 @@ function VersioningPageContent() {
   }
 
   return (
-    <Layout>
       <Box
         sx={{
           minHeight: "100vh",
@@ -482,7 +481,7 @@ function VersioningPageContent() {
           />
         </Container>
       </Box>
-    </Layout>
+
   );
 }
 

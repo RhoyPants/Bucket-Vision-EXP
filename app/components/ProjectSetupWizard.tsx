@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Box,
   Stepper,
@@ -91,13 +91,15 @@ export default function ProjectSetupWizard({
   const router = useRouter();
   const { user } = useAppSelector((state) => state.auth);
   const { members } = useAppSelector((state) => state.user);
+  const [currentProjectId, setCurrentProjectId] = useState<string | undefined>(projectId);
 
   // WIZARD STATE
   const [activeStep, setActiveStep] = useState(initialStep);
   const [project, setProject] = useState<any>(initialData ?? null);
   const [loading, setLoading] = useState(!initialData && !!projectId);
   const [saving, setSaving] = useState(false);
-  const isCreatingNew = mode === "create" || !projectId;
+  const isCreatingNew = mode === "create" || !currentProjectId;
+  const activeStepRef = useRef(initialStep);
 
   // ===== PROJECT FORM STATE =====
   const [projectForm, setProjectForm] = useState<any>({
@@ -130,6 +132,7 @@ export default function ProjectSetupWizard({
   const [barangays, setBarangays] = useState<any[]>([]);
   const [businessUnits, setBusinessUnits] = useState<any[]>([]);
   const [entities, setEntities] = useState<string[]>(["GVI", "GVE", "HULMA"]);
+  const isHydratingLocationRef = useRef(false);
 
   // ===== WORK SCHEDULE STATE =====
   const [workSchedule, setWorkSchedule] = useState({
@@ -166,7 +169,7 @@ export default function ProjectSetupWizard({
     const fetchProject = async () => {
       try {
         setLoading(true);
-        const data = await dispatch(getProjectFull(projectId!));
+        const data = await dispatch(getProjectFull(currentProjectId!));
         setProject(data);
       } catch (error) {
         console.error("Error loading project:", error);
@@ -175,20 +178,30 @@ export default function ProjectSetupWizard({
       }
     };
 
-    if (projectId && !initialData) {
+    if (currentProjectId && !initialData) {
       fetchProject();
     }
-  }, [projectId, dispatch]);
+  }, [currentProjectId, initialData, dispatch]);
+
+  useEffect(() => {
+    setCurrentProjectId(projectId);
+  }, [projectId]);
 
   // FETCH PROJECT MEMBERS FROM REDUX
   useEffect(() => {
-    if (projectId) {
-      dispatch(getProjectMembers(projectId) as any);
+    if (currentProjectId) {
+      dispatch(getProjectMembers(currentProjectId) as any);
     }
-  }, [projectId, dispatch]);
+  }, [currentProjectId, dispatch]);
+
+  useEffect(() => {
+    activeStepRef.current = activeStep;
+  }, [activeStep]);
 
   useEffect(() => {
     if (!project) return;
+
+    isHydratingLocationRef.current = true;
 
     setProjectForm({
       name: project.name || "",
@@ -229,6 +242,9 @@ export default function ProjectSetupWizard({
 
     const hydrateLocationHierarchy = async () => {
       try {
+        // Location dropdown hierarchy is only needed on Step 0 (Create Project).
+        if (activeStepRef.current !== 0) return;
+
         if (project.location?.regionCode) {
           const provinceRes = await getProvincesByRegion(project.location.regionCode);
           setProvinces(provinceRes || []);
@@ -245,6 +261,8 @@ export default function ProjectSetupWizard({
         }
       } catch (err) {
         console.error("Failed location hydration", err);
+      } finally {
+        isHydratingLocationRef.current = false;
       }
     };
 
@@ -279,6 +297,8 @@ export default function ProjectSetupWizard({
 
   // Load provinces when region code changes
   useEffect(() => {
+    if (activeStep !== 0) return;
+    if (isHydratingLocationRef.current) return;
     if (!projectForm.location.regionCode) return;
     const loadProvinces = async () => {
       try {
@@ -291,10 +311,12 @@ export default function ProjectSetupWizard({
       }
     };
     loadProvinces();
-  }, [projectForm.location.regionCode]);
+  }, [activeStep, projectForm.location.regionCode]);
 
   // Load cities when province changes
   useEffect(() => {
+    if (activeStep !== 0) return;
+    if (isHydratingLocationRef.current) return;
     if (!projectForm.location.provinceCode) return;
     const loadCities = async () => {
       try {
@@ -306,10 +328,12 @@ export default function ProjectSetupWizard({
       }
     };
     loadCities();
-  }, [projectForm.location.provinceCode]);
+  }, [activeStep, projectForm.location.provinceCode]);
 
   // Load barangays when city changes
   useEffect(() => {
+    if (activeStep !== 0) return;
+    if (isHydratingLocationRef.current) return;
     if (!projectForm.location.cityCode) return;
     const loadBarangays = async () => {
       try {
@@ -320,14 +344,14 @@ export default function ProjectSetupWizard({
       }
     };
     loadBarangays();
-  }, [projectForm.location.cityCode]);
+  }, [activeStep, projectForm.location.cityCode]);
 
   // Load engaged users once when entering Project Structure step.
   useEffect(() => {
-    if (activeStep === 2 && projectId) {
-      dispatch(getEngagedUsers(projectId) as any);
+    if (activeStep === 2 && currentProjectId) {
+      dispatch(getEngagedUsers(currentProjectId) as any);
     }
-  }, [activeStep, projectId, dispatch]);
+  }, [activeStep, currentProjectId, dispatch]);
 
   // Auto-redirect when draft is saved
   useEffect(() => {
@@ -341,10 +365,10 @@ export default function ProjectSetupWizard({
 
   // REFRESH PROJECT AFTER CHANGES
   const refreshProject = useCallback(async () => {
-    if (!projectId) return;
-    const data = await dispatch(getProjectFull(projectId));
+    if (!currentProjectId) return;
+    const data = await dispatch(getProjectFull(currentProjectId));
     setProject(data);
-  }, [projectId, dispatch]);
+  }, [currentProjectId, dispatch]);
 
   // Field blur handler for project form
   const handleProjectFieldBlur = (fieldName: string) => {
@@ -360,7 +384,7 @@ export default function ProjectSetupWizard({
       return;
     }
 
-    if (!projectId) {
+    if (!currentProjectId) {
       alert("Project must be saved first");
       return;
     }
@@ -374,7 +398,7 @@ export default function ProjectSetupWizard({
       await dispatch(
         createScope({
           name: scopeForm.name,
-          projectId,
+          projectId: currentProjectId,
           budgetAllocated: budget,
           budgetPercent: percent,
           order: project.scopes?.length || 0,
@@ -389,7 +413,7 @@ export default function ProjectSetupWizard({
     } finally {
       setSaving(false);
     }
-  }, [scopeForm, projectId, project, dispatch, refreshProject]);
+  }, [scopeForm, currentProjectId, project, dispatch, refreshProject]);
 
   const handleUpdateScope = useCallback(async () => {
     if (!scopeEdit?.name.trim()) {
@@ -440,7 +464,7 @@ export default function ProjectSetupWizard({
       return;
     }
 
-    if (!projectId) return;
+    if (!currentProjectId) return;
 
     try {
       setSaving(true);
@@ -469,7 +493,7 @@ export default function ProjectSetupWizard({
     } finally {
       setSaving(false);
     }
-  }, [taskInputs, projectId, project, dispatch, refreshProject]);
+  }, [taskInputs, currentProjectId, project, dispatch, refreshProject]);
 
   const handleUpdateTask = useCallback(async (taskId: string, updates: any) => {
     try {
@@ -524,7 +548,7 @@ export default function ProjectSetupWizard({
       return;
     }
 
-    if (!projectId) return;
+    if (!currentProjectId) return;
 
     try {
       setSaving(true);
@@ -563,7 +587,7 @@ export default function ProjectSetupWizard({
     } finally {
       setSaving(false);
     }
-  }, [subtaskInputs, projectId, project, dispatch, refreshProject]);
+  }, [subtaskInputs, currentProjectId, project, dispatch, refreshProject]);
 
   const handleUpdateSubtask = useCallback(async (id: string, taskId: string) => {
     const data = subtaskInputs[taskId];
@@ -645,17 +669,22 @@ export default function ProjectSetupWizard({
         ...workSchedule,
       };
 
-      if (isCreatingNew && !projectId) {
+      if (isCreatingNew && !currentProjectId) {
         // Create new project
         const created = await dispatch(createProject(payload));
-        if (created?.id) {
-          // Update our projectId reference
-          window.history.replaceState({}, '', `/projects/${created.id}/setup`);
-          setProject(created);
+        const createdProject = created?.data ?? created;
+        const createdId = createdProject?.id;
+
+        if (!createdId) {
+          throw new Error("Project was created but no ID was returned");
         }
-      } else if (projectId) {
+
+        setCurrentProjectId(createdId);
+        window.history.replaceState({}, "", `/projects/${createdId}/setup`);
+        setProject(createdProject);
+      } else if (currentProjectId) {
         // Update existing project
-        const updated = await dispatch(updateProject(projectId, payload));
+        const updated = await dispatch(updateProject(currentProjectId, payload));
         if (updated) {
           setProject(updated);
         }
@@ -679,7 +708,7 @@ export default function ProjectSetupWizard({
   };
 
   const handleSubmitForApproval = async () => {
-    if (!projectId) {
+    if (!currentProjectId) {
       setSubmitMessage("❌ Error: Project not found");
       return;
     }
@@ -706,7 +735,7 @@ export default function ProjectSetupWizard({
       setSaving(true);
 
       // Submit project for approval
-      await dispatch(submitProjectForApproval(projectId));
+      await dispatch(submitProjectForApproval(currentProjectId));
 
       setSubmitMessage("✅ Project submitted for approval!");
       setSubmitConfirm(false);
@@ -726,8 +755,8 @@ export default function ProjectSetupWizard({
   const handleSaveDraft = async () => {
     try {
       setSaving(true);
-      if (projectId) {
-        await dispatch(updateProject(projectId, { status: "DRAFT" }));
+      if (currentProjectId) {
+        await dispatch(updateProject(currentProjectId, { status: "DRAFT" }));
         setDraftSuccessOpen(true);
         setSaving(false);
       } else {
@@ -760,7 +789,7 @@ export default function ProjectSetupWizard({
     setActiveStep((prev) => Math.max(prev - 1, 0));
   };
 
-  if (loading && projectId) {
+  if (loading && currentProjectId) {
     return (
       <Box
         sx={{
@@ -775,7 +804,7 @@ export default function ProjectSetupWizard({
     );
   }
 
-  if (loading === false && projectId && !project && !isCreatingNew) {
+  if (loading === false && currentProjectId && !project && !isCreatingNew) {
     return (
       <Alert severity="error">
         Failed to load project. Please try again.
@@ -871,8 +900,8 @@ export default function ProjectSetupWizard({
               <Typography sx={{ fontSize: 13, color: "#666", mb: 3 }}>
                 Add sub-owners and team members to manage this project
               </Typography>
-              {projectId && <ProjectTeamPanel projectId={projectId} />}
-              {!projectId && (
+              {currentProjectId && <ProjectTeamPanel projectId={currentProjectId} />}
+              {!currentProjectId && (
                 <Alert severity="info">
                   Team members will be available to add after project details are saved.
                 </Alert>
@@ -916,7 +945,7 @@ export default function ProjectSetupWizard({
                   subtaskInputs={subtaskInputs}
                   setSubtaskInputs={setSubtaskInputs}
                   members={members}
-                  projectId={projectId!}
+                  projectId={currentProjectId!}
                   onEditScope={(scope: any) => setScopeEdit(scope)}
                   onDeleteScope={handleDeleteScope}
                   onUpdateScope={handleUpdateScope}

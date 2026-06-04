@@ -48,11 +48,14 @@ export default function Sidebar() {
 
       {/* MENU */}
       <SidebarItem label="Dashboard" href="/dashboard" />
+      <SidebarItem label="Personal Dashboard" href="/personalDashboard" />
       <SidebarItem label="Sprint Management" href="/sprintManagement" />
       <SidebarItem label="Task Board" href="/taskboard" />
       <SidebarItem label="Team Overview" href="/teamOverview" />
       <SidebarItem label="Projects" href="/projects" />
-      <SidebarItem label="Versioning" href="/versioning" />
+      <SidebarItem label="My Requests" href="/myRequests" />
+      <SidebarItem label="My Approvals" href="/myApprovals" />
+      <SidebarItem label="My Drafts" href="/myDrafts" />
       <SidebarItem label="Reports" href="/reports" />
       <SidebarItem label="Settings" href="/settings" />
     </Box>
