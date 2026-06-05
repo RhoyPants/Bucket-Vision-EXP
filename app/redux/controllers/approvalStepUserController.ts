@@ -76,8 +76,9 @@ export const assignUsers = (stepId: string, userIds: string[]) => {
       const response = await assignUsersToApprovalStep(stepId, { userIds });
 
       if (response.success) {
-        dispatch(setStepAssignments({ stepId, users: response.data }));
-        return response.data;
+        const assignedUsers = response.data?.assignedUsers || [];
+        dispatch(setStepAssignments({ stepId, users: assignedUsers }));
+        return assignedUsers;
       } else {
         throw new Error(response.error?.message || "Failed to assign users");
       }
@@ -101,8 +102,11 @@ export const addUserToStep = (stepId: string, userId: string) => {
       const response = await addUserToApprovalStep(stepId, { userId });
 
       if (response.success) {
-        dispatch(addStepAssignment({ stepId, user: response.data }));
-        return response.data;
+        const assignedUser = response.data?.user;
+        if (assignedUser) {
+          dispatch(addStepAssignment({ stepId, user: assignedUser }));
+        }
+        return assignedUser;
       } else {
         throw new Error(response.error?.message || "Failed to add user to step");
       }

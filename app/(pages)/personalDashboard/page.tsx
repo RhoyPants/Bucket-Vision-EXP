@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -40,7 +40,6 @@ import {
   LineChart,
   Pie,
   PieChart,
-  ResponsiveContainer,
   Tooltip as RechartsTooltip,
   XAxis,
   YAxis,
@@ -116,6 +115,42 @@ const normalizeCharts = (charts?: DashboardChartConfig[]) =>
       sortOrder: existing?.sortOrder ?? index,
     };
   });
+
+function MeasuredChartContainer({
+  height = 260,
+  children,
+}: {
+  height?: number;
+  children: (size: { width: number; height: number }) => React.ReactNode;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const updateSize = () => {
+      const nextWidth = Math.max(0, Math.floor(element.clientWidth));
+      setWidth(nextWidth);
+    };
+
+    updateSize();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateSize();
+    });
+
+    resizeObserver.observe(element);
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  return (
+    <Box ref={containerRef} sx={{ height, width: "100%", minWidth: 0, minHeight: height }}>
+      {width > 0 ? children({ width, height }) : null}
+    </Box>
+  );
+}
 
 
 function SummaryTile({
@@ -349,11 +384,11 @@ function DashboardCharts({ dashboard, chartData }: { dashboard: PersonalDashboar
   if (!dashboard) return null;
 
   return (
-    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "1fr 1fr" }, gap: 2 }}>
+    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "1fr 1fr" }, gap: 2, minWidth: 0 }}>
       {enabledCharts.map((chart) => {
         if (chart.chartType === "KPI_SUMMARY") {
           return (
-            <Card key={chart.chartType} sx={{ borderRadius: 2, border: "1px solid #e5e7eb", boxShadow: "none" }}>
+            <Card key={chart.chartType} sx={{ borderRadius: 2, border: "1px solid #e5e7eb", boxShadow: "none", minWidth: 0 }}>
               <CardContent>
                 <Typography fontWeight={900} sx={{ mb: 2 }}>
                   KPI Summary
@@ -376,10 +411,10 @@ function DashboardCharts({ dashboard, chartData }: { dashboard: PersonalDashboar
                 <Typography fontWeight={900} sx={{ mb: 2 }}>
                   {chart.chartType === "SCURVE" ? "S-Curve" : chart.chartType === "DELAY_TREND" ? "Delay Trend" : "Progress Trend"}
                 </Typography>
-                <Box sx={{ height: 260 }}>
-                  {scurveData.length ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={scurveData}>
+                <MeasuredChartContainer>
+                  {({ width, height }) =>
+                    scurveData.length ? (
+                      <LineChart width={width} height={height} data={scurveData}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
                         <YAxis />
@@ -387,11 +422,11 @@ function DashboardCharts({ dashboard, chartData }: { dashboard: PersonalDashboar
                         <Line type="monotone" dataKey="planned" stroke="#64748b" strokeWidth={2} />
                         <Line type="monotone" dataKey="actual" stroke="#4B2E83" strokeWidth={3} />
                       </LineChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <Alert severity="info">Chart data is not available yet.</Alert>
-                  )}
-                </Box>
+                    ) : (
+                      <Alert severity="info">Chart data is not available yet.</Alert>
+                    )
+                  }
+                </MeasuredChartContainer>
               </CardContent>
             </Card>
           );
@@ -399,14 +434,14 @@ function DashboardCharts({ dashboard, chartData }: { dashboard: PersonalDashboar
 
         if (chart.chartType === "KPI_STATUS_DISTRIBUTION" || chart.chartType === "SLA_DEADLINE_RISK") {
           return (
-            <Card key={chart.chartType} sx={{ borderRadius: 2, border: "1px solid #e5e7eb", boxShadow: "none" }}>
+            <Card key={chart.chartType} sx={{ borderRadius: 2, border: "1px solid #e5e7eb", boxShadow: "none", minWidth: 0 }}>
               <CardContent>
                 <Typography fontWeight={900} sx={{ mb: 2 }}>
                   {chart.chartType === "SLA_DEADLINE_RISK" ? "SLA / Deadline Risk" : "KPI Status Distribution"}
                 </Typography>
-                <Box sx={{ height: 260 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
+                <MeasuredChartContainer>
+                  {({ width, height }) => (
+                    <PieChart width={width} height={height}>
                       <Pie data={statusData} dataKey="value" nameKey="name" outerRadius={90} label>
                         {statusData.map((entry) => (
                           <Cell key={entry.name} fill={entry.color} />
@@ -414,8 +449,8 @@ function DashboardCharts({ dashboard, chartData }: { dashboard: PersonalDashboar
                       </Pie>
                       <RechartsTooltip />
                     </PieChart>
-                  </ResponsiveContainer>
-                </Box>
+                  )}
+                </MeasuredChartContainer>
               </CardContent>
             </Card>
           );
@@ -423,26 +458,26 @@ function DashboardCharts({ dashboard, chartData }: { dashboard: PersonalDashboar
 
         if (chart.chartType === "TASK_COMPLETION") {
           return (
-            <Card key={chart.chartType} sx={{ borderRadius: 2, border: "1px solid #e5e7eb", boxShadow: "none" }}>
+            <Card key={chart.chartType} sx={{ borderRadius: 2, border: "1px solid #e5e7eb", boxShadow: "none", minWidth: 0 }}>
               <CardContent>
                 <Typography fontWeight={900} sx={{ mb: 2 }}>
                   Task/Subtask Completion
                 </Typography>
-                <Box sx={{ height: 260 }}>
-                  {completionData.length ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={completionData}>
+                <MeasuredChartContainer>
+                  {({ width, height }) =>
+                    completionData.length ? (
+                      <BarChart width={width} height={height} data={completionData}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="name" />
                         <YAxis />
                         <RechartsTooltip />
                         <Bar dataKey="value" fill="#4B2E83" radius={[6, 6, 0, 0]} />
                       </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <Alert severity="info">Completion data is not available yet.</Alert>
-                  )}
-                </Box>
+                    ) : (
+                      <Alert severity="info">Completion data is not available yet.</Alert>
+                    )
+                  }
+                </MeasuredChartContainer>
               </CardContent>
             </Card>
           );

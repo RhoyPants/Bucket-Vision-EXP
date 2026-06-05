@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { logout } from "@/app/redux/slices/authSlice";
 
-// Map routes to display titles
+// Map exact routes to display titles
 const routeTitleMap: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/sprintManagement": "Sprint Management",
@@ -17,7 +17,56 @@ const routeTitleMap: Record<string, string> = {
   "/projects": "Projects",
   "/reports": "Reports",
   "/settings": "Settings",
+  "/myApprovals": "My Approvals",
+  "/myRequests": "My Requests",
+  "/myDrafts": "My Drafts",
+  "/projectCalendar": "Project Calendar",
+  "/projectTimeline": "Project Timeline",
+  "/personalDashboard": "Personal Dashboard",
+  "/versioning": "Versioning",
+  "/approvals": "Approvals",
 };
+
+// Map routes to descriptions
+const routeDescriptionMap: Record<string, string> = {
+  "/dashboard": "View overall project performance and key metrics",
+  "/sprintManagement": "Plan and manage sprint cycles",
+  "/taskboard": "Manage and track all assigned tasks and subtasks",
+  "/teamOverview": "Overview of team members and their assignments",
+  "/projects": "Manage all your projects and their status",
+  "/reports": "Track and manage daily and weekly reports from your team",
+  "/settings": "Configure system settings and user permissions",
+  "/myApprovals": "Requests that need your review or approval decision",
+  "/myRequests": "Track all project requests you've submitted and their approval status",
+  "/myDrafts": "Draft projects saved by you and ready to continue",
+  "/projectCalendar": "View and manage project timelines and task schedules",
+  "/projectTimeline": "Visualize project timelines and dependencies",
+  "/personalDashboard": "Customize and view your personal dashboard",
+  "/versioning": "Manage project versions and track changes",
+  "/approvals": "Review and manage project approval workflows",
+};
+
+function getPageTitle(pathname: string): string {
+  // Handle dynamic/detail pages first
+  if (pathname.startsWith("/approvals/")) return "Approval Review";
+  if (pathname.startsWith("/projects/")) return "Project Details";
+  if (pathname.startsWith("/reports/daily")) return "Daily Reports";
+  if (pathname.startsWith("/reports/weekly")) return "Weekly Reports";
+
+  // Exact map fallback
+  return routeTitleMap[pathname] || "Dashboard";
+}
+
+function getPageDescription(pathname: string): string {
+  // Handle dynamic/detail pages first
+  if (pathname.startsWith("/approvals/")) return "Review and make approval decisions";
+  if (pathname.startsWith("/projects/")) return "View and manage project details";
+  if (pathname.startsWith("/reports/daily")) return "View daily report submissions";
+  if (pathname.startsWith("/reports/weekly")) return "View weekly report submissions";
+
+  // Exact map fallback
+  return routeDescriptionMap[pathname] || "Welcome to Bucket Vision";
+}
 
 export default function Header() {
   const pathname = usePathname();
@@ -33,7 +82,8 @@ export default function Header() {
   }, []);
 
   // Get page title from route
-  const pageTitle = routeTitleMap[pathname] || "Dashboard";
+  const pageTitle = getPageTitle(pathname);
+  const pageDescription = getPageDescription(pathname);
 
   // Get user initials
   const userInitials = user?.name
@@ -72,18 +122,31 @@ export default function Header() {
       }}
     >
       <Toolbar disableGutters sx={{ minHeight: 64, justifyContent: "space-between" }}>
-        {/* Left: Page Title */}
-        <Typography
-          sx={{
-            color: "#210e64",
-            fontWeight: 600,
-            fontSize: "1.5rem",
-            fontFamily: "var(--font-ftsterling)",
-            letterSpacing: "-0.5px",
-          }}
-        >
-          {pageTitle}
-        </Typography>
+        {/* Left: Page Title & Description */}
+        <Box>
+          <Typography
+            sx={{
+              color: "#210e64",
+              fontWeight: 600,
+              fontSize: "1.5rem",
+              fontFamily: "var(--font-ftsterling)",
+              letterSpacing: "-0.5px",
+              mt: 1,
+            }}
+          >
+            {pageTitle}
+          </Typography>
+          <Typography
+            sx={{
+              color: "#6b7280",
+              fontSize: "0.875rem",
+              fontWeight: 400,
+
+            }}
+          >
+            {pageDescription}
+          </Typography>
+        </Box>
 
         {/* Right: User Avatar */}
         <Box

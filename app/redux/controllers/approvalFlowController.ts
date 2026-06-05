@@ -78,7 +78,6 @@ export const createFlow = (data: {
   name: string;
   description?: string;
   isDefault?: boolean;
-  executionMode?: "SEQUENTIAL" | "PARALLEL";
   steps: ApprovalStep[];
 }) => {
   return async (dispatch: AppDispatch) => {
@@ -112,7 +111,6 @@ export const updateFlow = (
     description: string;
     isDefault: boolean;
     isActive: boolean;
-    executionMode: "SEQUENTIAL" | "PARALLEL";
     steps: ApprovalStep[];
   }>
 ) => {

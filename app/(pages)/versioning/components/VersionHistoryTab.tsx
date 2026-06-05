@@ -109,6 +109,22 @@ export default function VersionHistoryTab({
     }).format(budget);
   };
 
+  const formatDisplayDate = (date?: string | null) => {
+    if (!date) return "Not set";
+    const parsedDate = new Date(date);
+    if (Number.isNaN(parsedDate.getTime())) return "Not set";
+    return parsedDate.toLocaleDateString();
+  };
+
+  const getExpectedStartDate = (version: unknown) => {
+    const versionWithDates = version as {
+      expectedStartDate?: string | null;
+      startDate?: string | null;
+    };
+
+    return versionWithDates.expectedStartDate || versionWithDates.startDate;
+  };
+
   const handleViewDetails = async (version: any) => {
     try {
       setDetailLoading(true);
@@ -267,10 +283,18 @@ export default function VersionHistoryTab({
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
                         <Typography variant="caption" display="block" color="textSecondary">
+                          Expected Start Date
+                        </Typography>
+                        <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
+                          {formatDisplayDate(getExpectedStartDate(version))}
+                        </Typography>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Typography variant="caption" display="block" color="textSecondary">
                           Expected End Date
                         </Typography>
                         <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
-                          {new Date(version.expectedEndDate).toLocaleDateString()}
+                          {formatDisplayDate(version.expectedEndDate)}
                         </Typography>
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>

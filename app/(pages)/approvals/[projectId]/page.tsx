@@ -13,8 +13,13 @@ import {
   IconButton,
   Stack,
   ButtonGroup,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from "@mui/material";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import CloseIcon from "@mui/icons-material/Close";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import BlockIcon from "@mui/icons-material/Block";
@@ -39,15 +44,19 @@ type ViewMode = "structured" | "gantt";
 export default function ApprovalReviewPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const projectId = params.projectId as string;
   const dispatch = useAppDispatch();
   const { auditTrail } = useAppSelector((state) => state.approval);
+  const isReadOnlyFromMyRequests =
+    searchParams.get("source") === "my-requests";
 
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("structured");
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -84,6 +93,11 @@ export default function ApprovalReviewPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleApproveConfirm = async () => {
+    setApproveDialogOpen(false);
+    await handleApprove();
   };
 
   const handleRejectConfirm = async (remarks: string) => {
@@ -415,35 +429,74 @@ export default function ApprovalReviewPage() {
         >
           Cancel
         </Button>
-        <Button
-          variant="contained"
-          color="error"
-          startIcon={<BlockIcon />}
-          onClick={() => setRejectDialogOpen(true)}
-          disabled={submitting}
-          sx={{ fontSize: { xs: "12px", sm: "14px" } }}
-        >
-          Reject
-        </Button>
-        <Button
-          variant="contained"
-          color="success"
-          startIcon={<CheckCircleIcon />}
-          onClick={handleApprove}
-          disabled={submitting}
-          sx={{ fontSize: { xs: "12px", sm: "14px" } }}
-        >
-          {submitting ? "Approving..." : "Approve"}
-        </Button>
+        {!isReadOnlyFromMyRequests && (
+          <>
+            <Button
+              variant="contained"
+              color="error"
+              startIcon={<BlockIcon />}
+              onClick={() => setRejectDialogOpen(true)}
+              disabled={submitting}
+              sx={{ fontSize: { xs: "12px", sm: "14px" } }}
+            >
+              Reject
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<CheckCircleIcon />}
+              onClick={() => setApproveDialogOpen(true)}
+              disabled={submitting}
+              sx={{ fontSize: { xs: "12px", sm: "14px" } }}
+            >
+              {submitting ? "Approving..." : "Approve"}
+            </Button>
+          </>
+        )}
       </Box>
 
-      <ApprovalRejectDialog
-        open={rejectDialogOpen}
-        projectName={project.name}
-        onClose={() => setRejectDialogOpen(false)}
-        onConfirm={handleRejectConfirm}
-        isSubmitting={submitting}
-      />
+      {!isReadOnlyFromMyRequests && (
+        <Dialog
+          open={approveDialogOpen}
+          onClose={() => !submitting && setApproveDialogOpen(false)}
+          fullWidth
+          maxWidth="xs"
+        >
+          <DialogTitle sx={{ fontWeight: 700 }}>Confirm Approval</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              Are you sure you want to approve this request for project <strong>{project.name}</strong>?
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button
+              onClick={() => setApproveDialogOpen(false)}
+              variant="outlined"
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleApproveConfirm}
+              variant="contained"
+              color="success"
+              disabled={submitting}
+            >
+              {submitting ? "Approving..." : "Yes, Approve"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {!isReadOnlyFromMyRequests && (
+        <ApprovalRejectDialog
+          open={rejectDialogOpen}
+          projectName={project.name}
+          onClose={() => setRejectDialogOpen(false)}
+          onConfirm={handleRejectConfirm}
+          isSubmitting={submitting}
+        />
+      )}
     </Box>
   );
 }

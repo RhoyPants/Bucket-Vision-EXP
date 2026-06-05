@@ -7,6 +7,11 @@ import {
   deleteProjectLocal,
   setLoading,
 } from "../slices/projectSlice";
+import {
+  getMyApprovals as fetchMyApprovals,
+  getMyRequests as fetchMyRequests,
+  getMyDrafts as fetchMyDrafts,
+} from "@/app/api-service/projectService";
 
 // ✅ GET ALL (with full details including members)
 export const getProjects = () => {
@@ -142,6 +147,68 @@ export const deleteProject = (projectId: string) => {
     } catch (err) {
       console.error("❌ Error deleting project:", err);
       throw err;
+    }
+  };
+};
+
+// ===== FILTERED PROJECT ENDPOINTS =====
+
+// ✅ GET MY APPROVALS (projects waiting for current user approval)
+export const getMyApprovalsProjects = () => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      dispatch(setLoading(true));
+
+      const projectsData = await fetchMyApprovals();
+
+      dispatch(setProjects(projectsData));
+
+      return projectsData;
+    } catch (err) {
+      console.error("❌ Error fetching my approvals:", err);
+      throw err;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
+};
+
+// ✅ GET MY REQUESTS (projects owned by user with non-DRAFT status)
+export const getMyRequestsProjects = () => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      dispatch(setLoading(true));
+
+      const projectsData = await fetchMyRequests();
+
+      dispatch(setProjects(projectsData));
+
+      return projectsData;
+    } catch (err) {
+      console.error("❌ Error fetching my requests:", err);
+      throw err;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
+};
+
+// ✅ GET MY DRAFTS (projects owned by user with DRAFT status)
+export const getMyDraftsProjects = () => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      dispatch(setLoading(true));
+
+      const projectsData = await fetchMyDrafts();
+
+      dispatch(setProjects(projectsData));
+
+      return projectsData;
+    } catch (err) {
+      console.error("❌ Error fetching my drafts:", err);
+      throw err;
+    } finally {
+      dispatch(setLoading(false));
     }
   };
 };

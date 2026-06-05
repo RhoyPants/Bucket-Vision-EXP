@@ -5,6 +5,7 @@ export interface ApprovalStep {
   id?: string;
   order: number;
   role: string;
+  stepExecutionMode: "SEQUENTIAL" | "PARALLEL";
   requiresAll: 0 | 1;
   canReject: boolean;
   specificUserId?: string; // Optional: assign to specific user instead of all with role
@@ -18,7 +19,6 @@ export interface ApprovalFlow {
   description?: string;
   isDefault: boolean;
   isActive: boolean;
-  executionMode?: "SEQUENTIAL" | "PARALLEL"; // SEQUENTIAL: steps execute one after another. PARALLEL: steps execute simultaneously
   steps: ApprovalStep[];
   createdAt: string;
   updatedAt: string;
@@ -38,7 +38,6 @@ export async function createApprovalFlow(data: {
   name: string;
   description?: string;
   isDefault?: boolean;
-  executionMode?: "SEQUENTIAL" | "PARALLEL";
   steps: ApprovalStep[];
 }) {
   const response = await axiosApi.post("/admin/approval-flows", data);
@@ -63,7 +62,6 @@ export async function updateApprovalFlow(
     description: string;
     isDefault: boolean;
     isActive: boolean;
-    executionMode: "SEQUENTIAL" | "PARALLEL";
     steps: ApprovalStep[];
   }>
 ) {

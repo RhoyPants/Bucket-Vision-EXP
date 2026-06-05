@@ -8,11 +8,33 @@ export interface ProjectLocation {
   street?: string;
 }
 
+export interface ProjectMember {
+  id: string;
+  role: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
+
+export interface BusinessUnitDetails {
+  id: string;
+  code: string;
+  name: string;
+}
+
 export interface Projects {
-  ownerId: string;
   id: string;
   name: string;
   description?: string;
+  status: "DRAFT" | "FOR_REVIEW" | "FOR_APPROVAL" | "NEEDS_REVISION" | "REJECTED" | "ACTIVE";
+  ownerId: string;
+  businessUnit?: string;
+  businessUnitDetails?: BusinessUnitDetails;
+  projectMembers?: ProjectMember[];
+  createdAt?: string;
+  updatedAt?: string;
 
   // 🔥 FIXED (JSON)
   location?: ProjectLocation | null;
@@ -24,8 +46,12 @@ export interface Projects {
   priority?: string;
   pin?: string;
 
-  // 🔥 NEW
-  businessUnit?: string;
+  // 🔥 APPROVAL METADATA (for my-approvals)
+  pendingApprovalId?: string;
+  pendingApprovalLevel?: string;
+  pendingApprovalOrder?: number;
+  pendingApprovalIsFinal?: boolean;
+
   entity?: string;
 }
 

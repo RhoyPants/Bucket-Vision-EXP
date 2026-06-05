@@ -1,79 +1,81 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, RootState } from "@/app/redux/store";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
-  fetchVersionsByPin,
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Stack,
+  Tab,
+  Tabs,
+  Typography,
+} from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
+import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
+import CloseIcon from "@mui/icons-material/Close";
+import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
+import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
+import MonetizationOnOutlinedIcon from "@mui/icons-material/MonetizationOnOutlined";
+import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
+import { format } from "date-fns";
+
+import VersioningActionModal from "@/app/components/shared/modals/VersioningActionModal";
+import { getProjectFull, getProjects } from "@/app/redux/controllers/projectController";
+import {
   fetchVersionHistory,
+  fetchVersionsByPin,
   selectVersionsForComparison,
 } from "@/app/redux/controllers/versioningController";
-import {
-  getProjects,
-  getProjectFull,
-} from "@/app/redux/controllers/projectController";
-import { useSearchParams, useRouter } from "next/navigation";
-
-import {
-  Box,
-  Container,
-  Tabs,
-  Tab,
-  Paper,
-  Typography,
-  CircularProgress,
-  Alert,
-  Stack,
-  Button,
-  Chip,
-  Card,
-  Divider,
-  Avatar,
-} from "@mui/material";
-
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import AccountTreeIcon from "@mui/icons-material/AccountTree";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
-import MonetizationOnIcon from "@mui/icons-material/MonetizationOn";
-import LayersIcon from "@mui/icons-material/Layers";
-import AddIcon from "@mui/icons-material/Add";
-
-import Layout from "@/app/components/shared/Layout";
-import VersioningActionModal from "@/app/components/shared/modals/VersioningActionModal";
-import VersionHistoryTab from "./components/VersionHistoryTab";
+import { AppDispatch, RootState } from "@/app/redux/store";
 import CompareVersionsTab from "./components/CompareVersionsTab";
+import VersionHistoryTab from "./components/VersionHistoryTab";
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
+type VersionRecord = {
+  id: string;
+  name?: string;
+  versionNumber: number;
+  versionLabel?: string;
+  status?: string;
+  isActive?: boolean;
+  isLatestVersion?: boolean;
+  pin?: string;
+  totalBudget?: number;
+  expectedStartDate?: string;
+  expectedEndDate?: string;
+  startDate?: string;
+};
 
-function CustomTabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
+type ProjectRecord = {
+  id?: string;
+  name?: string;
+  pin?: string;
+  startDate?: string;
+  expectedEndDate?: string;
+  totalBudget?: number;
+};
 
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`versioning-tabpanel-${index}`}
-      aria-labelledby={`versioning-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box
-          sx={{
-            p: { xs: 2, md: 3 },
-          }}
-        >
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-}
+const formatDate = (value?: string, fallback = "Not set") => {
+  if (!value) return fallback;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return format(date, "MMM d, yyyy");
+};
 
-function StatCard({
+const formatBudget = (value?: number) =>
+  new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+
+const getVersionTitle = (version: VersionRecord) =>
+  version.versionLabel || `Version ${version.versionNumber}`;
+
+function SummaryCard({
   icon,
   label,
   value,
@@ -85,69 +87,41 @@ function StatCard({
   color: string;
 }) {
   return (
-    <Card
+    <Box
       sx={{
-        p: 2.5,
-        borderRadius: 3,
-        border: "1px solid #eef2ff",
-        boxShadow: "0 2px 12px rgba(15,23,42,0.04)",
-        position: "relative",
-        overflow: "hidden",
-        transition: "all 0.2s ease",
-
-        "&:hover": {
-          transform: "translateY(-2px)",
-          boxShadow: "0 10px 25px rgba(15,23,42,0.08)",
-        },
-
-        "&::before": {
-          content: '""',
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: 4,
-          background: color,
-        },
+        minHeight: 80,
+        p: 2,
+        borderRadius: 2,
+        border: "1px solid #E5E7EB",
+        bgcolor: "#efeeff",
+        boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
       }}
     >
-      <Stack direction="row" spacing={2} alignItems="center">
-        <Avatar
-          sx={{
-            bgcolor: color,
-            width: 48,
-            height: 48,
-          }}
-        >
-          {icon}
-        </Avatar>
-
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
         <Box>
-          <Typography
-            sx={{
-              fontSize: 11,
-              textTransform: "uppercase",
-              fontWeight: 700,
-              color: "#94a3b8",
-              letterSpacing: 0.5,
-            }}
-          >
+          <Typography sx={{ color: "#64748b", fontSize: 11, fontWeight: 900, textTransform: "uppercase" }}>
             {label}
           </Typography>
-
-          <Typography
-            sx={{
-              fontSize: 18,
-              fontWeight: 800,
-              color: "#0f172a",
-              mt: 0.5,
-            }}
-          >
+          <Typography sx={{ color: "#0f172a", fontSize: 16, fontWeight: 900, mt: 1, lineHeight: 1.15 }}>
             {value}
           </Typography>
         </Box>
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: 2,
+            display: "grid",
+            placeItems: "center",
+            color,
+            bgcolor: "#F8FAFC",
+            border: "1px solid #E5E7EB",
+          }}
+        >
+          {icon}
+        </Box>
       </Stack>
-    </Card>
+    </Box>
   );
 }
 
@@ -156,332 +130,232 @@ function VersioningPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const urlProjectId = searchParams.get("projectId");
-  const urlPin = searchParams.get("pin");
+  const projectId = searchParams.get("projectId") || "";
+  const pin = searchParams.get("pin") || "";
 
-  const { allVersions, versionHistory, loading, error } = useSelector(
+  const { allVersions, versionHistory, error } = useSelector(
     (state: RootState) => state.versioning,
   );
+  const { projects, fullProject } = useSelector((state: RootState) => state.project);
 
-  const { projects, fullProject } = useSelector(
-    (state: RootState) => state.project,
-  );
+  const [createVersionModalOpen, setCreateVersionModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
 
-  const [tabValue, setTabValue] = useState(0);
-  const [createVersionModalOpen, setCreateVersionModalOpen] =
-    useState(false);
-
-  const projectId = urlProjectId || "";
-  const pin = urlPin || "";
+  const project = fullProject as ProjectRecord | null;
 
   useEffect(() => {
     if (!projects || projects.length === 0) {
-      dispatch(getProjects() as any);
+      dispatch(getProjects());
     }
   }, [dispatch, projects]);
 
   useEffect(() => {
-    if (projectId && (!fullProject || fullProject.id !== projectId)) {
-      dispatch(getProjectFull(projectId) as any);
+    if (projectId && (!project || project.id !== projectId)) {
+      dispatch(getProjectFull(projectId));
     }
-  }, [projectId, dispatch, fullProject]);
+  }, [projectId, dispatch, project]);
 
   useEffect(() => {
     if (pin) {
       dispatch(fetchVersionsByPin(pin));
-    } else if (projectId) {
-      const project = projects?.find((p: any) => p.id === projectId);
+      return;
+    }
 
-      if (project?.pin) {
-        dispatch(fetchVersionsByPin(project.pin));
+    if (projectId) {
+      const listedProject = projects?.find((item) => item.id === projectId);
+      if (listedProject?.pin) {
+        dispatch(fetchVersionsByPin(listedProject.pin));
       } else {
         dispatch(fetchVersionHistory(projectId));
       }
     }
   }, [projectId, pin, projects, dispatch]);
 
-  const handleTabChange = (
-    event: React.SyntheticEvent,
-    newValue: number,
-  ) => {
-    setTabValue(newValue);
+  const versions = useMemo<VersionRecord[]>(() => {
+    const source = allVersions.length > 0 ? allVersions : versionHistory;
+    return [...source].sort((a, b) => Number(b.versionNumber || 0) - Number(a.versionNumber || 0));
+  }, [allVersions, versionHistory]);
+
+  const activeVersion =
+    versions.find((version) => version.status === "ACTIVE" || version.isActive || version.isLatestVersion) ||
+    versions[0] ||
+    null;
+
+  const selectedProjectPin = project?.pin || activeVersion?.pin || pin || "N/A";
+  const startDate = project?.startDate || activeVersion?.expectedStartDate || activeVersion?.startDate;
+  const endDate = project?.expectedEndDate || activeVersion?.expectedEndDate;
+  const budget = project?.totalBudget || activeVersion?.totalBudget;
+
+  const handleClose = () => {
+    if (projectId) {
+      router.push("/projects");
+      return;
+    }
+    router.back();
   };
 
-  const handleSelectVersionsForComparison = (
-    v1: any,
-    v2: any,
-  ) => {
+  const handleSelectVersionsForComparison = (v1: VersionRecord, v2: VersionRecord) => {
     dispatch(selectVersionsForComparison(v1, v2));
-    setTabValue(1);
+    setActiveTab(1);
   };
 
   if (!projectId && !pin) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Alert severity="error">
-          No project selected. Please select a project first.
-        </Alert>
-      </Container>
+      <Box sx={{ minHeight: "100vh", p: 4, bgcolor: "#F8FAFC" }}>
+        <Alert severity="error">No project selected. Please select a project first.</Alert>
+      </Box>
     );
   }
 
   return (
-      <Box
-        sx={{
-          minHeight: "100vh",
-          background:
-            "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)",
-          py: { xs: 2, md: 4 },
-        }}
-      >
-        <Container maxWidth="xl">
-          {/* HEADER */}
-          <Paper
-            elevation={0}
+    <Box sx={{ minHeight: "100vh", width: "100%", bgcolor: "#F8FAFC" }}>
+      <Box sx={{ width: "100%", px: { xs: 2, md: 4, xl: 5 }, py: { xs: 2, md: 3 } }}>
+        <Box
+          component="header"
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: { xs: "flex-start", md: "center" },
+            gap: 2,
+            p: { xs: 2, md: 2.5 },
+            border: "1px solid #E5E7EB",
+            borderRadius: 2,
+            bgcolor: "#02005f",
+            boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+            mb: 3,
+          }}
+        >
+          <Box>
+            <Typography sx={{ color: "#e5e6f8", fontSize: { xs: 16, md: 20 }, fontWeight: 950, lineHeight: 1.08 }}>
+              {project?.name || activeVersion?.name || "Project"}
+            </Typography>
+            <Typography sx={{ color: "#b6bdc7", mt: 1, fontWeight: 700 }}>
+              Version Management & Revision Tracking
+            </Typography>
+          </Box>
+
+          <Stack direction="row" spacing={1.25} alignItems="center">
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateVersionModalOpen(true)}
+              sx={{
+                height: 35,
+                px: 2.5,
+                borderRadius: 2.25,
+                textTransform: "none",
+                fontWeight: 900,
+                bgcolor: "#b1aaff",
+                color: "#15123d",
+                boxShadow: "none",
+                "&:hover": { bgcolor: "#9c97df", boxShadow: "none" },
+              }}
+            >
+              Create New Version
+            </Button>
+            <Button
+              variant="text"
+              startIcon={<CloseIcon />}
+              onClick={handleClose}
+              sx={{ color: "#efeeff", textTransform: "none", fontWeight: 900 }}
+            >
+              Close
+            </Button>
+          </Stack>
+        </Box>
+
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(5, 1fr)" }, gap: 2, mb: 3 }}>
+          <SummaryCard icon={<AccountTreeOutlinedIcon />} label="Project PIN" value={selectedProjectPin} color="#7c3aed" />
+          <SummaryCard icon={<CalendarMonthOutlinedIcon />} label="Start Date" value={formatDate(startDate)} color="#0ea5e9" />
+          <SummaryCard icon={<TimelineOutlinedIcon />} label="Expected End Date" value={formatDate(endDate)} color="#f59e0b" />
+          <SummaryCard icon={<MonetizationOnOutlinedIcon />} label="Total Budget" value={formatBudget(budget)} color="#10b981" />
+          <SummaryCard icon={<FactCheckOutlinedIcon />} label="Total Versions" value={`${versions.length} Versions`} color="#6366f1" />
+        </Box>
+
+        {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+
+        <Box
+          sx={{
+            borderRadius: 2,
+            border: "1px solid #E5E7EB",
+            bgcolor: "#FFFFFF",
+            boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+            overflow: "hidden",
+          }}
+        >
+          <Box
             sx={{
-              p: { xs: 2.5, md: 4 },
-              borderRadius: 4,
-              border: "1px solid #e2e8f0",
-              background:
-                "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
-              boxShadow: "0 10px 40px rgba(15,23,42,0.05)",
-              mb: 4,
+              px: { xs: 2, md: 3 },
+              pt: 1,
+              borderBottom: "1px solid #E5E7EB",
+              bgcolor: "#FFFFFF",
+              boxShadow: "inset 0 3px 0 #2563EB",
             }}
           >
-            {/* TOP BAR */}
-            <Stack
-              direction={{ xs: "column", lg: "row" }}
-              justifyContent="space-between"
-              alignItems={{ xs: "flex-start", lg: "center" }}
-              spacing={3}
-            >
-              <Stack spacing={2}>
-            
-
-                <Stack spacing={1}>
-                  <Typography
-                    sx={{
-                      fontSize: { xs: 28, md: 36 },
-                      fontWeight: 900,
-                      lineHeight: 1.1,
-                      color: "#0f172a",
-                    }}
-                  >
-                    {fullProject?.name || "Project"}
-                  </Typography>
-
-                  <Typography
-                    sx={{
-                      color: "#64748b",
-                      fontSize: 15,
-                      fontWeight: 500,
-                    }}
-                  >
-                    Version Management & Revision Tracking
-                  </Typography>
-                </Stack>
-              </Stack>
-
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setCreateVersionModalOpen(true)}
-                sx={{
-                  height: 52,
-                  px: 3,
-                  borderRadius: 3,
+            <Tabs
+              value={activeTab}
+              onChange={(_, value) => setActiveTab(value)}
+              sx={{
+                minHeight: 52,
+                "& .MuiTabs-indicator": {
+                  height: 3,
+                  borderRadius: 999,
+                  bgcolor: "#2563EB",
+                },
+                "& .MuiTab-root": {
+                  minHeight: 52,
                   textTransform: "none",
                   fontWeight: 800,
-                  fontSize: 14,
-
-                  background:
-                    "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)",
-
-                  boxShadow:
-                    "0 10px 25px rgba(139,92,246,0.35)",
-
-                  "&:hover": {
-                    background:
-                      "linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)",
-                  },
-                }}
-              >
-                Create New Version
-              </Button>
-            </Stack>
-
-            <Divider sx={{ my: 4 }} />
-
-            {/* KPI CARDS */}
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: {
-                  xs: "1fr",
-                  sm: "1fr 1fr",
-                  lg: "repeat(4, 1fr)",
+                  color: "#64748B",
+                  "&.Mui-selected": { color: "#1D4ED8" },
                 },
-                gap: 2.5,
               }}
             >
-              <StatCard
-                icon={<AccountTreeIcon />}
-                label="Project PIN"
-                value={fullProject?.pin || pin || "N/A"}
-                color="#8b5cf6"
-              />
+              <Tab icon={<TimelineOutlinedIcon />} iconPosition="start" label="Version Timeline" />
+              <Tab icon={<CompareArrowsIcon />} iconPosition="start" label="Compare Versions" />
+            </Tabs>
+          </Box>
 
-              <StatCard
-                icon={<CalendarMonthIcon />}
-                label="Start Date"
-                value={
-                  fullProject?.startDate
-                    ? new Date(
-                        fullProject.startDate,
-                      ).toLocaleDateString()
-                    : "N/A"
-                }
-                color="#0ea5e9"
-              />
-
-              <StatCard
-                icon={<CalendarMonthIcon />}
-                label="Expected End Date"
-                value={
-                  fullProject?.expectedEndDate
-                    ? new Date(
-                        fullProject.expectedEndDate,
-                      ).toLocaleDateString()
-                    : "N/A"
-                }
-                color="#f59e0b"
-              />
-
-              <StatCard
-                icon={<MonetizationOnIcon />}
-                label="Total Budget"
-                value={`₱${(
-                  fullProject?.totalBudget || 0
-                ).toLocaleString()}`}
-                color="#10b981"
+          {activeTab === 0 && (
+            <Box sx={{ p: { xs: 2, md: 3 } }}>
+              <VersionHistoryTab
+                projectId={projectId}
+                pin={pin}
+                onSelectForComparison={handleSelectVersionsForComparison}
               />
             </Box>
-          </Paper>
-
-          {/* ERROR */}
-          {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {error}
-            </Alert>
           )}
 
-          {/* MAIN CONTENT */}
-          <Paper
-            elevation={0}
-            sx={{
-              borderRadius: 4,
-              overflow: "hidden",
-              border: "1px solid #e2e8f0",
-              background: "#fff",
-              boxShadow: "0 10px 40px rgba(15,23,42,0.05)",
-            }}
-          >
-            {/* TABS */}
-            <Tabs
-              value={tabValue}
-              onChange={handleTabChange}
-              variant="fullWidth"
-              sx={{
-                px: 2,
-                pt: 1,
-
-                "& .MuiTabs-indicator": {
-                  height: 4,
-                  borderRadius: 999,
-                  background:
-                    "linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%)",
-                },
-
-                "& .MuiTab-root": {
-                  textTransform: "none",
-                  fontWeight: 700,
-                  fontSize: 14,
-                  minHeight: 70,
-                  color: "#64748b",
-
-                  "&.Mui-selected": {
-                    color: "#7c3aed",
-                  },
-                },
-              }}
-            >
-              <Tab
-                icon={<LayersIcon />}
-                iconPosition="start"
-                label="Version History"
-              />
-
-              <Tab
-                icon={<AccountTreeIcon />}
-                iconPosition="start"
-                label="Compare Versions"
-              />
-            </Tabs>
-
-            <Divider />
-
-            {/* CONTENT */}
-            {loading &&
-            !allVersions.length &&
-            !versionHistory.length ? (
+          {activeTab === 1 && (
+            <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#F8FAFC" }}>
               <Box
                 sx={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  minHeight: 300,
+                  bgcolor: "#FFFFFF",
+                  border: "1px solid #E5E7EB",
+                  borderRadius: 2,
+                  p: { xs: 2, md: 3 },
+                  boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
                 }}
               >
-                <CircularProgress />
+                <CompareVersionsTab projectId={projectId} pin={pin} />
               </Box>
-            ) : (
-              <>
-                <CustomTabPanel value={tabValue} index={0}>
-                  <VersionHistoryTab
-                    projectId={projectId}
-                    pin={pin}
-                    onSelectForComparison={
-                      handleSelectVersionsForComparison
-                    }
-                  />
-                </CustomTabPanel>
+            </Box>
+          )}
+        </Box>
 
-                <CustomTabPanel value={tabValue} index={1}>
-                  <CompareVersionsTab
-                    projectId={projectId}
-                    pin={pin}
-                  />
-                </CustomTabPanel>
-              </>
-            )}
-          </Paper>
-
-          {/* MODAL */}
-          <VersioningActionModal
-            open={createVersionModalOpen}
-            onClose={() => setCreateVersionModalOpen(false)}
-            projectId={projectId}
-            projectName={fullProject?.name}
-            activeVersion={{
-              versionLabel: "v1",
-              expectedEndDate:
-                fullProject?.expectedEndDate,
-              totalBudget: fullProject?.totalBudget,
-            }}
-          />
-        </Container>
+        <VersioningActionModal
+          open={createVersionModalOpen}
+          onClose={() => setCreateVersionModalOpen(false)}
+          projectId={projectId}
+          projectName={project?.name}
+          activeVersion={{
+            versionLabel: activeVersion ? getVersionTitle(activeVersion) : "v1",
+            expectedEndDate: endDate,
+            totalBudget: budget,
+          }}
+        />
       </Box>
-
+    </Box>
   );
 }
 
@@ -489,14 +363,7 @@ export default function VersioningPage() {
   return (
     <Suspense
       fallback={
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            height: "100vh",
-          }}
-        >
+        <Box sx={{ display: "grid", placeItems: "center", minHeight: "100vh", bgcolor: "#F8FAFC" }}>
           <CircularProgress />
         </Box>
       }
