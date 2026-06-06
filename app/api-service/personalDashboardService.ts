@@ -51,6 +51,11 @@ export interface PersonalDashboardKpi {
   preview?: SourcePreview | null;
   status?: KpiStatus;
   thresholds?: KpiThreshold[];
+  sourceDetails?: {
+    title?: string;
+    expectedStartDate?: string | null;
+    expectedEndDate?: string | null;
+  } | null;
 }
 
 export interface KpiThreshold {

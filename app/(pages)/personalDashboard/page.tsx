@@ -19,13 +19,16 @@ import {
   IconButton,
   MenuItem,
   Stack,
+  Tab,
+  Tabs,
+  ToggleButton,
+  ToggleButtonGroup,
   TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import AutoGraphIcon from "@mui/icons-material/AutoGraph";
-import DashboardCustomizeIcon from "@mui/icons-material/DashboardCustomize";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import InsightsIcon from "@mui/icons-material/Insights";
@@ -91,6 +94,13 @@ const defaultSummary: DashboardSummary = {
   onflowKpis: 0,
   healthyKpis: 0,
   unclassifiedKpis: 0,
+};
+
+const flatCardSx = {
+  borderRadius: 2,
+  border: "1px solid #dbeafe",
+  boxShadow: "none",
+  backgroundColor: "#fff",
 };
 
 type ProjectOption = Pick<Projects, "id" | "name">;
@@ -163,21 +173,40 @@ function SummaryTile({
   tone: "CRITICAL" | "ONFLOW" | "HEALTHY" | "UNCLASSIFIED";
 }) {
   const colors = statusColors[tone];
+  const tileStyles: Record<string, { bg: string; border: string }> = {
+    CRITICAL: {
+      bg: "linear-gradient(135deg, #fff7f7 0%, #ffffff 100%)",
+      border: "#fecaca",
+    },
+    ONFLOW: {
+      bg: "linear-gradient(135deg, #fffbeb 0%, #ffffff 100%)",
+      border: "#fde68a",
+    },
+    HEALTHY: {
+      bg: "linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%)",
+      border: "#bbf7d0",
+    },
+    UNCLASSIFIED: {
+      bg: "linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)",
+      border: "#cbd5e1",
+    },
+  };
+  const tile = tileStyles[tone];
+
   return (
     <Box
       sx={{
         minHeight: 92,
-        border: "1px solid #e5e7eb",
+        border: `1px solid ${tile.border}`,
         borderRadius: 2,
-        backgroundColor: "#fff",
+        background: tile.bg,
         p: 2,
-        borderLeft: `4px solid ${colors.accent}`,
       }}
     >
       <Typography variant="caption" sx={{ color: "#6b7280", fontWeight: 700 }}>
         {label}
       </Typography>
-      <Typography variant="h4" sx={{ color: "#111827", fontWeight: 800, mt: 0.5 }}>
+      <Typography variant="h4" sx={{ color: colors.color, fontWeight: 800, mt: 0.5 }}>
         {value}
       </Typography>
     </Box>
@@ -388,7 +417,7 @@ function DashboardCharts({ dashboard, chartData }: { dashboard: PersonalDashboar
       {enabledCharts.map((chart) => {
         if (chart.chartType === "KPI_SUMMARY") {
           return (
-            <Card key={chart.chartType} sx={{ borderRadius: 2, border: "1px solid #e5e7eb", boxShadow: "none", minWidth: 0 }}>
+            <Card key={chart.chartType} sx={{ ...flatCardSx, minWidth: 0 }}>
               <CardContent>
                 <Typography fontWeight={900} sx={{ mb: 2 }}>
                   KPI Summary
@@ -406,7 +435,7 @@ function DashboardCharts({ dashboard, chartData }: { dashboard: PersonalDashboar
 
         if (chart.chartType === "SCURVE" || chart.chartType === "PROGRESS_TREND" || chart.chartType === "DELAY_TREND") {
           return (
-            <Card key={chart.chartType} sx={{ borderRadius: 2, border: "1px solid #e5e7eb", boxShadow: "none" }}>
+            <Card key={chart.chartType} sx={flatCardSx}>
               <CardContent>
                 <Typography fontWeight={900} sx={{ mb: 2 }}>
                   {chart.chartType === "SCURVE" ? "S-Curve" : chart.chartType === "DELAY_TREND" ? "Delay Trend" : "Progress Trend"}
@@ -434,7 +463,7 @@ function DashboardCharts({ dashboard, chartData }: { dashboard: PersonalDashboar
 
         if (chart.chartType === "KPI_STATUS_DISTRIBUTION" || chart.chartType === "SLA_DEADLINE_RISK") {
           return (
-            <Card key={chart.chartType} sx={{ borderRadius: 2, border: "1px solid #e5e7eb", boxShadow: "none", minWidth: 0 }}>
+            <Card key={chart.chartType} sx={{ ...flatCardSx, minWidth: 0 }}>
               <CardContent>
                 <Typography fontWeight={900} sx={{ mb: 2 }}>
                   {chart.chartType === "SLA_DEADLINE_RISK" ? "SLA / Deadline Risk" : "KPI Status Distribution"}
@@ -458,7 +487,7 @@ function DashboardCharts({ dashboard, chartData }: { dashboard: PersonalDashboar
 
         if (chart.chartType === "TASK_COMPLETION") {
           return (
-            <Card key={chart.chartType} sx={{ borderRadius: 2, border: "1px solid #e5e7eb", boxShadow: "none", minWidth: 0 }}>
+            <Card key={chart.chartType} sx={{ ...flatCardSx, minWidth: 0 }}>
               <CardContent>
                 <Typography fontWeight={900} sx={{ mb: 2 }}>
                   Task/Subtask Completion
@@ -507,10 +536,12 @@ export default function PersonalDashboardPage() {
   const [kpiModalOpen, setKpiModalOpen] = useState(false);
   const [editingKpi, setEditingKpi] = useState<PersonalDashboardKpi | null>(null);
   const [chartConfigOpen, setChartConfigOpen] = useState(false);
+  const [interactionMode, setInteractionMode] = useState<"view" | "edit">("view");
   const [localTokenAvailable] = useState(
     () => typeof window !== "undefined" && Boolean(window.localStorage.getItem("token"))
   );
   const hasAccessToken = Boolean(authToken) || localTokenAvailable;
+  const isEditMode = interactionMode === "edit";
 
   const selectedDashboardId = useMemo(() => {
     if (selectedId && dashboards.some((dashboard) => dashboard.id === selectedId)) {
@@ -550,6 +581,15 @@ export default function PersonalDashboardPage() {
     loadDetail();
   }, [hasAccessToken, loadDetail]);
 
+  useEffect(() => {
+    if (isEditMode) return;
+    setDashboardModalOpen(false);
+    setKpiModalOpen(false);
+    setChartConfigOpen(false);
+    setEditingDashboard(null);
+    setEditingKpi(null);
+  }, [isEditMode]);
+
   const selectedSummary = getSummary(selectedDashboard);
   const canCreateDashboard = dashboards.length < 5;
 
@@ -574,37 +614,141 @@ export default function PersonalDashboardPage() {
   return (
     <Layout>
       <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1680, mx: "auto" }}>
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          justifyContent="space-between"
-          alignItems={{ xs: "flex-start", md: "center" }}
-          spacing={2}
-          sx={{ mb: 3 }}
-        >
-          <Box>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
-              <DashboardCustomizeIcon sx={{ color: "#4B2E83" }} />
-              <Typography variant="h4" fontWeight={800}>
-                Personal Dashboards
-              </Typography>
-            </Stack>
-            <Typography sx={{ color: "#6b7280", fontSize: 14 }}>
-              {dashboards.length}/5 dashboards configured
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            disabled={!canCreateDashboard}
-            onClick={() => {
-              setEditingDashboard(null);
-              setDashboardModalOpen(true);
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ mb: 2 }}>
+          <Box
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              border: "1px solid #bfdbfe",
+              borderRadius: 2,
+              background: "linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)",
+              px: 1,
             }}
-            sx={{ textTransform: "none", fontWeight: 800, backgroundColor: "#4B2E83" }}
           >
-            Create Dashboard
-          </Button>
+            {loading ? (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1, py: 1.25 }}>
+                <CircularProgress size={18} />
+                <Typography sx={{ color: "#64748B", fontSize: 13, fontWeight: 600 }}>
+                  Loading dashboards
+                </Typography>
+              </Box>
+            ) : dashboards.length === 0 ? (
+              <Typography sx={{ color: "#64748B", fontSize: 13, fontWeight: 600, px: 1, py: 1.5 }}>
+                No saved dashboards yet
+              </Typography>
+            ) : (
+              <Tabs
+                value={selectedDashboardId || false}
+                onChange={(_, value) => setSelectedId(value)}
+                variant="scrollable"
+                scrollButtons="auto"
+                sx={{
+                  minHeight: 48,
+                  "& .MuiTabs-indicator": {
+                    height: 3,
+                    borderRadius: 999,
+                    backgroundColor: "#2563EB",
+                  },
+                  "& .MuiTab-root": {
+                    minHeight: 48,
+                    textTransform: "none",
+                    color: "#64748B",
+                    fontWeight: 700,
+                    px: 1.5,
+                  },
+                  "& .Mui-selected": {
+                    color: "#1D4ED8",
+                  },
+                }}
+              >
+                {dashboards.map((dashboard) => {
+                  const summary = getSummary(dashboard);
+                  return (
+                    <Tab
+                      key={dashboard.id}
+                      value={dashboard.id}
+                      label={
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ maxWidth: 260 }}>
+                          <Typography
+                            component="span"
+                            sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, fontWeight: 800 }}
+                          >
+                            {dashboard.name}
+                          </Typography>
+                          <Chip
+                            size="small"
+                            label={summary.totalKpis}
+                            sx={{
+                              height: 20,
+                              bgcolor: "#E0F2FE",
+                              color: "#0369A1",
+                              border: "1px solid #7DD3FC",
+                              fontSize: 11,
+                              fontWeight: 800,
+                            }}
+                          />
+                        </Stack>
+                      }
+                    />
+                  );
+                })}
+              </Tabs>
+            )}
+          </Box>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{ alignSelf: { xs: "stretch", md: "center" } }}
+          >
+            <ToggleButtonGroup
+              value={interactionMode}
+              exclusive
+              onChange={(_, value) => value && setInteractionMode(value)}
+              size="small"
+              sx={{
+                "& .MuiToggleButton-root": {
+                  textTransform: "none",
+                  fontWeight: 700,
+                  border: "1px solid #dbeafe",
+                  color: "#64748B",
+                  px: 1.5,
+                },
+                "& .Mui-selected": {
+                  color: "#1E40AF",
+                  backgroundColor: "#EFF6FF",
+                },
+              }}
+            >
+              <ToggleButton value="view">View Mode</ToggleButton>
+              <ToggleButton value="edit">Edit Mode</ToggleButton>
+            </ToggleButtonGroup>
+
+            {isEditMode && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                disabled={!canCreateDashboard}
+                onClick={() => {
+                  setEditingDashboard(null);
+                  setDashboardModalOpen(true);
+                }}
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 800,
+                  backgroundColor: "#4B2E83",
+                  px: 2,
+                }}
+              >
+                Create Dashboard
+              </Button>
+            )}
+          </Stack>
         </Stack>
+
+        <Typography sx={{ color: "#6b7280", fontSize: 13, fontWeight: 600, mb: 2 }}>
+          {dashboards.length}/5 dashboards configured
+        </Typography>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -612,64 +756,16 @@ export default function PersonalDashboardPage() {
           </Alert>
         )}
 
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "340px 1fr" }, gap: 2 }}>
-          <Box>
-            <Card sx={{ borderRadius: 2, border: "1px solid #e5e7eb", boxShadow: "none" }}>
-              <CardContent>
-                <Typography fontWeight={900} sx={{ mb: 2 }}>
-                  My Dashboards
-                </Typography>
-                {loading ? (
-                  <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-                    <CircularProgress />
-                  </Box>
-                ) : dashboards.length === 0 ? (
-                  <Alert severity="info">Create your first personal dashboard to start monitoring project KPIs.</Alert>
-                ) : (
-                  <Stack spacing={1}>
-                    {dashboards.map((dashboard) => {
-                      const summary = getSummary(dashboard);
-                          const active = dashboard.id === selectedDashboardId;
-                      return (
-                        <Box
-                          key={dashboard.id}
-                          onClick={() => setSelectedId(dashboard.id)}
-                          sx={{
-                            border: active ? "2px solid #4B2E83" : "1px solid #e5e7eb",
-                            borderRadius: 2,
-                            p: 1.5,
-                            cursor: "pointer",
-                            backgroundColor: active ? "#f5f3ff" : "#fff",
-                          }}
-                        >
-                          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-                            <Box sx={{ minWidth: 0 }}>
-                              <Typography fontWeight={900} sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {dashboard.name}
-                              </Typography>
-                              <Typography variant="caption" sx={{ color: "#6b7280" }}>
-                                {getProjectName(dashboard, projects)}
-                              </Typography>
-                            </Box>
-                            <Chip size="small" label={`${summary.totalKpis} KPIs`} />
-                          </Stack>
-                          <Stack direction="row" spacing={0.75} sx={{ mt: 1 }}>
-                            <Chip size="small" label={summary.criticalKpis} sx={{ bgcolor: statusColors.CRITICAL.bg, color: statusColors.CRITICAL.color }} />
-                            <Chip size="small" label={summary.onflowKpis} sx={{ bgcolor: statusColors.ONFLOW.bg, color: statusColors.ONFLOW.color }} />
-                            <Chip size="small" label={summary.healthyKpis} sx={{ bgcolor: statusColors.HEALTHY.bg, color: statusColors.HEALTHY.color }} />
-                          </Stack>
-                        </Box>
-                      );
-                    })}
-                  </Stack>
-                )}
-              </CardContent>
-            </Card>
-          </Box>
-
+        {dashboards.length === 0 && !loading ? (
+          <Card sx={{ ...flatCardSx, border: "2px dashed #93c5fd" }}>
+            <CardContent>
+              <Alert severity="info">Create your first personal dashboard to start monitoring project KPIs.</Alert>
+            </CardContent>
+          </Card>
+        ) : (
           <Box>
             {!selectedDashboard && !detailLoading ? (
-              <Card sx={{ borderRadius: 2, border: "1px solid #e5e7eb", boxShadow: "none" }}>
+              <Card sx={flatCardSx}>
                 <CardContent>
                   <Alert severity="info">Select a dashboard or create a new one.</Alert>
                 </CardContent>
@@ -680,7 +776,7 @@ export default function PersonalDashboardPage() {
               </Box>
             ) : (
               <Stack spacing={2}>
-                <Card sx={{ borderRadius: 2, border: "1px solid #e5e7eb", boxShadow: "none" }}>
+                <Card sx={flatCardSx}>
                   <CardContent>
                     <Stack
                       direction={{ xs: "column", md: "row" }}
@@ -697,43 +793,45 @@ export default function PersonalDashboardPage() {
                         </Typography>
                         <Chip
                           size="small"
-                          sx={{ mt: 1, bgcolor: "#eef2ff", color: "#3730a3", fontWeight: 700 }}
+                          sx={{ mt: 1, bgcolor: "#EFF6FF", color: "#1E40AF", border: "1px solid #BFDBFE", fontWeight: 700 }}
                           label={selectedDashboard?.project?.name ?? getProjectName(selectedDashboard!, projects)}
                         />
                       </Box>
-                      <Stack direction="row" spacing={1}>
-                        <Tooltip title="Edit dashboard">
-                          <IconButton
+                      {isEditMode && (
+                        <Stack direction="row" spacing={1}>
+                          <Tooltip title="Edit dashboard">
+                            <IconButton
+                              onClick={() => {
+                                setEditingDashboard(selectedDashboard);
+                                setDashboardModalOpen(true);
+                              }}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Chart settings">
+                            <IconButton onClick={() => setChartConfigOpen(true)}>
+                              <SettingsIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete dashboard">
+                            <IconButton color="error" onClick={() => selectedDashboard && handleDeleteDashboard(selectedDashboard)}>
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
                             onClick={() => {
-                              setEditingDashboard(selectedDashboard);
-                              setDashboardModalOpen(true);
+                              setEditingKpi(null);
+                              setKpiModalOpen(true);
                             }}
+                            sx={{ textTransform: "none", fontWeight: 800, backgroundColor: "#4B2E83" }}
                           >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Chart settings">
-                          <IconButton onClick={() => setChartConfigOpen(true)}>
-                            <SettingsIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete dashboard">
-                          <IconButton color="error" onClick={() => selectedDashboard && handleDeleteDashboard(selectedDashboard)}>
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Button
-                          variant="contained"
-                          startIcon={<AddIcon />}
-                          onClick={() => {
-                            setEditingKpi(null);
-                            setKpiModalOpen(true);
-                          }}
-                          sx={{ textTransform: "none", fontWeight: 800, backgroundColor: "#4B2E83" }}
-                        >
-                          Create KPI
-                        </Button>
-                      </Stack>
+                            Create KPI
+                          </Button>
+                        </Stack>
+                      )}
                     </Stack>
                     <Divider sx={{ my: 2 }} />
                     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(5, 1fr)" }, gap: 1.5 }}>
@@ -746,7 +844,7 @@ export default function PersonalDashboardPage() {
                   </CardContent>
                 </Card>
 
-                <Card sx={{ borderRadius: 2, border: "1px solid #e5e7eb", boxShadow: "none" }}>
+                <Card sx={flatCardSx}>
                   <CardContent>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                       <Stack direction="row" spacing={1} alignItems="center">
@@ -755,43 +853,106 @@ export default function PersonalDashboardPage() {
                       </Stack>
                     </Stack>
                     {!selectedDashboard?.kpis?.length ? (
-                      <Alert severity="info">No KPIs configured yet. Create one to classify project health.</Alert>
+                      <Alert severity="info">
+                        {isEditMode
+                          ? "No KPIs configured yet. Create one to classify project health."
+                          : "No KPIs configured yet."}
+                      </Alert>
                     ) : (
-                      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)", xl: "repeat(3, 1fr)" }, gap: 2 }}>
+                      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(3, 1fr)", xl: "repeat(4, 1fr)" }, gap: 1.5 }}>
                         {selectedDashboard.kpis.map((kpi) => {
                           const colors = statusColors[kpi.status ?? "UNCLASSIFIED"];
+                          const kpiStatus = kpi.status ?? "UNCLASSIFIED";
+                          const kpiTone = {
+                            CRITICAL: {
+                              border: "#fecaca",
+                              bg: "linear-gradient(135deg, #fff7f7 0%, #ffffff 78%)",
+                            },
+                            ONFLOW: {
+                              border: "#fde68a",
+                              bg: "linear-gradient(135deg, #fffbeb 0%, #ffffff 78%)",
+                            },
+                            HEALTHY: {
+                              border: "#bbf7d0",
+                              bg: "linear-gradient(135deg, #ecfdf5 0%, #ffffff 78%)",
+                            },
+                            UNCLASSIFIED: {
+                              border: "#cbd5e1",
+                              bg: "linear-gradient(135deg, #f8fafc 0%, #ffffff 78%)",
+                            },
+                          }[kpiStatus];
                           return (
-                            <Box key={kpi.id} sx={{ border: "1px solid #e5e7eb", borderRadius: 2, p: 2, backgroundColor: "#fff" }}>
+                            <Box
+                              key={kpi.id}
+                              sx={{
+                                border: `1px solid ${kpiTone.border}`,
+                                borderRadius: 2,
+                                p: 1.25,
+                                background: kpiTone.bg,
+                                maxWidth: 250,
+                              }}
+                            >
                               <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
                                 <Box sx={{ minWidth: 0 }}>
-                                  <Typography fontWeight={900}>{kpi.name}</Typography>
-                                  <Typography variant="caption" sx={{ color: "#6b7280" }}>
+                                  <Typography sx={{ fontSize: 13, fontWeight: 800, lineHeight: 1.3 }}>{kpi.name}</Typography>
+                                  <Typography variant="caption" sx={{ color: "#6b7280", fontSize: 11 }}>
                                     {kpi.sourceType ?? "PROJECT"} / {kpi.field ?? "PROGRESS"}
                                   </Typography>
                                 </Box>
-                                <Chip label={kpi.status ?? "UNCLASSIFIED"} sx={{ bgcolor: colors.bg, color: colors.color, fontWeight: 800 }} />
+                                <Chip
+                                  size="small"
+                                  label={kpi.status ?? "UNCLASSIFIED"}
+                                  sx={{ height: 20, fontSize: 10, bgcolor: "#fff", color: colors.color, border: "1px solid rgba(148, 163, 184, 0.35)", fontWeight: 800 }}
+                                />
                               </Stack>
-                              <Stack direction="row" spacing={1} alignItems="baseline" sx={{ mt: 2 }}>
-                                <Typography variant="h4" fontWeight={900}>
+                              <Stack direction="row" spacing={0.5} alignItems="baseline" sx={{ mt: 1 }}>
+                                <Typography sx={{ fontSize: 22, fontWeight: 900, lineHeight: 1, color: colors.color }}>
                                   {kpi.currentValue ?? "--"}
                                 </Typography>
-                                <Typography sx={{ color: "#6b7280" }}>{kpi.unit ?? "%"}</Typography>
+                                <Typography sx={{ fontSize: 12, color: "#6b7280" }}>{kpi.unit ?? "%"}</Typography>
                               </Stack>
-                              <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-                                <Button
-                                  size="small"
-                                  startIcon={<EditIcon />}
-                                  onClick={() => {
-                                    setEditingKpi(kpi);
-                                    setKpiModalOpen(true);
-                                  }}
-                                >
-                                  Edit
-                                </Button>
-                                <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={() => handleDeleteKpi(kpi)}>
-                                  Delete
-                                </Button>
+                              <Stack spacing={0.25} sx={{ mt: 1, pt: 1, borderTop: "1px solid rgba(148, 163, 184, 0.2)" }}>
+                                <Stack direction="row" justifyContent="space-between">
+                                  <Typography sx={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>Source</Typography>
+                                  <Typography sx={{ fontSize: 11, color: "#475569", fontWeight: 700 }}>
+                                    {kpi.sourceDetails?.title ?? kpi.sourceType ?? "PROJECT"}
+                                  </Typography>
+                                </Stack>
+                                <Stack direction="row" justifyContent="space-between">
+                                  <Typography sx={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>Start</Typography>
+                                  <Typography sx={{ fontSize: 11, color: "#475569", fontWeight: 700 }}>
+                                    {kpi.sourceDetails?.expectedStartDate
+                                      ? new Date(kpi.sourceDetails.expectedStartDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                                      : "—"}
+                                  </Typography>
+                                </Stack>
+                                <Stack direction="row" justifyContent="space-between">
+                                  <Typography sx={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>End</Typography>
+                                  <Typography sx={{ fontSize: 11, color: "#475569", fontWeight: 700 }}>
+                                    {kpi.sourceDetails?.expectedEndDate
+                                      ? new Date(kpi.sourceDetails.expectedEndDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                                      : "—"}
+                                  </Typography>
+                                </Stack>
                               </Stack>
+                              {isEditMode && (
+                                <Stack direction="row" spacing={0.5} sx={{ mt: 1 }}>
+                                  <Button
+                                    size="small"
+                                    startIcon={<EditIcon sx={{ fontSize: "14px !important" }} />}
+                                    sx={{ fontSize: 11, py: 0.25, px: 0.75, minWidth: 0 }}
+                                    onClick={() => {
+                                      setEditingKpi(kpi);
+                                      setKpiModalOpen(true);
+                                    }}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button size="small" color="error" startIcon={<DeleteIcon sx={{ fontSize: "14px !important" }} />} sx={{ fontSize: 11, py: 0.25, px: 0.75, minWidth: 0 }} onClick={() => handleDeleteKpi(kpi)}>
+                                    Delete
+                                  </Button>
+                                </Stack>
+                              )}
                             </Box>
                           );
                         })}
@@ -809,7 +970,7 @@ export default function PersonalDashboardPage() {
               </Stack>
             )}
           </Box>
-        </Box>
+        )}
 
         <DashboardModal
           open={dashboardModalOpen}
