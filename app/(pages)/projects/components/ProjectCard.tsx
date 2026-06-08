@@ -88,7 +88,7 @@ const priorityCardTone = (priority?: string) => {
 };
 
 const statusChipColor = (status?: string) => {
-  if (status === "ACTIVE") return { bg: "#ECFDF5", color: "#047857", border: "#BBF7D0", label: "Approved" };
+  if (status === "ACTIVE" || status === "APPROVED") return { bg: "#ECFDF5", color: "#047857", border: "#BBF7D0", label: "Approved" };
   if (status === "FOR_REVIEW") return { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", label: "For Review" };
   if (status === "FOR_APPROVAL") return { bg: "#EEF2FF", color: "#4338CA", border: "#C7D2FE", label: "For Approval" };
   if (status === "NEEDS_REVISION") return { bg: "#FFF7ED", color: "#9A3412", border: "#FDBA74", label: "Needs Revision" };
@@ -182,7 +182,7 @@ function ApprovalStatusBadge({ project, onViewApproval, onResubmit }: {
   const tone = statusChipColor(status);
   const isPending = ["FOR_REVIEW", "FOR_APPROVAL"].includes(status ?? "");
   const isRejected = status === "NEEDS_REVISION" || status === "REJECTED";
-  const isActive = status === "ACTIVE";
+  const isActive = status === "ACTIVE" || status === "APPROVED";
 
   const badgeBase = {
     display: "flex",
@@ -254,7 +254,7 @@ export default function ProjectCard({
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const menuOpen = Boolean(menuAnchor);
 
-  const isActive = project.status === "ACTIVE";
+  const isActive = project.status === "ACTIVE" || project.status === "APPROVED";
   const isArchived = project.status === "ARCHIVED";
   const isForApproval =
     project.status === "FOR_APPROVAL" || project.status === "FOR_REVIEW";

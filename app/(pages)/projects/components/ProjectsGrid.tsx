@@ -120,7 +120,7 @@ export default function ProjectsGrid({
   };
 
   const statusStyle = (status?: string) => {
-    if (status === "ACTIVE") {
+    if (status === "ACTIVE" || status === "APPROVED") {
       return { label: "Approved", bg: "#ECFDF5", color: "#047857", border: "#BBF7D0" };
     }
     if (status === "FOR_REVIEW") {
@@ -366,14 +366,14 @@ export default function ProjectsGrid({
                 </MenuItem>
               )}
 
-              {menuProject.status === "ACTIVE" && (
+              {(menuProject.status === "ACTIVE" || menuProject.status === "APPROVED") && (
                 <MenuItem onClick={() => runMenuAction(() => actions.onTeamManage(menuProject))}>
                   <ListItemIcon><PeopleIcon fontSize="small" /></ListItemIcon>
                   <ListItemText>Team Management</ListItemText>
                 </MenuItem>
               )}
 
-              {menuProject.status === "ACTIVE" && (
+              {(menuProject.status === "ACTIVE" || menuProject.status === "APPROVED") && (
                 <MenuItem onClick={() => runMenuAction(() => actions.onVersion(menuProject))}>
                   <ListItemIcon><LayersIcon fontSize="small" /></ListItemIcon>
                   <ListItemText>Project Versions</ListItemText>

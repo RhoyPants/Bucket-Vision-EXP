@@ -1,29 +1,21 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
   Button,
   Card,
   CardContent,
-  Checkbox,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Divider,
-  FormControlLabel,
   IconButton,
-  MenuItem,
   Stack,
   Tab,
   Tabs,
   ToggleButton,
   ToggleButtonGroup,
-  TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -34,42 +26,39 @@ import EditIcon from "@mui/icons-material/Edit";
 import InsightsIcon from "@mui/icons-material/Insights";
 import SettingsIcon from "@mui/icons-material/Settings";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  Tooltip as RechartsTooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 
 import Layout from "@/app/components/shared/Layout";
 import KPIModal from "@/app/components/shared/modals/KPIModal";
+import DashboardNotes from "./components/DashboardNotes";
+import DashboardCharts from "./components/DashboardCharts";
+import DashboardModal from "./components/modals/DashboardModal";
+import ChartConfigDialog from "./components/ChartConfigDialog";
+import SummaryTile from "./components/SummaryTile";
+import KpiStatusPieCard from "./components/KpiStatusPieCard";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { getProjects } from "@/app/redux/controllers/projectController";
 import { Projects } from "@/app/redux/slices/projectSlice";
 import {
-  ChartData,
-  DashboardChartConfig,
   DashboardSummary,
   PersonalDashboard,
   PersonalDashboardKpi,
 } from "@/app/api-service/personalDashboardService";
 import {
-  createDashboard,
   fetchDashboardChartData,
   fetchPersonalDashboardDetail,
   fetchPersonalDashboards,
   removeDashboard,
   removeKpi,
-  saveDashboardCharts,
-  updateDashboard,
 } from "@/app/redux/controllers/personalDashboardController";
+import {
+  fetchNotes,
+  createNote,
+  editNote,
+  deleteNote,
+  addChecklistItemToNote,
+  editChecklistItem,
+  removeChecklistItemFromNote,
+} from "@/app/redux/controllers/notesController";
 
 const statusColors: Record<string, { bg: string; color: string; accent: string }> = {
   CRITICAL: { bg: "#fef2f2", color: "#b91c1c", accent: "#ef4444" },
@@ -77,16 +66,6 @@ const statusColors: Record<string, { bg: string; color: string; accent: string }
   HEALTHY: { bg: "#ecfdf5", color: "#047857", accent: "#10b981" },
   UNCLASSIFIED: { bg: "#f3f4f6", color: "#4b5563", accent: "#9ca3af" },
 };
-
-const chartOptions = [
-  { chartType: "KPI_SUMMARY", label: "KPI Summary Cards" },
-  { chartType: "SCURVE", label: "S-Curve Chart" },
-  { chartType: "PROGRESS_TREND", label: "Progress Trend Chart" },
-  { chartType: "SLA_DEADLINE_RISK", label: "SLA / Deadline Risk Chart" },
-  { chartType: "KPI_STATUS_DISTRIBUTION", label: "KPI Status Distribution" },
-  { chartType: "TASK_COMPLETION", label: "Task/Subtask Completion Chart" },
-  { chartType: "DELAY_TREND", label: "Delay Trend Chart" },
-];
 
 const defaultSummary: DashboardSummary = {
   totalKpis: 0,
@@ -116,408 +95,6 @@ const getProjectName = (dashboard: PersonalDashboard, projects: ProjectOption[])
   return project?.name ?? "Project not loaded";
 };
 
-const normalizeCharts = (charts?: DashboardChartConfig[]) =>
-  chartOptions.map((option, index) => {
-    const existing = charts?.find((chart) => chart.chartType === option.chartType);
-    return {
-      chartType: option.chartType,
-      isEnabled: existing?.isEnabled ?? (index < 2),
-      sortOrder: existing?.sortOrder ?? index,
-    };
-  });
-
-function MeasuredChartContainer({
-  height = 260,
-  children,
-}: {
-  height?: number;
-  children: (size: { width: number; height: number }) => React.ReactNode;
-}) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [width, setWidth] = useState(0);
-
-  useEffect(() => {
-    const element = containerRef.current;
-    if (!element) return;
-
-    const updateSize = () => {
-      const nextWidth = Math.max(0, Math.floor(element.clientWidth));
-      setWidth(nextWidth);
-    };
-
-    updateSize();
-
-    const resizeObserver = new ResizeObserver(() => {
-      updateSize();
-    });
-
-    resizeObserver.observe(element);
-    return () => resizeObserver.disconnect();
-  }, []);
-
-  return (
-    <Box ref={containerRef} sx={{ height, width: "100%", minWidth: 0, minHeight: height }}>
-      {width > 0 ? children({ width, height }) : null}
-    </Box>
-  );
-}
-
-
-function SummaryTile({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: "CRITICAL" | "ONFLOW" | "HEALTHY" | "UNCLASSIFIED";
-}) {
-  const colors = statusColors[tone];
-  const tileStyles: Record<string, { bg: string; border: string }> = {
-    CRITICAL: {
-      bg: "linear-gradient(135deg, #fff7f7 0%, #ffffff 100%)",
-      border: "#fecaca",
-    },
-    ONFLOW: {
-      bg: "linear-gradient(135deg, #fffbeb 0%, #ffffff 100%)",
-      border: "#fde68a",
-    },
-    HEALTHY: {
-      bg: "linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%)",
-      border: "#bbf7d0",
-    },
-    UNCLASSIFIED: {
-      bg: "linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)",
-      border: "#cbd5e1",
-    },
-  };
-  const tile = tileStyles[tone];
-
-  return (
-    <Box
-      sx={{
-        minHeight: 92,
-        border: `1px solid ${tile.border}`,
-        borderRadius: 2,
-        background: tile.bg,
-        p: 2,
-      }}
-    >
-      <Typography variant="caption" sx={{ color: "#6b7280", fontWeight: 700 }}>
-        {label}
-      </Typography>
-      <Typography variant="h4" sx={{ color: colors.color, fontWeight: 800, mt: 0.5 }}>
-        {value}
-      </Typography>
-    </Box>
-  );
-}
-
-function DashboardModal({
-  open,
-  onClose,
-  onSaved,
-  projects,
-  dashboard,
-  dashboardCount,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSaved: () => void;
-  projects: ProjectOption[];
-  dashboard?: PersonalDashboard | null;
-  dashboardCount: number;
-}) {
-  const dispatch = useAppDispatch();
-  const isEdit = Boolean(dashboard?.id);
-  const [form, setForm] = useState({ name: "", description: "", projectId: "" });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
-    setError("");
-    setForm({
-      name: dashboard?.name ?? "",
-      description: dashboard?.description ?? "",
-      projectId: dashboard?.projectId ?? dashboard?.project?.id ?? "",
-    });
-  }, [dashboard, open]);
-
-  const canSave = form.name.trim().length > 0 && Boolean(form.projectId) && (isEdit || dashboardCount < 5);
-
-  const handleSubmit = async () => {
-    if (!canSave) return;
-    try {
-      setSaving(true);
-      setError("");
-      if (isEdit && dashboard?.id) {
-        await dispatch(updateDashboard(dashboard.id, {
-          name: form.name.trim(),
-          description: form.description.trim(),
-        }));
-      } else {
-        await dispatch(createDashboard({
-          name: form.name.trim(),
-          description: form.description.trim(),
-          projectId: form.projectId,
-        }));
-      }
-      onSaved();
-      onClose();
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, "Failed to save dashboard."));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle sx={{ fontWeight: 800 }}>
-        {isEdit ? "Edit Dashboard" : "Create Personal Dashboard"}
-      </DialogTitle>
-      <DialogContent dividers>
-        <Stack spacing={2.5} sx={{ pt: 0.5 }}>
-          {error && <Alert severity="error">{error}</Alert>}
-          {!isEdit && dashboardCount >= 5 && (
-            <Alert severity="warning">You already have the maximum of 5 personal dashboards.</Alert>
-          )}
-          <TextField
-            label="Dashboard Name"
-            fullWidth
-            required
-            value={form.name}
-            onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-          />
-          <TextField
-            label="Dashboard Description"
-            fullWidth
-            multiline
-            rows={3}
-            value={form.description}
-            onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-          />
-          <TextField
-            select
-            label="Project"
-            fullWidth
-            required
-            disabled={isEdit}
-            value={form.projectId}
-            onChange={(event) => setForm((prev) => ({ ...prev, projectId: event.target.value }))}
-          >
-            {projects.map((project) => (
-              <MenuItem key={project.id} value={project.id}>
-                {project.name}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Stack>
-      </DialogContent>
-      <DialogActions sx={{ p: 2 }}>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" disabled={!canSave || saving} onClick={handleSubmit}>
-          {saving ? "Saving..." : isEdit ? "Update Dashboard" : "Create Dashboard"}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-function ChartConfigDialog({
-  open,
-  onClose,
-  dashboard,
-  onSaved,
-}: {
-  open: boolean;
-  onClose: () => void;
-  dashboard: PersonalDashboard | null;
-  onSaved: () => void;
-}) {
-  const dispatch = useAppDispatch();
-  const [charts, setCharts] = useState<DashboardChartConfig[]>([]);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (open) setCharts(normalizeCharts(dashboard?.charts));
-  }, [dashboard?.charts, open]);
-
-  const handleToggle = (chartType: string) => {
-    setCharts((prev) =>
-      prev.map((chart) =>
-        chart.chartType === chartType ? { ...chart, isEnabled: !chart.isEnabled } : chart
-      )
-    );
-  };
-
-  const handleSave = async () => {
-    if (!dashboard?.id) return;
-    setSaving(true);
-    try {
-      await dispatch(saveDashboardCharts(dashboard.id, charts));
-      onSaved();
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle sx={{ fontWeight: 800 }}>Chart Configuration</DialogTitle>
-      <DialogContent dividers>
-        <Stack spacing={1}>
-          {chartOptions.map((option) => {
-            const checked = charts.find((chart) => chart.chartType === option.chartType)?.isEnabled ?? false;
-            return (
-              <FormControlLabel
-                key={option.chartType}
-                control={<Checkbox checked={checked} onChange={() => handleToggle(option.chartType)} />}
-                label={option.label}
-              />
-            );
-          })}
-        </Stack>
-      </DialogContent>
-      <DialogActions sx={{ p: 2 }}>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving}>
-          {saving ? "Saving..." : "Save Charts"}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-function DashboardCharts({ dashboard, chartData }: { dashboard: PersonalDashboard | null; chartData: ChartData | null }) {
-  const enabledCharts = normalizeCharts(dashboard?.charts)
-    .filter((chart) => chart.isEnabled)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
-  const summary = chartData?.summary ?? dashboard?.summary ?? defaultSummary;
-  const statusData = [
-    { name: "Critical", value: summary.criticalKpis, color: statusColors.CRITICAL.accent },
-    { name: "Onflow", value: summary.onflowKpis, color: statusColors.ONFLOW.accent },
-    { name: "Healthy", value: summary.healthyKpis, color: statusColors.HEALTHY.accent },
-    { name: "Unclassified", value: summary.unclassifiedKpis, color: statusColors.UNCLASSIFIED.accent },
-  ];
-  const scurveData = chartData?.scurve?.data ?? chartData?.progressTrend ?? [];
-  const completionData = chartData?.taskCompletion
-    ? [
-        { name: "Completed", value: chartData.taskCompletion.completed },
-        { name: "Pending", value: chartData.taskCompletion.pending },
-      ]
-    : [];
-
-  if (!dashboard) return null;
-
-  return (
-    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "1fr 1fr" }, gap: 2, minWidth: 0 }}>
-      {enabledCharts.map((chart) => {
-        if (chart.chartType === "KPI_SUMMARY") {
-          return (
-            <Card key={chart.chartType} sx={{ ...flatCardSx, minWidth: 0 }}>
-              <CardContent>
-                <Typography fontWeight={900} sx={{ mb: 2 }}>
-                  KPI Summary
-                </Typography>
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" }, gap: 1.5 }}>
-                  <SummaryTile label="Critical" value={summary.criticalKpis} tone="CRITICAL" />
-                  <SummaryTile label="Onflow" value={summary.onflowKpis} tone="ONFLOW" />
-                  <SummaryTile label="Healthy" value={summary.healthyKpis} tone="HEALTHY" />
-                  <SummaryTile label="Total" value={summary.totalKpis} tone="UNCLASSIFIED" />
-                </Box>
-              </CardContent>
-            </Card>
-          );
-        }
-
-        if (chart.chartType === "SCURVE" || chart.chartType === "PROGRESS_TREND" || chart.chartType === "DELAY_TREND") {
-          return (
-            <Card key={chart.chartType} sx={flatCardSx}>
-              <CardContent>
-                <Typography fontWeight={900} sx={{ mb: 2 }}>
-                  {chart.chartType === "SCURVE" ? "S-Curve" : chart.chartType === "DELAY_TREND" ? "Delay Trend" : "Progress Trend"}
-                </Typography>
-                <MeasuredChartContainer>
-                  {({ width, height }) =>
-                    scurveData.length ? (
-                      <LineChart width={width} height={height} data={scurveData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" />
-                        <YAxis />
-                        <RechartsTooltip />
-                        <Line type="monotone" dataKey="planned" stroke="#64748b" strokeWidth={2} />
-                        <Line type="monotone" dataKey="actual" stroke="#4B2E83" strokeWidth={3} />
-                      </LineChart>
-                    ) : (
-                      <Alert severity="info">Chart data is not available yet.</Alert>
-                    )
-                  }
-                </MeasuredChartContainer>
-              </CardContent>
-            </Card>
-          );
-        }
-
-        if (chart.chartType === "KPI_STATUS_DISTRIBUTION" || chart.chartType === "SLA_DEADLINE_RISK") {
-          return (
-            <Card key={chart.chartType} sx={{ ...flatCardSx, minWidth: 0 }}>
-              <CardContent>
-                <Typography fontWeight={900} sx={{ mb: 2 }}>
-                  {chart.chartType === "SLA_DEADLINE_RISK" ? "SLA / Deadline Risk" : "KPI Status Distribution"}
-                </Typography>
-                <MeasuredChartContainer>
-                  {({ width, height }) => (
-                    <PieChart width={width} height={height}>
-                      <Pie data={statusData} dataKey="value" nameKey="name" outerRadius={90} label>
-                        {statusData.map((entry) => (
-                          <Cell key={entry.name} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip />
-                    </PieChart>
-                  )}
-                </MeasuredChartContainer>
-              </CardContent>
-            </Card>
-          );
-        }
-
-        if (chart.chartType === "TASK_COMPLETION") {
-          return (
-            <Card key={chart.chartType} sx={{ ...flatCardSx, minWidth: 0 }}>
-              <CardContent>
-                <Typography fontWeight={900} sx={{ mb: 2 }}>
-                  Task/Subtask Completion
-                </Typography>
-                <MeasuredChartContainer>
-                  {({ width, height }) =>
-                    completionData.length ? (
-                      <BarChart width={width} height={height} data={completionData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <RechartsTooltip />
-                        <Bar dataKey="value" fill="#4B2E83" radius={[6, 6, 0, 0]} />
-                      </BarChart>
-                    ) : (
-                      <Alert severity="info">Completion data is not available yet.</Alert>
-                    )
-                  }
-                </MeasuredChartContainer>
-              </CardContent>
-            </Card>
-          );
-        }
-
-        return null;
-      })}
-    </Box>
-  );
-}
-
 export default function PersonalDashboardPage() {
   const dispatch = useAppDispatch();
   const projects = useAppSelector((state) => state.project.projects);
@@ -529,6 +106,7 @@ export default function PersonalDashboardPage() {
     detailLoading,
     error,
   } = useAppSelector((state) => state.personalDashboard);
+  const { notes, loading: notesLoading, error: notesError } = useAppSelector((state) => state.notes);
   const authToken = useAppSelector((state) => state.auth.token);
   const [selectedId, setSelectedId] = useState("");
   const [dashboardModalOpen, setDashboardModalOpen] = useState(false);
@@ -575,6 +153,11 @@ export default function PersonalDashboardPage() {
     if (!projects?.length) dispatch(getProjects());
     loadDashboards();
   }, [dispatch, hasAccessToken, loadDashboards, projects?.length]);
+
+  useEffect(() => {
+    if (!hasAccessToken || !selectedDashboardId) return;
+    dispatch(fetchNotes(selectedDashboardId) as any);
+  }, [dispatch, hasAccessToken, selectedDashboardId]);
 
   useEffect(() => {
     if (!hasAccessToken) return;
@@ -843,6 +426,48 @@ export default function PersonalDashboardPage() {
                     </Box>
                   </CardContent>
                 </Card>
+
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) minmax(0, 1fr)" },
+                    gap: 2,
+                    alignItems: "stretch",
+                    "& > *": { minWidth: 0 },
+                  }}
+                >
+                  <DashboardNotes
+                    notes={notes}
+                    loading={notesLoading}
+                    error={notesError}
+                    isEditMode={isEditMode}
+                    onCreateNote={async (payload) => {
+                      if (!selectedDashboardId) return;
+                      await dispatch(createNote(selectedDashboardId, payload) as any);
+                    }}
+                    onEditNote={async (noteId, payload) => {
+                      if (!selectedDashboardId) return;
+                      await dispatch(editNote(selectedDashboardId, noteId, payload) as any);
+                    }}
+                    onDeleteNote={async (noteId) => {
+                      if (!selectedDashboardId) return;
+                      await dispatch(deleteNote(selectedDashboardId, noteId) as any);
+                    }}
+                    onAddChecklistItem={async (noteId, payload) => {
+                      if (!selectedDashboardId) return;
+                      await dispatch(addChecklistItemToNote(selectedDashboardId, noteId, payload) as any);
+                    }}
+                    onEditChecklistItem={async (noteId, itemId, payload) => {
+                      if (!selectedDashboardId) return;
+                      await dispatch(editChecklistItem(selectedDashboardId, noteId, itemId, payload) as any);
+                    }}
+                    onDeleteChecklistItem={async (noteId, itemId) => {
+                      if (!selectedDashboardId) return;
+                      await dispatch(removeChecklistItemFromNote(selectedDashboardId, noteId, itemId) as any);
+                    }}
+                  />
+                  <KpiStatusPieCard summary={selectedSummary} />
+                </Box>
 
                 <Card sx={flatCardSx}>
                   <CardContent>

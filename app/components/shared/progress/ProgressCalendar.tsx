@@ -383,6 +383,9 @@ export default function ProgressCalendar({
                     <Typography fontSize={10} sx={{ mt: 0.5, fontWeight: "bold" }}>
                       Total: {log.cumulativePercent}%
                     </Typography>
+                    {log.photoUrl && (
+                      <ImageIcon sx={{ fontSize: 14, color: "#fff", mt: 0.25, opacity: 0.85 }} />
+                    )}
                   </>
                 )}
               </Box>

@@ -22,6 +22,8 @@ import { useRouter } from "next/navigation";
 import { getProjects, deleteProject } from "@/app/redux/controllers/projectController";
 import {
   getPendingProjectsForApproval,
+  getProjectApprovals,
+  getApprovalAuditTrail,
   approveProject,
   rejectProject,
   submitProjectForApproval,
@@ -49,7 +51,7 @@ export default function ProjectsPage() {
   const { allApprovals, auditTrail } = useAppSelector((state) => state.approval);
   const { user } = useAppSelector((state) => state.auth);
 
-const [activeTab, setActiveTab] = useState<ProjectTab>("active");
+  const [activeTab, setActiveTab] = useState<ProjectTab>("active");
   const [viewType, setViewType] = useState<ViewType>("card");
 
   const [projectModalOpen, setProjectModalOpen] = useState(false);
@@ -63,7 +65,7 @@ const [activeTab, setActiveTab] = useState<ProjectTab>("active");
   const [teamManagementModalOpen, setTeamManagementModalOpen] = useState(false);
   const [selectedProjectForTeam, setSelectedProjectForTeam] = useState<any>(null);
 
-   const [approvalProjects, setApprovalProjects] = useState<any[]>([]);
+  const [approvalProjects, setApprovalProjects] = useState<any[]>([]);
 
   useEffect(() => {
     dispatch(getProjects());
@@ -78,11 +80,11 @@ const [activeTab, setActiveTab] = useState<ProjectTab>("active");
       .catch(() => setApprovalProjects([]));
   };
 
- const counts = useMemo(() => {
+  const counts = useMemo(() => {
     const list = projects || [];
     return {
       all: list.filter((p: any) => p.status !== "DRAFT" && p.status !== "ARCHIVED").length,
-      active: list.filter((p: any) => p.status === "ACTIVE").length,
+      active: list.filter((p: any) => p.status === "ACTIVE" || p.status === "APPROVED").length,
       pending: list.filter((p: any) => !p.status || p.status === "DRAFT" || p.status === "NEEDS_REVISION").length,
       draft: list.filter((p: any) => p.status === "DRAFT").length,
       "for-review": list.filter((p: any) => p.status === "FOR_REVIEW").length,
@@ -91,7 +93,7 @@ const [activeTab, setActiveTab] = useState<ProjectTab>("active");
     };
   }, [projects]);
 
-   const actions: ProjectCardActions = {
+  const actions: ProjectCardActions = {
     onEdit: (project) => {
       setProjectModalMode("edit");
       setSelectedProject(project);
@@ -99,7 +101,20 @@ const [activeTab, setActiveTab] = useState<ProjectTab>("active");
     },
     onDelete: (projectId) => dispatch(deleteProject(projectId)),
     onSetup: (projectId) => router.push(`/projects/${projectId}/setup`),
-    onViewApproval: (project) => router.push(`/approvals/${project.id}`),
+    onViewApproval: async (project) => {
+      if (!project?.id) return;
+      setSelectedProjectForApproval(project);
+      setApprovalDetailOpen(true);
+
+      try {
+        await Promise.all([
+          dispatch(getProjectApprovals(project.id) as any),
+          dispatch(getApprovalAuditTrail(project.id) as any),
+        ]);
+      } catch (err) {
+        console.error("Failed to load approval details:", err);
+      }
+    },
     onSubmitForApproval: (project) => {
       setSelectedProjectForApproval(project);
       setApprovalSubmitOpen(true);
@@ -141,7 +156,7 @@ const [activeTab, setActiveTab] = useState<ProjectTab>("active");
     archived: <ArchivedProjectsTab projects={allProjects} actions={actions} viewType={viewType} />,
   };
 
-   return (
+  return (
     <Layout>
       <Box sx={{ p: { xs: 2, md: 4 } }}>
         <Stack

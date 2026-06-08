@@ -12,6 +12,7 @@ import {
   Alert,
 } from "@mui/material";
 import CheckIcon from "@mui/icons-material/Check";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import axiosApi from "@/app/lib/axios";
 
 interface ProgressInputCardProps {
@@ -31,6 +32,8 @@ export default function ProgressInputCard({
 }: ProgressInputCardProps) {
   const [progress, setProgress] = useState(currentProgress.toString());
   const [remarks, setRemarks] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -51,17 +54,23 @@ export default function ProgressInputCard({
     try {
       const today = new Date().toISOString().split("T")[0];
 
-      await axiosApi.post("/progress", {
-        subtaskId,
-        date: today,
-        value: progressValue,
-        remarks: remarks || undefined,
+      const formData = new FormData();
+      formData.append("subtaskId", subtaskId);
+      formData.append("date", today);
+      formData.append("dailyPercent", String(progressValue));
+      if (remarks) formData.append("remarks", remarks);
+      if (photo) formData.append("photo", photo);
+
+      await axiosApi.post("/progress", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
       setSuccess(true);
       setTimeout(() => {
         setProgress("");
         setRemarks("");
+        setPhoto(null);
+        setPhotoPreview("");
         setSuccess(false);
         onSuccess?.();
         onClose?.();
@@ -295,6 +304,63 @@ export default function ProgressInputCard({
               }}
             />
           </Box>
+        )}
+      </Box>
+
+      {/* Photo Upload */}
+      <Box sx={{ mb: 2.5 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            display: "block",
+            color: "#7D8693",
+            fontSize: "11px",
+            fontWeight: 600,
+            textTransform: "uppercase",
+            mb: 0.8,
+          }}
+        >
+          Photo Attachment (Optional)
+        </Typography>
+        <input
+          accept="image/*"
+          style={{ display: "none" }}
+          id="progress-card-photo-input"
+          type="file"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            setPhoto(file);
+            const reader = new FileReader();
+            reader.onload = (ev) => setPhotoPreview(ev.target?.result as string);
+            reader.readAsDataURL(file);
+          }}
+        />
+        <label htmlFor="progress-card-photo-input" style={{ width: "100%" }}>
+          <Button
+            variant="outlined"
+            component="span"
+            fullWidth
+            size="small"
+            startIcon={<CloudUploadIcon />}
+            sx={{ textTransform: "none", fontWeight: 600 }}
+          >
+            {photo ? `📎 ${photo.name}` : "Upload Photo"}
+          </Button>
+        </label>
+        {photoPreview && (
+          <Box
+            component="img"
+            src={photoPreview}
+            sx={{
+              mt: 1.5,
+              width: "100%",
+              height: 120,
+              objectFit: "cover",
+              borderRadius: 1,
+              border: "1px solid #DDE1E8",
+            }}
+          />
         )}
       </Box>
 
