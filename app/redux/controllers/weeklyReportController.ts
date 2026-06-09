@@ -1,5 +1,6 @@
 import axios from "@/app/lib/axios";
 import { AppDispatch } from "@/app/redux/store";
+import { uploadAttachments } from "@/app/api-service/attachmentService";
 import {
   getWeeklyReportsStart,
   getWeeklyReportsSuccess,
@@ -163,9 +164,30 @@ export const createWeeklyReport =
   (payload: WeeklyReportCreatePayload) => async (dispatch: AppDispatch) => {
     dispatch(createReportStart());
     try {
-      const response = await axios.post("/weekly-reports", payload);
-      dispatch(createReportSuccess(response.data));
-      return response.data;
+      const { files, attachments, ...restPayload } = payload as WeeklyReportCreatePayload & {
+        files?: File[];
+        attachments?: any[];
+      };
+      const reportPayload = {
+        ...restPayload,
+        ...(Array.isArray(attachments) && attachments.length > 0 && !(attachments[0] instanceof File)
+          ? { attachments }
+          : {}),
+      };
+      const response = await axios.post("/weekly-reports", reportPayload);
+
+      let created = response.data?.data || response.data;
+
+      if (files?.length && created?.id) {
+        const uploaded = await uploadAttachments("weekly-reports", created.id, files);
+        created = {
+          ...created,
+          attachments: uploaded,
+        };
+      }
+
+      dispatch(createReportSuccess(created));
+      return created;
     } catch (error: any) {
       const message = error.response?.data?.message || "Failed to create report";
       dispatch(createReportFailure(message));
@@ -181,9 +203,31 @@ export const updateWeeklyReport =
   async (dispatch: AppDispatch) => {
     dispatch(updateReportStart());
     try {
-      const response = await axios.put(`/weekly-reports/${reportId}`, payload);
-      dispatch(updateReportSuccess(response.data));
-      return response.data;
+      const { files, attachments, ...restPayload } = payload as WeeklyReportUpdatePayload & {
+        files?: File[];
+        attachments?: any[];
+      };
+      const reportPayload = {
+        ...restPayload,
+        ...(Array.isArray(attachments) && attachments.length > 0 && !(attachments[0] instanceof File)
+          ? { attachments }
+          : {}),
+      };
+      const response = await axios.put(`/weekly-reports/${reportId}`, reportPayload);
+
+      let updated = response.data?.data || response.data;
+
+      if (files?.length) {
+        const uploaded = await uploadAttachments("weekly-reports", reportId, files);
+        const existing = Array.isArray(updated?.attachments) ? updated.attachments : [];
+        updated = {
+          ...updated,
+          attachments: [...existing, ...uploaded],
+        };
+      }
+
+      dispatch(updateReportSuccess(updated));
+      return updated;
     } catch (error: any) {
       const message = error.response?.data?.message || "Failed to update report";
       dispatch(updateReportFailure(message));

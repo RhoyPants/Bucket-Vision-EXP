@@ -21,6 +21,7 @@ import {
   Backdrop,
   Grid,
   Chip as MuiChip,
+  IconButton,
 } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { useRouter } from "next/navigation";
@@ -29,6 +30,9 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PeopleIcon from "@mui/icons-material/People";
 import AssignmentIcon from "@mui/icons-material/Assignment";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DownloadIcon from "@mui/icons-material/Download";
 import {
   getProjectFull,
   updateProject,
@@ -70,6 +74,13 @@ import {
 import {
   getBusinessUnitsDropdown,
 } from "@/app/api-service/businessUnitService";
+import {
+  deleteAttachment,
+  getAttachmentFileName,
+  getAttachmentFileUrl,
+  getProjectAttachments,
+  uploadAttachments,
+} from "@/app/api-service/attachmentService";
 
 
 const WIZARD_STEPS = ["Create Project", "Team Management", "Project Structure", "Confirmation & Summary"];
@@ -160,6 +171,11 @@ export default function ProjectSetupWizard({
   const [submitConfirm, setSubmitConfirm] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
   const [draftSuccessOpen, setDraftSuccessOpen] = useState(false);
+  const [projectAttachmentFiles, setProjectAttachmentFiles] = useState<File[]>([]);
+  const [projectAttachments, setProjectAttachments] = useState<any[]>([]);
+  const [attachmentBusy, setAttachmentBusy] = useState(false);
+  const [attachmentLimitDialogOpen, setAttachmentLimitDialogOpen] = useState(false);
+  const [attachmentLimitDialogMessage, setAttachmentLimitDialogMessage] = useState("");
 
   // GET PROJECT MEMBERS FROM REDUX
   const { projectMembers } = useAppSelector((state) => state.projectMembers);
@@ -268,6 +284,23 @@ export default function ProjectSetupWizard({
 
     hydrateLocationHierarchy();
   }, [project]);
+
+  const refreshProjectAttachments = useCallback(async (projectIdArg?: string) => {
+    const id = projectIdArg || currentProjectId;
+    if (!id) return;
+
+    try {
+      const attachments = await getProjectAttachments(id);
+      setProjectAttachments(Array.isArray(attachments) ? attachments : []);
+    } catch (error) {
+      console.error("Error loading project attachments:", error);
+    }
+  }, [currentProjectId]);
+
+  useEffect(() => {
+    if (!currentProjectId) return;
+    void refreshProjectAttachments(currentProjectId);
+  }, [currentProjectId, refreshProjectAttachments]);
 
   // Load regions from backend
   useEffect(() => {
@@ -671,7 +704,12 @@ export default function ProjectSetupWizard({
 
       if (isCreatingNew && !currentProjectId) {
         // Create new project
-        const created = await dispatch(createProject(payload));
+        const created = await dispatch(
+          createProject({
+            ...payload,
+            attachments: projectAttachmentFiles,
+          }),
+        );
         const createdProject = created?.data ?? created;
         const createdId = createdProject?.id;
 
@@ -682,14 +720,35 @@ export default function ProjectSetupWizard({
         setCurrentProjectId(createdId);
         window.history.replaceState({}, "", `/projects/${createdId}/setup`);
         setProject(createdProject);
+        setProjectAttachmentFiles([]);
+        await refreshProjectAttachments(createdId);
       } else if (currentProjectId) {
         // Update existing project
         const updated = await dispatch(updateProject(currentProjectId, payload));
         if (updated) {
-          setProject(updated);
+          setProject((prev: any) => ({
+            ...(prev || {}),
+            ...(updated || {}),
+            attachments:
+              updated?.attachments !== undefined
+                ? updated.attachments
+                : prev?.attachments,
+          }));
         }
+
+        if (projectAttachmentFiles.length > 0) {
+          setAttachmentBusy(true);
+          try {
+            await uploadAttachments("projects", currentProjectId, projectAttachmentFiles);
+            setProjectAttachmentFiles([]);
+          } finally {
+            setAttachmentBusy(false);
+          }
+        }
+
         // Do not block step transition on full refresh; run it in background.
         void refreshProject();
+        void refreshProjectAttachments(currentProjectId);
       }
       
       setProjectErrors([]);
@@ -767,6 +826,66 @@ export default function ProjectSetupWizard({
       console.error("Error saving draft:", error);
       setSubmitMessage("❌ Failed to save draft");
       setSaving(false);
+    }
+  };
+
+  const handleProjectAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputEl = e.currentTarget;
+    const selected = Array.from(inputEl.files || []);
+    if (!selected.length) return;
+
+    const MAX_ATTACHMENTS = 10;
+    const uploadedCount = projectAttachments.length;
+    let exceededLimit = false;
+
+    const merged = [...projectAttachmentFiles];
+
+    selected.forEach((f) => {
+      const exists = merged.some(
+        (m) => m.name === f.name && m.size === f.size && m.lastModified === f.lastModified,
+      );
+      if (!exists && uploadedCount + merged.length < MAX_ATTACHMENTS) {
+        merged.push(f);
+      } else if (!exists) {
+        exceededLimit = true;
+      }
+    });
+
+    setProjectAttachmentFiles(merged);
+
+    if (exceededLimit) {
+      const currentTotal = uploadedCount + merged.length;
+      if (currentTotal >= MAX_ATTACHMENTS) {
+        setAttachmentLimitDialogMessage("You already reached the maximum of 10 attachments for this project.");
+      } else {
+        setAttachmentLimitDialogMessage("Maximum 10 attachments allowed. Extra selected files were not added.");
+      }
+      setAttachmentLimitDialogOpen(true);
+    }
+
+    inputEl.value = "";
+  };
+
+  const removePendingProjectAttachment = (target: File) => {
+    setProjectAttachmentFiles((prev) =>
+      prev.filter(
+        (f) => !(f.name === target.name && f.size === target.size && f.lastModified === target.lastModified),
+      ),
+    );
+  };
+
+  const handleDeleteProjectAttachment = async (att: any) => {
+    if (!att?.id) return;
+
+    try {
+      setAttachmentBusy(true);
+      await deleteAttachment("projects", att.id);
+      await refreshProjectAttachments();
+    } catch (error: any) {
+      console.error("Error deleting project attachment:", error);
+      setSubmitMessage(`❌ ${error?.response?.data?.message || "Failed to delete attachment"}`);
+    } finally {
+      setAttachmentBusy(false);
     }
   };
 
@@ -882,6 +1001,168 @@ export default function ProjectSetupWizard({
                 barangays={barangays}
                 businessUnits={businessUnits}
                 entities={entities}
+                attachmentsSection={
+                  <Box
+                    sx={{
+                      backgroundColor: "#eff6ff",
+                      border: "1px solid #bfdbfe",
+                      borderRadius: 2,
+                      p: 2,
+                      mb: 2,
+                    }}
+                  >
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 13, mb: 1 }}>
+                      Project Attachments
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "#666", display: "block", mb: 2 }}>
+                      Upload supporting files (max 10 files, 50MB each)
+                    </Typography>
+
+
+                    <input
+                      id="project-attachments-input"
+                      type="file"
+                      multiple
+                      accept="*/*"
+                      onChange={handleProjectAttachmentChange}
+                      style={{ display: "none" }}
+                      disabled={attachmentBusy}
+                    />
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mb: 2 }}>
+                      <label htmlFor="project-attachments-input" style={{ width: "100%" }}>
+                        <Button
+                          component="span"
+                          variant="outlined"
+                          fullWidth
+                          endIcon={<CloudUploadIcon />}
+                          disabled={attachmentBusy}
+                          sx={{
+                            height: 56,
+                            borderStyle: "dashed",
+                            borderColor: "#cbd5e1",
+                            color: "#374151",
+                            justifyContent: "space-between",
+                            px: 2,
+                            textTransform: "none",
+                            fontWeight: 500,
+                            backgroundColor: "#fff",
+                          }}
+                        >
+                          Select files to attach
+                        </Button>
+                      </label>
+                    </Stack>
+
+                    {projectAttachmentFiles.length > 0 && (
+                      <Box
+                        sx={{
+                          mb: 2,
+                          display: "grid",
+                          gridTemplateColumns: {
+                            xs: "1fr",
+                            sm: "repeat(2, minmax(0, 1fr))",
+                            md: "repeat(3, minmax(0, 1fr))",
+                          },
+                          gap: 1,
+                          maxHeight: 220,
+                          overflowY: "auto",
+                          pr: 0.5,
+                        }}
+                      >
+                        {projectAttachmentFiles.map((f) => (
+                          <Box
+                            key={`${f.name}-${f.size}-${f.lastModified}`}
+                            sx={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: 1,
+                              px: 1.25,
+                              py: 1.25,
+                              minHeight: 52,
+                              gap: 1,
+                            }}
+                          >
+                            <Typography sx={{ fontSize: 12, lineHeight: 1.3, wordBreak: "break-word" }}>
+                              {f.name} ({(f.size / 1024 / 1024).toFixed(2)} MB)
+                            </Typography>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              disabled={attachmentBusy}
+                              onClick={() => removePendingProjectAttachment(f)}
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+
+                    {projectAttachments.length > 0 && (
+                      <Box
+                        sx={{
+                          display: "grid",
+                          gridTemplateColumns: {
+                            xs: "1fr",
+                            sm: "repeat(2, minmax(0, 1fr))",
+                            md: "repeat(3, minmax(0, 1fr))",
+                            lg: "repeat(4, minmax(0, 1fr))",
+                          },
+                          gap: 1,
+                          maxHeight: 260,
+                          overflowY: "auto",
+                          pr: 0.5,
+                        }}
+                      >
+                        {projectAttachments.map((att: any, idx: number) => (
+                          <Box
+                            key={att?.id || `${att?.fileName || "attachment"}-${idx}`}
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                              border: "1px solid #e5e7eb",
+                              borderRadius: 1,
+                              px: 1.25,
+                              py: 1.25,
+                              minHeight: 52,
+                              backgroundColor: "#fff",
+                            }}
+                          >
+                            <Button
+                              variant="text"
+                              startIcon={<DownloadIcon />}
+                              href={getAttachmentFileUrl("projects", att)}
+                              target="_blank"
+                              sx={{
+                                textTransform: "none",
+                                justifyContent: "flex-start",
+                                flex: 1,
+                                minWidth: 0,
+                                fontSize: 12,
+                              }}
+                            >
+                              {getAttachmentFileName(att, `Attachment ${idx + 1}`)}
+                            </Button>
+
+                            {!!att?.id && (
+                              <IconButton
+                                color="error"
+                                size="small"
+                                disabled={attachmentBusy}
+                                onClick={() => handleDeleteProjectAttachment(att)}
+                              >
+                                <DeleteOutlineIcon fontSize="small" />
+                              </IconButton>
+                            )}
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
+                }
               />
             </CardContent>
           </Card>
@@ -985,9 +1266,9 @@ export default function ProjectSetupWizard({
 
         {/* STEP 3: CONFIRMATION & SUMMARY */}
         {activeStep === 3 && (
-          <Stack spacing={3}>
+          <Stack spacing={2}>
             <Card sx={{ backgroundColor: "#f0fdf4", borderLeft: "4px solid #22c55e" }}>
-              <CardContent>
+              <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
                 <Stack direction="row" spacing={2}>
                   <CheckCircleIcon sx={{ color: "#22c55e", fontSize: 28 }} />
                   <Box>
@@ -1001,11 +1282,11 @@ export default function ProjectSetupWizard({
             </Card>
 
             {/* COMPREHENSIVE SUMMARY */}
-            <Grid container spacing={2}>
+            <Grid container spacing={1.5}>
               {/* PROJECT DETAILS CARD */}
               <Grid size={{ xs: 12, md: 6 }}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ height: "100%" }}>
+                  <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
                     <Typography variant="h6" fontWeight={700} mb={2}>
                       📋 Project Information
                     </Typography>
@@ -1075,8 +1356,8 @@ export default function ProjectSetupWizard({
 
               {/* TIMELINE & LOCATION CARD */}
               <Grid size={{ xs: 12, md: 6 }}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ height: "100%" }}>
+                  <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
                     <Typography variant="h6" fontWeight={700} mb={2}>
                       📍 Timeline & Location
                     </Typography>
@@ -1125,8 +1406,8 @@ export default function ProjectSetupWizard({
 
               {/* WORK SCHEDULE CARD */}
               <Grid size={{ xs: 12, md: 6 }}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ height: "100%" }}>
+                  <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
                     <Typography variant="h6" fontWeight={700} mb={2}>
                       📅 Work Schedule
                     </Typography>
@@ -1188,11 +1469,13 @@ export default function ProjectSetupWizard({
 
               {/* TEAM MEMBERS CARD */}
               <Grid size={{ xs: 12, md: 6 }}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ height: "100%" }}>
+                  <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
                     <Typography variant="h6" fontWeight={700} mb={2}>
                       👥 Team Members
                     </Typography>
+
+                    <Box sx={{ maxHeight: 310, overflowY: "auto", pr: 0.5 }}>
 
                     {/* OWNERS */}
                     {projectMembers?.owner && projectMembers.owner.length > 0 && (
@@ -1262,6 +1545,55 @@ export default function ProjectSetupWizard({
                         No team members assigned yet
                       </Typography>
                     )}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* ATTACHMENTS CARD */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Card sx={{ height: "100%" }}>
+                  <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+                    <Typography variant="h6" fontWeight={700} mb={2}>
+                      📎 Attachments
+                    </Typography>
+
+                    <Grid container spacing={1.25}>
+                      <Grid size={{ xs: 12 }}>
+                        <Box sx={{ p: 1.25, border: "1px solid #e5e7eb", borderRadius: 1, backgroundColor: "#fafafa" }}>
+                        <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase", mb: 1 }}>
+                          Uploaded ({projectAttachments.length})
+                        </Typography>
+                        {projectAttachments.length > 0 ? (
+                          <Stack spacing={0.5} sx={{ maxHeight: 155, overflowY: "auto", pr: 0.5 }}>
+                            {projectAttachments.map((att: any, idx: number) => (
+                              <Button
+                                key={att?.id || `${att?.fileName || "attachment"}-${idx}`}
+                                variant="text"
+                                startIcon={<DownloadIcon />}
+                                href={getAttachmentFileUrl("projects", att)}
+                                target="_blank"
+                                sx={{
+                                  justifyContent: "flex-start",
+                                  textTransform: "none",
+                                  px: 0,
+                                  minHeight: 28,
+                                  fontSize: 12,
+                                }}
+                              >
+                                {getAttachmentFileName(att, `Attachment ${idx + 1}`)}
+                              </Button>
+                            ))}
+                          </Stack>
+                        ) : (
+                          <Typography sx={{ color: "#999", fontSize: "0.9rem" }}>
+                            No uploaded attachments yet
+                          </Typography>
+                        )}
+                        </Box>
+                      </Grid>
+                    </Grid>
+
                   </CardContent>
                 </Card>
               </Grid>
@@ -1269,12 +1601,12 @@ export default function ProjectSetupWizard({
               {/* PROJECT STRUCTURE CARD */}
               <Grid size={{ xs: 12 }}>
                 <Card>
-                  <CardContent>
+                  <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
                     <Typography variant="h6" fontWeight={700} mb={2}>
                       📊 Project Structure
                     </Typography>
                     {project?.scopes && project.scopes.length > 0 ? (
-                      <Stack spacing={2}>
+                      <Stack spacing={1.25} sx={{ maxHeight: 320, overflowY: "auto", pr: 0.5 }}>
                         {project.scopes.map((scope: any) => (
                           <Box key={scope.id} sx={{ p: 1.5, backgroundColor: "#f8faff", borderRadius: 1, border: "1px solid #e0e7ff" }}>
                             <Typography fontWeight={700} sx={{ color: "#6366f1", mb: 1 }}>
@@ -1450,6 +1782,26 @@ export default function ProjectSetupWizard({
             }}
           >
             Go to Projects
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ATTACHMENT LIMIT WARNING DIALOG */}
+      <Dialog
+        open={attachmentLimitDialogOpen}
+        onClose={() => setAttachmentLimitDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Attachment Limit Reached</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mt: 1 }}>
+            {attachmentLimitDialogMessage || "Maximum 10 attachments allowed for this project."}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="contained" onClick={() => setAttachmentLimitDialogOpen(false)}>
+            OK
           </Button>
         </DialogActions>
       </Dialog>

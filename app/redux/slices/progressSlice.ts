@@ -1,5 +1,17 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
+export interface ProgressAttachment {
+  id?: string;
+  progressLogId?: string;
+  url: string;
+  proxyUrl?: string;
+  name?: string;
+  mimeType?: string;
+  size?: number;
+  sortOrder?: number;
+  createdAt?: string;
+}
+
 export interface ProgressLog {
   id?: string;
   subtaskId: string;
@@ -10,6 +22,7 @@ export interface ProgressLog {
   cumulativePercent?: number;
 
   photoUrl?: string;
+  attachments?: ProgressAttachment[];
   latitude?: number;
   longitude?: number;
   location?: string;

@@ -4,16 +4,18 @@ import { Box, Drawer, IconButton } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 
 import SidebarItem from "./SidebarItem";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { logout } from "@/app/redux/slices/authSlice";
 import { useAppDispatch } from "@/app/redux/hook";
 import router from "next/router";
+import { getMyApprovals } from "@/app/api-service/projectService";
 
 const drawerWidth = 240;
 
 export default function Sidebar() {
   const dispatch = useAppDispatch();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [approvalQueue, setApprovalQueue] = useState<any[]>([]);
 
   const handleToggle = () => setMobileOpen((prev) => !prev);
 
@@ -21,6 +23,27 @@ export default function Sidebar() {
     router.push("/"); // navigate to root (login)
     dispatch(logout()); // no need to await a plain reducer
   };
+
+  useEffect(() => {
+    const fetchApprovalQueue = async () => {
+      try {
+        const items = await getMyApprovals();
+        setApprovalQueue(Array.isArray(items) ? items : []);
+      } catch (error) {
+        console.error("Failed to load my approvals count:", error);
+      }
+    };
+
+    fetchApprovalQueue();
+  }, []);
+
+  const approvalBadgeCount = useMemo(() => {
+    const forReview = approvalQueue.filter((p: any) => p?.status === "FOR_REVIEW").length;
+    const forApproval = approvalQueue.filter((p: any) => p?.status === "FOR_APPROVAL").length;
+    const total = forReview + forApproval;
+
+    return total;
+  }, [approvalQueue]);
 
   const sidebarContent = (
     <Box
@@ -54,7 +77,7 @@ export default function Sidebar() {
       <SidebarItem label="Team Overview" href="/teamOverview" />
       <SidebarItem label="Projects" href="/projects" />
       <SidebarItem label="My Requests" href="/myRequests" />
-      <SidebarItem label="My Approvals" href="/myApprovals" />
+      <SidebarItem label="My Approvals" href="/myApprovals" badgeCount={approvalBadgeCount} />
       <SidebarItem label="My Drafts" href="/myDrafts" />
       <SidebarItem label="Reports" href="/reports" />
       <SidebarItem label="Settings" href="/settings" />

@@ -33,6 +33,7 @@ export const saveProgressLog = (data: {
   subtaskId: string;
   date: string;
   dailyPercent: number;
+  files?: File[];
   file?: File;
   remarks?: string;
   location?: string;
@@ -75,8 +76,8 @@ export const saveProgressLog = (data: {
       formData.append("subtaskId", data.subtaskId);
       formData.append("date", targetDate);
       formData.append("dailyPercent", String(data.dailyPercent));
-      formData.append("latitude", String(latitude));
-      formData.append("longitude", String(longitude));
+      formData.append("lat", String(latitude));
+      formData.append("lng", String(longitude));
 
       // Add optional fields
       if (data.remarks) {
@@ -91,7 +92,12 @@ export const saveProgressLog = (data: {
         formData.append("dayNumber", String(data.dayNumber));
       }
 
-      // Add photo if provided
+      // Preferred multi-upload contract
+      if (data.files?.length) {
+        data.files.forEach((f) => formData.append("attachments", f));
+      }
+
+      // Legacy single-photo support
       if (data.file) {
         formData.append("photo", data.file);
       }

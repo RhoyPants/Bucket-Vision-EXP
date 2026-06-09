@@ -6,6 +6,17 @@ export interface WeeklyReportUser {
   email: string;
 }
 
+export interface WeeklyReportAttachment {
+  id?: string;
+  weeklyReportId?: string;
+  uploadedBy?: string;
+  fileUrl?: string;
+  fileName?: string;
+  mimeType?: string;
+  size?: number;
+  createdAt?: string;
+}
+
 export interface WeeklyReportReceiver {
   user: {
     id: string;
@@ -22,7 +33,7 @@ export interface WeeklyReport {
   dateFrom: string;
   dateTo: string;
   remarks: string;
-  attachments: string[];
+  attachments: Array<string | WeeklyReportAttachment>;
   createdAt: string;
   updatedAt?: string;
   user: WeeklyReportUser;
@@ -34,7 +45,8 @@ export interface WeeklyReportCreatePayload {
   dateFrom: string;
   dateTo: string;
   remarks: string;
-  attachments?: string[];
+  attachments?: Array<string | WeeklyReportAttachment>;
+  files?: File[];
   receiverIds: string[];  // Array of user IDs who will receive this report
 }
 
@@ -43,7 +55,8 @@ export interface WeeklyReportUpdatePayload {
   dateFrom?: string;
   dateTo?: string;
   remarks?: string;
-  attachments?: string[];
+  attachments?: Array<string | WeeklyReportAttachment>;
+  files?: File[];
   receiverIds?: string[];  // Array of user IDs to update receivers
 }
 

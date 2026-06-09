@@ -1,8 +1,14 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 export interface DailyReportAttachment {
-  url: string;
-  name: string;
+  id?: string;
+  dailyReportId?: string;
+  uploadedBy?: string;
+  fileUrl?: string;
+  fileName?: string;
+  mimeType?: string;
+  size?: number;
+  createdAt?: string;
 }
 
 export interface DailyReportUser {
@@ -33,7 +39,7 @@ export interface DailyReport {
   date: string;
   location: string;
   remarks: string;
-  attachments: string[];
+  attachments: Array<string | DailyReportAttachment>;
   createdAt: string;
   updatedAt?: string;
   user: DailyReportUser;
@@ -47,7 +53,8 @@ export interface DailyReportCreatePayload {
   date: string;
   location: string;
   remarks: string;
-  attachments?: string[];
+  attachments?: Array<string | DailyReportAttachment>;
+  files?: File[];
   receiverIds: string[];  // Array of user IDs who will receive this report
 }
 
@@ -56,7 +63,8 @@ export interface DailyReportUpdatePayload {
   date?: string;
   location?: string;
   remarks?: string;
-  attachments?: string[];
+  attachments?: Array<string | DailyReportAttachment>;
+  files?: File[];
   receiverIds?: string[];  // Array of user IDs to update receivers
 }
 

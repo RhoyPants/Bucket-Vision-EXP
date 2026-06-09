@@ -15,6 +15,10 @@ import CloseIcon from "@mui/icons-material/Close";
 import IconButton from "@mui/material/IconButton";
 import DownloadIcon from "@mui/icons-material/Download";
 import ReceiverChips from "../../components/ReceiverChips";
+import {
+  getAttachmentFileUrl,
+  getAttachmentFileName,
+} from "@/app/api-service/attachmentService";
 
 interface DailyReportViewerProps {
   report: DailyReport;
@@ -147,13 +151,13 @@ export default function DailyReportViewer({
                 ATTACHMENTS ({report.attachments.length})
               </Typography>
               <Box sx={{ mt: 1, display: "flex", flexDirection: "column", gap: 1 }}>
-                {report.attachments.map((url, idx) => (
+                {report.attachments.map((attachment, idx) => (
                   <Button
                     key={idx}
                     variant="outlined"
                     startIcon={<DownloadIcon />}
                     fullWidth
-                    href={url}
+                    href={getAttachmentFileUrl("daily-reports", attachment as any)}
                     target="_blank"
                     sx={{
                       textTransform: "none",
@@ -166,7 +170,7 @@ export default function DailyReportViewer({
                       },
                     }}
                   >
-                    Attachment {idx + 1}
+                    {getAttachmentFileName(attachment as any, `Attachment ${idx + 1}`)}
                   </Button>
                 ))}
               </Box>

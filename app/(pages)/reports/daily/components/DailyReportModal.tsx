@@ -38,7 +38,7 @@ interface FormData {
   date: string;
   remarks: string;
   location: string;
-  attachments: string[];
+  attachments: File[];
   receiverIds: string[];
 }
 
@@ -91,7 +91,7 @@ export default function DailyReportModal({
         date: report.date.split("T")[0],
         remarks: report.remarks,
         location: report.location,
-        attachments: report.attachments || [],
+        attachments: [],
         receiverIds: report.receivers.map((r) => r.user.id),
       });
       setSelectedProject(report.projectId);
@@ -146,6 +146,7 @@ export default function DailyReportModal({
             remarks: formData.remarks,
             location: formData.location,
             attachments: formData.attachments,
+            files: formData.attachments,
             receiverIds: formData.receiverIds,
           }) as any
         );
@@ -158,6 +159,7 @@ export default function DailyReportModal({
             remarks: formData.remarks,
             location: formData.location,
             attachments: formData.attachments,
+            files: formData.attachments,
             receiverIds: formData.receiverIds,
           }) as any
         );
@@ -281,13 +283,26 @@ export default function DailyReportModal({
             <TextField
               fullWidth
               type="file"
-              inputProps={{ 
+              inputProps={{
                 accept: ".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.png",
-                multiple: true 
+                multiple: true,
               }}
               onChange={(e: any) => {
-                const files = Array.from(e.target.files || []).map((file: any) => file.name);
-                handleInputChange("attachments", files);
+                const files = Array.from(e.target.files || []) as File[];
+                const merged = [...formData.attachments];
+                files.forEach((f) => {
+                  const exists = merged.some(
+                    (m) =>
+                      m.name === f.name &&
+                      m.size === f.size &&
+                      m.lastModified === f.lastModified,
+                  );
+                  if (!exists && merged.length < 10) {
+                    merged.push(f);
+                  }
+                });
+                handleInputChange("attachments", merged);
+                e.target.value = "";
               }}
               sx={{
                 "& .MuiInputBase-input": {
@@ -300,7 +315,7 @@ export default function DailyReportModal({
                 {formData.attachments.map((file, idx) => (
                   <Chip
                     key={idx}
-                    label={file}
+                    label={`${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`}
                     onDelete={() =>
                       handleInputChange(
                         "attachments",

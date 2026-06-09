@@ -218,7 +218,7 @@ export default function Header() {
               },
             }}
           >
-            {userInitials}
+            {isHydrated ? userInitials : "U"}
           </Avatar>
         </Box>
 

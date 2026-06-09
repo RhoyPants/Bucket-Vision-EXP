@@ -11,6 +11,7 @@ import {
   FormControlLabel,
   Alert,
 } from "@mui/material";
+import type { ReactNode } from "react";
 import { formatBudget } from "@/app/utils/formatters";
 import { hasFieldError, getFieldError } from "@/app/utils/projectValidation";
 
@@ -37,6 +38,7 @@ interface CreateProjectProps {
   barangays: any[];
   businessUnits: any[];
   entities: any[];
+  attachmentsSection?: ReactNode;
 }
 
 const DAYS = [
@@ -63,6 +65,7 @@ export default function CreateProject({
   barangays,
   businessUnits,
   entities,
+  attachmentsSection,
 }: CreateProjectProps) {
   return (
     <Box>
@@ -474,6 +477,8 @@ export default function CreateProject({
           </Box>
         </Grid>
       </Grid>
+
+      {attachmentsSection && <Box sx={{ mt: 4 }}>{attachmentsSection}</Box>}
 
       {/* WORK SCHEDULE */}
       <Box sx={{ mt: 4 }}>

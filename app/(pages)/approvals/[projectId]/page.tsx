@@ -25,6 +25,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import BlockIcon from "@mui/icons-material/Block";
 import ViewWeekIcon from "@mui/icons-material/ViewWeek";
 import ViewAgendaIcon from "@mui/icons-material/ViewAgenda";
+import DownloadIcon from "@mui/icons-material/Download";
 import axios from "@/app/lib/axios";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import {
@@ -38,6 +39,10 @@ import ApprovalRejectDialog from "@/app/components/shared/modals/ApprovalModals/
 import GanttGridView from "@/app/(pages)/sprintManagement/Components/GridTableView";
 import ProjectSetupWizard from "@/app/components/ProjectSetupWizard";
 import StructuredViewComponent from "./components/StructuredView";
+import {
+  getAttachmentFileName,
+  getAttachmentFileUrl,
+} from "@/app/api-service/attachmentService";
 
 type ViewMode = "structured" | "gantt";
 
@@ -48,8 +53,7 @@ export default function ApprovalReviewPage() {
   const projectId = params.projectId as string;
   const dispatch = useAppDispatch();
   const { auditTrail } = useAppSelector((state) => state.approval);
-  const isReadOnlyFromMyRequests =
-    searchParams.get("source") === "my-requests";
+  const isReadOnlyFromMyRequests = searchParams.get("source") === "my-requests";
 
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -58,16 +62,31 @@ export default function ApprovalReviewPage() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [projectAttachments, setProjectAttachments] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchProjectForApproval = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await axios.get(
-          `/projects/${projectId}/view-for-approval`,
-        );
-        setProject(response.data.data);
+        const [projectResponse, attachmentResponse] = await Promise.all([
+          axios.get(`/projects/${projectId}/view-for-approval`),
+          axios.get(`/projects/${projectId}/attachments`).catch(() => null),
+        ]);
+
+        const projectData = projectResponse.data?.data;
+        setProject(projectData);
+
+        const dedicatedAttachments = attachmentResponse?.data?.data;
+        if (Array.isArray(dedicatedAttachments)) {
+          setProjectAttachments(dedicatedAttachments);
+        } else {
+          setProjectAttachments(
+            Array.isArray(projectData?.attachments)
+              ? projectData.attachments
+              : [],
+          );
+        }
       } catch (err: any) {
         setError(
           err.response?.data?.message || "Failed to load project details",
@@ -141,6 +160,30 @@ export default function ApprovalReviewPage() {
   }
 
   const auditLogs = auditTrail[projectId] || [];
+  const totalTasks = (project?.scopes || []).reduce(
+    (sum: number, s: any) => sum + (s?.tasks?.length || 0),
+    0,
+  );
+  const totalSubtasks = (project?.scopes || []).reduce(
+    (sum: number, s: any) =>
+      sum +
+      (s?.tasks || []).reduce(
+        (taskSum: number, t: any) => taskSum + (t?.subtasks?.length || 0),
+        0,
+      ),
+    0,
+  );
+  const workingDays = [
+    project?.monday && "Mon",
+    project?.tuesday && "Tue",
+    project?.wednesday && "Wed",
+    project?.thursday && "Thu",
+    project?.friday && "Fri",
+    project?.saturday && "Sat",
+    project?.sunday && "Sun",
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <Box
@@ -165,7 +208,11 @@ export default function ApprovalReviewPage() {
         }}
       >
         <Box>
-          <Typography variant="h6" fontWeight={700} sx={{ fontSize: { xs: "16px", sm: "20px" } }}>
+          <Typography
+            variant="h6"
+            fontWeight={700}
+            sx={{ fontSize: { xs: "16px", sm: "20px" } }}
+          >
             {project.name}
           </Typography>
         </Box>
@@ -188,7 +235,15 @@ export default function ApprovalReviewPage() {
       </Box>
 
       {/* MAIN CONTENT */}
-      <Box sx={{ display: "flex", flex: 1, gap: 2, p: { xs: 1, sm: 2 }, flexDirection: { xs: "column", md: "row" } }}>
+      <Box
+        sx={{
+          display: "flex",
+          flex: 1,
+          gap: 2,
+          p: { xs: 1, sm: 2 },
+          flexDirection: { xs: "column", md: "row" },
+        }}
+      >
         {/* LEFT PANEL */}
         <Box
           sx={{
@@ -200,17 +255,6 @@ export default function ApprovalReviewPage() {
             maxHeight: { xs: "auto", md: "calc(100vh - 100px)" },
           }}
         >
-          <Card sx={{ p: { xs: 1.5, sm: 2.5 }, border: "1px solid #e5e7eb" }}>
-            <Typography
-              sx={{ fontSize: { xs: 12, sm: 13 }, fontWeight: 700, color: "#1f2937", mb: 2 }}
-            >
-              📊 Approval Progress
-            </Typography>
-            <ApprovalFlowUI
-              projectId={projectId}
-              projectStatus={project.status}
-            />
-          </Card>
           <Card
             sx={{
               p: { xs: 1.5, sm: 2.5 },
@@ -220,6 +264,31 @@ export default function ApprovalReviewPage() {
               maxHeight: "auto",
             }}
           >
+            <Typography
+              sx={{
+                fontSize: { xs: 13, sm: 14 },
+                fontWeight: 600,
+                color: "#111827",
+                mb: 1.5,
+              }}
+            >
+              Approval Overview
+            </Typography>
+            <ApprovalFlowUI
+              projectId={projectId}
+              projectStatus={project.status}
+            />
+            <Divider sx={{ my: 2 }} />
+            <Typography
+              sx={{
+                fontSize: { xs: 13, sm: 14 },
+                fontWeight: 600,
+                color: "#111827",
+                mb: 1.5,
+              }}
+            >
+              Approval Overview
+            </Typography>
             <ApprovalAuditTrail
               auditLogs={auditLogs}
               empty={auditLogs.length === 0}
@@ -228,25 +297,41 @@ export default function ApprovalReviewPage() {
         </Box>
 
         {/* RIGHT PANEL */}
-        <Box sx={{ flex: 1, display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+        <Box
+          sx={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            minWidth: 0,
+          }}
+        >
           {/* PROJECT SUMMARY - IN UPPER PART */}
           <Card sx={{ p: { xs: 1.5, sm: 2.5 }, border: "1px solid #e5e7eb" }}>
             <Box
-              sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" }, gap: 2 }}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" },
+                gap: 2,
+              }}
             >
               <Box>
                 <Typography
                   sx={{
                     fontSize: { xs: 10, sm: 11 },
                     color: "#6b7280",
-                    fontWeight: 600,
+                    fontWeight: 500,
                     mb: 0.5,
                   }}
                 >
                   Owner
                 </Typography>
                 <Typography
-                  sx={{ fontSize: { xs: 12, sm: 14 }, fontWeight: 700, color: "#1f2937" }}
+                  sx={{
+                    fontSize: { xs: 12, sm: 14 },
+                    fontWeight: 500,
+                    color: "#374151",
+                  }}
                 >
                   {project.owner?.name}
                 </Typography>
@@ -256,14 +341,39 @@ export default function ApprovalReviewPage() {
                   sx={{
                     fontSize: { xs: 10, sm: 11 },
                     color: "#6b7280",
-                    fontWeight: 600,
+                    fontWeight: 500,
+                    mb: 0.5,
+                  }}
+                >
+                  Project Code (PIN)
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 12, sm: 14 },
+                    fontWeight: 500,
+                    color: "#374151",
+                  }}
+                >
+                  {project.pin || "N/A"}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 10, sm: 11 },
+                    color: "#6b7280",
+                    fontWeight: 500,
                     mb: 0.5,
                   }}
                 >
                   Total Budget
                 </Typography>
                 <Typography
-                  sx={{ fontSize: { xs: 12, sm: 14 }, fontWeight: 700, color: "#1f2937" }}
+                  sx={{
+                    fontSize: { xs: 12, sm: 14 },
+                    fontWeight: 500,
+                    color: "#374151",
+                  }}
                 >
                   ₱{project.totalBudget?.toLocaleString() || "N/A"}
                 </Typography>
@@ -273,14 +383,18 @@ export default function ApprovalReviewPage() {
                   sx={{
                     fontSize: { xs: 10, sm: 11 },
                     color: "#6b7280",
-                    fontWeight: 600,
+                    fontWeight: 500,
                     mb: 0.5,
                   }}
                 >
                   Status
                 </Typography>
                 <Typography
-                  sx={{ fontSize: { xs: 12, sm: 14 }, fontWeight: 700, color: "#1f2937" }}
+                  sx={{
+                    fontSize: { xs: 12, sm: 14 },
+                    fontWeight: 500,
+                    color: "#374151",
+                  }}
                 >
                   {project.status}
                 </Typography>
@@ -290,16 +404,85 @@ export default function ApprovalReviewPage() {
                   sx={{
                     fontSize: { xs: 10, sm: 11 },
                     color: "#6b7280",
-                    fontWeight: 600,
+                    fontWeight: 500,
+                    mb: 0.5,
+                  }}
+                >
+                  Priority
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 12, sm: 14 },
+                    fontWeight: 500,
+                    color: "#374151",
+                  }}
+                >
+                  {project.priority || "N/A"}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 10, sm: 11 },
+                    color: "#6b7280",
+                    fontWeight: 500,
+                    mb: 0.5,
+                  }}
+                >
+                  Business Unit
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 12, sm: 14 },
+                    fontWeight: 500,
+                    color: "#374151",
+                  }}
+                >
+                  {project.businessUnit || "N/A"}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 10, sm: 11 },
+                    color: "#6b7280",
+                    fontWeight: 500,
+                    mb: 0.5,
+                  }}
+                >
+                  Entity
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 12, sm: 14 },
+                    fontWeight: 500,
+                    color: "#374151",
+                  }}
+                >
+                  {project.entity || "N/A"}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 10, sm: 11 },
+                    color: "#6b7280",
+                    fontWeight: 500,
                     mb: 0.5,
                   }}
                 >
                   Start Date
                 </Typography>
                 <Typography
-                  sx={{ fontSize: { xs: 12, sm: 14 }, fontWeight: 700, color: "#1f2937" }}
+                  sx={{
+                    fontSize: { xs: 12, sm: 14 },
+                    fontWeight: 500,
+                    color: "#374151",
+                  }}
                 >
-                  {project.startDate ? new Date(project.startDate).toLocaleDateString() : "N/A"}
+                  {project.startDate
+                    ? new Date(project.startDate).toLocaleDateString()
+                    : "N/A"}
                 </Typography>
               </Box>
               <Box>
@@ -307,16 +490,22 @@ export default function ApprovalReviewPage() {
                   sx={{
                     fontSize: { xs: 10, sm: 11 },
                     color: "#6b7280",
-                    fontWeight: 600,
+                    fontWeight: 500,
                     mb: 0.5,
                   }}
                 >
                   Expected End Date
                 </Typography>
                 <Typography
-                  sx={{ fontSize: { xs: 12, sm: 14 }, fontWeight: 700, color: "#1f2937" }}
+                  sx={{
+                    fontSize: { xs: 12, sm: 14 },
+                    fontWeight: 500,
+                    color: "#374151",
+                  }}
                 >
-                  {project.expectedEndDate ? new Date(project.expectedEndDate).toLocaleDateString() : "N/A"}
+                  {project.expectedEndDate
+                    ? new Date(project.expectedEndDate).toLocaleDateString()
+                    : "N/A"}
                 </Typography>
               </Box>
               <Box>
@@ -324,16 +513,64 @@ export default function ApprovalReviewPage() {
                   sx={{
                     fontSize: { xs: 10, sm: 11 },
                     color: "#6b7280",
-                    fontWeight: 600,
+                    fontWeight: 500,
                     mb: 0.5,
                   }}
                 >
-                  Scopes
+                  Working Days
                 </Typography>
                 <Typography
-                  sx={{ fontSize: { xs: 12, sm: 14 }, fontWeight: 700, color: "#1f2937" }}
+                  sx={{
+                    fontSize: { xs: 12, sm: 14 },
+                    fontWeight: 500,
+                    color: "#374151",
+                  }}
                 >
-                  {project.scopes?.length || 0}
+                  {workingDays || "N/A"}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 10, sm: 11 },
+                    color: "#6b7280",
+                    fontWeight: 500,
+                    mb: 0.5,
+                  }}
+                >
+                  Include Holidays
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 12, sm: 14 },
+                    fontWeight: 500,
+                    color: "#374151",
+                  }}
+                >
+                  {project.includeGlobalHolidays || project.includeHolidays
+                    ? "Yes"
+                    : "No"}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 10, sm: 11 },
+                    color: "#6b7280",
+                    fontWeight: 500,
+                    mb: 0.5,
+                  }}
+                >
+                  Region
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 12, sm: 14 },
+                    fontWeight: 500,
+                    color: "#374151",
+                  }}
+                >
+                  {project.location?.regionName || "N/A"}
                 </Typography>
               </Box>
               {project.description && (
@@ -343,26 +580,116 @@ export default function ApprovalReviewPage() {
                     sx={{
                       fontSize: { xs: 10, sm: 11 },
                       color: "#6b7280",
-                      fontWeight: 600,
+                      fontWeight: 500,
                       mb: 1,
                     }}
                   >
                     Description
                   </Typography>
                   <Typography
-                    sx={{ fontSize: { xs: 12, sm: 13 }, color: "#374151", lineHeight: 1.6 }}
+                    sx={{
+                      fontSize: { xs: 12, sm: 13 },
+                      color: "#374151",
+                      lineHeight: 1.6,
+                    }}
                   >
                     {project.description}
                   </Typography>
                 </Box>
               )}
+              <Box sx={{ gridColumn: { xs: "1 / -1", sm: "1 / -1" } }}>
+                <Divider sx={{ my: 1 }} />
+                <Typography
+                  sx={{
+                    fontSize: { xs: 10, sm: 11 },
+                    color: "#6b7280",
+                    fontWeight: 500,
+                    mb: 1,
+                  }}
+                >
+                  Attachments
+                </Typography>
+                {projectAttachments.length > 0 ? (
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: {
+                        xs: "1fr",
+                        sm: "repeat(2, minmax(0, 1fr))",
+                        md: "repeat(3, minmax(0, 1fr))",
+                      },
+                      gap: 1,
+                      maxHeight: 220,
+                      overflowY: "auto",
+                      pr: 0.5,
+                    }}
+                  >
+                    {projectAttachments.map((att: any, idx: number) => (
+                      <Box
+                        key={
+                          att?.id || `${att?.fileName || "attachment"}-${idx}`
+                        }
+                        sx={{
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 1,
+                          backgroundColor: "#f9fafb",
+                          px: 1.25,
+                          py: 1,
+                          minHeight: 54,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 1,
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontSize: 12,
+                            color: "#374151",
+                            lineHeight: 1.35,
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {getAttachmentFileName(att, `Attachment ${idx + 1}`)}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          component="a"
+                          href={getAttachmentFileUrl("projects", att)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <DownloadIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography
+                    sx={{ fontSize: { xs: 12, sm: 13 }, color: "#6b7280" }}
+                  >
+                    No attachments uploaded
+                  </Typography>
+                )}
+              </Box>
             </Box>
           </Card>
 
           {/* VIEW TOGGLE */}
-          <Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
+          <Box
+            sx={{
+              display: "flex",
+              gap: 2,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
             <Typography
-              sx={{ fontWeight: 600, fontSize: { xs: "12px", sm: "14px" }, color: "#7D8693" }}
+              sx={{
+                fontWeight: 600,
+                fontSize: { xs: "12px", sm: "14px" },
+                color: "#7D8693",
+              }}
             >
               View:
             </Typography>
@@ -465,7 +792,8 @@ export default function ApprovalReviewPage() {
           <DialogTitle sx={{ fontWeight: 700 }}>Confirm Approval</DialogTitle>
           <DialogContent>
             <DialogContentText>
-              Are you sure you want to approve this request for project <strong>{project.name}</strong>?
+              Are you sure you want to approve this request for project{" "}
+              <strong>{project.name}</strong>?
             </DialogContentText>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>

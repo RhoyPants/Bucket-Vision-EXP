@@ -1,9 +1,16 @@
 "use client";
 
-import { Dialog, DialogContent, DialogTitle, Box } from "@mui/material";
+import { Dialog, DialogContent, DialogTitle, Box, CircularProgress } from "@mui/material";
+import dynamic from "next/dynamic";
 
-// ✅ NEW IMPORT
-import ProgressCalendar from "../progress/ProgressCalendar";
+// ✅ DYNAMICALLY IMPORT TO PREVENT SSR ISSUES WITH PDF VIEWER
+const ProgressCalendar = dynamic(
+  () => import("../progress/ProgressCalendar"),
+  { 
+    ssr: false,
+    loading: () => <CircularProgress sx={{ display: "block", margin: "2rem auto" }} />
+  }
+);
 
 interface Props {
   open: boolean;

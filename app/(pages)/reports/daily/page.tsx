@@ -41,6 +41,11 @@ import ReceiverChips from "../components/ReceiverChips";
 import { DailyReport } from "@/app/redux/slices/dailyReportSlice";
 import SearchIcon from "@mui/icons-material/Search";
 import { useRouter } from "next/navigation";
+import {
+  getAttachmentFileUrl,
+  getAttachmentFileName,
+  deleteAttachment,
+} from "@/app/api-service/attachmentService";
 
 export default function DailyReportsPage() {
   const dispatch = useAppDispatch();
@@ -90,6 +95,20 @@ export default function DailyReportsPage() {
       await dispatch(deleteDailyReport(reportToDelete) as any);
       setDeleteConfirmOpen(false);
       setReportToDelete(null);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachment: any) => {
+    try {
+      if (!attachment || typeof attachment === "string" || !attachment.id || !selectedReport) return;
+      await deleteAttachment("daily-reports", attachment.id);
+      const refreshed = await dispatch(getDailyReports(filters) as any);
+      if (Array.isArray(refreshed)) {
+        const updated = refreshed.find((r: DailyReport) => r.id === selectedReport.id) || null;
+        setSelectedReport(updated);
+      }
+    } catch (error) {
+      console.error("Failed to delete attachment", error);
     }
   };
 
@@ -435,7 +454,7 @@ export default function DailyReportsPage() {
                               <Typography
                                 variant="caption"
                                 component="a"
-                                href={report.attachments[0]}
+                                href={getAttachmentFileUrl("daily-reports", report.attachments[0] as any)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 sx={{
@@ -574,6 +593,48 @@ export default function DailyReportsPage() {
                     <ReceiverChips receivers={selectedReport.receivers} maxShow={10} />
                   </Box>
                 </Box>
+
+                {selectedReport.attachments && selectedReport.attachments.length > 0 && (
+                  <Box>
+                    <Typography variant="caption" sx={{ color: "#999", fontWeight: 600 }}>
+                      ATTACHMENTS ({selectedReport.attachments.length})
+                    </Typography>
+                    <Box sx={{ mt: 1, display: "flex", flexDirection: "column", gap: 1 }}>
+                      {selectedReport.attachments.map((attachment, idx) => (
+                        <Box key={idx} sx={{ display: "flex", gap: 1 }}>
+                          <Button
+                            variant="outlined"
+                            startIcon={<FileDownloadIcon />}
+                            fullWidth
+                            href={getAttachmentFileUrl("daily-reports", attachment as any)}
+                            target="_blank"
+                            sx={{
+                              textTransform: "none",
+                              justifyContent: "flex-start",
+                              borderColor: "#E0E0E0",
+                              color: "#333",
+                              "&:hover": {
+                                borderColor: "#4B2E83",
+                                backgroundColor: "rgba(75,46,131,0.04)",
+                              },
+                            }}
+                          >
+                            {getAttachmentFileName(attachment as any, `Attachment ${idx + 1}`)}
+                          </Button>
+                          {typeof attachment !== "string" && attachment?.id && (
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              onClick={() => handleDeleteAttachment(attachment)}
+                            >
+                              Delete
+                            </Button>
+                          )}
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+                )}
               </Box>
             )}
           </DialogContent>
