@@ -1,8 +1,10 @@
 "use client";
 
-import { AppBar, Toolbar, Typography, Box, Avatar, Menu, MenuItem, Divider } from "@mui/material";
+import { AppBar, Toolbar, Typography, Box, Avatar, Menu, MenuItem, Divider, IconButton, Badge } from "@mui/material";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
+import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
@@ -85,12 +87,8 @@ export default function Header() {
   const pageTitle = getPageTitle(pathname);
   const pageDescription = getPageDescription(pathname);
 
-  // Get user initials
-  const userInitials = user?.name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase() || "U";
+  // Use only the first letter from user name for avatar
+  const userInitial = user?.name?.trim()?.charAt(0)?.toUpperCase() || "U";
 
   const handleAvatarClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -116,22 +114,30 @@ export default function Header() {
       position="static"
       elevation={0}
       sx={{
-        backgroundColor: "#FFFFFF",
-        borderBottom: "1px solid #e8e7e2",
-        paddingX: 3,
+        backgroundColor: "#ffffff",
+        borderBottom: "1px solid #e5e7eb",
       }}
     >
-      <Toolbar disableGutters sx={{ minHeight: 64, justifyContent: "space-between" }}>
+      <Toolbar
+        disableGutters
+        sx={{
+          minHeight: "72px",
+          height: "72px",
+          px: 4,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         {/* Left: Page Title & Description */}
-        <Box>
+        <Box sx={{ minWidth: 0 }}>
           <Typography
             sx={{
-              color: "#210e64",
-              fontWeight: 600,
-              fontSize: "1.5rem",
+              color: "#111827",
+              fontWeight: 700,
+              fontSize: "24px",
               fontFamily: "var(--font-ftsterling)",
-              letterSpacing: "-0.5px",
-              mt: 1,
+              lineHeight: 1.2,
             }}
           >
             {pageTitle}
@@ -139,87 +145,101 @@ export default function Header() {
           <Typography
             sx={{
               color: "#6b7280",
-              fontSize: "0.875rem",
+              fontSize: "14px",
               fontWeight: 400,
-
+              mt: 0.25,
             }}
           >
             {pageDescription}
           </Typography>
         </Box>
 
-        {/* Right: User Avatar */}
+        {/* Right: Actions + Profile */}
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: 1.5,
-            cursor: "pointer",
+            gap: "20px",
           }}
-          onClick={handleAvatarClick}
         >
-          <Box sx={{ textAlign: "right" }}>
+          <IconButton sx={{ color: "#374151" }}>
+            <Badge badgeContent={3} color="error" sx={{ "& .MuiBadge-badge": { minWidth: 16, height: 16, fontSize: 10 } }}>
+              <NotificationsNoneIcon sx={{ fontSize: 20 }} />
+            </Badge>
+          </IconButton>
+
+          <IconButton sx={{ color: "#374151" }}>
+            <HelpOutlineIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+
+          <Box
+            onClick={handleAvatarClick}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.25,
+              cursor: "pointer",
+            }}
+          >
+            <Avatar
+              sx={{
+                bgcolor: "#0f123d",
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: "0.85rem",
+                width: 40,
+                height: 40,
+              }}
+            >
+              {isHydrated ? userInitial : "U"}
+            </Avatar>
+
+            <Box sx={{ minWidth: "fit-content" }}>
             {isHydrated ? (
-              <>
+              <Box>
                 <Typography
                   sx={{
-                    color: "#210e64",
-                    fontWeight: 500,
-                    fontSize: "0.9rem",
+                    color: "#111827",
+                    fontWeight: 600,
+                    fontSize: "14px",
                   }}
                 >
                   {user?.name || "User"}
                 </Typography>
                 <Typography
                   sx={{
-                    color: "#888",
-                    fontSize: "0.75rem",
+                    color: "#6b7280",
+                    fontSize: "12px",
+                    fontWeight: 400,
                   }}
                 >
-                  {user?.email || "user@example.com"}
+                  {user?.role || "Project Manager"}
                 </Typography>
-              </>
+              </Box>
             ) : (
-              <>
+              <Box>
                 <Typography
                   sx={{
-                    color: "#210e64",
-                    fontWeight: 500,
-                    fontSize: "0.9rem",
+                    color: "#111827",
+                    fontWeight: 600,
+                    fontSize: "14px",
                   }}
                 >
                   User
                 </Typography>
                 <Typography
                   sx={{
-                    color: "#888",
-                    fontSize: "0.75rem",
+                    color: "#6b7280",
+                    fontSize: "12px",
+                    fontWeight: 400,
                   }}
                 >
-                  user@example.com
+                  Project Manager
                 </Typography>
-              </>
+              </Box>
             )}
           </Box>
-
-          <Avatar
-            sx={{
-              bgcolor: "#6366f1",
-              color: "#fff",
-              fontWeight: 600,
-              fontSize: "0.9rem",
-              width: 40,
-              height: 40,
-              cursor: "pointer",
-              transition: "transform 0.2s, box-shadow 0.2s",
-              "&:hover": {
-                transform: "scale(1.05)",
-                boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3)",
-              },
-            }}
-          >
-            {isHydrated ? userInitials : "U"}
-          </Avatar>
+          </Box>
         </Box>
 
         {/* User Menu Dropdown */}
@@ -237,39 +257,40 @@ export default function Header() {
           }}
           PaperProps={{
             sx: {
-              mt: 1,
-              minWidth: 250,
-              borderRadius: 2,
-              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.12)",
+              mt: 1.5,
+              minWidth: 260,
+              borderRadius: "12px",
+              boxShadow: "0 12px 40px rgba(0, 0, 0, 0.12)",
               overflow: "visible",
-              border: "1px solid #e8e7e2",
+              border: "1px solid #f0f1f3",
+              backgroundColor: "#ffffff",
             },
           }}
         >
           {/* User Info Header */}
-          <Box sx={{ px: 2, py: 1.5 }}>
+          <Box sx={{ px: 3, py: 2, backgroundColor: "#f9fafb" }}>
             {isHydrated ? (
-              <>
-                <Typography sx={{ fontWeight: 600, color: "#210e64" }}>
+              <Box>
+                <Typography sx={{ fontWeight: 700, color: "#1a0f3d", fontSize: "0.95rem" }}>
                   {user?.name || "User"}
                 </Typography>
-                <Typography sx={{ fontSize: "0.85rem", color: "#888" }}>
+                <Typography sx={{ fontSize: "0.8rem", color: "#9ca3af", marginTop: "4px" }}>
                   {user?.email || "user@example.com"}
                 </Typography>
-              </>
+              </Box>
             ) : (
-              <>
-                <Typography sx={{ fontWeight: 600, color: "#210e64" }}>
+              <Box>
+                <Typography sx={{ fontWeight: 700, color: "#1a0f3d", fontSize: "0.95rem" }}>
                   User
                 </Typography>
-                <Typography sx={{ fontSize: "0.85rem", color: "#888" }}>
+                <Typography sx={{ fontSize: "0.8rem", color: "#9ca3af", marginTop: "4px" }}>
                   user@example.com
                 </Typography>
-              </>
+              </Box>
             )}
           </Box>
 
-          <Divider sx={{ my: 1 }} />
+          <Divider sx={{ my: 0.5, borderColor: "#f0f1f3" }} />
 
           {/* Menu Items */}
           <MenuItem
@@ -277,20 +298,24 @@ export default function Header() {
             sx={{
               display: "flex",
               alignItems: "center",
-              gap: 1.5,
-              py: 1,
-              px: 2,
-              color: "#210e64",
+              gap: 2,
+              py: 1.25,
+              px: 3,
+              color: "#1a0f3d",
+              fontSize: "0.9rem",
+              fontWeight: 500,
+              transition: "all 0.2s ease",
               "&:hover": {
-                backgroundColor: "#f5f3ff",
+                backgroundColor: "#f5f6f8",
+                color: "#6366f1",
               },
             }}
           >
-            <PersonIcon sx={{ fontSize: "1.2rem" }} />
+            <PersonIcon sx={{ fontSize: "1.1rem" }} />
             <Typography>My Profile</Typography>
           </MenuItem>
 
-          <Divider sx={{ my: 1 }} />
+          <Divider sx={{ my: 0.5, borderColor: "#f0f1f3" }} />
 
           {/* Logout */}
           <MenuItem
@@ -298,16 +323,20 @@ export default function Header() {
             sx={{
               display: "flex",
               alignItems: "center",
-              gap: 1.5,
-              py: 1,
-              px: 2,
-              color: "#ef4444",
+              gap: 2,
+              py: 1.25,
+              px: 3,
+              color: "#dc2626",
+              fontSize: "0.9rem",
+              fontWeight: 500,
+              transition: "all 0.2s ease",
               "&:hover": {
-                backgroundColor: "#fee2e2",
+                backgroundColor: "#fef2f2",
+                color: "#991b1b",
               },
             }}
           >
-            <LogoutIcon sx={{ fontSize: "1.2rem" }} />
+            <LogoutIcon sx={{ fontSize: "1.1rem" }} />
             <Typography>Logout</Typography>
           </MenuItem>
         </Menu>

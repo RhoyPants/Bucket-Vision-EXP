@@ -20,7 +20,9 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { useAppSelector } from "@/app/redux/hook";
 
-const LEFT_W     = 580;
+const STICKY_W   = 294;   // WBS (60) + Phase/Task (234)
+const META_W     = 286;   // Start (88) + End (88) + Days (60) + % (50)
+const LEFT_W     = STICKY_W + META_W;
 const ROW_H      = 40;
 const HDR_MONTH  = 26;
 const HDR_SUB    = 26;
@@ -78,6 +80,24 @@ export default function GanttGridView({ projectId, project: externalProject }: P
   const [zoom,           setZoom]           = useState<ZoomLevel>("day");
   const [scrollTop,      setScrollTop]      = useState(0);
   const [overrides,      setOverrides]      = useState<Record<string, { start: number; end: number }>>({});
+
+  // Auto-expand everything when project data is loaded so timeline opens fully drilled down.
+  useEffect(() => {
+    if (!fullProject?.scopes?.length) return;
+
+    const scopeIds = new Set<string>();
+    const taskIds = new Set<string>();
+
+    fullProject.scopes.forEach((scope: any) => {
+      if (scope?.id) scopeIds.add(scope.id);
+      (scope?.tasks || []).forEach((task: any) => {
+        if (task?.id) taskIds.add(task.id);
+      });
+    });
+
+    setExpandedScopes(scopeIds);
+    setExpandedTasks(taskIds);
+  }, [fullProject?.id, fullProject?.scopes]);
 
   const dragRef   = useRef<DragState | null>(null);
   const rafRef    = useRef<number>(0);
@@ -272,7 +292,7 @@ const wbs = (row: any) => {
   }
 
    return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 1, userSelect: "none" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1, userSelect: "none", width: "100%", minWidth: 0 }}>
 
       {/* TOOLBAR */}
       <Stack direction="row" spacing={2} alignItems="center" sx={{ px: 0.5 }}>
@@ -302,7 +322,9 @@ const wbs = (row: any) => {
         )}
       </Stack>
 
-      {/* MAIN SCROLL CONTAINER â€” single overflow:auto for both axes */}
+      {/* WRAPPER - gives scroll container definite pixel dimensions */}
+      <Box sx={{ position: "relative", height: VIEWPORT_H, width: "100%", flexShrink: 0 }}>
+      {/* MAIN SCROLL CONTAINER - fills wrapper exactly via position absolute */}
       <Box
         ref={containerRef}
         onScroll={(e) => {
@@ -311,11 +333,11 @@ const wbs = (row: any) => {
           rafRef.current = requestAnimationFrame(() => setScrollTop(top));
         }}
         sx={{
-          height: VIEWPORT_H,
+          position: "absolute",
+          top: 0, left: 0, right: 0, bottom: 0,
           overflow: "auto",
           border: "1px solid #DDE1E8",
           borderRadius: 1,
-          position: "relative",
           "&::-webkit-scrollbar": { width: 8, height: 8 },
           "&::-webkit-scrollbar-track": { bgcolor: "#f8f9fa" },
           "&::-webkit-scrollbar-thumb": { bgcolor: "#c8cdd4", borderRadius: 4 },
@@ -330,15 +352,26 @@ const wbs = (row: any) => {
             {/* Left header â€” sticky both top AND left */}
             <Box sx={{
               position: "sticky", left: 0, zIndex: 40,
-              width: LEFT_W, flexShrink: 0, height: HDR_H,
+              width: STICKY_W, flexShrink: 0, height: HDR_H,
+              display: "flex", alignItems: "center",
+              background: "#F0F2F8",
+              borderRight: "1px solid #C8CDD8",
+              borderBottom: "2px solid #C8CDD8",
+              fontWeight: 700, fontSize: 12, color: "#444",
+            }}>
+              <Box sx={{ width: 60, px: 1, flexShrink: 0 }}>WBS</Box>
+              <Box sx={{ flex: 1, px: 1, overflow: "hidden" }}>Phase / Task</Box>
+            </Box>
+
+            {/* Meta header — Start / End / Days / % — scrolls with timeline */}
+            <Box sx={{
+              width: META_W, flexShrink: 0, height: HDR_H,
               display: "flex", alignItems: "center",
               background: "#F0F2F8",
               borderRight: "2px solid #C8CDD8",
               borderBottom: "2px solid #C8CDD8",
               fontWeight: 700, fontSize: 12, color: "#444",
             }}>
-              <Box sx={{ width: 60, px: 1, flexShrink: 0 }}>WBS</Box>
-              <Box sx={{ flex: 1, px: 1, overflow: "hidden" }}>Phase / Task</Box>
               <Box sx={{ width: 88, px: 1, textAlign: "right", flexShrink: 0 }}>Start</Box>
               <Box sx={{ width: 88, px: 1, textAlign: "right", flexShrink: 0 }}>End</Box>
               <Box sx={{ width: 60, px: 1, textAlign: "center", flexShrink: 0 }}>Days</Box>
@@ -405,7 +438,8 @@ const wbs = (row: any) => {
             if (row.type === "empty") {
               return (
                 <Box key={`e-${absIdx}`} sx={{ display: "flex", height: ROW_H, minWidth: LEFT_W + timelineW }}>
-                  <Box sx={{ position: "sticky", left: 0, zIndex: 8, width: LEFT_W, flexShrink: 0, height: ROW_H, bgcolor: "#fff", borderRight: "2px solid #C8CDD8", borderBottom: "1px solid #F2F2F2" }} />
+                  <Box sx={{ position: "sticky", left: 0, zIndex: 8, width: STICKY_W, flexShrink: 0, height: ROW_H, bgcolor: "#fff", borderRight: "1px solid #C8CDD8", borderBottom: "1px solid #F2F2F2" }} />
+                  <Box sx={{ width: META_W, flexShrink: 0, height: ROW_H, bgcolor: "#fff", borderRight: "2px solid #C8CDD8", borderBottom: "1px solid #F2F2F2" }} />
                   <Box sx={{ minWidth: timelineW, height: ROW_H, bgcolor: "#FAFBFF", borderBottom: "1px solid #F2F2F2" }} />
                 </Box>
               );
@@ -425,13 +459,13 @@ const wbs = (row: any) => {
             return (
               <Box key={row.id ?? `r-${absIdx}`} sx={{ display: "flex", height: ROW_H, minWidth: LEFT_W + timelineW }}>
 
-                {/* LEFT CELL â€” sticky left */}
+                {/* LEFT CELL - sticky: WBS + Phase/Task only */}
                 <Box sx={{
                   position: "sticky", left: 0, zIndex: 8,
-                  width: LEFT_W, flexShrink: 0, height: ROW_H,
+                  width: STICKY_W, flexShrink: 0, height: ROW_H,
                   display: "flex", alignItems: "center",
                   bgcolor: rowBg,
-                  borderRight: "2px solid #C8CDD8",
+                  borderRight: "1px solid #C8CDD8",
                   borderBottom: "1px solid #E8E8E8",
                   borderLeft: isSc ? "3px solid #4B2E83" : "3px solid transparent",
                 }}>
@@ -463,7 +497,16 @@ const wbs = (row: any) => {
                       {row.name || row.title}
                     </Typography>
                   </Box>
+                </Box>
 
+                {/* META CELL - Start / End / Days / % - scrolls with timeline */}
+                <Box sx={{
+                  width: META_W, flexShrink: 0, height: ROW_H,
+                  display: "flex", alignItems: "center",
+                  bgcolor: rowBg,
+                  borderRight: "2px solid #C8CDD8",
+                  borderBottom: "1px solid #E8E8E8",
+                }}>
                   <Box sx={{ width: 88, px: 1, flexShrink: 0, fontSize: 10, textAlign: "right", color: "#666", whiteSpace: "nowrap" }}>{fmtDate(start)}</Box>
                   <Box sx={{ width: 88, px: 1, flexShrink: 0, fontSize: 10, textAlign: "right", color: "#666", whiteSpace: "nowrap" }}>{fmtDate(end)}</Box>
                   <Box sx={{ width: 60, px: 1, flexShrink: 0, fontSize: 10, textAlign: "center", fontWeight: 500 }}>{durDays > 0 ? `${durDays}d` : "0"}</Box>
@@ -564,6 +607,7 @@ const wbs = (row: any) => {
           {botSp > 0 && <Box sx={{ height: botSp, minWidth: LEFT_W + timelineW }} />}
 
         </Box>
+      </Box>
       </Box>
     </Box>
   );

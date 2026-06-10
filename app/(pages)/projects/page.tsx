@@ -6,15 +6,11 @@ import {
   Typography,
   Button,
   Stack,
-  Tabs,
-  Tab,
-  Badge,
-  ToggleButtonGroup,
-  ToggleButton,
-  Tooltip,
+  Card,
+  Grid,
+  TextField,
+  MenuItem,
 } from "@mui/material";
-import GridViewIcon from "@mui/icons-material/GridView";
-import ViewListIcon from "@mui/icons-material/ViewList";
 
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { useRouter } from "next/navigation";
@@ -35,13 +31,8 @@ import ProjectModal from "@/app/components/shared/modals/ProjectModal";
 import { ApprovalDetailModal, ApprovalSubmitModal } from "@/app/components/shared/modals/ApprovalModals";
 import TeamManagementModal from "@/app/components/shared/modals/TeamManagementModal";
 
-import ActiveProjectsTab from "./components/ActiveProjectsTab";
-import PendingProjectsTab from "./components/PendingProjectsTab";
-import DraftProjectsTab from "./components/DraftProjectsTab";
-import ForReviewTab from "./components/ForReviewTab";
-import ForApprovalTab from "./components/ForApprovalTab";
-import ArchivedProjectsTab from "./components/ArchivedProjectsTab";
-import { ProjectCardActions, ProjectTab, ViewType } from "./components/types";
+import ProjectsGrid from "./components/ProjectsGrid";
+import { ProjectCardActions, ViewType } from "./components/types";
 
 export default function ProjectsPage() {
   const dispatch = useAppDispatch();
@@ -51,8 +42,9 @@ export default function ProjectsPage() {
   const { allApprovals, auditTrail } = useAppSelector((state) => state.approval);
   const { user } = useAppSelector((state) => state.auth);
 
-  const [activeTab, setActiveTab] = useState<ProjectTab>("active");
   const [viewType, setViewType] = useState<ViewType>("card");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [businessUnitFilter, setBusinessUnitFilter] = useState("ALL");
 
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [projectModalMode, setProjectModalMode] = useState<"create" | "edit">("create");
@@ -83,15 +75,34 @@ export default function ProjectsPage() {
   const counts = useMemo(() => {
     const list = projects || [];
     return {
-      all: list.filter((p: any) => p.status !== "DRAFT" && p.status !== "ARCHIVED").length,
       active: list.filter((p: any) => p.status === "ACTIVE" || p.status === "APPROVED").length,
-      pending: list.filter((p: any) => !p.status || p.status === "DRAFT" || p.status === "NEEDS_REVISION").length,
-      draft: list.filter((p: any) => p.status === "DRAFT").length,
-      "for-review": list.filter((p: any) => p.status === "FOR_REVIEW").length,
-      "for-approval": list.filter((p: any) => p.status === "FOR_APPROVAL").length,
-      archived: list.filter((p: any) => p.status === "ARCHIVED").length,
     };
   }, [projects]);
+
+  const activeProjects = useMemo(() => {
+    return (projects || []).filter((p: any) => p.status === "ACTIVE" || p.status === "APPROVED");
+  }, [projects]);
+
+  const businessUnitOptions = useMemo(() => {
+    const buSet = new Set<string>();
+    activeProjects.forEach((p: any) => {
+      const buName = p?.businessUnitDetails?.name;
+      if (buName) buSet.add(buName);
+    });
+    return Array.from(buSet).sort((a, b) => a.localeCompare(b));
+  }, [activeProjects]);
+
+  const filteredProjects = useMemo(() => {
+    return activeProjects.filter((p: any) => {
+      const matchesSearch =
+        !searchQuery ||
+        String(p?.name || "").toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesBusinessUnit =
+        businessUnitFilter === "ALL" ||
+        (p?.businessUnitDetails?.name || "") === businessUnitFilter;
+      return matchesSearch && matchesBusinessUnit;
+    });
+  }, [activeProjects, searchQuery, businessUnitFilter]);
 
   const actions: ProjectCardActions = {
     onEdit: (project) => {
@@ -134,63 +145,72 @@ export default function ProjectsPage() {
 
   const allProjects = projects || [];
 
-  const tabDef: { value: ProjectTab; label: string }[] = [
-    { value: "active", label: "Active" },
-    { value: "pending", label: "Pending" },
-    { value: "draft", label: "Draft" },
-    { value: "for-review", label: "For Review" },
-    { value: "for-approval", label: "For Approval" },
-    { value: "archived", label: "Archived" },
-  ];
-
-  const tabContent: Record<ProjectTab, React.JSX.Element> = {
-    active: <ActiveProjectsTab projects={allProjects} actions={actions} viewType={viewType} />,
-    pending: <PendingProjectsTab projects={allProjects} actions={actions} viewType={viewType} />,
-    draft: <DraftProjectsTab projects={allProjects} actions={actions} viewType={viewType} />,
-    "for-review": (
-      <ForReviewTab projects={allProjects} actions={actions} viewType={viewType} approvalProjects={approvalProjects} />
-    ),
-    "for-approval": (
-      <ForApprovalTab projects={allProjects} actions={actions} viewType={viewType} approvalProjects={approvalProjects} />
-    ),
-    archived: <ArchivedProjectsTab projects={allProjects} actions={actions} viewType={viewType} />,
-  };
-
   return (
     <Layout>
       <Box sx={{ p: { xs: 2, md: 4 } }}>
+
+        {/* KPI CARDS */}
+        <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
+          {[
+            { label: "Total Active Projects", value: counts.active, bg: "#ecfdf5", color: "#065f46" },
+          ].map((item) => (
+            <Grid key={item.label} size={{ xs: 12, sm: 6, md: 3 }}>
+              <Card
+                sx={{
+                  px: 1.5,
+                  py: 1.25,
+                  border: "1px solid #e5e7eb",
+                  backgroundColor: item.bg,
+                }}
+              >
+                <Typography sx={{ fontSize: 12, color: "#6b7280", fontWeight: 600 }}>
+                  {item.label}
+                </Typography>
+                <Typography sx={{ fontSize: 24, lineHeight: 1.2, fontWeight: 800, color: item.color }}>
+                  {item.value}
+                </Typography>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* SEARCH + FILTER */}
         <Stack
-          direction={{ xs: "column", sm: "row" }}
-          justifyContent="space-between"
-          alignItems={{ xs: "flex-start", sm: "center" }}
-          spacing={2}
+          direction={{ xs: "column", md: "row" }}
+          spacing={1.5}
           sx={{ mb: 3 }}
         >
-          <Box>
-            <Typography variant="h4" fontWeight={700} sx={{ mb: 0.5 }}>
-              Projects
-            </Typography>
-            <Typography sx={{ color: "#6b7280", fontSize: 14 }}>
-              {counts.all} project{counts.all !== 1 ? "s" : ""} total
-            </Typography>
-          </Box>
+          <TextField
+            label="Search Project"
+            placeholder="Search by project name"
+            size="small"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            sx={{ minWidth: { xs: "100%", md: 260 } }}
+          />
+          <TextField
+            select
+            label="Business Unit"
+            size="small"
+            value={businessUnitFilter}
+            onChange={(e) => setBusinessUnitFilter(e.target.value)}
+            sx={{ minWidth: { xs: "100%", md: 240 } }}
+          >
+            <MenuItem value="ALL">All Business Units</MenuItem>
+            {businessUnitOptions.map((bu) => (
+              <MenuItem key={bu} value={bu}>
+                {bu}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Stack>
 
-          <Stack direction="row" spacing={1} alignItems="center">
-            <ToggleButtonGroup
-              value={viewType}
-              exclusive
-              onChange={(_, v) => v && setViewType(v)}
-              size="small"
-              sx={{ "& .MuiToggleButton-root": { border: "1px solid #e5e7eb" } }}
-            >
-              <Tooltip title="Card view">
-                <ToggleButton value="card"><GridViewIcon fontSize="small" /></ToggleButton>
-              </Tooltip>
-              <Tooltip title="List view">
-                <ToggleButton value="list"><ViewListIcon fontSize="small" /></ToggleButton>
-              </Tooltip>
-            </ToggleButtonGroup>
-
+        <ProjectsGrid
+          projects={filteredProjects}
+          actions={actions}
+          viewType={viewType}
+          onViewTypeChange={setViewType}
+          headerAction={(
             <Guard module="PROJECTS" action="CREATE">
               <Button
                 variant="contained"
@@ -205,63 +225,10 @@ export default function ProjectsPage() {
                 + New Project
               </Button>
             </Guard>
-          </Stack>
-        </Stack>
-
-        <Box sx={{ borderBottom: "1px solid #e5e7eb", mb: 3 }}>
-          <Tabs
-            value={activeTab}
-            onChange={(_, v) => setActiveTab(v as ProjectTab)}
-            variant="scrollable"
-            scrollButtons="auto"
-            sx={{
-              "& .MuiTab-root": { textTransform: "none", fontSize: 13, fontWeight: 500, minHeight: 44 },
-              "& .Mui-selected": { color: "#4B2E83", fontWeight: 700 },
-              "& .MuiTabs-indicator": { backgroundColor: "#4B2E83" },
-            }}
-          >
-            {tabDef.map(({ value, label }) => {
-              const count = counts[value];
-              const needsAttention =
-                (value === "for-review" || value === "for-approval") &&
-                approvalProjects.some((p: any) =>
-                  value === "for-review" ? p.status === "FOR_REVIEW" : p.status === "FOR_APPROVAL"
-                );
-              return (
-                <Tab
-                  key={value}
-                  value={value}
-                  label={
-                    <Stack direction="row" spacing={0.75} alignItems="center">
-                      <span>{label}</span>
-                      {count > 0 && (
-                        <Box
-                          sx={{
-                            fontSize: 10,
-                            fontWeight: 700,
-                            minWidth: 18,
-                            height: 18,
-                            borderRadius: 9,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            px: 0.75,
-                            backgroundColor: needsAttention ? "#ef4444" : "#e5e7eb",
-                            color: needsAttention ? "#fff" : "#374151",
-                          }}
-                        >
-                          {count}
-                        </Box>
-                      )}
-                    </Stack>
-                  }
-                />
-              );
-            })}
-          </Tabs>
-        </Box>
-
-        {tabContent[activeTab]}
+          )}
+          emptyMessage="No active projects"
+          emptySubtext="Projects appear here once they are approved and activated"
+        />
 
         
         <ProjectModal

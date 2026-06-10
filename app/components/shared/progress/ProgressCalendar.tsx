@@ -81,12 +81,13 @@ export default function ProgressCalendar({
     (state: RootState) => state.project?.currentProjectId,
   );
 
-  // STABLE logs map
+  // STABLE logs map - supports multiple logs per date
   const logs = useMemo(() => {
     const map: any = {};
     logsArray.forEach((log: any) => {
       const key = dayjs(log.date).format("YYYY-MM-DD");
-      map[key] = log;
+      if (!map[key]) map[key] = [];
+      map[key].push(log);
     });
     return map;
   }, [logsArray]);
@@ -119,13 +120,15 @@ export default function ProgressCalendar({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [showProgressFormModal, setShowProgressFormModal] = useState(false);
   const [showExistingLogModal, setShowExistingLogModal] = useState(false);
+  const [selectedLogForDetails, setSelectedLogForDetails] = useState<any>(null);
   const [selectedAttachmentIndex, setSelectedAttachmentIndex] = useState<
     number | null
   >(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-  const hasExistingLog = Boolean(selectedLog);
+  const logsForSelectedDate = logs[selectedDate.format("YYYY-MM-DD")] || [];
 
   const getAttachmentUrl = useCallback((att?: ProgressAttachment | null) => {
     if (!att) return "";
@@ -222,27 +225,17 @@ export default function ProgressCalendar({
   }, [subtaskId]);
 
   // =========================
-  // SELECT DATE AND LOAD LOG
+  // SELECT DATE - RESET FORM
   // =========================
   useEffect(() => {
-    const key = selectedDate.format("YYYY-MM-DD");
-    const log = logs[key];
-
-    if (log) {
-      setSelectedLog(log);
-      setDailyPercent(String(log.dailyPercent));
-      setRemarks(log.remarks || "");
-      setLocation(log.location || "");
-      setDayNumber(log.dayNumber ? String(log.dayNumber) : "");
-    } else {
-      setSelectedLog(null);
-      setDailyPercent("");
-      setRemarks("");
-      setLocation("");
-      setDayNumber("");
-    }
+    // Reset form when date changes
+    setDailyPercent("");
+    setRemarks("");
+    setLocation("");
+    setDayNumber("");
     setAttachments([]);
     setImagePreviews([]);
+    setSelectedLogForDetails(null);
   }, [selectedDate, logs]);
 
   // =========================
@@ -256,7 +249,7 @@ export default function ProgressCalendar({
   // =========================
   // COLOR LOGIC
   // =========================
-  const getBackgroundColor = (date: any, log: any, isSelected: boolean) => {
+  const getBackgroundColor = (date: any, logsForDate: any[], isSelected: boolean) => {
     if (isSelected) return "#db60d1"; // Selected = Pink/Magenta
 
     if (!range?.start || !range?.end) return "#ffffff"; // No range = White
@@ -266,6 +259,9 @@ export default function ProgressCalendar({
 
     const isBeforeStart = date.isBefore(start, "day");
     const isAfterEnd = date.isAfter(end, "day");
+
+    // Use first log for coloring (or could aggregate)
+    const log = logsForDate?.[0] || null;
 
     if (log?.cumulativePercent >= 100) return "#1B5E20"; // DARK GREEN for 100% Complete
     if (isBeforeStart && log) return "#7B1FA2"; // PURPLE for early logs (before start date)
@@ -495,8 +491,9 @@ export default function ProgressCalendar({
         <Box display="grid" gridTemplateColumns="repeat(7, 1fr)">
           {dates.map((date) => {
             const key = date.format("YYYY-MM-DD");
-            const log = logs[key];
+            const logsForDate = logs[key] || [];
             const isSelected = selectedDate.isSame(date, "day");
+            const firstLog = logsForDate[0];
 
             return (
               <Box
@@ -509,7 +506,7 @@ export default function ProgressCalendar({
                   border: "1px solid #ddd",
                   p: 1,
                   cursor: "pointer",
-                  backgroundColor: getBackgroundColor(date, log, isSelected),
+                  backgroundColor: getBackgroundColor(date, logsForDate, isSelected),
                   transition: "all 0.2s ease",
                   "&:hover": {
                     transform: "scale(1.02)",
@@ -522,26 +519,41 @@ export default function ProgressCalendar({
                   {date.date()}
                 </Typography>
 
-                {log && (
+                {logsForDate.length > 0 && (
                   <>
-                    <Chip
-                      label={`+${log.dailyPercent}%`}
-                      size="small"
-                      sx={{
-                        height: 20,
-                        fontSize: 10,
-                        mt: 0.5,
-                        backgroundColor: "#1976d2",
-                        color: "white",
-                      }}
-                    />
+                    {logsForDate.length > 1 && (
+                      <Chip
+                        label={`${logsForDate.length} logs`}
+                        size="small"
+                        sx={{
+                          height: 18,
+                          fontSize: 9,
+                          mt: 0.5,
+                          backgroundColor: "#ff9800",
+                          color: "white",
+                        }}
+                      />
+                    )}
+                    {logsForDate.length === 1 && (
+                      <Chip
+                        label={`+${firstLog.dailyPercent}%`}
+                        size="small"
+                        sx={{
+                          height: 20,
+                          fontSize: 10,
+                          mt: 0.5,
+                          backgroundColor: "#1976d2",
+                          color: "white",
+                        }}
+                      />
+                    )}
                     <Typography
                       fontSize={10}
                       sx={{ mt: 0.5, fontWeight: "bold" }}
                     >
-                      Total: {log.cumulativePercent}%
+                      Total: {firstLog.cumulativePercent}%
                     </Typography>
-                    {(log.attachments?.length || log.photoUrl) && (
+                    {logsForDate.some((log: any) => log.attachments?.length || log.photoUrl) && (
                       <ImageIcon
                         sx={{
                           fontSize: 14,
@@ -704,32 +716,115 @@ export default function ProgressCalendar({
 
       {/* RIGHT PANEL */}
       <Paper sx={{ p: 3, maxHeight: "800px", overflowY: "auto" }}>
-        {/* Success State */}
-        {success && (
-          <Box sx={{ textAlign: "center", py: 3 }}>
-            <CheckCircleIcon sx={{ fontSize: 48, color: "#2E7D32", mb: 1 }} />
-            <Typography sx={{ color: "#2E7D32", fontWeight: "bold" }}>
-              Progress Logged!
+        <Typography variant="h6" sx={{ mb: 1 }}>
+          {selectedDate.format("MMM DD, YYYY")}
+        </Typography>
+        <Divider sx={{ my: 2 }} />
+
+        {/* Cumulative Progress Info - ALWAYS VISIBLE */}
+            <Box
+              sx={{
+                mb: 2,
+                p: 1.5,
+                backgroundColor: "#f0f0f0",
+                borderRadius: 1,
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{ display: "block", color: "#666", mb: 0.5 }}
+              >
+                Total Progress
+              </Typography>
+              <Typography variant="h6" sx={{ color: "#1976d2" }}>
+                {cumulativeProgress.toFixed(1)}% / 100%
+              </Typography>
+              <Typography variant="caption" sx={{ color: "#999" }}>
+                Remaining: {remainingProgress.toFixed(1)}%
+              </Typography>
+            </Box>
+
+        {/* Submitted Progress List */}
+        {logsForSelectedDate.length > 0 ? (
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: "bold" }}>
+              📋 Submitted Progress ({logsForSelectedDate.length})
+            </Typography>
+            <Stack spacing={0.5}>
+              {logsForSelectedDate.map((log: any, idx: number) => (
+                <Box
+                  key={log.id || idx}
+                  onClick={() => {
+                    setSelectedLogForDetails(log);
+                    setSelectedAttachmentIndex(null);
+                    setShowExistingLogModal(true);
+                  }}
+                  sx={{
+                    p: 0.75,
+                    cursor: "pointer",
+                    backgroundColor: "#f9fafb",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 0.75,
+                    transition: "all 0.2s ease",
+                    "&:hover": {
+                      backgroundColor: "#f0f4ff",
+                      borderColor: "#1976d2",
+                      boxShadow: 1,
+                    },
+                  }}
+                >
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}>
+                    <Chip
+                      label={`+${log.dailyPercent}%`}
+                      color="primary"
+                      size="small"
+                      sx={{ fontWeight: "bold", height: 20 }}
+                    />
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="caption" sx={{ color: "#666", display: "block", fontSize: 11 }}>
+                        <strong>{log.user?.name || log.userId || "System"}</strong> • {log.cumulativePercent}%
+                      </Typography>
+                      {log.remarks && (
+                        <Typography variant="caption" sx={{ display: "block", color: "#999", fontSize: 10, mt: 0.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {log.remarks}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                </Box>
+              ))}
+            </Stack>
+          </Box>
+        ) : (
+          <Box sx={{ mt: 3, p: 2, backgroundColor: "#f5f5f5", borderRadius: 1, textAlign: "center" }}>
+            <Typography variant="body2" sx={{ color: "#999" }}>
+              No progress logged for this date
             </Typography>
           </Box>
         )}
 
-        {/* Form */}
-        {!success && (
-          <>
-            <Typography variant="h6" sx={{ mb: 1 }}>
-              {selectedDate.format("MMM DD, YYYY")}
-            </Typography>
+        {/* Submit Progress Button */}
+        <Button
+          variant="contained"
+          fullWidth
+          sx={{ mt: 3 }}
+          onClick={() => setShowProgressFormModal(true)}
+          disabled={cumulativeProgress >= 100}
+        >
+          {cumulativeProgress >= 100 ? "✓ 100% Complete" : "Submit Progress"}
+        </Button>
+      </Paper>
 
-            {selectedLog && (
-              <Alert severity="info" sx={{ mb: 2 }}>
-                Progress already logged on this date. Fields are read-only.
-                Click "See More Details" to view the full log.
-              </Alert>
-            )}
-
-            <Divider sx={{ my: 2 }} />
-
+      {/* PROGRESS FORM MODAL */}
+      <Dialog
+        open={showProgressFormModal}
+        onClose={() => setShowProgressFormModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Submit Progress for {selectedDate.format("MMM DD, YYYY")}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
             {/* Cumulative Progress Info */}
             <Box
               sx={{
@@ -758,7 +853,6 @@ export default function ProgressCalendar({
               label="Daily Progress (%)"
               type="number"
               fullWidth
-              disabled={hasExistingLog}
               value={dailyPercent}
               onChange={(e) => setDailyPercent(e.target.value)}
               inputProps={{ min: 0, max: remainingProgress }}
@@ -778,7 +872,6 @@ export default function ProgressCalendar({
               label="Day Number"
               type="number"
               fullWidth
-              disabled={hasExistingLog}
               value={dayNumber}
               onChange={(e) => setDayNumber(e.target.value)}
               inputProps={{ min: 1 }}
@@ -789,7 +882,6 @@ export default function ProgressCalendar({
             <TextField
               label="Location"
               fullWidth
-              disabled={hasExistingLog}
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g., Site A, Building 1"
@@ -805,9 +897,8 @@ export default function ProgressCalendar({
             <TextField
               label="Remarks"
               multiline
-              rows={2}
+              rows={3}
               fullWidth
-              disabled={hasExistingLog}
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               sx={{ mt: 2 }}
@@ -818,18 +909,17 @@ export default function ProgressCalendar({
               <input
                 accept="*/*"
                 style={{ display: "none" }}
-                id="photo-input"
+                id="form-photo-input"
                 type="file"
                 multiple
-                disabled={hasExistingLog}
                 onChange={handlePhotoChange}
               />
-              <label htmlFor="photo-input" style={{ width: "100%" }}>
+              <label htmlFor="form-photo-input" style={{ width: "100%" }}>
                 <Button
                   variant="outlined"
                   component="span"
                   fullWidth
-                  disabled={hasExistingLog || attachments.length >= 10}
+                  disabled={attachments.length >= 10}
                   startIcon={<CloudUploadIcon />}
                   sx={{ mt: 1 }}
                 >
@@ -839,7 +929,7 @@ export default function ProgressCalendar({
                 </Button>
               </label>
 
-              {!hasExistingLog && attachments.length > 0 && (
+              {attachments.length > 0 && (
                 <Box sx={{ mt: 1.5 }}>
                   <Typography variant="caption" sx={{ color: "#666" }}>
                     Selected Files
@@ -879,7 +969,7 @@ export default function ProgressCalendar({
                 </Box>
               )}
 
-              {!hasExistingLog && imagePreviews.length > 0 && (
+              {imagePreviews.length > 0 && (
                 <Stack spacing={1} sx={{ mt: 2 }}>
                   {imagePreviews.map((src, idx) => (
                     <Box
@@ -897,84 +987,20 @@ export default function ProgressCalendar({
                   ))}
                 </Stack>
               )}
-
-              {hasExistingLog && (
-                <Box sx={{ mt: 1.5 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{ color: "#666", display: "block", mb: 0.5 }}
-                  >
-                    Existing Attachments
-                  </Typography>
-                  {selectedLog?.attachments?.length ? (
-                    <Stack spacing={0.5}>
-                      {(selectedLog.attachments as ProgressAttachment[]).map(
-                        (att) => (
-                          <a
-                            key={att.id || att.url}
-                            href={getAttachmentUrl(att)}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ fontSize: 12 }}
-                          >
-                            {att.name || "Attachment"}
-                          </a>
-                        ),
-                      )}
-                    </Stack>
-                  ) : selectedLog?.photoUrl ? (
-                    <a
-                      href={selectedLog.photoUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ fontSize: 12 }}
-                    >
-                      Legacy Photo
-                    </a>
-                  ) : (
-                    <Typography
-                      variant="body2"
-                      sx={{ fontSize: 12, color: "#999" }}
-                    >
-                      No attachments
-                    </Typography>
-                  )}
-                </Box>
-              )}
             </Box>
-
-            {/* Save Button */}
-            <Button
-              variant="contained"
-              fullWidth
-              sx={{ mt: 3 }}
-              onClick={
-                hasExistingLog
-                  ? () => {
-                      if (selectedLog?.attachments?.length) {
-                        setSelectedAttachmentIndex(0);
-                      } else {
-                        setSelectedAttachmentIndex(null);
-                      }
-                      setShowExistingLogModal(true);
-                    }
-                  : handleSave
-              }
-              disabled={
-                hasExistingLog
-                  ? false
-                  : isLoading || !dailyPercent || cumulativeProgress >= 100
-              }
-            >
-              {hasExistingLog
-                ? "See More Details"
-                : isLoading
-                  ? "Saving..."
-                  : "Save Progress"}
-            </Button>
-          </>
-        )}
-      </Paper>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setShowProgressFormModal(false)}>Cancel</Button>
+          <Button
+            onClick={handleSave}
+            variant="contained"
+            disabled={isLoading || !dailyPercent || cumulativeProgress >= 100}
+          >
+            {isLoading ? "Saving..." : "Submit"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* SUCCESS MODAL WITH LOADING */}
       <Dialog
@@ -1049,7 +1075,7 @@ export default function ProgressCalendar({
         <DialogContent
           sx={{ p: 0, height: "calc(100vh - 65px)", overflow: "hidden" }}
         >
-          {selectedLog && (
+          {selectedLogForDetails && (
             <Grid container sx={{ height: "100%", minHeight: 0 }}>
               {/* LEFT COLUMN - DETAILS */}
               <Grid
@@ -1069,7 +1095,7 @@ export default function ProgressCalendar({
                       Date
                     </Typography>
                     <Typography variant="body1">
-                      {dayjs(selectedLog.date).format("MMMM DD, YYYY")}
+                      {dayjs(selectedLogForDetails.date).format("MMMM DD, YYYY")}
                     </Typography>
                   </Box>
 
@@ -1079,7 +1105,7 @@ export default function ProgressCalendar({
                     </Typography>
                     <Box sx={{ mt: 0.5 }}>
                       <Chip
-                        label={`+${selectedLog.dailyPercent}%`}
+                        label={`+${selectedLogForDetails.dailyPercent}%`}
                         color="primary"
                       />
                     </Box>
@@ -1090,54 +1116,54 @@ export default function ProgressCalendar({
                       Cumulative Progress
                     </Typography>
                     <Typography variant="body1">
-                      {selectedLog.cumulativePercent}% of 100%
+                      {selectedLogForDetails.cumulativePercent}% of 100%
                     </Typography>
                   </Box>
 
-                  {selectedLog.location && (
+                  {selectedLogForDetails.location && (
                     <Box>
                       <Typography variant="caption" sx={{ color: "#666" }}>
                         📍 Location
                       </Typography>
                       <Typography variant="body2">
-                        {selectedLog.location}
+                        {selectedLogForDetails.location}
                       </Typography>
                     </Box>
                   )}
 
-                  {selectedLog.dayNumber && (
+                  {selectedLogForDetails.dayNumber && (
                     <Box>
                       <Typography variant="caption" sx={{ color: "#666" }}>
                         Day Number
                       </Typography>
                       <Typography variant="body2">
-                        Day {selectedLog.dayNumber}
+                        Day {selectedLogForDetails.dayNumber}
                       </Typography>
                     </Box>
                   )}
 
-                  {selectedLog.remarks && (
+                  {selectedLogForDetails.remarks && (
                     <Box>
                       <Typography variant="caption" sx={{ color: "#666" }}>
                         Remarks
                       </Typography>
                       <Typography variant="body2">
-                        {selectedLog.remarks}
+                        {selectedLogForDetails.remarks}
                       </Typography>
                     </Box>
                   )}
 
-                  {selectedLog.attachments?.length > 0 && (
+                  {selectedLogForDetails.attachments?.length > 0 && (
                     <Box>
                       <Typography
                         variant="caption"
                         sx={{ color: "#666", display: "block", mb: 1 }}
                       >
-                        📎 Attachments ({selectedLog.attachments.length})
+                        📎 Attachments ({selectedLogForDetails.attachments.length})
                       </Typography>
 
                       <Stack spacing={1}>
-                        {(selectedLog.attachments as ProgressAttachment[]).map(
+                        {(selectedLogForDetails.attachments as ProgressAttachment[]).map(
                           (att, idx) => (
                             <Box
                               key={att.id || att.url}
@@ -1194,7 +1220,7 @@ export default function ProgressCalendar({
                     </Box>
                   )}
 
-                  {!selectedLog.attachments?.length && selectedLog.photoUrl && (
+                  {!selectedLogForDetails.attachments?.length && selectedLogForDetails.photoUrl && (
                     <Box>
                       <Typography
                         variant="caption"
@@ -1204,7 +1230,7 @@ export default function ProgressCalendar({
                       </Typography>
                       <Box
                         component="img"
-                        src={selectedLog.photoUrl}
+                        src={selectedLogForDetails.photoUrl}
                         sx={{
                           width: "100%",
                           height: 200,
@@ -1216,25 +1242,24 @@ export default function ProgressCalendar({
                     </Box>
                   )}
 
-                  {selectedLog.userId && (
+                  {selectedLogForDetails.user && (
                     <Box>
                       <Typography variant="caption" sx={{ color: "#666" }}>
                         Added By
                       </Typography>
                       <Typography variant="body2">
-                        {allUsers.find((u) => u.id === selectedLog.userId)
-                          ?.name || selectedLog.userId}
+                        {selectedLogForDetails.user.name || selectedLogForDetails.user.email}
                       </Typography>
                     </Box>
                   )}
 
-                  {selectedLog.createdAt && (
+                  {selectedLogForDetails.createdAt && (
                     <Box>
                       <Typography variant="caption" sx={{ color: "#666" }}>
                         Created At
                       </Typography>
                       <Typography variant="body2">
-                        {dayjs(selectedLog.createdAt).format(
+                        {dayjs(selectedLogForDetails.createdAt).format(
                           "MMM DD, YYYY hh:mm A",
                         )}
                       </Typography>
@@ -1267,10 +1292,10 @@ export default function ProgressCalendar({
                   }}
                 >
                   {selectedAttachmentIndex !== null &&
-                    selectedLog.attachments &&
+                    selectedLogForDetails.attachments &&
                     (() => {
                       const att =
-                        selectedLog.attachments[selectedAttachmentIndex];
+                        selectedLogForDetails.attachments[selectedAttachmentIndex];
                       const fileUrl = getAttachmentUrl(att);
                       const isPDF =
                         att.mimeType === "application/pdf" ||
@@ -1349,7 +1374,7 @@ export default function ProgressCalendar({
                                   alt={att.name}
                                   onClick={() => {
                                     const imageItems = (
-                                      selectedLog.attachments as ProgressAttachment[]
+                                      selectedLogForDetails.attachments as ProgressAttachment[]
                                     ).filter((a: ProgressAttachment) =>
                                       a.mimeType?.startsWith("image/"),
                                     );
@@ -1380,7 +1405,7 @@ export default function ProgressCalendar({
                                 <Lightbox
                                   open={lightboxOpen}
                                   close={() => setLightboxOpen(false)}
-                                  slides={selectedLog.attachments
+                                  slides={selectedLogForDetails.attachments
                                     .filter((a: ProgressAttachment) =>
                                       a.mimeType?.startsWith("image/"),
                                     )

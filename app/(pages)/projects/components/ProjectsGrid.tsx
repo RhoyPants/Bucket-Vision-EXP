@@ -343,66 +343,59 @@ export default function ProjectsGrid({
           open={menuOpen}
           onClose={closeMenu}
         >
-          {menuProject && (
-            <>
-              {(!menuProject.status || menuProject.status === "DRAFT" || menuProject.status === "FOR_REVIEW" || menuProject.status === "NEEDS_REVISION") && (
-                <MenuItem onClick={() => runMenuAction(() => actions.onSetup(menuProject.id))}>
-                  <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>Setup Project</ListItemText>
-                </MenuItem>
-              )}
-
-              {(menuProject.status === "FOR_APPROVAL" || menuProject.status === "FOR_REVIEW" || menuProject.status === "NEEDS_REVISION" || menuProject.status === "REJECTED" || menuProject.status === "ACTIVE") && (
-                <MenuItem onClick={() => runMenuAction(() => actions.onViewApproval(menuProject))}>
-                  <ListItemIcon><VisibilityIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>View Approval</ListItemText>
-                </MenuItem>
-              )}
-
-              {(menuProject.status === "NEEDS_REVISION" || menuProject.status === "REJECTED") && (
-                <MenuItem onClick={() => runMenuAction(() => actions.onSubmitForApproval(menuProject))}>
-                  <ListItemIcon><SendIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>Revise &amp; Resubmit</ListItemText>
-                </MenuItem>
-              )}
-
-              {(menuProject.status === "ACTIVE" || menuProject.status === "APPROVED") && (
-                <MenuItem onClick={() => runMenuAction(() => actions.onTeamManage(menuProject))}>
-                  <ListItemIcon><PeopleIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>Team Management</ListItemText>
-                </MenuItem>
-              )}
-
-              {(menuProject.status === "ACTIVE" || menuProject.status === "APPROVED") && (
-                <MenuItem onClick={() => runMenuAction(() => actions.onVersion(menuProject))}>
-                  <ListItemIcon><LayersIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>Project Versions</ListItemText>
-                </MenuItem>
-              )}
-
-              <MenuItem onClick={() => runMenuAction(() => actions.onSprint(menuProject.id))}>
-                <ListItemIcon><AssignmentIcon fontSize="small" /></ListItemIcon>
-                <ListItemText>Sprint Management</ListItemText>
-              </MenuItem>
-
-              {menuProject.status !== "ARCHIVED" && (
-                <MenuItem onClick={() => runMenuAction(() => actions.onEdit(menuProject))}>
-                  <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>Edit Project</ListItemText>
-                </MenuItem>
-              )}
-
-              <Divider />
-
-              <MenuItem
-                onClick={() => runMenuAction(() => actions.onDelete(menuProject.id))}
-                sx={{ color: "#B91C1C" }}
-              >
-                <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
-                <ListItemText>Delete</ListItemText>
-              </MenuItem>
-            </>
-          )}
+          {menuProject
+            ? [
+                (!menuProject.status || menuProject.status === "DRAFT" || menuProject.status === "FOR_REVIEW" || menuProject.status === "NEEDS_REVISION") && (
+                  <MenuItem key="setup" onClick={() => runMenuAction(() => actions.onSetup(menuProject.id))}>
+                    <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText>Setup Project</ListItemText>
+                  </MenuItem>
+                ),
+                (menuProject.status === "FOR_APPROVAL" || menuProject.status === "FOR_REVIEW" || menuProject.status === "NEEDS_REVISION" || menuProject.status === "REJECTED" || menuProject.status === "ACTIVE") && (
+                  <MenuItem key="view-approval" onClick={() => runMenuAction(() => actions.onViewApproval(menuProject))}>
+                    <ListItemIcon><VisibilityIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText>View Approval</ListItemText>
+                  </MenuItem>
+                ),
+                (menuProject.status === "NEEDS_REVISION" || menuProject.status === "REJECTED") && (
+                  <MenuItem key="resubmit" onClick={() => runMenuAction(() => actions.onSubmitForApproval(menuProject))}>
+                    <ListItemIcon><SendIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText>Revise &amp; Resubmit</ListItemText>
+                  </MenuItem>
+                ),
+                (menuProject.status === "ACTIVE" || menuProject.status === "APPROVED") && (
+                  <MenuItem key="team-management" onClick={() => runMenuAction(() => actions.onTeamManage(menuProject))}>
+                    <ListItemIcon><PeopleIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText>Team Management</ListItemText>
+                  </MenuItem>
+                ),
+                (menuProject.status === "ACTIVE" || menuProject.status === "APPROVED") && (
+                  <MenuItem key="project-versions" onClick={() => runMenuAction(() => actions.onVersion(menuProject))}>
+                    <ListItemIcon><LayersIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText>Project Versions</ListItemText>
+                  </MenuItem>
+                ),
+                <MenuItem key="sprint" onClick={() => runMenuAction(() => actions.onSprint(menuProject.id))}>
+                  <ListItemIcon><AssignmentIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText>Sprint Management</ListItemText>
+                </MenuItem>,
+                menuProject.status !== "ARCHIVED" && (
+                  <MenuItem key="edit" onClick={() => runMenuAction(() => actions.onEdit(menuProject))}>
+                    <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText>Edit Project</ListItemText>
+                  </MenuItem>
+                ),
+                <Divider key="divider" />,
+                <MenuItem
+                  key="delete"
+                  onClick={() => runMenuAction(() => actions.onDelete(menuProject.id))}
+                  sx={{ color: "#B91C1C" }}
+                >
+                  <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText>Delete</ListItemText>
+                </MenuItem>,
+              ]
+            : null}
         </Menu>
       </Box>
     );

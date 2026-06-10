@@ -1,30 +1,52 @@
 "use client";
 
-import { Box, Drawer, IconButton } from "@mui/material";
+import { Box, Drawer, IconButton, Typography } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
+import ViewKanbanOutlinedIcon from "@mui/icons-material/ViewKanbanOutlined";
+import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
+import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
+import FolderOpenOutlinedIcon from "@mui/icons-material/FolderOpenOutlined";
+import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
+import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
+import DraftsOutlinedIcon from "@mui/icons-material/DraftsOutlined";
+import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 
 import SidebarItem from "./SidebarItem";
 import { useEffect, useMemo, useState } from "react";
-import { logout } from "@/app/redux/slices/authSlice";
-import { useAppDispatch } from "@/app/redux/hook";
-import router from "next/router";
 import { getMyApprovals } from "@/app/api-service/projectService";
 
 const drawerWidth = 240;
+const collapsedDrawerWidth = 80;
+const sidebarCollapsedStorageKey = "bv-sidebar-collapsed";
 
 export default function Sidebar() {
-  const dispatch = useAppDispatch();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [approvalQueue, setApprovalQueue] = useState<any[]>([]);
 
   const handleToggle = () => setMobileOpen((prev) => !prev);
-
-  const handleLogout = async () => {
-    router.push("/"); // navigate to root (login)
-    dispatch(logout()); // no need to await a plain reducer
+  const handleCollapseToggle = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(sidebarCollapsedStorageKey, String(next));
+      }
+      return next;
+    });
   };
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem(sidebarCollapsedStorageKey);
+      if (stored === "true") {
+        setCollapsed(true);
+      }
+    }
+
     const fetchApprovalQueue = async () => {
       try {
         const items = await getMyApprovals();
@@ -45,42 +67,60 @@ export default function Sidebar() {
     return total;
   }, [approvalQueue]);
 
+  const currentWidth = collapsed ? collapsedDrawerWidth : drawerWidth;
+
   const sidebarContent = (
     <Box
       sx={{
-        width: drawerWidth,
-        backgroundColor: "#e8e7e2",
+        width: currentWidth,
+        background: "linear-gradient(180deg, #0F123D 0%, #090C2C 100%)",
         height: "100%",
-        paddingTop: 3,
-        paddingX: 1,
+        pt: 3,
+        px: collapsed ? 1 : 1.5,
         display: "flex",
         flexDirection: "column",
-        gap: 1,
-        borderRight: "1px solid #d6d5cf",
+        borderRight: "1px solid rgba(255,255,255,0.06)",
       }}
     >
-      {/* LOGO */}
-      <Box sx={{ padding: 2, marginBottom: 2 }}>
-        <img
-          src="/images/GVI_LOGO_DARK.png"
-          onClick={handleLogout}
-          width={150}
-          alt="GVI Logo"
-        />
+      {/* Logo Section */}
+      <Box sx={{ height: 30, display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "flex-start", px: 1.5, mb: 5 }}>
+        <img src="/images/GVI_LOGO_DARK.png" width={collapsed ? 42 : 130} alt="GVI Logo" style={{ display: "block", filter: "brightness(0) invert(1)" }} />
       </Box>
 
-      {/* MENU */}
-      <SidebarItem label="Dashboard" href="/dashboard" />
-      <SidebarItem label="Personal Dashboard" href="/personalDashboard" />
-      <SidebarItem label="Sprint Management" href="/sprintManagement" />
-      <SidebarItem label="Task Board" href="/taskboard" />
-      <SidebarItem label="Team Overview" href="/teamOverview" />
-      <SidebarItem label="Projects" href="/projects" />
-      <SidebarItem label="My Requests" href="/myRequests" />
-      <SidebarItem label="My Approvals" href="/myApprovals" badgeCount={approvalBadgeCount} />
-      <SidebarItem label="My Drafts" href="/myDrafts" />
-      <SidebarItem label="Reports" href="/reports" />
-      <SidebarItem label="Settings" href="/settings" />
+      {/* Menu */}
+      <Box sx={{ flex: 1, minHeight: 0 }}>
+        <SidebarItem label="Personal Dashboard" href="/personalDashboard" icon={<SpaceDashboardOutlinedIcon />} collapsed={collapsed} />
+        <SidebarItem label="Sprint Management" href="/sprintManagement" icon={<AssignmentTurnedInOutlinedIcon />} collapsed={collapsed} />
+        <SidebarItem label="Task Board" href="/taskboard" icon={<ViewKanbanOutlinedIcon />} collapsed={collapsed} />
+        <SidebarItem label="Team Overview" href="/teamOverview" icon={<GroupsOutlinedIcon />} collapsed={collapsed} />
+        <SidebarItem label="Projects" href="/projects" icon={<FolderOpenOutlinedIcon />} collapsed={collapsed} />
+        <SidebarItem label="My Requests" href="/myRequests" icon={<SendOutlinedIcon />} collapsed={collapsed} />
+        <SidebarItem label="My Approvals" href="/myApprovals" badgeCount={approvalBadgeCount} icon={<FactCheckOutlinedIcon />} collapsed={collapsed} />
+        <SidebarItem label="My Drafts" href="/myDrafts" icon={<DraftsOutlinedIcon />} collapsed={collapsed} />
+        <SidebarItem label="Reports" href="/reports" icon={<AssessmentOutlinedIcon />} collapsed={collapsed} />
+        <SidebarItem label="Settings" href="/settings" icon={<SettingsOutlinedIcon />} collapsed={collapsed} />
+      </Box>
+
+      {/* Collapse */}
+      <Box
+        onClick={handleCollapseToggle}
+        sx={{
+          height: 48,
+          borderRadius: "12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: collapsed ? "center" : "flex-start",
+          gap: collapsed ? 0 : 0.5,
+          px: 2,
+          color: "rgba(241, 241, 252, 0.85)",
+          cursor: "pointer",
+          mb: 1,
+          "&:hover": { backgroundColor: "#18225B" },
+        }}
+      >
+        {collapsed ? <ChevronRightIcon sx={{ fontSize: 20 }} /> : <ChevronLeftIcon sx={{ fontSize: 20 }} />}
+        {!collapsed ? <Typography sx={{ fontSize: 15, fontWeight: 500 }}>Collapse</Typography> : null}
+      </Box>
     </Box>
   );
 
@@ -121,10 +161,11 @@ export default function Sidebar() {
       <Box
         sx={{
           display: { xs: "none", md: "flex" },
-          width: drawerWidth,
+          width: currentWidth,
           height: "100vh",
           position: "sticky",
           top: 0,
+          transition: "width 0.25s ease",
         }}
       >
         {sidebarContent}

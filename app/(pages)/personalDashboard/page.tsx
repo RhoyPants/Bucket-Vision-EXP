@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Alert,
   Box,
   Button,
+  ButtonGroup,
   Card,
   CardContent,
   Chip,
@@ -26,6 +28,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import InsightsIcon from "@mui/icons-material/Insights";
 import SettingsIcon from "@mui/icons-material/Settings";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import TimelineIcon from "@mui/icons-material/Timeline";
 
 import Layout from "@/app/components/shared/Layout";
 import KPIModal from "@/app/components/shared/modals/KPIModal";
@@ -36,8 +40,12 @@ import ChartConfigDialog from "./components/ChartConfigDialog";
 import SummaryTile from "./components/SummaryTile";
 import KpiStatusPieCard from "./components/KpiStatusPieCard";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
-import { getProjects } from "@/app/redux/controllers/projectController";
+import { getProjects, getProjectFull } from "@/app/redux/controllers/projectController";
 import { Projects } from "@/app/redux/slices/projectSlice";
+import { getInboxReports } from "@/app/redux/controllers/dailyReportController";
+import { getInboxWeeklyReports } from "@/app/redux/controllers/weeklyReportController";
+import DashboardCalendar from "@/app/(pages)/dashboard/components/DashboardCalendar";
+import GridTableView from "@/app/(pages)/sprintManagement/Components/GridTableView";
 import {
   DashboardSummary,
   PersonalDashboard,
@@ -108,7 +116,12 @@ export default function PersonalDashboardPage() {
   } = useAppSelector((state) => state.personalDashboard);
   const { notes, loading: notesLoading, error: notesError } = useAppSelector((state) => state.notes);
   const authToken = useAppSelector((state) => state.auth.token);
+  const dailyInboxReports = useAppSelector((state) => (state as any).dailyReport?.inboxReports || []);
+  const weeklyInboxReports = useAppSelector((state) => (state as any).weeklyReport?.inboxReports || []);
+  const router = useRouter();
   const [selectedId, setSelectedId] = useState("");
+  const [reportTab, setReportTab] = useState(0);
+  const [scheduleView, setScheduleView] = useState<"calendar" | "timeline">("calendar");
   const [dashboardModalOpen, setDashboardModalOpen] = useState(false);
   const [editingDashboard, setEditingDashboard] = useState<PersonalDashboard | null>(null);
   const [kpiModalOpen, setKpiModalOpen] = useState(false);
@@ -161,8 +174,26 @@ export default function PersonalDashboardPage() {
 
   useEffect(() => {
     if (!hasAccessToken) return;
+    dispatch(getInboxReports() as any);
+    dispatch(getInboxWeeklyReports() as any);
+  }, [dispatch, hasAccessToken]);
+
+  useEffect(() => {
+    if (!hasAccessToken) return;
     loadDetail();
   }, [hasAccessToken, loadDetail]);
+
+  const selectedSummary = getSummary(selectedDashboard);
+  const canCreateDashboard = dashboards.length < 5;
+  const calendarProjectId = selectedDashboard?.projectId ?? null;
+  const calendarProject = projects?.find((p) => p.id === calendarProjectId);
+  const calendarProjectStartDate = (calendarProject as any)?.startDate ?? null;
+  const recentReports = (reportTab === 0 ? dailyInboxReports : weeklyInboxReports).slice(0, 5);
+
+  useEffect(() => {
+    if (!hasAccessToken || !calendarProjectId) return;
+    dispatch(getProjectFull(calendarProjectId) as any);
+  }, [dispatch, hasAccessToken, calendarProjectId]);
 
   useEffect(() => {
     if (isEditMode) return;
@@ -172,9 +203,6 @@ export default function PersonalDashboardPage() {
     setEditingDashboard(null);
     setEditingKpi(null);
   }, [isEditMode]);
-
-  const selectedSummary = getSummary(selectedDashboard);
-  const canCreateDashboard = dashboards.length < 5;
 
   const refreshSelected = async () => {
     await loadDashboards();
@@ -592,6 +620,164 @@ export default function PersonalDashboardPage() {
                   {chartData?.scurve?.status && <Chip size="small" icon={<WarningAmberIcon />} label={chartData.scurve.status} />}
                 </Stack>
                 <DashboardCharts dashboard={selectedDashboard} chartData={chartData} />
+
+                {/* Project Schedule */}
+                {calendarProjectId && (
+                  <Card sx={flatCardSx}>
+                    <CardContent>
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        justifyContent="space-between"
+                        alignItems={{ xs: "flex-start", sm: "center" }}
+                        spacing={1.5}
+                        sx={{ mb: 2 }}
+                      >
+                        <Typography fontWeight={900}>Project Schedule</Typography>
+                        <ButtonGroup variant="outlined" size="small">
+                          <Button
+                            onClick={() => setScheduleView("calendar")}
+                            variant={scheduleView === "calendar" ? "contained" : "outlined"}
+                            startIcon={<CalendarMonthIcon />}
+                          >
+                            Calendar
+                          </Button>
+                          <Button
+                            onClick={() => setScheduleView("timeline")}
+                            variant={scheduleView === "timeline" ? "contained" : "outlined"}
+                            startIcon={<TimelineIcon />}
+                          >
+                            Timeline
+                          </Button>
+                        </ButtonGroup>
+                      </Stack>
+
+                      {scheduleView === "calendar" ? (
+                        <DashboardCalendar
+                          projectId={calendarProjectId}
+                          projectStartDate={calendarProjectStartDate}
+                        />
+                      ) : (
+                        <Box
+                          sx={{
+                            border: "1px solid #e5e7eb",
+                            borderRadius: 2,
+                            overflow: "auto",
+                            p: { xs: 1, md: 1.5 },
+                          }}
+                        >
+                          <GridTableView projectId={calendarProjectId} />
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Recent Reports */}
+                <Card sx={flatCardSx}>
+                  <CardContent>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+                      <Typography fontWeight={900}>Recent Reports</Typography>
+                      <Button
+                        size="small"
+                        variant="text"
+                        sx={{ textTransform: "none", fontWeight: 700, color: "#4B2E83" }}
+                        onClick={() => router.push("/reports")}
+                      >
+                        View All Reports →
+                      </Button>
+                    </Stack>
+
+                    <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                      <Chip
+                        label="Daily"
+                        size="small"
+                        onClick={() => setReportTab(0)}
+                        color={reportTab === 0 ? "primary" : "default"}
+                        sx={{ cursor: "pointer", fontWeight: 700 }}
+                      />
+                      <Chip
+                        label="Weekly"
+                        size="small"
+                        onClick={() => setReportTab(1)}
+                        color={reportTab === 1 ? "primary" : "default"}
+                        sx={{ cursor: "pointer", fontWeight: 700 }}
+                      />
+                    </Stack>
+
+                    {recentReports.length === 0 ? (
+                      <Alert severity="info">
+                        No recent {reportTab === 0 ? "daily" : "weekly"} reports received.
+                      </Alert>
+                    ) : (
+                      <Stack spacing={0.75}>
+                        {recentReports.map((report: any) => (
+                          <Box
+                            key={report.id}
+                            onClick={() => router.push("/reports")}
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1.5,
+                              p: 1,
+                              borderRadius: 1.5,
+                              border: "1px solid #e5e7eb",
+                              cursor: "pointer",
+                              transition: "all 0.2s",
+                              "&:hover": { backgroundColor: "#f0eef9", borderColor: "#4B2E83" },
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: "50%",
+                                backgroundColor: "#4B2E83",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "#fff",
+                                fontWeight: 700,
+                                fontSize: 11,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {report.user?.name?.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) || "U"}
+                            </Box>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography sx={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {report.user?.name || "Unknown"}
+                              </Typography>
+                              <Typography sx={{ fontSize: 10, color: "#999" }}>
+                                {reportTab === 0
+                                  ? report.date
+                                    ? new Date(report.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                                    : "-"
+                                  : report.weekStart
+                                    ? `${new Date(report.weekStart).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(report.weekEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                                    : "-"}
+                              </Typography>
+                            </Box>
+                            <Chip
+                              size="small"
+                              label={report.status || "SUBMITTED"}
+                              sx={{
+                                height: 20,
+                                fontSize: 10,
+                                fontWeight: 700,
+                                bgcolor:
+                                  report.status === "LATE" ? "#fef2f2" :
+                                  report.status === "REVIEWED" ? "#ecfdf5" : "#eff6ff",
+                                color:
+                                  report.status === "LATE" ? "#b91c1c" :
+                                  report.status === "REVIEWED" ? "#047857" : "#1d4ed8",
+                              }}
+                            />
+                          </Box>
+                        ))}
+                      </Stack>
+                    )}
+                  </CardContent>
+                </Card>
               </Stack>
             )}
           </Box>

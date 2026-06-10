@@ -15,6 +15,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import SCurveChart from "@/app/components/shared/Scurved/SCurveChart";
 import {
   ChartData,
   DashboardChartConfig,
@@ -34,7 +35,6 @@ const statusColors: Record<string, { accent: string }> = {
 const chartOptions = [
   { chartType: "KPI_SUMMARY" },
   { chartType: "SCURVE" },
-  { chartType: "PROGRESS_TREND" },
   { chartType: "SLA_DEADLINE_RISK" },
   { chartType: "KPI_STATUS_DISTRIBUTION" },
   { chartType: "TASK_COMPLETION" },
@@ -83,7 +83,7 @@ export default function DashboardCharts({
     { name: "Healthy", value: summary.healthyKpis, color: statusColors.HEALTHY.accent },
     { name: "Unclassified", value: summary.unclassifiedKpis, color: statusColors.UNCLASSIFIED.accent },
   ];
-  const scurveData = chartData?.scurve?.data ?? chartData?.progressTrend ?? [];
+  const trendData = chartData?.progressTrend ?? [];
   const completionData = chartData?.taskCompletion
     ? [
         { name: "Completed", value: chartData.taskCompletion.completed },
@@ -97,17 +97,44 @@ export default function DashboardCharts({
     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "1fr 1fr" }, gap: 2, minWidth: 0 }}>
       {enabledCharts.map((chart) => {
 
-        if (chart.chartType === "SCURVE" || chart.chartType === "PROGRESS_TREND" || chart.chartType === "DELAY_TREND") {
+        if (chart.chartType === "SCURVE") {
+          const projectId = dashboard.projectId || dashboard.project?.id;
+
           return (
             <Card key={chart.chartType} sx={flatCardSx}>
               <CardContent>
                 <Typography fontWeight={900} sx={{ mb: 2 }}>
-                  {chart.chartType === "SCURVE" ? "S-Curve" : chart.chartType === "DELAY_TREND" ? "Delay Trend" : "Progress Trend"}
+                  S-Curve
+                </Typography>
+                <Box
+                  sx={{
+                    minHeight: { xs: 300, md: 380 },
+                    overflow: "auto",
+                    width: "100%",
+                  }}
+                >
+                  {projectId ? (
+                    <SCurveChart projectId={projectId} />
+                  ) : (
+                    <Alert severity="info">Project is not linked for this dashboard yet.</Alert>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          );
+        }
+
+        if (chart.chartType === "DELAY_TREND") {
+          return (
+            <Card key={chart.chartType} sx={flatCardSx}>
+              <CardContent>
+                <Typography fontWeight={900} sx={{ mb: 2 }}>
+                  Delay Trend
                 </Typography>
                 <MeasuredChartContainer>
                   {({ width, height }) =>
-                    scurveData.length ? (
-                      <LineChart width={width} height={height} data={scurveData}>
+                    trendData.length ? (
+                      <LineChart width={width} height={height} data={trendData}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
                         <YAxis />

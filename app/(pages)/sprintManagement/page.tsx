@@ -515,9 +515,7 @@ function SprintManagementContent() {
               </Paper>
 
               <Paper sx={{ p: { xs: 2, md: 2.5, lg: 3 }, borderRadius: 3 }}>
-                <Box sx={{ overflow: "auto" }}>
-                  <GridTableView projectId={currentProjectId} />
-                </Box>
+                <GridTableView projectId={currentProjectId} />
               </Paper>
             </>
           )}
