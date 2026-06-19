@@ -90,7 +90,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={ftSterling.variable}>
-      <body style={{ backgroundColor: "#f1f5f9" }}>
+      <body
+        style={{
+          background:
+            "radial-gradient(circle at 10% 20%, #dbeafe 0%, transparent 35%), radial-gradient(circle at 90% 80%, #e0f2fe 0%, transparent 40%), linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)",
+          backgroundAttachment: "fixed",
+        }}
+      >
         <ThemeRegistry>
           <Providers>
             {children}

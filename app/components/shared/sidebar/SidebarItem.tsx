@@ -36,7 +36,7 @@ export default function SidebarItem({
         alignItems: "center",
         justifyContent: collapsed ? "center" : "flex-start",
         backgroundColor: active ? "#1F2A6B" : "transparent",
-        color: "rgba(255,255,255,0.92)",
+        color: "#F8FAFC",
         transition: "background-color 0.2s ease, box-shadow 0.2s ease",
         boxShadow: active ? "0 0 0 1px rgba(255,255,255,.05)" : "none",
 
@@ -54,8 +54,8 @@ export default function SidebarItem({
             alignItems: "center",
             justifyContent: "center",
             mr: collapsed ? 0 : "12px",
-            color: "#ffffff",
-            opacity: 0.95,
+            color: "#F8FAFC",
+            opacity: 1,
             "& .MuiSvgIcon-root": {
               fontSize: 20,
             },

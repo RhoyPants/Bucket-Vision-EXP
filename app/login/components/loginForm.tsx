@@ -5,10 +5,11 @@ import { useState } from "react";
 
 interface LoginFormProps {
   onSubmit: (email: string, password: string) => void;
+  onMicrosoftLogin: () => void;
   loading: boolean;
 }
 
-export default function LoginForm({ onSubmit, loading }: LoginFormProps) {
+export default function LoginForm({ onSubmit, onMicrosoftLogin, loading }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -74,6 +75,9 @@ export default function LoginForm({ onSubmit, loading }: LoginFormProps) {
           fullWidth
           variant="outlined"
           color="primary"
+          type="button"
+          disabled={loading}
+          onClick={onMicrosoftLogin}
         >
           Microsoft Login
         </Button>

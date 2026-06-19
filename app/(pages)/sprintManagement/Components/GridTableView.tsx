@@ -285,7 +285,7 @@ const wbs = (row: any) => {
     return (
       <Box sx={{ p: 4, textAlign: "center" }}>
         <Typography color="text.secondary">
-          No subtask dates defined â€” add start/end dates to subtasks to generate the Gantt chart
+          No subtask dates defined — add start/end dates to subtasks to generate the Gantt chart
         </Typography>
       </Box>
     );
@@ -309,7 +309,7 @@ const wbs = (row: any) => {
           ))}
         </ToggleButtonGroup>
         <Typography variant="caption" color="text.secondary">
-          {dates.length} days Â· {baseRows.length} rows
+          {dates.length} days · {baseRows.length} rows
         </Typography>
         {Object.keys(overrides).length > 0 && (
           <Box

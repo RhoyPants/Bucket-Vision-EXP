@@ -60,12 +60,20 @@ axiosApi.interceptors.response.use(
 
     // Handle auth errors
     if (response.status === 401) {
-      console.error("❌ API Error: Unauthorized — token expired");
+      console.error("❌ API Error 401: Unauthorized — token expired");
+      console.log("🔵 Current pathname:", typeof window !== "undefined" ? window.location.pathname : "(server)");
 
-      // clear session
-      if (typeof window !== "undefined") {
+      // Skip redirect on SSO callback page - let it finish processing
+      const isCallback = typeof window !== "undefined" && window.location.pathname === "/sso/callback";
+      
+      console.log("🔵 Is callback page?", isCallback);
+      
+      if (!isCallback && typeof window !== "undefined") {
+        console.log("🔴 Redirecting to /");
         localStorage.removeItem("token");
         window.location.href = "/";
+      } else {
+        console.log("🟢 Skipping redirect because on /sso/callback");
       }
 
       return Promise.reject(new Error("Unauthorized - Token expired"));
