@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -46,7 +46,7 @@ import {
 
 type ViewMode = "structured" | "gantt";
 
-export default function ApprovalReviewPage() {
+function ApprovalReviewPageContent() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -826,6 +826,28 @@ export default function ApprovalReviewPage() {
         />
       )}
     </Box>
+  );
+}
+
+export default function ApprovalReviewPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            height: "100vh",
+            background: "#f4f6f8",
+          }}
+        >
+          <CircularProgress />
+        </Box>
+      }
+    >
+      <ApprovalReviewPageContent />
+    </Suspense>
   );
 }
 

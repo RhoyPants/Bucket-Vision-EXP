@@ -1,6 +1,7 @@
 "use client";
 
 import { Box } from "@mui/material";
+import { Suspense } from "react";
 import Header from "./Header";
 import Sidebar from "./sidebar/Sidebar";
 
@@ -8,7 +9,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <Box sx={{ display: "flex", height: "100vh", backgroundColor: "#f8fafc" }}>
       {/* Sidebar */}
-      <Sidebar />
+      <Suspense fallback={null}>
+        <Sidebar />
+      </Suspense>
 
       {/* Main Area */}
       <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>

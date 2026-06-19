@@ -1,10 +1,11 @@
 "use client";
 
+import { Suspense } from "react";
 import { Alert, Box } from "@mui/material";
 import { useSearchParams } from "next/navigation";
 import LoginContainer from "./login/components/loginContainer";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const searchParams = useSearchParams();
   const ssoStatus = searchParams.get("sso");
 
@@ -47,5 +48,13 @@ export default function LoginPage() {
 
       <LoginContainer />
     </Box>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   );
 }
