@@ -5,9 +5,8 @@ import {
   Typography,
   Paper,
   Alert,
-  CircularProgress,
 } from "@mui/material";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Roles from "./components/Roles";
 import Layout from "@/app/components/shared/Layout";
@@ -92,7 +91,7 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-function SettingsPageContent() {
+export default function SettingsPage() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<TabType>("profile");
 
@@ -262,21 +261,5 @@ function SettingsPageContent() {
         </Paper>
       </Box>
     </Layout>
-  );
-}
-
-export default function SettingsPage() {
-  return (
-    <Suspense
-      fallback={
-        <Layout>
-          <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-            <CircularProgress />
-          </Box>
-        </Layout>
-      }
-    >
-      <SettingsPageContent />
-    </Suspense>
   );
 }

@@ -12,7 +12,6 @@ import { logout } from "@/app/redux/slices/authSlice";
 
 // Map exact routes to display titles
 const routeTitleMap: Record<string, string> = {
-  "/dashboard": "Dashboard",
   "/sprintManagement": "Sprint Management",
   "/taskboard": "Task Board",
   "/teamOverview": "Team Overview",
@@ -31,7 +30,6 @@ const routeTitleMap: Record<string, string> = {
 
 // Map routes to descriptions
 const routeDescriptionMap: Record<string, string> = {
-  "/dashboard": "View overall project performance and key metrics",
   "/sprintManagement": "Plan and manage sprint cycles",
   "/taskboard": "Manage and track all assigned tasks and subtasks",
   "/teamOverview": "Overview of team members and their assignments",
@@ -56,7 +54,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith("/reports/weekly")) return "Weekly Reports";
 
   // Exact map fallback
-  return routeTitleMap[pathname] || "Dashboard";
+  return routeTitleMap[pathname] || "Bucket Vision";
 }
 
 function getPageDescription(pathname: string): string {

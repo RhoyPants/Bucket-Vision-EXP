@@ -35,6 +35,8 @@ import Layout from "@/app/components/shared/Layout";
 import KPIModal from "@/app/components/shared/modals/KPIModal";
 import DashboardNotes from "./components/DashboardNotes";
 import DashboardCharts from "./components/DashboardCharts";
+import DashboardReportTable from "./components/DashboardReportTable";
+import ProjectedActualTimelineChart from "./components/ProjectedActualTimelineChart";
 import DashboardModal from "./components/modals/DashboardModal";
 import ChartConfigDialog from "./components/ChartConfigDialog";
 import SummaryTile from "./components/SummaryTile";
@@ -44,7 +46,7 @@ import { getProjects, getProjectFull } from "@/app/redux/controllers/projectCont
 import { Projects } from "@/app/redux/slices/projectSlice";
 import { getInboxReports } from "@/app/redux/controllers/dailyReportController";
 import { getInboxWeeklyReports } from "@/app/redux/controllers/weeklyReportController";
-import DashboardCalendar from "@/app/(pages)/dashboard/components/DashboardCalendar";
+import DashboardCalendar from "@/app/components/shared/calendar/DashboardCalendar";
 import GridTableView from "@/app/(pages)/sprintManagement/Components/GridTableView";
 import {
   DashboardSummary,
@@ -53,6 +55,7 @@ import {
 } from "@/app/api-service/personalDashboardService";
 import {
   fetchDashboardChartData,
+  fetchDashboardReportTable,
   fetchPersonalDashboardDetail,
   fetchPersonalDashboards,
   removeDashboard,
@@ -106,12 +109,15 @@ const getProjectName = (dashboard: PersonalDashboard, projects: ProjectOption[])
 export default function PersonalDashboardPage() {
   const dispatch = useAppDispatch();
   const projects = useAppSelector((state) => state.project.projects);
+  const fullProject = useAppSelector((state) => state.project.fullProject);
   const {
     dashboards,
     selectedDashboard,
     chartData,
+    reportTable,
     loading,
     detailLoading,
+    reportLoading,
     error,
   } = useAppSelector((state) => state.personalDashboard);
   const { notes, loading: notesLoading, error: notesError } = useAppSelector((state) => state.notes);
@@ -155,6 +161,7 @@ export default function PersonalDashboardPage() {
       await Promise.all([
         dispatch(fetchPersonalDashboardDetail(selectedDashboardId)),
         dispatch(fetchDashboardChartData(selectedDashboardId)),
+        dispatch(fetchDashboardReportTable(selectedDashboardId)),
       ]);
     } catch {
       // Controller stores the error in Redux.
@@ -620,6 +627,12 @@ export default function PersonalDashboardPage() {
                   {chartData?.scurve?.status && <Chip size="small" icon={<WarningAmberIcon />} label={chartData.scurve.status} />}
                 </Stack>
                 <DashboardCharts dashboard={selectedDashboard} chartData={chartData} />
+                <ProjectedActualTimelineChart
+                  reportTable={reportTable ?? chartData?.reportTable ?? null}
+                  projectTree={fullProject}
+                  loading={reportLoading}
+                />
+                <DashboardReportTable reportTable={reportTable ?? chartData?.reportTable ?? null} loading={reportLoading} />
 
                 {/* Project Schedule */}
                 {calendarProjectId && (

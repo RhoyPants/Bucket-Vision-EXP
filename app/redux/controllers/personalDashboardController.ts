@@ -7,6 +7,7 @@ import {
   deleteDashboardKpi,
   deletePersonalDashboard,
   getDashboardChartData,
+  getDashboardReportTable,
   getKpiSourceOptions,
   getPersonalDashboardDetail,
   getPersonalDashboards,
@@ -26,6 +27,8 @@ import {
   setDetailLoading,
   setError,
   setLoading,
+  setReportLoading,
+  setReportTable,
   setSelectedDashboard,
   setSourceLoading,
   setSourceOptions,
@@ -294,6 +297,25 @@ export const fetchDashboardChartData = (dashboardId: string) => {
       return null;
     } finally {
       dispatch(setChartLoading(false));
+    }
+  };
+};
+
+export const fetchDashboardReportTable = (dashboardId: string) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      dispatch(setReportLoading(true));
+
+      const reportTable = await getDashboardReportTable(dashboardId);
+      dispatch(setReportTable(reportTable));
+
+      return reportTable;
+    } catch (err: unknown) {
+      dispatch(setReportTable(null));
+      console.error("Error fetching dashboard report table:", err);
+      return null;
+    } finally {
+      dispatch(setReportLoading(false));
     }
   };
 };

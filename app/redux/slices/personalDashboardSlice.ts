@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import {
   ChartData,
+  DashboardReportTable,
   PersonalDashboard,
   PersonalDashboardKpi,
   SourceOptions,
@@ -11,10 +12,12 @@ interface PersonalDashboardState {
   selectedDashboard: PersonalDashboard | null;
   sourceOptions: SourceOptions | null;
   chartData: ChartData | null;
+  reportTable: DashboardReportTable | null;
   loading: boolean;
   detailLoading: boolean;
   sourceLoading: boolean;
   chartLoading: boolean;
+  reportLoading: boolean;
   error: string | null;
 }
 
@@ -23,10 +26,12 @@ const initialState: PersonalDashboardState = {
   selectedDashboard: null,
   sourceOptions: null,
   chartData: null,
+  reportTable: null,
   loading: false,
   detailLoading: false,
   sourceLoading: false,
   chartLoading: false,
+  reportLoading: false,
   error: null,
 };
 
@@ -74,6 +79,7 @@ const personalDashboardSlice = createSlice({
       if (state.selectedDashboard?.id === action.payload) {
         state.selectedDashboard = null;
         state.chartData = null;
+        state.reportTable = null;
       }
       state.error = null;
     },
@@ -99,6 +105,12 @@ const personalDashboardSlice = createSlice({
     },
     setChartData(state, action: PayloadAction<ChartData | null>) {
       state.chartData = action.payload;
+      if (action.payload?.reportTable) {
+        state.reportTable = action.payload.reportTable;
+      }
+    },
+    setReportTable(state, action: PayloadAction<DashboardReportTable | null>) {
+      state.reportTable = action.payload;
     },
     setLoading(state, action: PayloadAction<boolean>) {
       state.loading = action.payload;
@@ -111,6 +123,9 @@ const personalDashboardSlice = createSlice({
     },
     setChartLoading(state, action: PayloadAction<boolean>) {
       state.chartLoading = action.payload;
+    },
+    setReportLoading(state, action: PayloadAction<boolean>) {
+      state.reportLoading = action.payload;
     },
     setError(state, action: PayloadAction<string | null>) {
       state.error = action.payload;
@@ -132,10 +147,12 @@ export const {
   deleteKpiLocal,
   setSourceOptions,
   setChartData,
+  setReportTable,
   setLoading,
   setDetailLoading,
   setSourceLoading,
   setChartLoading,
+  setReportLoading,
   setError,
   clearError,
 } = personalDashboardSlice.actions;

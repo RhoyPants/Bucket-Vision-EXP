@@ -136,6 +136,69 @@ export interface ChartData {
     pending: number;
     total: number;
   };
+  reportTable?: DashboardReportTable | null;
+}
+
+export interface DashboardReportTableProject {
+  id: string;
+  name: string;
+  totalBudget?: number | null;
+  startDate?: string | null;
+  expectedEndDate?: string | null;
+}
+
+export interface DashboardReportTableColumn {
+  index: number;
+  label: string;
+  date: string;
+  weekNumber: number;
+}
+
+export interface DashboardReportTableWeekGroup {
+  weekNumber: number;
+  label: string;
+  startColumn: number;
+  endColumn: number;
+  colspan: number;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+}
+
+export interface DashboardReportTableSummaryValue {
+  weekNumber: number;
+  value: number | null;
+  formattedValue?: string | null;
+}
+
+export interface DashboardReportTableDetailValue {
+  columnIndex: number;
+  date?: string | null;
+  weekNumber?: number;
+  value: number | null;
+  formattedValue?: string | null;
+}
+
+export interface DashboardReportTableSummaryRow {
+  key: string;
+  label: string;
+  format: "percent" | "currency" | "number" | string;
+  values: DashboardReportTableSummaryValue[];
+}
+
+export interface DashboardReportTableDetailRow {
+  key: string;
+  label: string;
+  format: "percent" | "currency" | "number" | string;
+  values: DashboardReportTableDetailValue[];
+}
+
+export interface DashboardReportTable {
+  project?: DashboardReportTableProject | null;
+  columns: DashboardReportTableColumn[];
+  weekGroups: DashboardReportTableWeekGroup[];
+  summaryRows: DashboardReportTableSummaryRow[];
+  detailRows: DashboardReportTableDetailRow[];
+  generatedAt?: string | null;
 }
 
 const unwrapData = <T>(response: AxiosResponse): T => response.data?.data ?? response.data;
@@ -231,4 +294,9 @@ export async function updateDashboardCharts(id: string, charts: DashboardChartCo
 export async function getDashboardChartData(id: string) {
   const response = await axiosApi.get(`/personal-dashboards/${id}/charts/data`);
   return unwrapData<ChartData>(response);
+}
+
+export async function getDashboardReportTable(id: string) {
+  const response = await axiosApi.get(`/personal-dashboards/${id}/report-table`);
+  return unwrapData<DashboardReportTable>(response);
 }

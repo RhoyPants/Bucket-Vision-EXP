@@ -6,12 +6,7 @@ import {
   fetchCalendarScopes,
   fetchCalendarMonth,
 } from "@/app/redux/controllers/projectCalendarController";
-import {
-  Box,
-  Card,
-  CircularProgress,
-  Alert,
-} from "@mui/material";
+import { Box, Card, CircularProgress, Alert } from "@mui/material";
 import CalendarHeader from "@/app/components/shared/calendar/CalendarHeader";
 import CalendarGrid from "@/app/components/shared/calendar/CalendarGrid";
 import ScopeFilter from "@/app/components/shared/calendar/ScopeFilter";
@@ -22,14 +17,19 @@ interface DashboardCalendarProps {
   projectStartDate?: string | null; // used to auto-navigate to the project's month
 }
 
-export default function DashboardCalendar({ projectId, projectStartDate }: DashboardCalendarProps) {
+export default function DashboardCalendar({
+  projectId,
+  projectStartDate,
+}: DashboardCalendarProps) {
   const dispatch = useAppDispatch();
 
   // Initialize to project's start month if provided, otherwise today
   const getInitialDate = () => {
     if (projectStartDate) {
       const d = new Date(projectStartDate);
-      if (!isNaN(d.getTime())) return { month: d.getMonth() + 1, year: d.getFullYear() };
+      if (!isNaN(d.getTime())) {
+        return { month: d.getMonth() + 1, year: d.getFullYear() };
+      }
     }
     return { month: new Date().getMonth() + 1, year: new Date().getFullYear() };
   };
@@ -41,8 +41,9 @@ export default function DashboardCalendar({ projectId, projectStartDate }: Dashb
   const [selectedSubtaskId, setSelectedSubtaskId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const { loading, error, scopes, subtasks } =
-    useAppSelector((state) => state.projectCalendar);
+  const { loading, error, scopes, subtasks } = useAppSelector(
+    (state) => state.projectCalendar
+  );
 
   // Fetch scopes once when project changes; also reset to project's start month
   useEffect(() => {
@@ -70,13 +71,21 @@ export default function DashboardCalendar({ projectId, projectStartDate }: Dashb
   }, [projectId, year, month, scopeId, dispatch]);
 
   const handlePrevMonth = () => {
-    if (month === 1) { setMonth(12); setYear(year - 1); }
-    else setMonth(month - 1);
+    if (month === 1) {
+      setMonth(12);
+      setYear(year - 1);
+    } else {
+      setMonth(month - 1);
+    }
   };
 
   const handleNextMonth = () => {
-    if (month === 12) { setMonth(1); setYear(year + 1); }
-    else setMonth(month + 1);
+    if (month === 12) {
+      setMonth(1);
+      setYear(year + 1);
+    } else {
+      setMonth(month + 1);
+    }
   };
 
   const handleToday = () => {
@@ -173,4 +182,3 @@ export default function DashboardCalendar({ projectId, projectStartDate }: Dashb
     </Card>
   );
 }
-
