@@ -1,4 +1,5 @@
 import axiosApi from "@/app/lib/axios";
+import { joinApiUrl } from "@/app/lib/apiUrl";
 
 export type AttachmentDomain = "projects" | "daily-reports" | "weekly-reports";
 
@@ -16,25 +17,6 @@ export interface ApiAttachment {
 }
 
 export type AttachmentInput = string | ApiAttachment;
-
-const getApiBase = () => process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
-
-const joinApiPath = (base: string, path: string) => {
-  try {
-    const baseUrl = new URL(base);
-    const basePath = baseUrl.pathname.replace(/\/+$/, "");
-    let relPath = path;
-
-    // Avoid duplicated /api/api
-    if (basePath.endsWith("/api") && relPath.startsWith("/api/")) {
-      relPath = relPath.replace(/^\/api/, "");
-    }
-
-    return `${baseUrl.origin}${basePath}${relPath}`;
-  } catch {
-    return `${base.replace(/\/$/, "")}${path}`;
-  }
-};
 
 const withTokenFallback = (url: string) => {
   if (typeof window === "undefined") return url;
@@ -61,7 +43,7 @@ export const getAttachmentFileUrl = (
 
   if (attachment.id) {
     const relative = `/api/${domain}/attachments/${attachment.id}/file`;
-    const full = joinApiPath(getApiBase(), relative);
+    const full = joinApiUrl(relative);
     return withTokenFallback(full);
   }
 

@@ -38,6 +38,7 @@ import {
 } from "@/app/redux/controllers/progressController";
 import { getSCurve } from "@/app/redux/controllers/scurveController";
 import axiosApi from "@/app/lib/axios";
+import { joinApiUrl, normalizeApiUrl } from "@/app/lib/apiUrl";
 import { RootState } from "@/app/redux/store";
 import { ProgressAttachment } from "@/app/redux/slices/progressSlice";
 
@@ -142,14 +143,15 @@ export default function ProgressCalendar({
 
       // Avoid duplicating token param and only apply to progress attachment file endpoint.
       if (
-        !rawUrl.includes("/api/progress/attachments/") ||
+        !rawUrl.includes("/progress/attachments/") ||
         !rawUrl.includes("/file")
       ) {
-        return rawUrl;
+        return normalizeApiUrl(rawUrl);
       }
 
       try {
         const parsed = new URL(rawUrl, window.location.origin);
+        parsed.pathname = parsed.pathname.replace(/\/api\/api(?=\/|$)/g, "/api");
         if (!parsed.searchParams.get("token")) {
           parsed.searchParams.set("token", token);
         }
@@ -161,26 +163,11 @@ export default function ProgressCalendar({
 
     // If backend returns relative proxyUrl (e.g. /api/progress/attachments/:id/file),
     // resolve it against API base URL so requests go to backend host/port.
-    if (candidate.startsWith("/")) {
-      const apiBase =
-        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
-      try {
-        const baseUrl = new URL(apiBase);
-        const basePath = baseUrl.pathname.replace(/\/+$/, "");
-        let relPath = candidate;
-
-        // Avoid /api/api when both basePath and relative path include /api.
-        if (basePath.endsWith("/api") && relPath.startsWith("/api/")) {
-          relPath = relPath.replace(/^\/api/, "");
-        }
-
-        return withTokenFallback(`${baseUrl.origin}${basePath}${relPath}`);
-      } catch {
-        return withTokenFallback(`${apiBase.replace(/\/$/, "")}${candidate}`);
-      }
+    if (candidate.startsWith("/") || candidate.startsWith("api/")) {
+      return withTokenFallback(joinApiUrl(candidate));
     }
 
-    return withTokenFallback(candidate);
+    return withTokenFallback(normalizeApiUrl(candidate));
   }, []);
 
   const getViewerHeaders = useCallback((): Record<string, string> => {
