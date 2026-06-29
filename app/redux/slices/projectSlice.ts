@@ -10,6 +10,7 @@ export interface ProjectLocation {
 
 export interface ProjectMember {
   id: string;
+  userId?: string;
   role: string;
   user: {
     id: string;
@@ -55,11 +56,21 @@ export interface Projects {
   entity?: string;
 }
 
+export interface ProjectPaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
 interface ProjectState {
   projects: Projects[];
   currentProjectId: string | null;
   loading: boolean;
   fullProject: any | null;
+  pagination: ProjectPaginationMeta;
 }
 
 const initialState: ProjectState = {
@@ -67,6 +78,14 @@ const initialState: ProjectState = {
   currentProjectId: null,
   loading: false,
   fullProject: null,
+  pagination: {
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPrevPage: false,
+  },
 };
 
 const projectSlice = createSlice({
@@ -79,6 +98,18 @@ const projectSlice = createSlice({
       if (!state.currentProjectId && action.payload.length > 0) {
         state.currentProjectId = action.payload[0].id;
       }
+    },
+
+    setProjectPagination(state, action: PayloadAction<Partial<ProjectPaginationMeta> | undefined>) {
+      state.pagination = {
+        ...state.pagination,
+        page: action.payload?.page ?? 1,
+        limit: action.payload?.limit ?? 10,
+        total: action.payload?.total ?? 0,
+        totalPages: Math.max(action.payload?.totalPages ?? 1, 1),
+        hasNextPage: action.payload?.hasNextPage ?? false,
+        hasPrevPage: action.payload?.hasPrevPage ?? false,
+      };
     },
 
     setFullProject(state, action: PayloadAction<any>) {
@@ -124,6 +155,7 @@ export const {
   deleteProjectLocal,
   setLoading,
   setFullProject,
+  setProjectPagination,
 } = projectSlice.actions;
 
 export default projectSlice.reducer;

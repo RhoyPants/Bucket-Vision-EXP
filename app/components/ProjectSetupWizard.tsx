@@ -170,6 +170,7 @@ export default function ProjectSetupWizard({
   // DIALOG STATE
   const [submitConfirm, setSubmitConfirm] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
+  const [submitSuccessOpen, setSubmitSuccessOpen] = useState(false);
   const [draftSuccessOpen, setDraftSuccessOpen] = useState(false);
   const [projectAttachmentFiles, setProjectAttachmentFiles] = useState<File[]>([]);
   const [projectAttachments, setProjectAttachments] = useState<any[]>([]);
@@ -701,15 +702,11 @@ export default function ProjectSetupWizard({
         ...projectForm,
         ...workSchedule,
       };
+      delete (payload as any).attachments;
 
       if (isCreatingNew && !currentProjectId) {
         // Create new project
-        const created = await dispatch(
-          createProject({
-            ...payload,
-            attachments: projectAttachmentFiles,
-          }),
-        );
+        const created = await dispatch(createProject(payload));
         const createdProject = created?.data ?? created;
         const createdId = createdProject?.id;
 
@@ -720,7 +717,17 @@ export default function ProjectSetupWizard({
         setCurrentProjectId(createdId);
         window.history.replaceState({}, "", `/projects/${createdId}/setup`);
         setProject(createdProject);
-        setProjectAttachmentFiles([]);
+
+        if (projectAttachmentFiles.length > 0) {
+          setAttachmentBusy(true);
+          try {
+            await uploadAttachments("projects", createdId, projectAttachmentFiles);
+            setProjectAttachmentFiles([]);
+          } finally {
+            setAttachmentBusy(false);
+          }
+        }
+
         await refreshProjectAttachments(createdId);
       } else if (currentProjectId) {
         // Update existing project
@@ -796,11 +803,9 @@ export default function ProjectSetupWizard({
       // Submit project for approval
       await dispatch(submitProjectForApproval(currentProjectId));
 
-      setSubmitMessage("✅ Project submitted for approval!");
+      setSubmitMessage("");
       setSubmitConfirm(false);
-      setTimeout(() => {
-        router.push("/projects");
-      }, 2000);
+      setSubmitSuccessOpen(true);
     } catch (error: any) {
       console.error("Error submitting project:", error);
       setSubmitMessage(
@@ -1782,6 +1787,44 @@ export default function ProjectSetupWizard({
             }}
           >
             Go to Projects
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* SUBMIT SUCCESS DIALOG */}
+      <Dialog
+        open={submitSuccessOpen}
+        onClose={() => {
+          setSubmitSuccessOpen(false);
+          router.push("/myRequests");
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: "#065f46" }}>
+          Project Request Submitted
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.5} alignItems="center" sx={{ py: 1 }}>
+            <CheckCircleIcon sx={{ fontSize: 56, color: "#10b981" }} />
+            <Typography sx={{ textAlign: "center", fontWeight: 700 }}>
+              Project request was successfully submitted.
+            </Typography>
+            <Typography sx={{ textAlign: "center", color: "#6b7280", fontSize: 14 }}>
+              You can track its review and approval status in My Requests.
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: "center", pb: 2.5 }}>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setSubmitSuccessOpen(false);
+              router.push("/myRequests");
+            }}
+            sx={{ bgcolor: "#210e64", "&:hover": { bgcolor: "#1a0b4f" } }}
+          >
+            Go to My Requests
           </Button>
         </DialogActions>
       </Dialog>

@@ -17,10 +17,7 @@ export default function ProjectSelector() {
     (state) => state.project
   );
 
-  // Filter to show only ACTIVE projects
-  const activeProjects = projects.filter(
-    (p) => (p as any).status === "ACTIVE" && (p as any).isActive === true
-  );
+  const activeProjects = projects.filter((project) => project.status === "ACTIVE");
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>

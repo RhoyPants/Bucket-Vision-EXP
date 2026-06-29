@@ -22,14 +22,21 @@ export default function MyDraftsPage() {
   const dispatch = useAppDispatch();
   const router = useRouter();
 
-  const { projects } = useAppSelector((state) => state.project);
+  const { projects, pagination } = useAppSelector((state) => state.project);
   const { user } = useAppSelector((state) => state.auth);
 
-  const [viewType, setViewType] = useState<ViewType>("card");
+  const [viewType, setViewType] = useState<ViewType>("list");
+  const [page, setPage] = useState(1);
+  const pageLimit = 10;
 
   useEffect(() => {
-    dispatch(getMyDraftsProjects());
-  }, [dispatch]);
+    dispatch(getMyDraftsProjects({
+      page,
+      limit: pageLimit,
+      sortBy: "createdAt",
+      sortOrder: "desc",
+    }));
+  }, [dispatch, page]);
 
   const myDrafts = useMemo(() => {
     return projects || [];
@@ -92,6 +99,8 @@ export default function MyDraftsPage() {
             emptyMessage="No draft projects"
             emptySubtext="Start a new project or save a setup as draft to see it here"
             showCreateButton
+            pagination={pagination}
+            onPageChange={setPage}
           />
         </Box>
       </Guard>

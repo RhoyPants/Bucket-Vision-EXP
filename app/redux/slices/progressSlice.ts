@@ -28,7 +28,8 @@ export interface ProgressLog {
   location?: string;
 
   remarks?: string;
-  dayNumber?: number;
+  dayNumber?: number; // Backend currently uses this as progress update count.
+  updateCount?: number;
 
   createdAt?: string;
   updatedAt?: string;

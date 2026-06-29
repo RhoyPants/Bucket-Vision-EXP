@@ -42,7 +42,7 @@ import ChartConfigDialog from "./components/ChartConfigDialog";
 import SummaryTile from "./components/SummaryTile";
 import KpiStatusPieCard from "./components/KpiStatusPieCard";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
-import { getProjects, getProjectFull } from "@/app/redux/controllers/projectController";
+import { getActiveProjects, getProjectFull } from "@/app/redux/controllers/projectController";
 import { Projects } from "@/app/redux/slices/projectSlice";
 import { getInboxReports } from "@/app/redux/controllers/dailyReportController";
 import { getInboxWeeklyReports } from "@/app/redux/controllers/weeklyReportController";
@@ -170,7 +170,7 @@ export default function PersonalDashboardPage() {
 
   useEffect(() => {
     if (!hasAccessToken) return;
-    if (!projects?.length) dispatch(getProjects());
+    if (!projects?.length) dispatch(getActiveProjects());
     loadDashboards();
   }, [dispatch, hasAccessToken, loadDashboards, projects?.length]);
 
@@ -192,6 +192,10 @@ export default function PersonalDashboardPage() {
 
   const selectedSummary = getSummary(selectedDashboard);
   const canCreateDashboard = dashboards.length < 5;
+  const dashboardProjectOptions = useMemo(
+    () => projects.filter((project) => project.status === "ACTIVE"),
+    [projects]
+  );
   const calendarProjectId = selectedDashboard?.projectId ?? null;
   const calendarProject = projects?.find((p) => p.id === calendarProjectId);
   const calendarProjectStartDate = (calendarProject as any)?.startDate ?? null;
@@ -800,7 +804,7 @@ export default function PersonalDashboardPage() {
           open={dashboardModalOpen}
           onClose={() => setDashboardModalOpen(false)}
           onSaved={refreshSelected}
-          projects={projects}
+          projects={dashboardProjectOptions}
           dashboard={editingDashboard}
           dashboardCount={dashboards.length}
         />

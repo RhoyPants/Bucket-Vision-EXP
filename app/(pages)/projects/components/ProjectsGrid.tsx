@@ -24,6 +24,7 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
+  Pagination,
 } from "@mui/material";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import GridViewIcon from "@mui/icons-material/GridView";
@@ -49,6 +50,16 @@ interface ProjectsGridProps {
   emptyMessage?: string;
   emptySubtext?: string;
   showCreateButton?: boolean;
+  createButtonLabel?: string;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage?: boolean;
+    hasPrevPage?: boolean;
+  };
+  onPageChange?: (page: number) => void;
 }
 
 type ProjectGridItem = {
@@ -83,6 +94,9 @@ export default function ProjectsGrid({
   emptyMessage = "No projects found",
   emptySubtext = "",
   showCreateButton = false,
+  createButtonLabel = "+ New Project",
+  pagination,
+  onPageChange,
 }: ProjectsGridProps) {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuProject, setMenuProject] = useState<ProjectGridItem | null>(null);
@@ -144,6 +158,40 @@ export default function ProjectsGrid({
   const businessUnitCode = (project: ProjectGridItem) => {
     return project.businessUnitDetails?.code || "-";
   };
+
+  const tableHeadCellSx = {
+    py: 1.25,
+    fontSize: 11,
+    fontWeight: 800,
+    color: "#475569",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    borderBottom: "1px solid #E2E8F0",
+    whiteSpace: "nowrap",
+  };
+
+  const tableBodyCellSx = {
+    py: 1.35,
+    borderBottom: "1px solid #EEF2F7",
+  };
+
+  const stickyActionCellSx = {
+    width: 64,
+    minWidth: 64,
+    maxWidth: 64,
+    position: "sticky",
+    right: 0,
+    zIndex: 1,
+    bgcolor: "#FFFFFF",
+    boxShadow: "-10px 0 16px -16px rgba(15, 23, 42, 0.45)",
+  };
+
+  const paginationStart = pagination?.total
+    ? (pagination.page - 1) * pagination.limit + 1
+    : 0;
+  const paginationEnd = pagination?.total
+    ? Math.min(pagination.page * pagination.limit, pagination.total)
+    : 0;
 
   const priorityLegend = (
     <Stack
@@ -231,7 +279,7 @@ export default function ProjectsGrid({
               sx={{ backgroundColor: "#4B2E83", "&:hover": { backgroundColor: "#3d2363" } }}
               onClick={actions.onCreateProject}
             >
-              + New Project
+              {createButtonLabel}
             </Button>
           </Guard>
         )}
@@ -243,36 +291,72 @@ export default function ProjectsGrid({
     return (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
         {legendWithViewToggle}
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            height: {
+              xs: 520,
+              md: "clamp(420px, calc(100vh - 430px), 620px)",
+            },
+            minHeight: 420,
+            border: "1px solid #E2E8F0",
+            borderRadius: "8px",
+            overflow: "hidden",
+            backgroundColor: "#FFFFFF",
+            boxShadow: "0 12px 30px rgba(15, 23, 42, 0.06)",
+          }}
+        >
         <TableContainer
           sx={{
-            border: "1px solid #e5e7eb",
-            borderRadius: 2,
+            flex: 1,
             overflow: "auto",
             backgroundColor: "#ffffff",
           }}
         >
-          <Table sx={{ minWidth: 980 }}>
+          <Table
+            stickyHeader
+            sx={{
+              minWidth: { xs: 760, md: 820 },
+              tableLayout: "fixed",
+              "& .MuiTableCell-root": {
+                px: { xs: 1.25, md: 1.75 },
+              },
+              "& .MuiTableRow-root:hover .project-action-cell": {
+                bgcolor: "#F8FAFC",
+              },
+            }}
+          >
             <TableHead>
-              <TableRow sx={{ backgroundColor: "#f8fafc" }}>
-                <TableCell sx={{ fontWeight: 800, color: "#334155", textTransform: "uppercase", fontSize: 11, letterSpacing: 0.5 }}>
+              <TableRow>
+                <TableCell sx={{ ...tableHeadCellSx, width: "28%", bgcolor: "#F8FAFC" }}>
                   Project Name
                 </TableCell>
-                <TableCell sx={{ fontWeight: 800, color: "#334155", textTransform: "uppercase", fontSize: 11, letterSpacing: 0.5 }}>
+                <TableCell sx={{ ...tableHeadCellSx, width: 132, bgcolor: "#F8FAFC" }}>
                   Status
                 </TableCell>
-                <TableCell sx={{ fontWeight: 800, color: "#334155", textTransform: "uppercase", fontSize: 11, letterSpacing: 0.5 }}>
+                <TableCell sx={{ ...tableHeadCellSx, width: 122, bgcolor: "#F8FAFC" }}>
                   Start Date
                 </TableCell>
-                <TableCell sx={{ fontWeight: 800, color: "#334155", textTransform: "uppercase", fontSize: 11, letterSpacing: 0.5 }}>
+                <TableCell sx={{ ...tableHeadCellSx, width: 122, bgcolor: "#F8FAFC" }}>
                   End Date
                 </TableCell>
-                <TableCell sx={{ fontWeight: 800, color: "#334155", textTransform: "uppercase", fontSize: 11, letterSpacing: 0.5 }}>
+                <TableCell sx={{ ...tableHeadCellSx, width: 130, bgcolor: "#F8FAFC" }}>
                   Business Unit
                 </TableCell>
-                <TableCell sx={{ fontWeight: 800, color: "#334155", textTransform: "uppercase", fontSize: 11, letterSpacing: 0.5 }}>
+                <TableCell sx={{ ...tableHeadCellSx, width: 104, bgcolor: "#F8FAFC" }}>
                   Priority
                 </TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800, color: "#334155", textTransform: "uppercase", fontSize: 11, letterSpacing: 0.5 }}>
+                <TableCell
+                  align="center"
+                  className="project-action-cell"
+                  sx={{
+                    ...tableHeadCellSx,
+                    ...stickyActionCellSx,
+                    zIndex: 3,
+                    bgcolor: "#F8FAFC",
+                  }}
+                >
                   Action
                 </TableCell>
               </TableRow>
@@ -281,51 +365,68 @@ export default function ProjectsGrid({
               {projects.map((project) => {
                 const status = statusStyle(project.status);
                 return (
-                  <TableRow key={project.id} hover>
-                    <TableCell>
-                      <Typography sx={{ fontSize: 14, fontWeight: 400, color: "#0F172A" }}>
+                  <TableRow key={project.id} hover sx={{ bgcolor: "#FFFFFF" }}>
+                    <TableCell sx={tableBodyCellSx}>
+                      <Typography
+                        noWrap
+                        title={project.name || "Untitled Project"}
+                        sx={{ fontSize: 14, fontWeight: 700, color: "#0F172A" }}
+                      >
                         {project.name || "Untitled Project"}
                       </Typography>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={tableBodyCellSx}>
                       <Chip
                         size="small"
                         label={status.label}
                         sx={{
+                          height: 22,
                           fontSize: 10,
-                          fontWeight: 500,
+                          fontWeight: 700,
                           bgcolor: status.bg,
                           color: status.color,
                           border: `1px solid ${status.border}`,
                         }}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={tableBodyCellSx}>
                       <Typography sx={{ fontSize: 13, color: "#334155", fontWeight: 400 }}>
                         {formatDate(project.startDate)}
                       </Typography>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={tableBodyCellSx}>
                       <Typography sx={{ fontSize: 13, color: "#334155", fontWeight: 400 }}>
                         {formatDate(project.expectedEndDate)}
                       </Typography>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={tableBodyCellSx}>
                       <Typography sx={{ fontSize: 13, color: "#334155", fontWeight: 400 }}>
                         {businessUnitCode(project)}
                       </Typography>
                     </TableCell>
-                    <TableCell>
-                      <Typography sx={{ fontSize: 13, color: "#334155", fontWeight: 400 }}>
+                    <TableCell sx={tableBodyCellSx}>
+                      <Typography noWrap sx={{ fontSize: 13, color: "#334155", fontWeight: 500 }}>
                         {project.priority || "-"}
                       </Typography>
                     </TableCell>
-                    <TableCell align="right">
+                    <TableCell
+                      align="center"
+                      className="project-action-cell"
+                      sx={{ ...tableBodyCellSx, ...stickyActionCellSx }}
+                    >
                       <Tooltip title="Actions">
                         <IconButton
                           size="small"
                           onClick={(event) => openMenu(event, project)}
-                          sx={{ color: "#64748B" }}
+                          sx={{
+                            color: "#334155",
+                            border: "1px solid #E2E8F0",
+                            bgcolor: "#FFFFFF",
+                            "&:hover": {
+                              bgcolor: "#F1F5F9",
+                              borderColor: "#CBD5E1",
+                            },
+                          }}
                         >
                           <MoreVertIcon sx={{ fontSize: 18 }} />
                         </IconButton>
@@ -337,6 +438,48 @@ export default function ProjectsGrid({
             </TableBody>
           </Table>
         </TableContainer>
+
+        {pagination && pagination.total > 0 && (
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            alignItems={{ xs: "stretch", sm: "center" }}
+            justifyContent="space-between"
+            spacing={1.5}
+            sx={{
+              flexShrink: 0,
+              px: { xs: 1.5, sm: 2 },
+              py: 1.25,
+              borderTop: "1px solid #E2E8F0",
+              bgcolor: "#F8FAFC",
+            }}
+          >
+            <Typography sx={{ fontSize: 12.5, color: "#64748B", fontWeight: 600 }}>
+              Showing {paginationStart}-{paginationEnd} of {pagination.total}
+            </Typography>
+            <Pagination
+              page={pagination.page}
+              count={pagination.totalPages}
+              onChange={(_, page) => onPageChange?.(page)}
+              color="primary"
+              size="small"
+              shape="rounded"
+              siblingCount={1}
+              boundaryCount={1}
+              sx={{
+                alignSelf: { xs: "center", sm: "auto" },
+                "& .MuiPaginationItem-root": {
+                  borderRadius: "6px",
+                  fontWeight: 700,
+                },
+                "& .Mui-selected": {
+                  bgcolor: "#210e64 !important",
+                  color: "#FFFFFF",
+                },
+              }}
+            />
+          </Stack>
+        )}
+        </Box>
 
         <Menu
           anchorEl={menuAnchor}
@@ -406,7 +549,7 @@ export default function ProjectsGrid({
       {legendWithViewToggle}
       <Grid container spacing={3}>
         {projects.map((project) => (
-          <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={project.id}>
+          <Grid size={{ xs: 12, sm: 6, lg: 4, xl: 3 }} key={project.id}>
             <ProjectCard project={project} actions={actions} viewType="card" />
           </Grid>
         ))}

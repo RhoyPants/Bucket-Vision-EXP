@@ -2,12 +2,11 @@
 
 import {
   Box,
-  Typography,
   Paper,
   Alert,
   CircularProgress,
 } from "@mui/material";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Roles from "./components/Roles";
 import Layout from "@/app/components/shared/Layout";
@@ -20,7 +19,7 @@ import Modules from "./components/Modules";
 import BusinessUnits from "./components/BusinessUnits";
 import UserRequests from "@/app/(pages)/settings/components/UserRequestsPanel";
 import Guard from "@/app/components/shared/Guard";
-import { usePermissions } from "@/app/lib/usePermissions";
+import { useAppSelector } from "@/app/redux/hook";
 
 type TabType =
   | "profile"
@@ -94,24 +93,19 @@ const NAV_ITEMS: NavItem[] = [
 
 function SettingsPageContent() {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<TabType>("profile");
+  const { user } = useAppSelector((state) => state.auth);
 
-  const allowedTabs = useMemo(() => NAV_ITEMS.map((item) => item.id), []);
-
-  useEffect(() => {
-    const tabParam = searchParams.get("tab");
-    if (!tabParam) {
-      setActiveTab("profile");
-      return;
-    }
-
-    if (allowedTabs.includes(tabParam as TabType)) {
-      setActiveTab(tabParam as TabType);
-      return;
-    }
-
-    setActiveTab("profile");
-  }, [allowedTabs, searchParams]);
+  const isSuperAdmin = user?.role?.toUpperCase() === "SUPERADMIN";
+  const allowedTabs = useMemo(
+    () =>
+      (isSuperAdmin
+        ? NAV_ITEMS
+        : NAV_ITEMS.filter((item) => item.id === "profile")
+      ).map((item) => item.id),
+    [isSuperAdmin]
+  );
+  const tabParam = searchParams.get("tab") as TabType | null;
+  const activeTab = tabParam && allowedTabs.includes(tabParam) ? tabParam : "profile";
 
   const renderContent = () => {
     switch (activeTab) {
@@ -124,7 +118,7 @@ function SettingsPageContent() {
             action="UPDATE"
             fallback={
               <Alert severity="error">
-                You don't have permission to manage roles.
+                You don&apos;t have permission to manage roles.
               </Alert>
             }
           >
@@ -138,7 +132,7 @@ function SettingsPageContent() {
             action="UPDATE"
             fallback={
               <Alert severity="error">
-                You don't have permission to manage users.
+                You don&apos;t have permission to manage users.
               </Alert>
             }
           >
@@ -152,7 +146,7 @@ function SettingsPageContent() {
             action="READ"
             fallback={
               <Alert severity="error">
-                You don't have permission to view user relations.
+                You don&apos;t have permission to view user relations.
               </Alert>
             }
           >
@@ -166,7 +160,7 @@ function SettingsPageContent() {
             action="READ"
             fallback={
               <Alert severity="error">
-                You don't have permission to view approval flows.
+                You don&apos;t have permission to view approval flows.
               </Alert>
             }
           >
@@ -180,7 +174,7 @@ function SettingsPageContent() {
             action="UPDATE"
             fallback={
               <Alert severity="error">
-                You don't have permission to manage project approvals.
+                You don&apos;t have permission to manage project approvals.
               </Alert>
             }
           >
@@ -194,7 +188,7 @@ function SettingsPageContent() {
             action="UPDATE"
             fallback={
               <Alert severity="error">
-                You don't have permission to manage modules.
+                You don&apos;t have permission to manage modules.
               </Alert>
             }
           >
@@ -208,7 +202,7 @@ function SettingsPageContent() {
             action="READ"
             fallback={
               <Alert severity="error">
-                You don't have permission to view business units.
+                You don&apos;t have permission to view business units.
               </Alert>
             }
           >
@@ -222,7 +216,7 @@ function SettingsPageContent() {
             action="READ"
             fallback={
               <Alert severity="error">
-                You don't have permission to manage user requests.
+                You don&apos;t have permission to manage user requests.
               </Alert>
             }
           >

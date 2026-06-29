@@ -65,7 +65,17 @@ export const uploadAttachments = async (
   files: File[],
 ): Promise<ApiAttachment[]> => {
   const formData = new FormData();
-  files.forEach((file) => formData.append("attachments", file));
+  const uniqueFiles = files.filter(
+    (file, index, list) =>
+      list.findIndex(
+        (item) =>
+          item.name === file.name &&
+          item.size === file.size &&
+          item.lastModified === file.lastModified,
+      ) === index,
+  );
+
+  uniqueFiles.forEach((file) => formData.append("attachments", file));
 
   const response = await axiosApi.post(`/${domain}/${parentId}/attachments`, formData, {
     headers: {

@@ -61,6 +61,8 @@ function ApprovalReviewPageContent() {
   const [viewMode, setViewMode] = useState<ViewMode>("structured");
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [successAction, setSuccessAction] = useState<"approved" | "rejected" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [projectAttachments, setProjectAttachments] = useState<any[]>([]);
 
@@ -106,7 +108,8 @@ function ApprovalReviewPageContent() {
     try {
       setSubmitting(true);
       await dispatch(approveProject(projectId) as any);
-      router.push("/projects?tab=pending-approvals");
+      setSuccessAction("approved");
+      setSuccessDialogOpen(true);
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to approve project");
     } finally {
@@ -124,7 +127,8 @@ function ApprovalReviewPageContent() {
       setSubmitting(true);
       await dispatch(rejectProject(projectId, remarks) as any);
       setRejectDialogOpen(false);
-      router.push("/projects?tab=pending-approvals");
+      setSuccessAction("rejected");
+      setSuccessDialogOpen(true);
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to reject project");
     } finally {
@@ -824,6 +828,54 @@ function ApprovalReviewPageContent() {
           onConfirm={handleRejectConfirm}
           isSubmitting={submitting}
         />
+      )}
+
+      {!isReadOnlyFromMyRequests && (
+        <Dialog
+          open={successDialogOpen}
+          onClose={() => {
+            setSuccessDialogOpen(false);
+            router.push("/myApprovals");
+          }}
+          fullWidth
+          maxWidth="xs"
+        >
+          <DialogTitle
+            sx={{
+              fontWeight: 800,
+              color: successAction === "approved" ? "#065f46" : "#991b1b",
+            }}
+          >
+            Request {successAction === "approved" ? "Approved" : "Rejected"}
+          </DialogTitle>
+          <DialogContent>
+            <Stack spacing={1.5} alignItems="center" sx={{ py: 1 }}>
+              {successAction === "approved" ? (
+                <CheckCircleIcon sx={{ fontSize: 56, color: "#10b981" }} />
+              ) : (
+                <BlockIcon sx={{ fontSize: 56, color: "#ef4444" }} />
+              )}
+              <Typography sx={{ textAlign: "center", fontWeight: 700 }}>
+                Project request was successfully {successAction}.
+              </Typography>
+              <Typography sx={{ textAlign: "center", color: "#6b7280", fontSize: 14 }}>
+                You will be returned to My Approvals.
+              </Typography>
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ justifyContent: "center", pb: 2.5 }}>
+            <Button
+              variant="contained"
+              color={successAction === "approved" ? "success" : "error"}
+              onClick={() => {
+                setSuccessDialogOpen(false);
+                router.push("/myApprovals");
+              }}
+            >
+              Go to My Approvals
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
     </Box>
   );

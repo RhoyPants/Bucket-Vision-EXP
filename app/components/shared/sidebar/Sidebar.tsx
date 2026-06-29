@@ -20,6 +20,7 @@ import SidebarItem from "./SidebarItem";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { getMyApprovals } from "@/app/api-service/projectService";
+import { useAppSelector } from "@/app/redux/hook";
 
 const drawerWidth = 240;
 const collapsedDrawerWidth = 80;
@@ -38,14 +39,24 @@ const settingsTabs = [
   { key: "businessUnits", label: "Business Units" },
 ] as const;
 
+type ApprovalQueueItem = {
+  status?: string;
+};
+
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { user } = useAppSelector((state) => state.auth);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
-  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
-  const [approvalQueue, setApprovalQueue] = useState<any[]>([]);
+  const [collapsed, setCollapsed] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.localStorage.getItem(sidebarCollapsedStorageKey) === "true"
+  );
+  const [settingsMenuOpen, setSettingsMenuOpen] = useState(true);
+  const [approvalQueue, setApprovalQueue] = useState<ApprovalQueueItem[]>([]);
+  const isSuperAdmin = user?.role?.toUpperCase() === "SUPERADMIN";
 
   const handleToggle = () => setMobileOpen((prev) => !prev);
   const handleCollapseToggle = () => {
@@ -59,13 +70,6 @@ export default function Sidebar() {
   };
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = window.localStorage.getItem(sidebarCollapsedStorageKey);
-      if (stored === "true") {
-        setCollapsed(true);
-      }
-    }
-
     const fetchApprovalQueue = async () => {
       if (typeof window !== "undefined") {
         const cachedRaw = window.sessionStorage.getItem(approvalsCacheStorageKey);
@@ -74,7 +78,7 @@ export default function Sidebar() {
           try {
             const cached = JSON.parse(cachedRaw) as {
               ts: number;
-              items: any[];
+              items: ApprovalQueueItem[];
             };
 
             if (Date.now() - cached.ts < approvalsCacheTtlMs) {
@@ -106,15 +110,9 @@ export default function Sidebar() {
     fetchApprovalQueue();
   }, []);
 
-  useEffect(() => {
-    if (pathname === "/settings") {
-      setSettingsMenuOpen(true);
-    }
-  }, [pathname]);
-
   const approvalBadgeCount = useMemo(() => {
-    const forReview = approvalQueue.filter((p: any) => p?.status === "FOR_REVIEW").length;
-    const forApproval = approvalQueue.filter((p: any) => p?.status === "FOR_APPROVAL").length;
+    const forReview = approvalQueue.filter((p) => p?.status === "FOR_REVIEW").length;
+    const forApproval = approvalQueue.filter((p) => p?.status === "FOR_APPROVAL").length;
     const total = forReview + forApproval;
 
     return total;
@@ -123,7 +121,7 @@ export default function Sidebar() {
   const currentWidth = collapsed ? collapsedDrawerWidth : drawerWidth;
   const settingsTab = searchParams.get("tab") || "profile";
   const isOnSettings = pathname === "/settings";
-  const showSettingsSubmenu = isOnSettings && !collapsed && settingsMenuOpen;
+  const showSettingsSubmenu = isSuperAdmin && isOnSettings && !collapsed && settingsMenuOpen;
 
   const sidebarContent = (
     <Box
@@ -188,18 +186,23 @@ export default function Sidebar() {
         }}
       >
         <SidebarItem label="Personal Dashboard" href="/personalDashboard" icon={<SpaceDashboardOutlinedIcon />} collapsed={collapsed} />
-        <SidebarItem label="Sprint Management" href="/sprintManagement" icon={<AssignmentTurnedInOutlinedIcon />} collapsed={collapsed} />
-        <SidebarItem label="Task Board" href="/taskboard" icon={<ViewKanbanOutlinedIcon />} collapsed={collapsed} />
-        <SidebarItem label="Team Overview" href="/teamOverview" icon={<GroupsOutlinedIcon />} collapsed={collapsed} />
         <SidebarItem label="Projects" href="/projects" icon={<FolderOpenOutlinedIcon />} collapsed={collapsed} />
         <SidebarItem label="My Requests" href="/myRequests" icon={<SendOutlinedIcon />} collapsed={collapsed} />
         <SidebarItem label="My Approvals" href="/myApprovals" badgeCount={approvalBadgeCount} icon={<FactCheckOutlinedIcon />} collapsed={collapsed} />
+        <SidebarItem label="Sprint Management" href="/sprintManagement" icon={<AssignmentTurnedInOutlinedIcon />} collapsed={collapsed} />
+        <SidebarItem label="Task Board" href="/taskboard" icon={<ViewKanbanOutlinedIcon />} collapsed={collapsed} />
+        <SidebarItem label="Team Overview" href="/teamOverview" icon={<GroupsOutlinedIcon />} collapsed={collapsed} />
         <SidebarItem label="My Drafts" href="/myDrafts" icon={<DraftsOutlinedIcon />} collapsed={collapsed} />
         <SidebarItem label="Reports" href="/reports" icon={<AssessmentOutlinedIcon />} collapsed={collapsed} />
 
         <Box
           onClick={() => {
             if (collapsed) {
+              router.push("/settings?tab=profile");
+              return;
+            }
+
+            if (!isSuperAdmin) {
               router.push("/settings?tab=profile");
               return;
             }
@@ -264,7 +267,7 @@ export default function Sidebar() {
             </Typography>
           </Box>
 
-          {!collapsed ? (
+          {!collapsed && isSuperAdmin ? (
             <ExpandMoreRoundedIcon
               sx={{
                 fontSize: 18,

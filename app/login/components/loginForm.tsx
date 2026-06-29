@@ -17,7 +17,7 @@ export default function LoginForm({ onSubmit, onMicrosoftLogin, loading }: Login
 
   const textFieldSx = {
     "& .MuiOutlinedInput-root": {
-      height: 46,
+      height: { xs: 46, xl: 52 },
       borderRadius: 2,
       backgroundColor: "rgba(255,255,255,0.74)",
       "& fieldset": { borderColor: "#d9dce8" },
@@ -76,7 +76,7 @@ export default function LoginForm({ onSubmit, onMicrosoftLogin, loading }: Login
       <Box
         sx={{
           width: "100%",
-          p: { xs: 3, sm: 3.75 },
+          p: { xs: 3, sm: 3.75, xl: 4.5 },
           borderRadius: 3,
           background:
             "linear-gradient(180deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.12) 100%)",
@@ -87,20 +87,20 @@ export default function LoginForm({ onSubmit, onMicrosoftLogin, loading }: Login
           backdropFilter: "blur(12px) saturate(1.12)",
         }}
       >
-        <Stack spacing={2} sx={{ width: "100%" }}>
+        <Stack spacing={{ xs: 2, xl: 2.5 }} sx={{ width: "100%" }}>
           <Box>
             <Box
               component="img"
               src="/images/GVI_LOGO_DARK.png"
               alt="Global Visions"
-              sx={{ width: 148, height: "auto", mb: 2.25 }}
+              sx={{ width: { xs: 148, xl: 176 }, height: "auto", mb: 2.25 }}
             />
 
             <Typography
               component="h2"
               sx={{
                 color: "#17113f",
-                fontSize: 25,
+                fontSize: { xs: 25, xl: 30 },
                 lineHeight: 1.15,
                 fontWeight: 900,
               }}
@@ -111,7 +111,7 @@ export default function LoginForm({ onSubmit, onMicrosoftLogin, loading }: Login
               sx={{
                 mt: 0.75,
                 color: "#6d7280",
-                fontSize: 14,
+                fontSize: { xs: 14, xl: 16 },
                 fontWeight: 600,
               }}
             >
@@ -119,7 +119,7 @@ export default function LoginForm({ onSubmit, onMicrosoftLogin, loading }: Login
             </Typography>
           </Box>
 
-          <Stack spacing={1.35}>
+          <Stack spacing={{ xs: 1.35, xl: 1.6 }}>
             <TextField
               fullWidth
               name="email"
@@ -155,7 +155,7 @@ export default function LoginForm({ onSubmit, onMicrosoftLogin, loading }: Login
             variant="contained"
             startIcon={<LoginOutlinedIcon />}
             sx={{
-              height: 46,
+              height: { xs: 46, xl: 52 },
               borderRadius: 2,
               textTransform: "none",
               fontWeight: 900,
@@ -184,7 +184,7 @@ export default function LoginForm({ onSubmit, onMicrosoftLogin, loading }: Login
             onClick={onMicrosoftLogin}
             startIcon={<MicrosoftIcon />}
             sx={{
-              height: 46,
+              height: { xs: 46, xl: 52 },
               borderRadius: 2,
               textTransform: "none",
               fontWeight: 850,

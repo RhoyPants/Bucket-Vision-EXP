@@ -21,61 +21,73 @@ import { ProjectCardActions, ViewType } from "@/app/(pages)/projects/components/
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { getMyRequestsProjects } from "@/app/redux/controllers/projectController";
 
+type MyRequestProject = {
+  id: string;
+  name?: string;
+  status?: string;
+  businessUnitDetails?: {
+    id?: string;
+    name?: string;
+  } | null;
+};
+
 export default function MyRequestsPage() {
   const dispatch = useAppDispatch();
   const router = useRouter();
 
-  const { projects } = useAppSelector((state) => state.project);
+  const { projects, pagination } = useAppSelector((state) => state.project);
 
-  const [viewType, setViewType] = useState<ViewType>("card");
+  const [viewType, setViewType] = useState<ViewType>("list");
+  const [page, setPage] = useState(1);
+  const pageLimit = 10;
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [businessUnitFilter, setBusinessUnitFilter] = useState("ALL");
 
   useEffect(() => {
-    dispatch(getMyRequestsProjects());
-  }, [dispatch]);
+    dispatch(getMyRequestsProjects({
+      page,
+      limit: pageLimit,
+      search: searchQuery.trim(),
+      status: statusFilter,
+      businessUnitId: businessUnitFilter,
+      sortBy: "createdAt",
+      sortOrder: "desc",
+    }));
+  }, [businessUnitFilter, dispatch, page, searchQuery, statusFilter]);
 
-  const myRequests = useMemo(() => {
-    return projects || [];
+  useEffect(() => {
+    setPage(1);
+  }, [businessUnitFilter, searchQuery, statusFilter]);
+
+  const myRequests = useMemo<MyRequestProject[]>(() => {
+    return (projects || []) as MyRequestProject[];
   }, [projects]);
 
   const businessUnitOptions = useMemo(() => {
-    const buSet = new Set<string>();
-    myRequests.forEach((project: any) => {
+    const buMap = new Map<string, string>();
+    myRequests.forEach((project) => {
+      const buId = project?.businessUnitDetails?.id;
       const buName = project?.businessUnitDetails?.name;
-      if (buName) buSet.add(buName);
+      if (buId && buName) buMap.set(buId, buName);
     });
-    return Array.from(buSet).sort((a, b) => a.localeCompare(b));
+    return Array.from(buMap.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [myRequests]);
 
   const filteredRequests = useMemo(() => {
-    return myRequests.filter((project: any) => {
-      const matchesSearch =
-        !searchQuery ||
-        String(project?.name || "")
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase());
-
-      const matchesStatus =
-        statusFilter === "ALL" || project?.status === statusFilter;
-
-      const projectBusinessUnit = project?.businessUnitDetails?.name || "";
-      const matchesBusinessUnit =
-        businessUnitFilter === "ALL" || projectBusinessUnit === businessUnitFilter;
-
-      return matchesSearch && matchesStatus && matchesBusinessUnit;
-    });
-  }, [myRequests, searchQuery, statusFilter, businessUnitFilter]);
+    return myRequests;
+  }, [myRequests, pagination.total]);
 
   const counts = useMemo(() => {
     return {
-      total: myRequests.length,
-      forReview: myRequests.filter((p: any) => p.status === "FOR_REVIEW").length,
-      forApproval: myRequests.filter((p: any) => p.status === "FOR_APPROVAL").length,
-      needsRevision: myRequests.filter((p: any) => p.status === "NEEDS_REVISION").length,
-      approved: myRequests.filter((p: any) => p.status === "ACTIVE").length,
-      rejected: myRequests.filter((p: any) => p.status === "REJECTED").length,
+      total: pagination.total || myRequests.length,
+      forReview: myRequests.filter((p) => p.status === "FOR_REVIEW").length,
+      forApproval: myRequests.filter((p) => p.status === "FOR_APPROVAL").length,
+      needsRevision: myRequests.filter((p) => p.status === "NEEDS_REVISION").length,
+      approved: myRequests.filter((p) => p.status === "ACTIVE").length,
+      rejected: myRequests.filter((p) => p.status === "REJECTED").length,
     };
   }, [myRequests]);
 
@@ -162,8 +174,8 @@ export default function MyRequestsPage() {
             >
               <MenuItem value="ALL">All Business Units</MenuItem>
               {businessUnitOptions.map((bu) => (
-                <MenuItem key={bu} value={bu}>
-                  {bu}
+                <MenuItem key={bu.id} value={bu.id}>
+                  {bu.name}
                 </MenuItem>
               ))}
             </TextField>
@@ -188,7 +200,15 @@ export default function MyRequestsPage() {
               </Button>
             )}
             emptyMessage="No submitted requests yet"
-            emptySubtext="Try adjusting your filters or submit a new request to see data here"
+            emptySubtext={
+              myRequests.length === 0
+                ? "Create a new project request to start tracking its review and approval status."
+                : "Try adjusting your filters to find an existing request."
+            }
+            showCreateButton={myRequests.length === 0}
+            createButtonLabel="Create New Request"
+            pagination={pagination}
+            onPageChange={setPage}
           />
         </Box>
       </Guard>

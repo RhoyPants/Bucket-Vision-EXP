@@ -33,8 +33,10 @@ import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 
 import { useDispatch, useSelector } from "react-redux";
 import {
+  canAddProgress,
   getProgressLogs,
   saveProgressLog,
+  updateProgressLog,
 } from "@/app/redux/controllers/progressController";
 import { getSCurve } from "@/app/redux/controllers/scurveController";
 import axiosApi from "@/app/lib/axios";
@@ -52,6 +54,12 @@ import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MAX_PROGRESS_UPDATE_COUNT = 2;
+const formatPercent = (value: unknown) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue.toFixed(2) : "0.00";
+};
+const getProgressUpdateCount = (log: any) => Number(log?.updateCount ?? log?.dayNumber ?? 0);
 
 interface ProgressCalendarProps {
   subtaskId: string;
@@ -111,18 +119,35 @@ export default function ProgressCalendar({
   const [dailyPercent, setDailyPercent] = useState("");
   const [remarks, setRemarks] = useState("");
   const [location, setLocation] = useState("");
-  const [dayNumber, setDayNumber] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
   const [currentProgress, setCurrentProgress] = useState(0);
   const [range, setRange] = useState<any>(null);
   const [loadingSubtask, setLoadingSubtask] = useState(false);
+  const [checkingCanAdd, setCheckingCanAdd] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [savedProgressFeedback, setSavedProgressFeedback] = useState<{
+    mode: "add" | "edit";
+    value: number;
+  } | null>(null);
   const [showProgressFormModal, setShowProgressFormModal] = useState(false);
   const [showExistingLogModal, setShowExistingLogModal] = useState(false);
+  const [editingLog, setEditingLog] = useState<any>(null);
+  const [removedAttachmentIds, setRemovedAttachmentIds] = useState<string[]>([]);
+  const [blockDialog, setBlockDialog] = useState<{
+    open: boolean;
+    reason: string | null;
+    message: string;
+    existingLog?: any | null;
+  }>({
+    open: false,
+    reason: null,
+    message: "",
+    existingLog: null,
+  });
   const [selectedLogForDetails, setSelectedLogForDetails] = useState<any>(null);
   const [selectedAttachmentIndex, setSelectedAttachmentIndex] = useState<
     number | null
@@ -219,10 +244,11 @@ export default function ProgressCalendar({
     setDailyPercent("");
     setRemarks("");
     setLocation("");
-    setDayNumber("");
     setAttachments([]);
     setImagePreviews([]);
     setSelectedLogForDetails(null);
+    setEditingLog(null);
+    setRemovedAttachmentIds([]);
   }, [selectedDate, logs]);
 
   // =========================
@@ -340,20 +366,105 @@ export default function ProgressCalendar({
   // =========================
   const validateProgress = () => {
     const value = Number(dailyPercent);
-    const remainingProgress = 100 - cumulativeProgress;
+    const editableCurrentPercent = editingLog ? Number(editingLog.dailyPercent || 0) : 0;
+    const allowedProgress = 100 - cumulativeProgress + editableCurrentPercent;
 
     if (!value || value <= 0 || value > 100) {
       setError("Daily progress must be between 1 and 100");
       return false;
     }
 
-    if (value > remainingProgress) {
-      setError(`Cannot exceed 100% total. Remaining: ${remainingProgress}%`);
+    if (value > allowedProgress) {
+      setError(`Cannot exceed 100% total. Available: ${formatPercent(allowedProgress)}%`);
       return false;
     }
 
     return true;
   };
+
+  const openExistingLogDetails = useCallback(
+    (existingLog: any) => {
+      if (!existingLog) return;
+
+      const matchedLog = logsForSelectedDate.find(
+        (log: any) => log.id && log.id === existingLog.id,
+      );
+
+      setSelectedLogForDetails({
+        date: selectedDate.format("YYYY-MM-DD"),
+        subtaskId,
+        ...(matchedLog || existingLog),
+      });
+      setSelectedAttachmentIndex(null);
+      setShowExistingLogModal(true);
+    },
+    [logsForSelectedDate, selectedDate, subtaskId],
+  );
+
+  const openEditProgressForm = useCallback((log: any) => {
+    if (!log?.id) return;
+
+    const updateCount = getProgressUpdateCount(log);
+    if (updateCount >= MAX_PROGRESS_UPDATE_COUNT) {
+      setBlockDialog({
+        open: true,
+        reason: "UPDATE_LIMIT_REACHED",
+        message: "This progress log already reached the maximum of 2 updates.",
+        existingLog: log,
+      });
+      return;
+    }
+
+    setEditingLog(log);
+    setDailyPercent(String(log.dailyPercent ?? ""));
+    setRemarks(log.remarks ?? "");
+    setLocation(log.location ?? "");
+    setAttachments([]);
+    setImagePreviews([]);
+    setRemovedAttachmentIds([]);
+    setSelectedAttachmentIndex(null);
+    setShowExistingLogModal(false);
+    setShowProgressFormModal(true);
+  }, []);
+
+  const checkCanAddForSelectedDate = useCallback(async () => {
+    const date = selectedDate.format("YYYY-MM-DD");
+    const response = await canAddProgress(subtaskId, date);
+
+    if (response.canAdd) {
+      return response;
+    }
+
+    setBlockDialog({
+      open: true,
+      reason: response.reason,
+      message: response.message || "You cannot add progress for this date.",
+      existingLog: response.data?.existingLog || null,
+    });
+
+    return response;
+  }, [selectedDate, subtaskId]);
+
+  const handleOpenProgressForm = useCallback(async () => {
+    if (cumulativeProgress >= 100) return;
+
+    try {
+      setCheckingCanAdd(true);
+      setError("");
+      const response = await checkCanAddForSelectedDate();
+
+      if (response.canAdd) {
+        setShowProgressFormModal(true);
+      }
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.message ||
+          "Unable to check if progress can be added. Please try again.",
+      );
+    } finally {
+      setCheckingCanAdd(false);
+    }
+  }, [checkCanAddForSelectedDate, cumulativeProgress]);
 
   // =========================
   // SAVE HANDLER WITH LOADING
@@ -361,24 +472,45 @@ export default function ProgressCalendar({
   const handleSave = useCallback(async () => {
     if (!validateProgress()) return;
 
-    setSaveModalOpen(true);
-
     try {
-      const value = Number(dailyPercent);
+      setCheckingCanAdd(true);
+      if (!editingLog) {
+        const canAddResponse = await checkCanAddForSelectedDate();
+        if (!canAddResponse.canAdd) {
+          setShowProgressFormModal(false);
+          return;
+        }
+      }
 
-      //  saveProgressLog now handles ALL refresh logic internally
-      await dispatch(
-        saveProgressLog({
-          subtaskId,
-          date: selectedDate.format("YYYY-MM-DD"),
-          dailyPercent: value,
-          remarks,
-          location: location || undefined,
-          dayNumber: dayNumber ? Number(dayNumber) : undefined,
-          files: attachments.length ? attachments : undefined,
-          file: attachments[0] || undefined,
-        }),
-      );
+      setCheckingCanAdd(false);
+      setSaveModalOpen(true);
+      const value = Number(dailyPercent);
+      const feedbackMode = editingLog?.id ? "edit" : "add";
+      setSavedProgressFeedback({ mode: feedbackMode, value });
+
+      if (editingLog?.id) {
+        await dispatch(
+          updateProgressLog(editingLog.id, {
+            subtaskId,
+            dailyPercent: value,
+            remarks,
+            files: attachments.length ? attachments : undefined,
+            removeAttachmentIds: removedAttachmentIds,
+          }),
+        );
+      } else {
+        //  saveProgressLog now handles ALL refresh logic internally
+        await dispatch(
+          saveProgressLog({
+            subtaskId,
+            date: selectedDate.format("YYYY-MM-DD"),
+            dailyPercent: value,
+            remarks,
+            location: location || undefined,
+            files: attachments.length ? attachments : undefined,
+          }),
+        );
+      }
 
       //  FALLBACK: Manually refresh S-Curve with projectId from Redux
       try {
@@ -393,6 +525,7 @@ export default function ProgressCalendar({
 
       setSuccess(true);
       setError("");
+      setShowProgressFormModal(false);
 
       // Reset form after success
       setTimeout(() => {
@@ -400,9 +533,11 @@ export default function ProgressCalendar({
         setDailyPercent("");
         setRemarks("");
         setLocation("");
-        setDayNumber("");
         setAttachments([]);
         setImagePreviews([]);
+        setEditingLog(null);
+        setRemovedAttachmentIds([]);
+        setSavedProgressFeedback(null);
         setSuccess(false);
         // Refresh logs
         dispatch(getProgressLogs(subtaskId));
@@ -415,24 +550,42 @@ export default function ProgressCalendar({
       }, 2000);
     } catch (err: any) {
       console.error(" Error saving progress:", err);
-      setError(err.response?.data?.message || "Failed to save progress");
+      const errorCode = err.response?.data?.error;
+      const message = err.response?.data?.message || "Failed to save progress";
+
+      if (errorCode === "UPDATE_LIMIT_REACHED") {
+        setBlockDialog({
+          open: true,
+          reason: "UPDATE_LIMIT_REACHED",
+          message,
+          existingLog: editingLog,
+        });
+        setShowProgressFormModal(false);
+      } else {
+        setError(message);
+      }
       setSaveModalOpen(false);
+    } finally {
+      setCheckingCanAdd(false);
     }
   }, [
     dispatch,
     dailyPercent,
     remarks,
     location,
-    dayNumber,
     attachments,
     selectedDate,
     subtaskId,
     currentProjectId,
     onSuccess,
     isTaskBoard,
+    checkCanAddForSelectedDate,
+    editingLog,
   ]);
 
   const remainingProgress = 100 - cumulativeProgress;
+  const editableCurrentPercent = editingLog ? Number(editingLog.dailyPercent || 0) : 0;
+  const allowedProgressForForm = Math.max(0, remainingProgress + editableCurrentPercent);
 
   return (
     <Box display="grid" gridTemplateColumns="3fr 1.2fr" gap={2}>
@@ -467,7 +620,7 @@ export default function ProgressCalendar({
           </IconButton>
         </Box>
 
-        <Box display="grid" gridTemplateColumns="repeat(7, 1fr)">
+        <Box display="grid" gridTemplateColumns="repeat(7, minmax(0, 1fr))">
           {DAYS.map((d) => (
             <Box key={d} textAlign="center" fontWeight="bold" fontSize={12}>
               {d}
@@ -475,7 +628,7 @@ export default function ProgressCalendar({
           ))}
         </Box>
 
-        <Box display="grid" gridTemplateColumns="repeat(7, 1fr)">
+        <Box display="grid" gridTemplateColumns="repeat(7, minmax(0, 1fr))">
           {dates.map((date) => {
             const key = date.format("YYYY-MM-DD");
             const logsForDate = logs[key] || [];
@@ -489,17 +642,19 @@ export default function ProgressCalendar({
                   setSelectedDate(date);
                 }}
                 sx={{
-                  minHeight: 100,
+                  height: 100,
+                  minWidth: 0,
                   border: "1px solid #ddd",
                   p: 1,
                   cursor: "pointer",
                   backgroundColor: getBackgroundColor(date, logsForDate, isSelected),
-                  transition: "all 0.2s ease",
+                  transition: "box-shadow 0.2s ease, filter 0.2s ease",
                   "&:hover": {
-                    transform: "scale(1.02)",
                     boxShadow: 2,
+                    filter: "brightness(0.98)",
                   },
                   position: "relative",
+                  overflow: "hidden",
                 }}
               >
                 <Typography fontSize={12} fontWeight="bold">
@@ -518,12 +673,18 @@ export default function ProgressCalendar({
                           mt: 0.5,
                           backgroundColor: "#ff9800",
                           color: "white",
+                          maxWidth: "100%",
+                          "& .MuiChip-label": {
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            px: 0.75,
+                          },
                         }}
                       />
                     )}
                     {logsForDate.length === 1 && (
                       <Chip
-                        label={`+${firstLog.dailyPercent}%`}
+                        label={`+${formatPercent(firstLog.dailyPercent)}%`}
                         size="small"
                         sx={{
                           height: 20,
@@ -531,14 +692,27 @@ export default function ProgressCalendar({
                           mt: 0.5,
                           backgroundColor: "#1976d2",
                           color: "white",
+                          maxWidth: "100%",
+                          "& .MuiChip-label": {
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            px: 0.75,
+                          },
                         }}
                       />
                     )}
                     <Typography
                       fontSize={10}
-                      sx={{ mt: 0.5, fontWeight: "bold" }}
+                      sx={{
+                        mt: 0.5,
+                        fontWeight: "bold",
+                        lineHeight: 1.15,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
                     >
-                      Total: {firstLog.cumulativePercent}%
+                      Total: {formatPercent(firstLog.cumulativePercent)}%
                     </Typography>
                     {logsForDate.some((log: any) => log.attachments?.length || log.photoUrl) && (
                       <ImageIcon
@@ -568,8 +742,8 @@ export default function ProgressCalendar({
             sx={{ mb: 1, height: 8, borderRadius: 1 }}
           />
           <Typography variant="caption">
-            {cumulativeProgress.toFixed(1)}% of 100% • Remaining:{" "}
-            {remainingProgress.toFixed(1)}%
+            {formatPercent(cumulativeProgress)}% of 100% • Remaining:{" "}
+            {formatPercent(remainingProgress)}%
           </Typography>
         </Box>
 
@@ -724,10 +898,10 @@ export default function ProgressCalendar({
                 Total Progress
               </Typography>
               <Typography variant="h6" sx={{ color: "#1976d2" }}>
-                {cumulativeProgress.toFixed(1)}% / 100%
+                {formatPercent(cumulativeProgress)}% / 100%
               </Typography>
               <Typography variant="caption" sx={{ color: "#999" }}>
-                Remaining: {remainingProgress.toFixed(1)}%
+                Remaining: {formatPercent(remainingProgress)}%
               </Typography>
             </Box>
 
@@ -762,14 +936,14 @@ export default function ProgressCalendar({
                 >
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}>
                     <Chip
-                      label={`+${log.dailyPercent}%`}
+                      label={`+${formatPercent(log.dailyPercent)}%`}
                       color="primary"
                       size="small"
                       sx={{ fontWeight: "bold", height: 20 }}
                     />
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography variant="caption" sx={{ color: "#666", display: "block", fontSize: 11 }}>
-                        <strong>{log.user?.name || log.userId || "System"}</strong> • {log.cumulativePercent}%
+                        <strong>{log.user?.name || log.userId || "System"}</strong> • {formatPercent(log.cumulativePercent)}%
                       </Typography>
                       {log.remarks && (
                         <Typography variant="caption" sx={{ display: "block", color: "#999", fontSize: 10, mt: 0.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -795,21 +969,121 @@ export default function ProgressCalendar({
           variant="contained"
           fullWidth
           sx={{ mt: 3 }}
-          onClick={() => setShowProgressFormModal(true)}
-          disabled={cumulativeProgress >= 100}
+          onClick={handleOpenProgressForm}
+          disabled={checkingCanAdd || cumulativeProgress >= 100}
         >
-          {cumulativeProgress >= 100 ? "✓ 100% Complete" : "Submit Progress"}
+          {cumulativeProgress >= 100
+            ? "✓ 100% Complete"
+            : checkingCanAdd
+              ? "Checking..."
+              : "Submit Progress"}
         </Button>
       </Paper>
+
+      <Dialog
+        open={blockDialog.open}
+        onClose={() =>
+          setBlockDialog({
+            open: false,
+            reason: null,
+            message: "",
+            existingLog: null,
+          })
+        }
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          {blockDialog.reason === "ALREADY_ADDED"
+            ? "Progress Already Added"
+            : blockDialog.reason === "NOT_ASSIGNED"
+              ? "Not Assigned"
+              : blockDialog.reason === "UPDATE_LIMIT_REACHED"
+                ? "Update Limit Reached"
+                : "Unable to Add Progress"}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Alert
+            severity={blockDialog.reason === "NOT_ASSIGNED" ? "warning" : "info"}
+            sx={{ mb: blockDialog.existingLog ? 2 : 0 }}
+          >
+            {blockDialog.message}
+          </Alert>
+
+          {blockDialog.existingLog ? (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" sx={{ color: "#667085" }}>
+                Existing progress
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.75 }}>
+                <Chip
+                  color="primary"
+                  label={`+${formatPercent(blockDialog.existingLog.dailyPercent)}%`}
+                />
+                {blockDialog.existingLog.remarks ? (
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "#344054",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {blockDialog.existingLog.remarks}
+                  </Typography>
+                ) : null}
+              </Stack>
+            </Box>
+          ) : null}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={() =>
+              setBlockDialog({
+                open: false,
+                reason: null,
+                message: "",
+                existingLog: null,
+              })
+            }
+          >
+            Close
+          </Button>
+          {blockDialog.reason === "ALREADY_ADDED" && blockDialog.existingLog ? (
+            <Button
+              variant="contained"
+              onClick={() => {
+                const existingLog = blockDialog.existingLog;
+                setBlockDialog({
+                  open: false,
+                  reason: null,
+                  message: "",
+                  existingLog: null,
+                });
+                openExistingLogDetails(existingLog);
+              }}
+            >
+              View Existing Log
+            </Button>
+          ) : null}
+        </DialogActions>
+      </Dialog>
 
       {/* PROGRESS FORM MODAL */}
       <Dialog
         open={showProgressFormModal}
-        onClose={() => setShowProgressFormModal(false)}
+        onClose={() => {
+          setShowProgressFormModal(false);
+          setEditingLog(null);
+          setRemovedAttachmentIds([]);
+        }}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Submit Progress for {selectedDate.format("MMM DD, YYYY")}</DialogTitle>
+        <DialogTitle>
+          {editingLog ? "Edit Progress" : "Submit Progress"} for {selectedDate.format("MMM DD, YYYY")}
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
             {/* Cumulative Progress Info */}
@@ -828,10 +1102,12 @@ export default function ProgressCalendar({
                 Total Progress
               </Typography>
               <Typography variant="h6" sx={{ color: "#1976d2" }}>
-                {cumulativeProgress.toFixed(1)}% / 100%
+                {formatPercent(cumulativeProgress)}% / 100%
               </Typography>
               <Typography variant="caption" sx={{ color: "#999" }}>
-                Remaining: {remainingProgress.toFixed(1)}%
+                {editingLog
+                  ? `Available after current log: ${formatPercent(allowedProgressForForm)}%`
+                  : `Remaining: ${formatPercent(remainingProgress)}%`}
               </Typography>
             </Box>
 
@@ -842,26 +1118,15 @@ export default function ProgressCalendar({
               fullWidth
               value={dailyPercent}
               onChange={(e) => setDailyPercent(e.target.value)}
-              inputProps={{ min: 0, max: remainingProgress }}
+              inputProps={{ min: 0, max: allowedProgressForForm }}
               error={
-                dailyPercent ? Number(dailyPercent) > remainingProgress : false
+                dailyPercent ? Number(dailyPercent) > allowedProgressForForm : false
               }
               helperText={
-                dailyPercent && Number(dailyPercent) > remainingProgress
-                  ? `Cannot exceed ${remainingProgress.toFixed(1)}%`
+                dailyPercent && Number(dailyPercent) > allowedProgressForForm
+                  ? `Cannot exceed ${formatPercent(allowedProgressForForm)}%`
                   : undefined
               }
-              sx={{ mt: 2 }}
-            />
-
-            {/* Day Number Input */}
-            <TextField
-              label="Day Number"
-              type="number"
-              fullWidth
-              value={dayNumber}
-              onChange={(e) => setDayNumber(e.target.value)}
-              inputProps={{ min: 1 }}
               sx={{ mt: 2 }}
             />
 
@@ -891,40 +1156,17 @@ export default function ProgressCalendar({
               sx={{ mt: 2 }}
             />
 
-            {/* Attachments Upload */}
-            <Box sx={{ mt: 2 }}>
-              <input
-                accept="*/*"
-                style={{ display: "none" }}
-                id="form-photo-input"
-                type="file"
-                multiple
-                onChange={handlePhotoChange}
-              />
-              <label htmlFor="form-photo-input" style={{ width: "100%" }}>
-                <Button
-                  variant="outlined"
-                  component="span"
-                  fullWidth
-                  disabled={attachments.length >= 10}
-                  startIcon={<CloudUploadIcon />}
-                  sx={{ mt: 1 }}
-                >
-                  {attachments.length
-                    ? `Add Attachments (${attachments.length}/10)`
-                    : "Add Attachments"}
-                </Button>
-              </label>
-
-              {attachments.length > 0 && (
-                <Box sx={{ mt: 1.5 }}>
-                  <Typography variant="caption" sx={{ color: "#666" }}>
-                    Selected Files
-                  </Typography>
-                  <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-                    {attachments.map((f) => (
+            {editingLog?.attachments?.length ? (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="caption" sx={{ color: "#666" }}>
+                  Existing Attachments
+                </Typography>
+                <Stack spacing={0.75} sx={{ mt: 0.75 }}>
+                  {(editingLog.attachments as ProgressAttachment[])
+                    .filter((att) => att.id && !removedAttachmentIds.includes(att.id))
+                    .map((att) => (
                       <Box
-                        key={f.name + f.size + f.lastModified}
+                        key={att.id || att.url}
                         sx={{
                           display: "flex",
                           alignItems: "center",
@@ -932,45 +1174,123 @@ export default function ProgressCalendar({
                           border: "1px solid #e5e7eb",
                           borderRadius: 1,
                           px: 1,
-                          py: 0.5,
+                          py: 0.75,
                           backgroundColor: "#fafafa",
                         }}
                       >
                         <Typography
                           variant="body2"
-                          sx={{ fontSize: 12, mr: 1 }}
+                          sx={{
+                            fontSize: 12,
+                            mr: 1,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
                         >
-                          {f.name} ({(f.size / 1024 / 1024).toFixed(2)} MB)
+                          {att.name || "Attachment"}
                         </Typography>
                         <IconButton
                           size="small"
                           color="error"
-                          onClick={() => removeAttachment(f)}
+                          onClick={() => {
+                            if (!att.id) return;
+                            setRemovedAttachmentIds((prev) =>
+                              prev.includes(att.id!) ? prev : [...prev, att.id!],
+                            );
+                          }}
                           sx={{ p: 0.5 }}
                         >
                           <DeleteOutlineIcon sx={{ fontSize: 16 }} />
                         </IconButton>
                       </Box>
                     ))}
-                  </Stack>
-                </Box>
-              )}
+                </Stack>
+              </Box>
+            ) : null}
 
-              {imagePreviews.length > 0 && (
-                <Stack spacing={1} sx={{ mt: 2 }}>
-                  {imagePreviews.map((src, idx) => (
-                    <Box
-                      key={src + idx}
-                      component="img"
-                      src={src}
-                      sx={{
-                        width: "100%",
-                        height: 150,
-                        objectFit: "cover",
-                        borderRadius: 1,
-                        border: "1px solid #ddd",
-                      }}
-                    />
+            {/* Attachments Upload */}
+            <Box sx={{ mt: 2 }}>
+              <input
+                accept="*/*"
+                  style={{ display: "none" }}
+                  id="form-photo-input"
+                  type="file"
+                  multiple
+                  onChange={handlePhotoChange}
+                />
+                <label htmlFor="form-photo-input" style={{ width: "100%" }}>
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    fullWidth
+                    disabled={attachments.length >= 10}
+                  startIcon={<CloudUploadIcon />}
+                  sx={{ mt: 1 }}
+                >
+                  {attachments.length
+                    ? `Add Attachments (${attachments.length}/10)`
+                    : editingLog
+                      ? "Add New Attachments"
+                      : "Add Attachments"}
+                </Button>
+              </label>
+
+                {attachments.length > 0 && (
+                  <Box sx={{ mt: 1.5 }}>
+                    <Typography variant="caption" sx={{ color: "#666" }}>
+                      Selected Files
+                    </Typography>
+                    <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                      {attachments.map((f) => (
+                        <Box
+                          key={f.name + f.size + f.lastModified}
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: 1,
+                            px: 1,
+                            py: 0.5,
+                            backgroundColor: "#fafafa",
+                          }}
+                        >
+                          <Typography
+                            variant="body2"
+                            sx={{ fontSize: 12, mr: 1 }}
+                          >
+                            {f.name} ({(f.size / 1024 / 1024).toFixed(2)} MB)
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => removeAttachment(f)}
+                            sx={{ p: 0.5 }}
+                          >
+                            <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
+
+                {imagePreviews.length > 0 && (
+                  <Stack spacing={1} sx={{ mt: 2 }}>
+                    {imagePreviews.map((src, idx) => (
+                      <Box
+                        key={src + idx}
+                        component="img"
+                        src={src}
+                        sx={{
+                          width: "100%",
+                          height: 150,
+                          objectFit: "cover",
+                          borderRadius: 1,
+                          border: "1px solid #ddd",
+                        }}
+                      />
                   ))}
                 </Stack>
               )}
@@ -978,13 +1298,27 @@ export default function ProgressCalendar({
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setShowProgressFormModal(false)}>Cancel</Button>
+          <Button
+            onClick={() => {
+              setShowProgressFormModal(false);
+              setEditingLog(null);
+              setRemovedAttachmentIds([]);
+            }}
+          >
+            Cancel
+          </Button>
           <Button
             onClick={handleSave}
             variant="contained"
-            disabled={isLoading || !dailyPercent || cumulativeProgress >= 100}
+            disabled={checkingCanAdd || isLoading || !dailyPercent || cumulativeProgress >= 100}
           >
-            {isLoading ? "Saving..." : "Submit"}
+            {checkingCanAdd
+              ? "Checking..."
+              : isLoading
+                ? "Saving..."
+                : editingLog
+                  ? "Update"
+                  : "Submit"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -992,7 +1326,10 @@ export default function ProgressCalendar({
       {/* SUCCESS MODAL WITH LOADING */}
       <Dialog
         open={saveModalOpen}
-        onClose={() => setSaveModalOpen(false)}
+        onClose={() => {
+          setSaveModalOpen(false);
+          setSavedProgressFeedback(null);
+        }}
         maxWidth="sm"
         fullWidth
       >
@@ -1003,7 +1340,9 @@ export default function ProgressCalendar({
               <>
                 <CircularProgress size={60} sx={{ mb: 2 }} />
                 <Typography sx={{ mt: 2, color: "#666" }}>
-                  Adding progress to your subtask...
+                  {savedProgressFeedback?.mode === "edit"
+                    ? "Updating progress..."
+                    : "Adding progress to your subtask..."}
                 </Typography>
               </>
             ) : (
@@ -1017,7 +1356,9 @@ export default function ProgressCalendar({
                   Progress Saved Successfully! ✔
                 </Typography>
                 <Typography sx={{ mt: 1, color: "#666" }}>
-                  +{dailyPercent}% added to your progress
+                  {savedProgressFeedback?.mode === "edit"
+                    ? `Progress updated to ${formatPercent(savedProgressFeedback.value)}%`
+                    : `+${formatPercent(savedProgressFeedback?.value ?? 0)}% added to your progress`}
                 </Typography>
               </>
             )}
@@ -1048,15 +1389,28 @@ export default function ProgressCalendar({
             ✔ Progress Log Details
           </Typography>
 
-          <Button
-            variant="contained"
-            onClick={() => {
-              setShowExistingLogModal(false);
-              setSelectedAttachmentIndex(null);
-            }}
-          >
-            Close
-          </Button>
+          <Stack direction="row" spacing={1} alignItems="center">
+            {selectedLogForDetails?.id ? (
+              <Button
+                variant="outlined"
+                disabled={getProgressUpdateCount(selectedLogForDetails) >= MAX_PROGRESS_UPDATE_COUNT}
+                onClick={() => openEditProgressForm(selectedLogForDetails)}
+              >
+                {getProgressUpdateCount(selectedLogForDetails) >= MAX_PROGRESS_UPDATE_COUNT
+                  ? "Update Limit Reached"
+                  : "Edit / Resubmit"}
+              </Button>
+            ) : null}
+            <Button
+              variant="contained"
+              onClick={() => {
+                setShowExistingLogModal(false);
+                setSelectedAttachmentIndex(null);
+              }}
+            >
+              Close
+            </Button>
+          </Stack>
         </DialogTitle>
 
         <DialogContent
@@ -1092,7 +1446,7 @@ export default function ProgressCalendar({
                     </Typography>
                     <Box sx={{ mt: 0.5 }}>
                       <Chip
-                        label={`+${selectedLogForDetails.dailyPercent}%`}
+                        label={`+${formatPercent(selectedLogForDetails.dailyPercent)}%`}
                         color="primary"
                       />
                     </Box>
@@ -1103,7 +1457,16 @@ export default function ProgressCalendar({
                       Cumulative Progress
                     </Typography>
                     <Typography variant="body1">
-                      {selectedLogForDetails.cumulativePercent}% of 100%
+                      {formatPercent(selectedLogForDetails.cumulativePercent)}% of 100%
+                    </Typography>
+                  </Box>
+
+                  <Box>
+                    <Typography variant="caption" sx={{ color: "#666" }}>
+                      Updates Used
+                    </Typography>
+                    <Typography variant="body2">
+                      {getProgressUpdateCount(selectedLogForDetails)} / {MAX_PROGRESS_UPDATE_COUNT}
                     </Typography>
                   </Box>
 
@@ -1114,17 +1477,6 @@ export default function ProgressCalendar({
                       </Typography>
                       <Typography variant="body2">
                         {selectedLogForDetails.location}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {selectedLogForDetails.dayNumber && (
-                    <Box>
-                      <Typography variant="caption" sx={{ color: "#666" }}>
-                        Day Number
-                      </Typography>
-                      <Typography variant="body2">
-                        Day {selectedLogForDetails.dayNumber}
                       </Typography>
                     </Box>
                   )}

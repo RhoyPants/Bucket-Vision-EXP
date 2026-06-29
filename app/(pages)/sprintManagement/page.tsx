@@ -24,7 +24,7 @@ import { setCurrentProject } from "@/app/redux/slices/projectSlice";
 
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 
-import { getProjects } from "@/app/redux/controllers/projectController";
+import { getActiveProjects } from "@/app/redux/controllers/projectController";
 import { loadKanbanByTask } from "@/app/redux/controllers/subTaskController";
 
 import { setCurrentTask } from "@/app/redux/slices/taskSlice";
@@ -84,7 +84,7 @@ function SprintManagementContent() {
   useEffect(() => {
     const loadInitial = async () => {
       // Step 1: Load projects
-      const projects = await dispatch(getProjects());
+      const projects = await dispatch(getActiveProjects());
 
       let projectId = projectIdFromUrl;
       if (!projectId && projects.length > 0) {

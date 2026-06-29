@@ -10,37 +10,37 @@ const visionSlides = [
     image: "/images/vision-slides/visibility.png",
     letter: "V",
     word: "Visibility",
-    meaning: "Clear project view across every moving part.",
-  },
+    meaning: "Clear Visibility.",
+  },  
   {
     image: "/images/vision-slides/insight.png",
     letter: "I",
     word: "Insight",
-    meaning: "Actionable signals from progress and project data.",
+    meaning: "Actionable Insight.",
   },
   {
     image: "/images/vision-slides/status.png",
     letter: "S",
     word: "Status",
-    meaning: "Real-time progress, blockers, and momentum.",
+    meaning: "Real-time Status.",
   },
   {
     image: "/images/vision-slides/information.png",
     letter: "I",
     word: "Information",
-    meaning: "Centralized context for decisions and approvals.",
+    meaning: "Centralized Information.",
   },
   {
     image: "/images/vision-slides/objectives.png",
     letter: "O",
     word: "Objectives",
-    meaning: "Tracked goals aligned with project outcomes.",
+    meaning: "Tracked Objectives.",
   },
   {
     image: "/images/vision-slides/next-action.png",
     letter: "N",
     word: "Next Action",
-    meaning: "Prioritized work that keeps teams moving.",
+    meaning: "Prioritized Next Actions.",
   },
 ];
 
@@ -83,6 +83,7 @@ function LoginPageContent() {
             xs: "1fr",
             md: "minmax(0, 1fr) 440px",
             lg: "minmax(0, 1fr) 470px",
+            xl: "minmax(0, 1fr) 560px",
           },
         }}
       >
@@ -125,10 +126,10 @@ function LoginPageContent() {
             sx={{
               position: "absolute",
               left: { md: 56, lg: 72 },
-              right: { md: 48, lg: 72 },
-              bottom: { md: 48, lg: 64 },
+              right: { md: 48, lg: 72, xl: 96 },
+              bottom: { md: 48, lg: 64, xl: 84 },
               color: "#ffffff",
-              maxWidth: 720,
+              maxWidth: { md: 720, xl: 880 },
             }}
           >
             <Typography
@@ -138,7 +139,7 @@ function LoginPageContent() {
                 alignItems: "baseline",
                 flexWrap: "wrap",
                 gap: { md: 0.65, lg: 0.85 },
-                fontSize: { md: 62, lg: 82 },
+                fontSize: { md: 62, lg: 82, xl: 104 },
                 lineHeight: 0.9,
                 fontWeight: 950,
                 textShadow:
@@ -188,7 +189,7 @@ function LoginPageContent() {
               <Typography
                 sx={{
                   color: "#f6d365",
-                  fontSize: { md: 21, lg: 24 },
+                  fontSize: { md: 21, lg: 24, xl: 30 },
                   lineHeight: 1.2,
                   fontWeight: 900,
                   textShadow: "0 0 20px rgba(246, 211, 101, 0.3)",
@@ -199,9 +200,9 @@ function LoginPageContent() {
               <Typography
                 sx={{
                   mt: 0.75,
-                  maxWidth: 620,
+                  maxWidth: { md: 620, xl: 760 },
                   color: "rgba(255,255,255,0.84)",
-                  fontSize: 15,
+                  fontSize: { md: 15, xl: 18 },
                   lineHeight: 1.7,
                   fontWeight: 650,
                 }}
@@ -210,19 +211,7 @@ function LoginPageContent() {
               </Typography>
             </Box>
 
-            <Typography
-              sx={{
-                maxWidth: 680,
-                color: "rgba(255,255,255,0.78)",
-                fontSize: 13,
-                lineHeight: 1.65,
-                fontWeight: 600,
-              }}
-            >
-              Clear Visibility, actionable Insight, real-time Status,
-              centralized Information, tracked Objectives, and prioritized Next
-              Actions.
-            </Typography>
+
           </Stack>
         </Box>
 
@@ -235,7 +224,7 @@ function LoginPageContent() {
             mx: "auto",
             alignItems: "center",
             justifyContent: "center",
-            p: { xs: 2, md: 4 },
+            p: { xs: 2, md: 4, xl: 6 },
             backgroundColor: "#e0dae6",
             backgroundImage:
               "linear-gradient(180deg, rgba(255,255,255,0.2), rgba(224,218,230,0.18)), url('/images/BG LIGHT.png')",
@@ -271,7 +260,7 @@ function LoginPageContent() {
             </Alert>
           )}
 
-          <Box sx={{ width: "100%", maxWidth: 410 }}>
+          <Box sx={{ width: "100%", maxWidth: { xs: 410, lg: 430, xl: 470 } }}>
             <LoginContainer />
           </Box>
         </Stack>

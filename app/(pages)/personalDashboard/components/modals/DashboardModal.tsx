@@ -55,7 +55,8 @@ export default function DashboardModal({
     });
   }, [dashboard, open]);
 
-  const canSave = form.name.trim().length > 0 && Boolean(form.projectId) && (isEdit || dashboardCount < 5);
+  const projectIdValue = form.projectId || "";
+  const canSave = form.name.trim().length > 0 && Boolean(projectIdValue) && (isEdit || dashboardCount < 5);
 
   const handleSubmit = async () => {
     if (!canSave) return;
@@ -115,14 +116,20 @@ export default function DashboardModal({
             fullWidth
             required
             disabled={isEdit}
-            value={form.projectId}
-            onChange={(event) => setForm((prev) => ({ ...prev, projectId: event.target.value }))}
+            value={projectIdValue}
+            onChange={(event) => setForm((prev) => ({ ...prev, projectId: String(event.target.value) }))}
           >
-            {projects.map((project) => (
-              <MenuItem key={project.id} value={project.id}>
-                {project.name}
+            {projects.length === 0 ? (
+              <MenuItem value="" disabled>
+                No active accessible projects
               </MenuItem>
-            ))}
+            ) : (
+              projects.map((project) => (
+                <MenuItem key={project.id} value={project.id}>
+                  {project.name}
+                </MenuItem>
+              ))
+            )}
           </TextField>
         </Stack>
       </DialogContent>

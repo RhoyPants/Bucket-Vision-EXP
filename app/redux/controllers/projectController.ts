@@ -6,12 +6,51 @@ import {
   updateProjectLocal,
   deleteProjectLocal,
   setLoading,
+  setProjectPagination,
 } from "../slices/projectSlice";
 import {
   getMyApprovals as fetchMyApprovals,
   getMyRequests as fetchMyRequests,
   getMyDrafts as fetchMyDrafts,
+  ProjectListQuery,
+  getProjectsByStatus as fetchProjectsByStatus,
+  getActiveProjectDropdown as fetchActiveProjectDropdown,
 } from "@/app/api-service/projectService";
+
+const normalizeProjectRow = (project: any) => ({
+  ...project,
+  id: project.id ?? project.value,
+  name: project.name ?? project.label,
+});
+
+const normalizeProjectListResponse = (response: any) => {
+  if (Array.isArray(response)) {
+    return {
+      data: response,
+      meta: {
+        page: 1,
+        limit: response.length || 10,
+        total: response.length,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPrevPage: false,
+      },
+    };
+  }
+
+  const data = Array.isArray(response?.data) ? response.data : [];
+  return {
+    data,
+    meta: response?.meta ?? {
+      page: 1,
+      limit: data.length || 10,
+      total: data.length,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPrevPage: false,
+    },
+  };
+};
 
 // ✅ GET ALL (with full details including members)
 export const getProjects = () => {
@@ -154,14 +193,16 @@ export const deleteProject = (projectId: string) => {
 // ===== FILTERED PROJECT ENDPOINTS =====
 
 // ✅ GET MY APPROVALS (projects waiting for current user approval)
-export const getMyApprovalsProjects = () => {
+export const getMyApprovalsProjects = (params?: ProjectListQuery) => {
   return async (dispatch: AppDispatch) => {
     try {
       dispatch(setLoading(true));
 
-      const projectsData = await fetchMyApprovals();
+      const response = await fetchMyApprovals(params);
+      const { data: projectsData, meta } = normalizeProjectListResponse(response);
 
       dispatch(setProjects(projectsData));
+      dispatch(setProjectPagination(meta));
 
       return projectsData;
     } catch (err) {
@@ -174,14 +215,16 @@ export const getMyApprovalsProjects = () => {
 };
 
 // ✅ GET MY REQUESTS (projects owned by user with non-DRAFT status)
-export const getMyRequestsProjects = () => {
+export const getMyRequestsProjects = (params?: ProjectListQuery) => {
   return async (dispatch: AppDispatch) => {
     try {
       dispatch(setLoading(true));
 
-      const projectsData = await fetchMyRequests();
+      const response = await fetchMyRequests(params);
+      const { data: projectsData, meta } = normalizeProjectListResponse(response);
 
       dispatch(setProjects(projectsData));
+      dispatch(setProjectPagination(meta));
 
       return projectsData;
     } catch (err) {
@@ -194,18 +237,64 @@ export const getMyRequestsProjects = () => {
 };
 
 // ✅ GET MY DRAFTS (projects owned by user with DRAFT status)
-export const getMyDraftsProjects = () => {
+export const getMyDraftsProjects = (params?: ProjectListQuery) => {
   return async (dispatch: AppDispatch) => {
     try {
       dispatch(setLoading(true));
 
-      const projectsData = await fetchMyDrafts();
+      const response = await fetchMyDrafts(params);
+      const { data: projectsData, meta } = normalizeProjectListResponse(response);
 
       dispatch(setProjects(projectsData));
+      dispatch(setProjectPagination(meta));
 
       return projectsData;
     } catch (err) {
       console.error("❌ Error fetching my drafts:", err);
+      throw err;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
+};
+
+export const getProjectsByStatus = (status: string) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      dispatch(setLoading(true));
+
+      const projectsData = await fetchProjectsByStatus(status);
+      const normalizedProjectsData = Array.isArray(projectsData)
+        ? projectsData.map(normalizeProjectRow)
+        : [];
+
+      dispatch(setProjects(normalizedProjectsData));
+
+      return normalizedProjectsData;
+    } catch (err) {
+      console.error(`❌ Error fetching ${status} projects:`, err);
+      throw err;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
+};
+
+export const getActiveProjects = () => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      dispatch(setLoading(true));
+
+      const projectsData = await fetchActiveProjectDropdown();
+      const normalizedProjectsData = Array.isArray(projectsData)
+        ? projectsData.map(normalizeProjectRow)
+        : [];
+
+      dispatch(setProjects(normalizedProjectsData));
+
+      return normalizedProjectsData;
+    } catch (err) {
+      console.error("❌ Error fetching active project dropdown:", err);
       throw err;
     } finally {
       dispatch(setLoading(false));
