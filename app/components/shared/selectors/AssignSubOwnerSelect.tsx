@@ -25,6 +25,10 @@ type User = {
   };
 };
 
+type UserOption = User & {
+  isSelectAll?: boolean;
+};
+
 type Props = {
   onSelectMultiple: (users: User[]) => void;
   onSelectionChange?: (users: User[]) => void;
@@ -44,17 +48,6 @@ export default function AssignSubOwnerSelect({
 }: Props) {
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [inputValue, setInputValue] = useState("");
-
-  // Handle select all
-  const handleSelectAll = () => {
-    if (selectedUsers.length === leaders.length) {
-      setSelectedUsers([]);
-      onSelectionChange?.([]);
-    } else {
-      setSelectedUsers(leaders);
-      onSelectionChange?.(leaders);
-    }
-  };
 
   // ✅ normalize assigned users
   const assignedIds = useMemo(() => {
@@ -88,6 +81,20 @@ export default function AssignSubOwnerSelect({
     return filtered;
   }, [members, assignedIds, assignedUsers, selectedUsers, excludedUserIds]);
 
+  const totalSelectableCount = selectedUsers.length + leaders.length;
+  const allSelected = totalSelectableCount > 0 && selectedUsers.length === totalSelectableCount;
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      setSelectedUsers([]);
+      onSelectionChange?.([]);
+    } else {
+      const nextUsers = [...selectedUsers, ...leaders];
+      setSelectedUsers(nextUsers);
+      onSelectionChange?.(nextUsers);
+    }
+  };
+
   const handleAddSelected = () => {
     if (selectedUsers.length > 0) {
       onSelectMultiple(selectedUsers);
@@ -102,15 +109,34 @@ export default function AssignSubOwnerSelect({
     onSelectionChange?.(updated);
   };
 
+  const selectOptions = useMemo<UserOption[]>(() => {
+    if (totalSelectableCount === 0) return [];
+
+    return [
+      {
+        id: "__select_all__",
+        name: allSelected ? "Deselect All" : "Select All",
+        isSelectAll: true,
+      },
+      ...leaders,
+    ];
+  }, [allSelected, leaders, totalSelectableCount]);
+
   return (
     <Box display="flex" flexDirection="column" gap={2} flex={1} minWidth={250}>
-      <Autocomplete
+      <Autocomplete<UserOption, true, false, false>
         multiple
-        options={leaders}
+        options={selectOptions}
         value={selectedUsers}
         onChange={(e, newValue) => {
-          setSelectedUsers(newValue);
-          onSelectionChange?.(newValue);
+          if (newValue.some((option) => option.isSelectAll)) {
+            handleSelectAll();
+            return;
+          }
+
+          const users = newValue.filter((option) => !option.isSelectAll);
+          setSelectedUsers(users);
+          onSelectionChange?.(users);
         }}
         inputValue={inputValue}
         onInputChange={(e, newInputValue) => {
@@ -136,6 +162,36 @@ export default function AssignSubOwnerSelect({
         }}
         renderOption={(props, option) => {
           const { key, ...rest } = props;
+          if (option.isSelectAll) {
+            return (
+              <Box
+                component="li"
+                key={key}
+                {...rest}
+                sx={{
+                  p: "8px 10px !important",
+                  borderBottom: "1px solid #eef2f7",
+                  bgcolor: "#f8fafc",
+                  "&:hover": { bgcolor: "#eef2ff" },
+                }}
+              >
+                <Checkbox
+                  checked={allSelected}
+                  indeterminate={selectedUsers.length > 0 && !allSelected}
+                  size="small"
+                  sx={{
+                    mr: 1,
+                    color: "#667eea",
+                    "&.Mui-checked": { color: "#667eea" },
+                  }}
+                />
+                <Typography fontSize={13} fontWeight={700} color="#334155">
+                  {option.name}
+                </Typography>
+              </Box>
+            );
+          }
+
           const isSelected = selectedUsers.some((u) => u.id === option.id);
 
           return (
@@ -249,27 +305,6 @@ export default function AssignSubOwnerSelect({
           },
         }}
       />
-
-      {/* SELECT ALL BUTTON */}
-      {leaders.length > 0 && (
-        <Button
-          size="small"
-          onClick={handleSelectAll}
-          variant="outlined"
-          sx={{
-            textTransform: "none",
-            fontSize: 12,
-            color: selectedUsers.length === leaders.length ? "#667eea" : "#6b7280",
-            borderColor: selectedUsers.length === leaders.length ? "#667eea" : "#d1d5db",
-            "&:hover": {
-              borderColor: "#667eea",
-              bgcolor: "rgba(102, 126, 234, 0.05)",
-            },
-          }}
-        >
-          {selectedUsers.length === leaders.length ? "Deselect All" : "Select All"}
-        </Button>
-      )}
 
       {/* SELECTED CHIPS */}
       {selectedUsers.length > 0 && (

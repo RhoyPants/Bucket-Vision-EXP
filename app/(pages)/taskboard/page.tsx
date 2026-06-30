@@ -16,13 +16,14 @@ import ViewAgendaIcon from "@mui/icons-material/ViewAgenda";
 
 import Layout from "@/app/components/shared/Layout";
 import TaskBoardFilters from "./Components/TaskBoardFilters";
-import GridTableView from "./Components/GridTableView";
+import BoardCardGrid from "./Components/BoardCardGrid";
 import KanbanBoard from "@/app/components/shared/kanban/KanbanBoard";
 import ProgressCalendarModal from "@/app/components/shared/modals/ProgressCalendarModal";
 
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import {
   loadMyBoard,
+  loadMyBoardItem,
   loadBoardFilterData,
   loadScopesForProject,
   loadTasksForScope,
@@ -59,6 +60,13 @@ export default function TaskBoardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "kanban">("grid");
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+  });
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: "",
     projectId: null,
@@ -82,7 +90,18 @@ export default function TaskBoardPage() {
         // Ã¢Å“â€¦ Load filter dropdown data (projects, scopes, tasks)
         await dispatch(loadBoardFilterData());
         // Ã¢Å“â€¦ Load initial subtasks (no filters yet)
-        await dispatch(loadMyBoard());
+        const boardResponse = await dispatch(
+          loadMyBoard({
+            page: 1,
+            limit: pagination.limit,
+          }) as any
+        );
+        setPagination((prev) => ({
+          ...prev,
+          total: boardResponse?.total ?? 0,
+          totalPages: boardResponse?.totalPages ?? 1,
+          page: boardResponse?.page ?? 1,
+        }));
       } catch (err: any) {
         console.error("Error loading board:", err);
         setError(
@@ -94,7 +113,7 @@ export default function TaskBoardPage() {
     };
 
     loadInitialData();
-  }, [dispatch]);
+  }, [dispatch, pagination.limit]);
 
   // ========================================
   // Ã°Å¸â€Â¥ WHEN FILTERS CHANGE - RELOAD SUBTASKS FROM BACKEND
@@ -105,21 +124,29 @@ export default function TaskBoardPage() {
     // Only reload if filters changed (after initial load)
     const reloadBoard = async () => {
       try {
-        await dispatch(
+        const boardResponse = await dispatch(
           loadMyBoard({
             projectId: filters.projectId || undefined,
             scopeId: filters.scopeId || undefined,
             taskId: filters.taskId || undefined,
             search: filters.searchQuery || undefined,
-          })
+            page: pagination.page,
+            limit: pagination.limit,
+          }) as any
         );
+        setPagination((prev) => ({
+          ...prev,
+          total: boardResponse?.total ?? 0,
+          totalPages: boardResponse?.totalPages ?? 1,
+          page: boardResponse?.page ?? prev.page,
+        }));
       } catch (err: any) {
         console.error("Error reloading board with filters:", err);
       }
     };
 
     reloadBoard();
-  }, [filters.projectId, filters.scopeId, filters.taskId, filters.searchQuery, dispatch, loading]);
+  }, [filters.projectId, filters.scopeId, filters.taskId, filters.searchQuery, pagination.page, pagination.limit, dispatch, loading]);
 
   // ========================================
   // Ã°Å¸â€Â¥ LOAD scopes WHEN PROJECT CHANGES
@@ -184,6 +211,7 @@ export default function TaskBoardPage() {
       newFilters.taskId = null;
     }
     
+    setPagination((prev) => ({ ...prev, page: 1 }));
     setFilters(newFilters);
   }, [filters]);
 
@@ -223,10 +251,20 @@ export default function TaskBoardPage() {
   // ========================================
   // Ã°Å¸â€Â¥ HANDLERS
   // ========================================
-  const handleUpdateProgress = useCallback((subtask: SubtaskCardData) => {
-    setSelectedSubtask(subtask);
-    setProgressModalOpen(true);
-  }, []);
+  const handleUpdateProgress = useCallback(async (subtask: SubtaskCardData) => {
+    setActionLoadingId(subtask.id);
+    setError("");
+
+    try {
+      const detailedSubtask = await dispatch(loadMyBoardItem(subtask.id) as any);
+      setSelectedSubtask(detailedSubtask || subtask);
+      setProgressModalOpen(true);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to load task details");
+    } finally {
+      setActionLoadingId(null);
+    }
+  }, [dispatch]);
 
   const handleProgressModalClose = () => {
     setProgressModalOpen(false);
@@ -239,17 +277,34 @@ export default function TaskBoardPage() {
     const reloadBoard = async () => {
       try {
         // Ã°Å¸â€Â¥ CRITICAL: Reload subtasks AND filter data for consistency
-        await Promise.all([
-          dispatch(loadMyBoard()), // No filters - get ALL assigned from backend
-          dispatch(loadBoardFilterData()), // Refresh projects/scopes/tasks dropdowns
-        ]);
+        const boardResponse = await dispatch(
+          loadMyBoard({
+            projectId: filters.projectId || undefined,
+            scopeId: filters.scopeId || undefined,
+            taskId: filters.taskId || undefined,
+            search: filters.searchQuery || undefined,
+            page: pagination.page,
+            limit: pagination.limit,
+          }) as any
+        );
+        await dispatch(loadBoardFilterData() as any);
+        setPagination((prev) => ({
+          ...prev,
+          total: boardResponse?.total ?? 0,
+          totalPages: boardResponse?.totalPages ?? 1,
+          page: boardResponse?.page ?? prev.page,
+        }));
       } catch (err) {
         console.error("Error reloading board:", err);
       }
     };
 
     reloadBoard();
-  }, [dispatch]);
+  }, [dispatch, filters.projectId, filters.scopeId, filters.taskId, filters.searchQuery, pagination.page, pagination.limit]);
+
+  const handlePageChange = useCallback((page: number) => {
+    setPagination((prev) => ({ ...prev, page }));
+  }, []);
 
   // ========================================
   // Ã°Å¸â€Â¥ RENDER
@@ -319,7 +374,7 @@ export default function TaskBoardPage() {
                 textTransform: "uppercase",
               }}
             >
-              {filteredSubtasks.length} of {subtasks.length} tasks
+              {safeFilteredSubtasks.length} shown of {pagination.total || subtasks.length} tasks
             </Typography>
           </Box>
 
@@ -406,9 +461,14 @@ export default function TaskBoardPage() {
 
         {/* Grid View - Table */}
         {!loading && safeFilteredSubtasks.length > 0 && viewMode === "grid" && (
-          <GridTableView
+          <BoardCardGrid
             subtasks={safeFilteredSubtasks}
             onUpdateProgress={handleUpdateProgress}
+            actionLoadingId={actionLoadingId}
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            onPageChange={handlePageChange}
           />
         )}
 

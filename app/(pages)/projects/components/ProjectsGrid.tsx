@@ -37,7 +37,7 @@ import LayersIcon from "@mui/icons-material/Layers";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import SendIcon from "@mui/icons-material/Send";
 import PeopleIcon from "@mui/icons-material/People";
-import ProjectCard from "./ProjectCard";
+import ProjectCard, { getProjectVersionLabel } from "./ProjectCard";
 import { ProjectCardActions, ViewType } from "./types";
 import Guard from "@/app/components/shared/Guard";
 
@@ -60,6 +60,7 @@ interface ProjectsGridProps {
     hasPrevPage?: boolean;
   };
   onPageChange?: (page: number) => void;
+  actionMode?: "default" | "approval";
 }
 
 type ProjectGridItem = {
@@ -77,12 +78,28 @@ type ProjectGridItem = {
     name?: string;
   } | null;
   activatedAt?: string;
+  version?: string | number;
+  versionNumber?: string | number;
+  versionLabel?: string;
+  versionName?: string;
+  versionNo?: string | number;
+  currentVersion?: ProjectVersionSource | null;
+  activeVersion?: ProjectVersionSource | null;
+  selectedVersion?: ProjectVersionSource | null;
   location?: {
     street?: string;
     barangayName?: string;
     cityName?: string;
     provinceName?: string;
   } | null;
+};
+
+type ProjectVersionSource = {
+  version?: string | number;
+  versionNumber?: string | number;
+  versionLabel?: string;
+  versionName?: string;
+  versionNo?: string | number;
 };
 
 export default function ProjectsGrid({
@@ -97,11 +114,13 @@ export default function ProjectsGrid({
   createButtonLabel = "+ New Project",
   pagination,
   onPageChange,
+  actionMode = "default",
 }: ProjectsGridProps) {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuProject, setMenuProject] = useState<ProjectGridItem | null>(null);
 
   const menuOpen = Boolean(menuAnchor) && Boolean(menuProject);
+  const approvalOnly = actionMode === "approval";
 
   const openMenu = (
     event: React.MouseEvent<HTMLElement>,
@@ -317,7 +336,7 @@ export default function ProjectsGrid({
           <Table
             stickyHeader
             sx={{
-              minWidth: { xs: 760, md: 820 },
+              minWidth: { xs: 860, md: 920 },
               tableLayout: "fixed",
               "& .MuiTableCell-root": {
                 px: { xs: 1.25, md: 1.75 },
@@ -331,6 +350,9 @@ export default function ProjectsGrid({
               <TableRow>
                 <TableCell sx={{ ...tableHeadCellSx, width: "28%", bgcolor: "#F8FAFC" }}>
                   Project Name
+                </TableCell>
+                <TableCell sx={{ ...tableHeadCellSx, width: 132, bgcolor: "#F8FAFC" }}>
+                  Version
                 </TableCell>
                 <TableCell sx={{ ...tableHeadCellSx, width: 132, bgcolor: "#F8FAFC" }}>
                   Status
@@ -376,6 +398,28 @@ export default function ProjectsGrid({
                       </Typography>
                     </TableCell>
                     <TableCell sx={tableBodyCellSx}>
+                      <Tooltip title={getProjectVersionLabel(project)}>
+                        <Chip
+                          size="small"
+                          icon={<LayersIcon sx={{ fontSize: 13 }} />}
+                          label={getProjectVersionLabel(project)}
+                          sx={{
+                            maxWidth: 118,
+                            height: 23,
+                            fontSize: 10,
+                            fontWeight: 800,
+                            bgcolor: "#F8FAFC",
+                            color: "#334155",
+                            border: "1px solid #CBD5E1",
+                            "& .MuiChip-label": {
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            },
+                          }}
+                        />
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell sx={tableBodyCellSx}>
                       <Chip
                         size="small"
                         label={status.label}
@@ -414,23 +458,48 @@ export default function ProjectsGrid({
                       className="project-action-cell"
                       sx={{ ...tableBodyCellSx, ...stickyActionCellSx }}
                     >
-                      <Tooltip title="Actions">
-                        <IconButton
+                      {approvalOnly ? (
+                        <Button
                           size="small"
-                          onClick={(event) => openMenu(event, project)}
+                          variant="outlined"
+                          startIcon={<VisibilityIcon sx={{ fontSize: 16 }} />}
+                          onClick={() => actions.onViewApproval(project)}
                           sx={{
-                            color: "#334155",
-                            border: "1px solid #E2E8F0",
-                            bgcolor: "#FFFFFF",
+                            minWidth: 72,
+                            borderRadius: 1.5,
+                            textTransform: "none",
+                            fontWeight: 800,
+                            fontSize: 12,
+                            color: "#1D4ED8",
+                            borderColor: "#BFDBFE",
+                            bgcolor: "#EFF6FF",
                             "&:hover": {
-                              bgcolor: "#F1F5F9",
-                              borderColor: "#CBD5E1",
+                              bgcolor: "#DBEAFE",
+                              borderColor: "#93C5FD",
                             },
                           }}
                         >
-                          <MoreVertIcon sx={{ fontSize: 18 }} />
-                        </IconButton>
-                      </Tooltip>
+                          View
+                        </Button>
+                      ) : (
+                        <Tooltip title="Actions">
+                          <IconButton
+                            size="small"
+                            onClick={(event) => openMenu(event, project)}
+                            sx={{
+                              color: "#334155",
+                              border: "1px solid #E2E8F0",
+                              bgcolor: "#FFFFFF",
+                              "&:hover": {
+                                bgcolor: "#F1F5F9",
+                                borderColor: "#CBD5E1",
+                              },
+                            }}
+                          >
+                            <MoreVertIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -481,12 +550,13 @@ export default function ProjectsGrid({
         )}
         </Box>
 
-        <Menu
-          anchorEl={menuAnchor}
-          open={menuOpen}
-          onClose={closeMenu}
-        >
-          {menuProject
+        {!approvalOnly && (
+          <Menu
+            anchorEl={menuAnchor}
+            open={menuOpen}
+            onClose={closeMenu}
+          >
+            {menuProject
             ? [
                 (!menuProject.status || menuProject.status === "DRAFT" || menuProject.status === "FOR_REVIEW" || menuProject.status === "NEEDS_REVISION") && (
                   <MenuItem key="setup" onClick={() => runMenuAction(() => actions.onSetup(menuProject.id))}>
@@ -538,8 +608,9 @@ export default function ProjectsGrid({
                   <ListItemText>Delete</ListItemText>
                 </MenuItem>,
               ]
-            : null}
-        </Menu>
+              : null}
+          </Menu>
+        )}
       </Box>
     );
   }
@@ -550,7 +621,12 @@ export default function ProjectsGrid({
       <Grid container spacing={3}>
         {projects.map((project) => (
           <Grid size={{ xs: 12, sm: 6, lg: 4, xl: 3 }} key={project.id}>
-            <ProjectCard project={project} actions={actions} viewType="card" />
+            <ProjectCard
+              project={project}
+              actions={actions}
+              viewType="card"
+              actionMode={actionMode}
+            />
           </Grid>
         ))}
       </Grid>

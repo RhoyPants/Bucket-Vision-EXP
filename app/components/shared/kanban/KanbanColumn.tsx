@@ -49,9 +49,9 @@ export default function KanbanColumn({
     <Box
       ref={setNodeRef}
       sx={{
-        backgroundColor: "#f7f7fb",
+        backgroundColor: showHierarchy ? "#F8FAFC" : "#f7f7fb",
         borderRadius: 2,
-        p: 2,
+        p: showHierarchy ? 1.5 : 2,
         minHeight: "300px",
         maxHeight: "72vh",
         overflowY: "auto",
@@ -63,7 +63,14 @@ export default function KanbanColumn({
       }}
     >
       {/* TITLE */}
-      <Typography sx={{ fontWeight: 700, mb: 1 }}>
+      <Typography
+        sx={{
+          fontWeight: 800,
+          mb: showHierarchy ? 1.25 : 1,
+          fontSize: showHierarchy ? 13 : "inherit",
+          color: "#1f2937",
+        }}
+      >
         {title} ({sortedItems.length})
       </Typography>
 

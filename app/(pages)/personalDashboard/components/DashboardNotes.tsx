@@ -46,7 +46,6 @@ export default function DashboardNotes({
   notes,
   loading,
   error,
-  isEditMode,
   onCreateNote,
   onEditNote,
   onDeleteNote,
@@ -68,6 +67,9 @@ export default function DashboardNotes({
 
   const [editingItem, setEditingItem] = useState<ChecklistItem | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string>(NOTE_LIST_TAB);
+  const [inlineItemText, setInlineItemText] = useState("");
+  const [inlineItemSavingNoteId, setInlineItemSavingNoteId] = useState<string | null>(null);
+  const [inlineItemError, setInlineItemError] = useState("");
 
   const sortedNotes = useMemo(
     () => [...notes].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -197,6 +199,29 @@ export default function DashboardNotes({
     }
   };
 
+  const handleAddInlineItem = async (note: DashboardNote) => {
+    const text = inlineItemText.trim();
+    if (!text) {
+      setInlineItemError("Checklist item is required");
+      return;
+    }
+
+    setInlineItemSavingNoteId(note.id);
+    setInlineItemError("");
+    try {
+      await onAddChecklistItem(note.id, {
+        text,
+        isDone: false,
+        sortOrder: note.items.length,
+      });
+      setInlineItemText("");
+    } catch (err) {
+      setInlineItemError(err instanceof Error ? err.message : "Failed to add checklist item");
+    } finally {
+      setInlineItemSavingNoteId(null);
+    }
+  };
+
   const handleToggleItemDone = async (note: DashboardNote, item: ChecklistItem) => {
     try {
       await onEditChecklistItem(note.id, item.id, { isDone: !item.isDone });
@@ -233,17 +258,15 @@ export default function DashboardNotes({
               <NoteIcon sx={{ color: "#4B2E83" }} />
               <Typography fontWeight={900}>Notes & Checklist</Typography>
             </Stack>
-            {isEditMode && (
-              <Button
-                size="small"
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => handleOpenNoteDialog()}
-                sx={{ textTransform: "none", fontWeight: 800, backgroundColor: "#4B2E83" }}
-              >
-                Add Note
-              </Button>
-            )}
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenNoteDialog()}
+              sx={{ textTransform: "none", fontWeight: 800, backgroundColor: "#4B2E83" }}
+            >
+              Add Note
+            </Button>
           </Stack>
 
           {error && (
@@ -254,7 +277,7 @@ export default function DashboardNotes({
 
           {notes.length === 0 ? (
             <Alert severity="info">
-              {isEditMode ? "No notes yet. Create one to organize your dashboard activities." : "No notes available."}
+              No notes yet. Create one to organize your dashboard activities.
             </Alert>
           ) : (
             <Card sx={{ border: "1px solid #dbeafe", borderRadius: 2, boxShadow: "none", backgroundColor: "#fff" }}>
@@ -360,36 +383,34 @@ export default function DashboardNotes({
                         )}
                       </Box>
 
-                      {isEditMode && (
-                        <Stack
-                          className="note-actions"
-                          direction="row"
-                          spacing={0.5}
-                          sx={{
-                            position: "absolute",
-                            top: -2,
-                            right: -4,
-                            opacity: 0,
-                            pointerEvents: "none",
-                            transition: "opacity 0.18s ease",
-                            backgroundColor: "rgba(255,255,255,0.92)",
-                            border: "1px solid #e2e8f0",
-                            borderRadius: 1,
-                            px: 0.25,
-                          }}
-                        >
-                          <Tooltip title="Edit note">
-                            <IconButton size="small" onClick={() => handleOpenNoteDialog(selectedNote)}>
-                              <EditIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete note">
-                            <IconButton size="small" color="error" onClick={() => handleDeleteNote(selectedNote.id)}>
-                              <DeleteIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </Tooltip>
-                        </Stack>
-                      )}
+                      <Stack
+                        className="note-actions"
+                        direction="row"
+                        spacing={0.5}
+                        sx={{
+                          position: "absolute",
+                          top: -2,
+                          right: -4,
+                          opacity: 0,
+                          pointerEvents: "none",
+                          transition: "opacity 0.18s ease",
+                          backgroundColor: "rgba(255,255,255,0.92)",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 1,
+                          px: 0.25,
+                        }}
+                      >
+                        <Tooltip title="Edit note">
+                          <IconButton size="small" onClick={() => handleOpenNoteDialog(selectedNote)}>
+                            <EditIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete note">
+                          <IconButton size="small" color="error" onClick={() => handleDeleteNote(selectedNote.id)}>
+                            <DeleteIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
                     </Box>
 
                     {selectedNote.items.length > 0 && (
@@ -423,7 +444,6 @@ export default function DashboardNotes({
                                   size="small"
                                   checked={item.isDone}
                                   onChange={() => handleToggleItemDone(selectedNote, item)}
-                                  disabled={!isEditMode}
                                   sx={{ py: 0 }}
                                 />
                                 <Typography
@@ -438,61 +458,91 @@ export default function DashboardNotes({
                                 </Typography>
                               </Stack>
 
-                              {isEditMode && (
-                                <Stack
-                                  className="item-actions"
-                                  direction="row"
-                                  spacing={0.25}
-                                  sx={{
-                                    position: "absolute",
-                                    top: "50%",
-                                    right: 6,
-                                    transform: "translateY(-50%)",
-                                    opacity: 0,
-                                    pointerEvents: "none",
-                                    transition: "opacity 0.18s ease",
-                                    backgroundColor: "rgba(255,255,255,0.95)",
-                                    border: "1px solid #e2e8f0",
-                                    borderRadius: 1,
-                                    px: 0.25,
-                                  }}
-                                >
-                                  <Tooltip title="Edit">
-                                    <IconButton
-                                      size="small"
-                                      sx={{ py: 0, px: 0.5 }}
-                                      onClick={() => handleOpenItemDialog(selectedNote, item)}
-                                    >
-                                      <EditIcon sx={{ fontSize: 14 }} />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title="Delete">
-                                    <IconButton
-                                      size="small"
-                                      color="error"
-                                      sx={{ py: 0, px: 0.5 }}
-                                      onClick={() => handleDeleteItem(selectedNote.id, item.id)}
-                                    >
-                                      <DeleteIcon sx={{ fontSize: 14 }} />
-                                    </IconButton>
-                                  </Tooltip>
-                                </Stack>
-                              )}
+                              <Stack
+                                className="item-actions"
+                                direction="row"
+                                spacing={0.25}
+                                sx={{
+                                  position: "absolute",
+                                  top: "50%",
+                                  right: 6,
+                                  transform: "translateY(-50%)",
+                                  opacity: 0,
+                                  pointerEvents: "none",
+                                  transition: "opacity 0.18s ease",
+                                  backgroundColor: "rgba(255,255,255,0.95)",
+                                  border: "1px solid #e2e8f0",
+                                  borderRadius: 1,
+                                  px: 0.25,
+                                }}
+                              >
+                                <Tooltip title="Edit">
+                                  <IconButton
+                                    size="small"
+                                    sx={{ py: 0, px: 0.5 }}
+                                    onClick={() => handleOpenItemDialog(selectedNote, item)}
+                                  >
+                                    <EditIcon sx={{ fontSize: 14 }} />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Delete">
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    sx={{ py: 0, px: 0.5 }}
+                                    onClick={() => handleDeleteItem(selectedNote.id, item.id)}
+                                  >
+                                    <DeleteIcon sx={{ fontSize: 14 }} />
+                                  </IconButton>
+                                </Tooltip>
+                              </Stack>
                             </Box>
                           ))}
                       </Stack>
                     )}
 
-                    {isEditMode && (
+                    <Stack spacing={0.75} sx={{ mt: 1 }}>
+                      {inlineItemError && (
+                        <Alert severity="error" sx={{ py: 0.25, fontSize: 11 }}>
+                          {inlineItemError}
+                        </Alert>
+                      )}
+                      <Stack direction={{ xs: "column", sm: "row" }} spacing={0.75}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          placeholder="Add checklist item..."
+                          value={inlineItemText}
+                          onChange={(e) => {
+                            setInlineItemText(e.target.value);
+                            setInlineItemError("");
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddInlineItem(selectedNote);
+                            }
+                          }}
+                          disabled={inlineItemSavingNoteId === selectedNote.id}
+                          sx={{
+                            "& .MuiInputBase-input": {
+                              fontSize: 12,
+                              py: 0.8,
+                            },
+                          }}
+                        />
                       <Button
                         size="small"
                         startIcon={<AddIcon sx={{ fontSize: 14 }} />}
-                        onClick={() => handleOpenItemDialog(selectedNote)}
-                        sx={{ mt: 1, fontSize: 11, textTransform: "none" }}
+                          variant="outlined"
+                          onClick={() => handleAddInlineItem(selectedNote)}
+                          disabled={inlineItemSavingNoteId === selectedNote.id}
+                          sx={{ fontSize: 11, textTransform: "none", fontWeight: 800, whiteSpace: "nowrap" }}
                       >
-                        Add Item
+                          {inlineItemSavingNoteId === selectedNote.id ? "Adding..." : "Add"}
                       </Button>
-                    )}
+                      </Stack>
+                    </Stack>
                   </Box>
                 )}
               </CardContent>

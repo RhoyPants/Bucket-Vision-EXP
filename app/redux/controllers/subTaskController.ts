@@ -7,6 +7,8 @@ import {
   setSubtasks,
   reorderSubtasksForParent,
   toggleChecklistLocal,
+  addChecklistLocal,
+  removeChecklistLocal,
   removeSubtask,
   setBoardFilters,
   setTasksForBoard,
@@ -15,6 +17,7 @@ import {
 import { mapTaskToKanban } from "@/app/utils/kanbanAdapter";
 import { updateTaskProgress } from "../slices/taskSlice";
 import { getSCurve } from "./scurveController";
+import { normalizeBoardItem } from "@/app/api-service/myBoardService";
 
 // ========================================
 // LOAD FULL TASK (KANBAN)
@@ -204,10 +207,26 @@ export const toggleChecklist = (checklistId: string, taskId?: string) => {
 // ADD CHECKLIST
 // ========================================
 export const addChecklist = (data: { subtaskId: string; title: string }) => {
-  return async () => {
+  return async (dispatch: AppDispatch) => {
     try {
       const res = await axiosApi.post("/subtasks/checklists", data);
-      return res.data;
+      const created = res.data?.data || res.data;
+
+      if (created?.id) {
+        dispatch(
+          addChecklistLocal({
+            subtaskId: data.subtaskId,
+            checklist: {
+              id: created.id,
+              title: created.title ?? data.title,
+              isCompleted: created.isCompleted ?? false,
+              order: created.order ?? 0,
+            },
+          }),
+        );
+      }
+
+      return created;
     } catch (err) {
       console.error("❌ Error adding checklist:", err);
       throw err;
@@ -219,9 +238,10 @@ export const addChecklist = (data: { subtaskId: string; title: string }) => {
 // DELETE CHECKLIST
 // ========================================
 export const deleteChecklist = (checklistId: string) => {
-  return async () => {
+  return async (dispatch: AppDispatch) => {
     try {
       await axiosApi.delete(`/subtasks/checklists/${checklistId}`);
+      dispatch(removeChecklistLocal({ checklistId }));
     } catch (err) {
       console.error("❌ Error deleting checklist:", err);
       throw err;
@@ -267,6 +287,8 @@ export const loadMyBoard = (filters?: {
   scopeId?: string;
   taskId?: string;
   search?: string;
+  page?: number;
+  limit?: number;
 }) => {
   return async (dispatch: AppDispatch) => {
     try {
@@ -276,6 +298,8 @@ export const loadMyBoard = (filters?: {
       if (filters?.scopeId) params.append("scopeId", filters.scopeId);
       if (filters?.taskId) params.append("taskId", filters.taskId);
       if (filters?.search) params.append("search", filters.search);
+      if (filters?.page) params.append("page", String(filters.page));
+      if (filters?.limit) params.append("limit", String(filters.limit));
 
       const queryString = params.toString();
       const url = queryString
@@ -285,11 +309,26 @@ export const loadMyBoard = (filters?: {
       const res = await axiosApi.get(url);
 
       // ✅ Set subtasks to Redux
-      dispatch(setSubtasks(res.data.data || []));
+      dispatch(setSubtasks((res.data.data || []).map(normalizeBoardItem) as any));
 
       return res.data;
     } catch (err) {
       console.error("❌ Error loading my board:", err);
+      throw err;
+    }
+  };
+};
+
+// ========================================
+// LOAD MY BOARD ITEM DETAIL
+// ========================================
+export const loadMyBoardItem = (itemId: string) => {
+  return async () => {
+    try {
+      const res = await axiosApi.get(`/subtasks/board/item/${itemId}`);
+      return normalizeBoardItem(res.data?.data || res.data);
+    } catch (err) {
+      console.error("❌ Error loading board item:", err);
       throw err;
     }
   };

@@ -45,6 +45,7 @@ export default function KanbanBoard({
   const dispatch = useAppDispatch();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [openTaskModal, setOpenTaskModal] = useState(false);
+  const isTaskBoard = showHierarchy && parentTaskId === null;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -86,11 +87,16 @@ export default function KanbanBoard({
     id.startsWith("subtask-") ? id.replace("subtask-", "") : null;
 
   const handleDragStart = (event: DragStartEvent) => {
+    if (isTaskBoard) return;
     const id = extractId(String(event.active.id));
     setActiveId(id);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
+    if (isTaskBoard) {
+      setActiveId(null);
+      return;
+    }
     const { active, over } = event;
     setActiveId(null);
 
@@ -155,12 +161,31 @@ export default function KanbanBoard({
         )}
       </Box>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
+      {isTaskBoard ? (
+        <Box sx={{ display: "flex", gap: 2, overflowX: "auto" }}>
+          {columns.map((col) => (
+            <Box key={col.id} sx={{ minWidth: 300 }}>
+              <KanbanColumn
+                id={String(col.id)}
+                title={col.title}
+                items={columnMap[col.id] || []}
+                parentTaskId={parentTaskId}
+                taskBudget={taskBudget}
+                projectId={projectId}
+                activeId={null}
+                onProgressSuccess={onProgressSuccess}
+                showHierarchy={showHierarchy}
+              />
+            </Box>
+          ))}
+        </Box>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
         <Box sx={{ display: "flex", gap: 2, overflowX: "auto" }}>
           {columns.map((col) => (
             <Box key={col.id} sx={{ minWidth: 300 }}>
@@ -185,6 +210,7 @@ export default function KanbanBoard({
           ) : null}
         </DragOverlay>
       </DndContext>
+      )}
 
       {/* MODAL */}
       {/* 🔥 Only show on sprint management (when parentTaskId is provided) */}

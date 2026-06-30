@@ -133,6 +133,8 @@ export interface ChartData {
   kpiStatusDistribution?: DashboardSummary;
   taskCompletion?: {
     completed: number;
+    ongoing?: number;
+    inProgress?: number;
     pending: number;
     total: number;
   };

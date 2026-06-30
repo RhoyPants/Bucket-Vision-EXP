@@ -13,6 +13,7 @@ import {
 } from "@/app/(pages)/projects/components/types";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { getMyApprovalsProjects } from "@/app/redux/controllers/projectController";
+import type { Projects } from "@/app/redux/slices/projectSlice";
 
 export default function MyApprovalsPage() {
   const dispatch = useAppDispatch();
@@ -39,10 +40,10 @@ export default function MyApprovalsPage() {
   const counts = useMemo(() => {
     return {
       total: approvalProjects.length,
-      forReview: approvalProjects.filter((p: any) => p.status === "FOR_REVIEW")
+      forReview: approvalProjects.filter((p: Projects) => p.status === "FOR_REVIEW")
         .length,
       forApproval: approvalProjects.filter(
-        (p: any) => p.status === "FOR_APPROVAL",
+        (p: Projects) => p.status === "FOR_APPROVAL",
       ).length,
     };
   }, [approvalProjects]);
@@ -123,6 +124,7 @@ export default function MyApprovalsPage() {
             emptySubtext="New review or approval requests assigned to you will appear here"
             pagination={pagination}
             onPageChange={setPage}
+            actionMode="approval"
           />
         </Box>
       </Guard>

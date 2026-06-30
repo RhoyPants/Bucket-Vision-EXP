@@ -6,6 +6,7 @@ import {
   Typography,
   Card,
   CardContent,
+  Button,
   IconButton,
   Stack,
   Chip,
@@ -45,6 +46,14 @@ type ProjectCardProject = {
     name?: string;
   } | null;
   activatedAt?: string;
+  version?: string | number;
+  versionNumber?: string | number;
+  versionLabel?: string;
+  versionName?: string;
+  versionNo?: string | number;
+  currentVersion?: ProjectVersionSource | null;
+  activeVersion?: ProjectVersionSource | null;
+  selectedVersion?: ProjectVersionSource | null;
   location?: {
     street?: string;
     barangayName?: string;
@@ -53,11 +62,20 @@ type ProjectCardProject = {
   } | null;
 };
 
+type ProjectVersionSource = {
+  version?: string | number;
+  versionNumber?: string | number;
+  versionLabel?: string;
+  versionName?: string;
+  versionNo?: string | number;
+};
+
 interface ProjectCardProps {
   project: ProjectCardProject;
   actions: ProjectCardActions;
   viewType: ViewType;
   gridTemplate?: string;
+  actionMode?: "default" | "approval";
 }
 
 export const formatLocation = (location?: ProjectCardProject["location"]): string => {
@@ -67,6 +85,37 @@ export const formatLocation = (location?: ProjectCardProject["location"]): strin
     [street, barangayName, cityName, provinceName].filter(Boolean).join(", ") ||
     "No location"
   );
+};
+
+export const getProjectVersionLabel = (project: ProjectCardProject): string => {
+  const raw =
+    project.versionLabel ||
+    project.versionName ||
+    project.versionNumber ||
+    project.versionNo ||
+    project.version ||
+    project.currentVersion?.versionLabel ||
+    project.currentVersion?.versionName ||
+    project.currentVersion?.versionNumber ||
+    project.currentVersion?.versionNo ||
+    project.currentVersion?.version ||
+    project.activeVersion?.versionLabel ||
+    project.activeVersion?.versionName ||
+    project.activeVersion?.versionNumber ||
+    project.activeVersion?.versionNo ||
+    project.activeVersion?.version ||
+    project.selectedVersion?.versionLabel ||
+    project.selectedVersion?.versionName ||
+    project.selectedVersion?.versionNumber ||
+    project.selectedVersion?.versionNo ||
+    project.selectedVersion?.version;
+
+  if (raw === undefined || raw === null || raw === "") return "Version not set";
+
+  const label = String(raw).trim();
+  const normalized = label.toLowerCase();
+  if (normalized.startsWith("v") || normalized.includes("version")) return label;
+  return `Version ${label}`;
 };
 
 const priorityTone = (priority?: string) => {
@@ -250,6 +299,7 @@ export default function ProjectCard({
   actions,
   viewType,
   gridTemplate = "1fr 110px 170px 110px 80px 80px",
+  actionMode = "default",
 }: ProjectCardProps) {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const menuOpen = Boolean(menuAnchor);
@@ -268,6 +318,10 @@ export default function ProjectCard({
   const priorityStyle = priorityTone(project.priority);
   const cardBackground = priorityCardTone(project.priority);
   const businessUnitName = project.businessUnitDetails?.name || project.businessUnit || "No BU";
+  const versionLabel = getProjectVersionLabel(project);
+  const approvalOnly = actionMode === "approval";
+  const headerBackground = cardBackground;
+  const headerBorder = project.priority ? priorityStyle.border : "#E5E7EB";
 
   const openMenu = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
@@ -288,51 +342,61 @@ export default function ProjectCard({
 
   const actionMenu = (
     <Menu anchorEl={menuAnchor} open={menuOpen} onClose={closeMenu} onClick={(e) => e.stopPropagation()}>
-      {needsSetup && (
-        <MenuItem onClick={menuAction(() => actions.onSetup(project.id))}>
+      {approvalOnly ? (
+        <MenuItem onClick={menuAction(() => actions.onViewApproval(project))}>
+          <ListItemIcon><VisibilityIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>View</ListItemText>
+        </MenuItem>
+      ) : (
+        [
+      needsSetup && (
+        <MenuItem key="setup" onClick={menuAction(() => actions.onSetup(project.id))}>
           <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Setup Project</ListItemText>
         </MenuItem>
-      )}
-      {(isForApproval || isRejected || isActive) && (
-        <MenuItem onClick={menuAction(() => actions.onViewApproval(project))}>
+      ),
+      (isForApproval || isRejected || isActive) && (
+        <MenuItem key="view-approval" onClick={menuAction(() => actions.onViewApproval(project))}>
           <ListItemIcon><VisibilityIcon fontSize="small" /></ListItemIcon>
           <ListItemText>View Approval</ListItemText>
         </MenuItem>
-      )}
-      {isRejected && (
-        <MenuItem onClick={menuAction(() => actions.onSubmitForApproval(project))}>
+      ),
+      isRejected && (
+        <MenuItem key="resubmit" onClick={menuAction(() => actions.onSubmitForApproval(project))}>
           <ListItemIcon><SendIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Revise &amp; Resubmit</ListItemText>
         </MenuItem>
-      )}
-      {isActive && (
-        <MenuItem onClick={menuAction(() => actions.onTeamManage(project))}>
+      ),
+      isActive && (
+        <MenuItem key="team-management" onClick={menuAction(() => actions.onTeamManage(project))}>
           <ListItemIcon><PeopleIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Team Management</ListItemText>
         </MenuItem>
-      )}
-      {isActive && (
-        <MenuItem onClick={menuAction(() => actions.onVersion(project))}>
+      ),
+      isActive && (
+        <MenuItem key="project-versions" onClick={menuAction(() => actions.onVersion(project))}>
           <ListItemIcon><LayersIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Project Versions</ListItemText>
         </MenuItem>
-      )}
-      <MenuItem onClick={menuAction(() => actions.onSprint(project.id))}>
+      ),
+      <MenuItem key="sprint" onClick={menuAction(() => actions.onSprint(project.id))}>
         <ListItemIcon><AssignmentIcon fontSize="small" /></ListItemIcon>
         <ListItemText>Sprint Management</ListItemText>
       </MenuItem>
-      {!isArchived && (
-        <MenuItem onClick={menuAction(() => actions.onEdit(project))}>
+      ,
+      !isArchived && (
+        <MenuItem key="edit" onClick={menuAction(() => actions.onEdit(project))}>
           <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Edit Project</ListItemText>
         </MenuItem>
-      )}
-      <Divider />
-      <MenuItem onClick={handleDelete} sx={{ color: "#B91C1C" }}>
+      ),
+      <Divider key="divider" />,
+      <MenuItem key="delete" onClick={handleDelete} sx={{ color: "#B91C1C" }}>
         <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
         <ListItemText>Delete</ListItemText>
-      </MenuItem>
+      </MenuItem>,
+        ]
+      )}
     </Menu>
   );
 
@@ -367,13 +431,32 @@ export default function ProjectCard({
           </Typography>
         </Box>
 
-        <Box>
+        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
           <Chip
             size="small"
             label={chipStyle.label}
             sx={{ fontSize: 10, fontWeight: 800, bgcolor: chipStyle.bg, color: chipStyle.color, border: `1px solid ${chipStyle.border}` }}
           />
-        </Box>
+          <Tooltip title={versionLabel}>
+            <Chip
+              size="small"
+              icon={<LayersIcon sx={{ fontSize: 13 }} />}
+              label={versionLabel}
+              sx={{
+                maxWidth: 110,
+                fontSize: 10,
+                fontWeight: 800,
+                bgcolor: "#F8FAFC",
+                color: "#334155",
+                border: "1px solid #CBD5E1",
+                "& .MuiChip-label": {
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                },
+              }}
+            />
+          </Tooltip>
+        </Stack>
 
         <Box sx={{ display: { xs: "none", md: "block" }, minWidth: 0 }}>
           <DateRangeMeta
@@ -407,12 +490,37 @@ export default function ProjectCard({
         </Box>
 
         <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-          <Tooltip title="Actions">
-            <IconButton size="small" onClick={openMenu} sx={{ color: "#64748B" }}>
-              <MoreVertIcon sx={{ fontSize: 18 }} />
-            </IconButton>
-          </Tooltip>
-          {actionMenu}
+          {approvalOnly ? (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<VisibilityIcon sx={{ fontSize: 16 }} />}
+              onClick={(event) => {
+                event.stopPropagation();
+                actions.onViewApproval(project);
+              }}
+              sx={{
+                minWidth: 72,
+                borderRadius: 1.5,
+                textTransform: "none",
+                fontWeight: 800,
+                color: "#1D4ED8",
+                borderColor: "#BFDBFE",
+                bgcolor: "#EFF6FF",
+              }}
+            >
+              View
+            </Button>
+          ) : (
+            <>
+              <Tooltip title="Actions">
+                <IconButton size="small" onClick={openMenu} sx={{ color: "#64748B" }}>
+                  <MoreVertIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Tooltip>
+              {actionMenu}
+            </>
+          )}
         </Box>
       </Box>
     );
@@ -441,18 +549,21 @@ export default function ProjectCard({
         <Box
           sx={{
             display: "flex",
+            flexDirection: "column",
             justifyContent: "space-between",
             alignItems: "flex-start",
-            gap: 1.5,
+            gap: 0.75,
             px: 2,
             py: 2,
-            backgroundColor: cardBackground,
-            borderBottom: `1px solid ${project.priority ? priorityStyle.border : "#E5E7EB"}`,
+            height: 90,
+            position: "relative",
+            backgroundColor: headerBackground,
+            borderBottom: `1px solid ${headerBorder}`,
             borderTopLeftRadius: "16px",
             borderTopRightRadius: "16px",
           }}
         >
-          <Box sx={{ flex: 1, minWidth: 0, pr: 1 }}>
+          <Box sx={{ flex: 1, minWidth: 0, pr: approvalOnly ? 10 : 4, width: "100%" }}>
             <Typography fontWeight={800} sx={{ fontSize: 15, color: "#0F172A", lineHeight: 1.35, mb: 0.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {project.name || "Untitled Project"}
             </Typography>
@@ -466,36 +577,77 @@ export default function ProjectCard({
                 overflow: "hidden",
                 lineHeight: 1.45,
                 minHeight: 34,
+                wordBreak: "break-word",
               }}
             >
               {project.description || "No description"}
             </Typography>
           </Box>
 
-          <Stack spacing={0.8} alignItems="flex-end" sx={{ minWidth: 0 }}>
-            <Stack direction="row" spacing={0.6} alignItems="center">
-              <Chip
+          <Tooltip title={versionLabel}>
+            <Chip
+              size="small"
+              icon={<LayersIcon sx={{ fontSize: 13 }} />}
+              label={versionLabel}
+              sx={{
+                height: 22,
+                maxWidth: 130,
+                position: "absolute",
+                left: 16,
+                bottom: -11,
+                zIndex: 1,
+                fontSize: 10,
+                fontWeight: 800,
+                bgcolor: "#FFFFFF",
+                color: "#334155",
+                border: "1px solid #CBD5E1",
+                boxShadow: "0 2px 6px rgba(15, 23, 42, 0.08)",
+                "& .MuiChip-label": {
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                },
+              }}
+            />
+          </Tooltip>
+          <Chip
+            size="small"
+            label={chipStyle.label}
+            sx={{
+              height: 22,
+              flexShrink: 0,
+              position: "absolute",
+              right: 16,
+              bottom: -11,
+              zIndex: 1,
+              fontSize: 10,
+              fontWeight: 800,
+              bgcolor: "#FFFFFF",
+              color: chipStyle.color,
+              border: `1px solid ${chipStyle.border}`,
+              boxShadow: "0 2px 6px rgba(15, 23, 42, 0.08)",
+            }}
+          />
+          {!approvalOnly && (
+                <Tooltip title="Actions">
+              <IconButton
                 size="small"
-                label={chipStyle.label}
+                onClick={openMenu}
                 sx={{
-                  height: 22,
-                  fontSize: 10,
-                  fontWeight: 800,
-                  bgcolor: chipStyle.bg,
-                  color: chipStyle.color,
-                  border: `1px solid ${chipStyle.border}`,
+                  color: "#64748B",
+                  position: "absolute",
+                  top: 12,
+                  right: 12,
+                  width: 26,
+                  height: 26,
                 }}
-              />
-              <Tooltip title="Actions">
-                <IconButton size="small" onClick={openMenu} sx={{ color: "#64748B" }}>
-                  <MoreVertIcon sx={{ fontSize: 18 }} />
-                </IconButton>
-              </Tooltip>
-            </Stack>
-          </Stack>
+              >
+                    <MoreVertIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Tooltip>
+          )}
         </Box>
 
-        <Stack spacing={1.1} sx={{ mb: 2, p: 2 }}>
+        <Stack spacing={1.1} sx={{ mb: 2, px: 2, pt: 3, pb: 2 }}>
           <MetaItem
             icon={<PlaceIcon sx={{ fontSize: 16 }} />}
             label="Location"
@@ -527,7 +679,7 @@ export default function ProjectCard({
         />
       </Box>
 
-      {actionMenu}
+      {!approvalOnly && actionMenu}
     </Card>
   );
 }

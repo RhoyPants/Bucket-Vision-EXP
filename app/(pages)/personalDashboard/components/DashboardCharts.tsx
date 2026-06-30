@@ -22,7 +22,6 @@ import {
   DashboardSummary,
   PersonalDashboard,
 } from "@/app/api-service/personalDashboardService";
-import SummaryTile from "./SummaryTile";
 import MeasuredChartContainer from "./MeasuredChartContainer";
 
 const statusColors: Record<string, { accent: string }> = {
@@ -86,8 +85,20 @@ export default function DashboardCharts({
   const trendData = chartData?.progressTrend ?? [];
   const completionData = chartData?.taskCompletion
     ? [
-        { name: "Completed", value: chartData.taskCompletion.completed },
         { name: "Pending", value: chartData.taskCompletion.pending },
+        {
+          name: "Ongoing",
+          value:
+            chartData.taskCompletion.ongoing ??
+            chartData.taskCompletion.inProgress ??
+            Math.max(
+              (chartData.taskCompletion.total ?? 0) -
+                (chartData.taskCompletion.pending ?? 0) -
+                (chartData.taskCompletion.completed ?? 0),
+              0,
+            ),
+        },
+        { name: "Completed", value: chartData.taskCompletion.completed },
       ]
     : [];
 

@@ -26,6 +26,7 @@ import BlockIcon from "@mui/icons-material/Block";
 import ViewWeekIcon from "@mui/icons-material/ViewWeek";
 import ViewAgendaIcon from "@mui/icons-material/ViewAgenda";
 import DownloadIcon from "@mui/icons-material/Download";
+import LayersIcon from "@mui/icons-material/Layers";
 import axios from "@/app/lib/axios";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import {
@@ -37,14 +38,114 @@ import ApprovalFlowUI from "@/app/components/shared/modals/ApprovalModals/Approv
 import ApprovalAuditTrail from "@/app/components/shared/modals/ApprovalModals/ApprovalAuditTrail";
 import ApprovalRejectDialog from "@/app/components/shared/modals/ApprovalModals/ApprovalRejectDialog";
 import GanttGridView from "@/app/(pages)/sprintManagement/Components/GridTableView";
-import ProjectSetupWizard from "@/app/components/ProjectSetupWizard";
 import StructuredViewComponent from "./components/StructuredView";
 import {
+  ApiAttachment,
   getAttachmentFileName,
   getAttachmentFileUrl,
 } from "@/app/api-service/attachmentService";
+import type { Scope } from "./components/types";
 
 type ViewMode = "structured" | "gantt";
+
+type ApiError = {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+};
+
+type ProjectVersionSource = {
+  version?: string | number;
+  versionNumber?: string | number;
+  versionLabel?: string;
+  versionName?: string;
+  versionNo?: string | number;
+};
+
+type ApprovalTask = Record<string, unknown> & {
+  subtasks?: unknown[];
+};
+
+type ApprovalScope = Record<string, unknown> & {
+  tasks?: ApprovalTask[];
+};
+
+type ApprovalProject = Record<string, unknown> & {
+  id: string;
+  name: string;
+  status?: string;
+  owner?: {
+    name?: string;
+  };
+  pin?: string;
+  totalBudget?: number;
+  priority?: string;
+  businessUnit?: string;
+  entity?: string;
+  startDate?: string;
+  expectedEndDate?: string;
+  monday?: boolean;
+  tuesday?: boolean;
+  wednesday?: boolean;
+  thursday?: boolean;
+  friday?: boolean;
+  saturday?: boolean;
+  sunday?: boolean;
+  includeGlobalHolidays?: boolean;
+  includeHolidays?: boolean;
+  location?: {
+    regionName?: string;
+  };
+  description?: string;
+  attachments?: ApiAttachment[];
+  scopes?: ApprovalScope[];
+  version?: string | number;
+  versionNumber?: string | number;
+  versionLabel?: string;
+  versionName?: string;
+  versionNo?: string | number;
+  currentVersion?: ProjectVersionSource | null;
+  activeVersion?: ProjectVersionSource | null;
+  selectedVersion?: ProjectVersionSource | null;
+};
+
+const getErrorMessage = (err: unknown, fallback: string) => {
+  const apiError = err as ApiError;
+  return apiError.response?.data?.message || fallback;
+};
+
+const getApprovalVersionLabel = (project: ApprovalProject): string => {
+  const raw =
+    project?.versionLabel ||
+    project?.versionName ||
+    project?.versionNumber ||
+    project?.versionNo ||
+    project?.version ||
+    project?.currentVersion?.versionLabel ||
+    project?.currentVersion?.versionName ||
+    project?.currentVersion?.versionNumber ||
+    project?.currentVersion?.versionNo ||
+    project?.currentVersion?.version ||
+    project?.activeVersion?.versionLabel ||
+    project?.activeVersion?.versionName ||
+    project?.activeVersion?.versionNumber ||
+    project?.activeVersion?.versionNo ||
+    project?.activeVersion?.version ||
+    project?.selectedVersion?.versionLabel ||
+    project?.selectedVersion?.versionName ||
+    project?.selectedVersion?.versionNumber ||
+    project?.selectedVersion?.versionNo ||
+    project?.selectedVersion?.version;
+
+  if (raw === undefined || raw === null || raw === "") return "Version not set";
+
+  const label = String(raw).trim();
+  const normalized = label.toLowerCase();
+  if (normalized.startsWith("v") || normalized.includes("version")) return label;
+  return `Version ${label}`;
+};
 
 function ApprovalReviewPageContent() {
   const router = useRouter();
@@ -55,7 +156,7 @@ function ApprovalReviewPageContent() {
   const { auditTrail } = useAppSelector((state) => state.approval);
   const isReadOnlyFromMyRequests = searchParams.get("source") === "my-requests";
 
-  const [project, setProject] = useState<any>(null);
+  const [project, setProject] = useState<ApprovalProject | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("structured");
@@ -64,7 +165,7 @@ function ApprovalReviewPageContent() {
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [successAction, setSuccessAction] = useState<"approved" | "rejected" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [projectAttachments, setProjectAttachments] = useState<any[]>([]);
+  const [projectAttachments, setProjectAttachments] = useState<ApiAttachment[]>([]);
 
   useEffect(() => {
     const fetchProjectForApproval = async () => {
@@ -76,7 +177,7 @@ function ApprovalReviewPageContent() {
           axios.get(`/projects/${projectId}/attachments`).catch(() => null),
         ]);
 
-        const projectData = projectResponse.data?.data;
+        const projectData = projectResponse.data?.data as ApprovalProject;
         setProject(projectData);
 
         const dedicatedAttachments = attachmentResponse?.data?.data;
@@ -89,10 +190,8 @@ function ApprovalReviewPageContent() {
               : [],
           );
         }
-      } catch (err: any) {
-        setError(
-          err.response?.data?.message || "Failed to load project details",
-        );
+      } catch (err: unknown) {
+        setError(getErrorMessage(err, "Failed to load project details"));
       } finally {
         setLoading(false);
       }
@@ -100,18 +199,18 @@ function ApprovalReviewPageContent() {
 
     if (projectId) {
       fetchProjectForApproval();
-      dispatch(getApprovalAuditTrail(projectId) as any);
+      dispatch(getApprovalAuditTrail(projectId));
     }
   }, [projectId, dispatch]);
 
   const handleApprove = async () => {
     try {
       setSubmitting(true);
-      await dispatch(approveProject(projectId) as any);
+      await dispatch(approveProject(projectId));
       setSuccessAction("approved");
       setSuccessDialogOpen(true);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to approve project");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to approve project"));
     } finally {
       setSubmitting(false);
     }
@@ -125,12 +224,12 @@ function ApprovalReviewPageContent() {
   const handleRejectConfirm = async (remarks: string) => {
     try {
       setSubmitting(true);
-      await dispatch(rejectProject(projectId, remarks) as any);
+      await dispatch(rejectProject(projectId, remarks));
       setRejectDialogOpen(false);
       setSuccessAction("rejected");
       setSuccessDialogOpen(true);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to reject project");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to reject project"));
     } finally {
       setSubmitting(false);
     }
@@ -164,19 +263,6 @@ function ApprovalReviewPageContent() {
   }
 
   const auditLogs = auditTrail[projectId] || [];
-  const totalTasks = (project?.scopes || []).reduce(
-    (sum: number, s: any) => sum + (s?.tasks?.length || 0),
-    0,
-  );
-  const totalSubtasks = (project?.scopes || []).reduce(
-    (sum: number, s: any) =>
-      sum +
-      (s?.tasks || []).reduce(
-        (taskSum: number, t: any) => taskSum + (t?.subtasks?.length || 0),
-        0,
-      ),
-    0,
-  );
   const workingDays = [
     project?.monday && "Mon",
     project?.tuesday && "Tue",
@@ -188,14 +274,17 @@ function ApprovalReviewPageContent() {
   ]
     .filter(Boolean)
     .join(", ");
+  const versionLabel = getApprovalVersionLabel(project);
 
   return (
     <Box
       sx={{
         background: "#f4f6f8",
         minHeight: "100vh",
+        height: { xs: "auto", md: "100vh" },
         display: "flex",
         flexDirection: "column",
+        overflow: { xs: "visible", md: "hidden" },
       }}
     >
       {/* HEADER */}
@@ -211,15 +300,36 @@ function ApprovalReviewPageContent() {
           gap: 1,
         }}
       >
-        <Box>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
           <Typography
             variant="h6"
             fontWeight={700}
-            sx={{ fontSize: { xs: "16px", sm: "20px" } }}
+            sx={{
+              fontSize: { xs: "16px", sm: "20px" },
+              minWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
           >
             {project.name}
           </Typography>
-        </Box>
+          <Chip
+            icon={<LayersIcon sx={{ fontSize: 14 }} />}
+            label={versionLabel}
+            size="small"
+            sx={{
+              flexShrink: 0,
+              height: 24,
+              backgroundColor: "rgba(255, 255, 255, 0.18)",
+              color: "#FFFFFF",
+              border: "1px solid rgba(255, 255, 255, 0.35)",
+              fontWeight: 800,
+              fontSize: { xs: "10px", sm: "11px" },
+              "& .MuiChip-icon": { color: "#FFFFFF" },
+            }}
+          />
+        </Stack>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Chip
             label={project.status}
@@ -243,9 +353,11 @@ function ApprovalReviewPageContent() {
         sx={{
           display: "flex",
           flex: 1,
-          gap: 2,
-          p: { xs: 1, sm: 2 },
+          minHeight: 0,
+          gap: { xs: 1, md: 1 },
+          p: { xs: 0.75, sm: 1 },
           flexDirection: { xs: "column", md: "row" },
+          overflow: { xs: "visible", md: "hidden" },
         }}
       >
         {/* LEFT PANEL */}
@@ -254,48 +366,59 @@ function ApprovalReviewPageContent() {
             width: { xs: "100%", md: "25%" },
             display: "flex",
             flexDirection: "column",
-            gap: 2,
-            overflowY: "auto",
-            maxHeight: { xs: "auto", md: "calc(100vh - 100px)" },
+            gap: 0,
+            minHeight: 0,
+            overflow: { xs: "visible", md: "hidden" },
+            maxHeight: { xs: "none", md: "100%" },
           }}
         >
           <Card
             sx={{
-              p: { xs: 1.5, sm: 2.5 },
               border: "1px solid #e5e7eb",
               flex: 1,
+              minHeight: 0,
               overflowY: "auto",
-              maxHeight: "auto",
+              borderRadius: 1,
+              boxShadow: "none",
             }}
           >
-            <Typography
+            <Box
               sx={{
-                fontSize: { xs: 13, sm: 14 },
-                fontWeight: 600,
-                color: "#111827",
-                mb: 1.5,
+                px: 1.5,
+                py: 1.25,
+                bgcolor: "#d9d9d9",
+                borderBottom: "1px solid #cbd5e1",
               }}
             >
-              Approval Overview
-            </Typography>
-            <ApprovalFlowUI
-              projectId={projectId}
-              projectStatus={project.status}
-            />
-            <Divider sx={{ my: 2 }} />
-            <Typography
-              sx={{
-                fontSize: { xs: 13, sm: 14 },
-                fontWeight: 600,
-                color: "#111827",
-                mb: 1.5,
-              }}
-            >
-              Approval Overview
-            </Typography>
+              <Typography sx={{ fontSize: 14, fontWeight: 800, color: "#1f2937" }}>
+                Request History
+              </Typography>
+            </Box>
             <ApprovalAuditTrail
               auditLogs={auditLogs}
               empty={auditLogs.length === 0}
+              variant="simple"
+            />
+
+            <Box sx={{ height: { xs: 32, md: 180 } }} />
+
+            <Box
+              sx={{
+                px: 1.5,
+                py: 1.25,
+                bgcolor: "#d9d9d9",
+                borderTop: "1px solid #cbd5e1",
+                borderBottom: "1px solid #cbd5e1",
+              }}
+            >
+              <Typography sx={{ fontSize: 14, fontWeight: 800, color: "#1f2937" }}>
+                Request Approvals
+              </Typography>
+            </Box>
+            <ApprovalFlowUI
+              projectId={projectId}
+              projectStatus={project.status}
+              variant="simple"
             />
           </Card>
         </Box>
@@ -306,17 +429,51 @@ function ApprovalReviewPageContent() {
             flex: 1,
             display: "flex",
             flexDirection: "column",
-            gap: 2,
             minWidth: 0,
+            minHeight: 0,
+            overflow: "hidden",
           }}
         >
+          <Card
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: { xs: "visible", md: "auto" },
+              border: "1px solid #e5e7eb",
+              borderRadius: 1,
+              boxShadow: "none",
+              bgcolor: "#ffffff",
+            }}
+          >
           {/* PROJECT SUMMARY - IN UPPER PART */}
-          <Card sx={{ p: { xs: 1.5, sm: 2.5 }, border: "1px solid #e5e7eb" }}>
+          <Box
+            sx={{
+              p: { xs: 1.25, sm: 1.5 },
+              borderBottom: "1px solid #e5e7eb",
+              "& > .project-info-grid > .MuiBox-root > .MuiTypography-root:first-of-type": {
+                fontSize: "10px",
+                color: "#64748b",
+                fontWeight: 700,
+                mb: 0.35,
+              },
+              "& > .project-info-grid > .MuiBox-root > .MuiTypography-root:not(:first-of-type)": {
+                fontSize: "12px",
+                lineHeight: 1.35,
+                fontWeight: 600,
+                color: "#1f2937",
+              },
+            }}
+          >
+            <Typography sx={{ fontSize: 14, fontWeight: 800, color: "#111827", mb: 1.15 }}>
+              Project Information
+            </Typography>
             <Box
+              className="project-info-grid"
               sx={{
                 display: "grid",
                 gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" },
-                gap: 2,
+                columnGap: 2,
+                rowGap: 1,
               }}
             >
               <Box>
@@ -360,6 +517,36 @@ function ApprovalReviewPageContent() {
                 >
                   {project.pin || "N/A"}
                 </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 10, sm: 11 },
+                    color: "#6b7280",
+                    fontWeight: 500,
+                    mb: 0.5,
+                  }}
+                >
+                  Version
+                </Typography>
+                <Chip
+                  size="small"
+                  icon={<LayersIcon sx={{ fontSize: 14 }} />}
+                  label={versionLabel}
+                  sx={{
+                    height: 24,
+                    maxWidth: "100%",
+                    fontSize: { xs: 10, sm: 11 },
+                    fontWeight: 800,
+                    bgcolor: "#F8FAFC",
+                    color: "#334155",
+                    border: "1px solid #CBD5E1",
+                    "& .MuiChip-label": {
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    },
+                  }}
+                />
               </Box>
               <Box>
                 <Typography
@@ -579,13 +766,13 @@ function ApprovalReviewPageContent() {
               </Box>
               {project.description && (
                 <Box sx={{ gridColumn: { xs: "1 / -1", sm: "1 / -1" } }}>
-                  <Divider sx={{ my: 1 }} />
+                  <Divider sx={{ my: 0.75 }} />
                   <Typography
                     sx={{
                       fontSize: { xs: 10, sm: 11 },
                       color: "#6b7280",
                       fontWeight: 500,
-                      mb: 1,
+                      mb: 0.5,
                     }}
                   >
                     Description
@@ -602,13 +789,13 @@ function ApprovalReviewPageContent() {
                 </Box>
               )}
               <Box sx={{ gridColumn: { xs: "1 / -1", sm: "1 / -1" } }}>
-                <Divider sx={{ my: 1 }} />
+                <Divider sx={{ my: 0.75 }} />
                 <Typography
                   sx={{
                     fontSize: { xs: 10, sm: 11 },
                     color: "#6b7280",
                     fontWeight: 500,
-                    mb: 1,
+                    mb: 0.5,
                   }}
                 >
                   Attachments
@@ -623,12 +810,12 @@ function ApprovalReviewPageContent() {
                         md: "repeat(3, minmax(0, 1fr))",
                       },
                       gap: 1,
-                      maxHeight: 220,
+                      maxHeight: 150,
                       overflowY: "auto",
                       pr: 0.5,
                     }}
                   >
-                    {projectAttachments.map((att: any, idx: number) => (
+                    {projectAttachments.map((att, idx) => (
                       <Box
                         key={
                           att?.id || `${att?.fileName || "attachment"}-${idx}`
@@ -638,8 +825,8 @@ function ApprovalReviewPageContent() {
                           borderRadius: 1,
                           backgroundColor: "#f9fafb",
                           px: 1.25,
-                          py: 1,
-                          minHeight: 54,
+                          py: 0.75,
+                          minHeight: 42,
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "space-between",
@@ -677,7 +864,7 @@ function ApprovalReviewPageContent() {
                 )}
               </Box>
             </Box>
-          </Card>
+          </Box>
 
           {/* VIEW TOGGLE */}
           <Box
@@ -686,6 +873,10 @@ function ApprovalReviewPageContent() {
               gap: 2,
               alignItems: "center",
               flexWrap: "wrap",
+              px: { xs: 1.5, sm: 2 },
+              py: 0.9,
+              borderBottom: "1px solid #e5e7eb",
+              bgcolor: "#ffffff",
             }}
           >
             <Typography
@@ -718,14 +909,11 @@ function ApprovalReviewPageContent() {
           </Box>
 
           {/* CONTENT AREA - STRUCTURED OR GANTT VIEW */}
-          <Card
+          <Box
             sx={{
-              flex: 1,
               display: "flex",
               flexDirection: "column",
-              border: "1px solid #e5e7eb",
-              p: { xs: 1.5, sm: 2.5 },
-              overflow: "auto",
+              p: { xs: 1.25, sm: 1.5 },
               minHeight: { xs: "300px", sm: "400px" },
             }}
           >
@@ -736,6 +924,7 @@ function ApprovalReviewPageContent() {
                 <GanttGridView projectId={projectId} project={project} />
               </Box>
             )}
+          </Box>
           </Card>
         </Box>
       </Box>
@@ -745,40 +934,68 @@ function ApprovalReviewPageContent() {
         sx={{
           background: "white",
           borderTop: "1px solid #e5e7eb",
-          p: { xs: 1, sm: 2 },
+          px: { xs: 1, sm: 1.5 },
+          py: { xs: 0.75, sm: 1 },
+          flexShrink: 0,
           display: "flex",
           justifyContent: { xs: "space-between", sm: "flex-end" },
-          gap: { xs: 1, sm: 2 },
+          gap: { xs: 0.75, sm: 1 },
           flexWrap: "wrap",
         }}
       >
         <Button
+          size="small"
           variant="outlined"
           onClick={() => router.back()}
           disabled={submitting}
-          sx={{ fontSize: { xs: "12px", sm: "14px" } }}
+          sx={{
+            minHeight: 34,
+            px: 1.6,
+            borderRadius: 1.5,
+            fontSize: { xs: "11px", sm: "12px" },
+            fontWeight: 800,
+            textTransform: "none",
+          }}
         >
           Cancel
         </Button>
         {!isReadOnlyFromMyRequests && (
           <>
             <Button
+              size="small"
               variant="contained"
               color="error"
               startIcon={<BlockIcon />}
               onClick={() => setRejectDialogOpen(true)}
               disabled={submitting}
-              sx={{ fontSize: { xs: "12px", sm: "14px" } }}
+              sx={{
+                minHeight: 34,
+                px: 1.6,
+                borderRadius: 1.5,
+                fontSize: { xs: "11px", sm: "12px" },
+                fontWeight: 800,
+                textTransform: "none",
+                boxShadow: "none",
+              }}
             >
               Reject
             </Button>
             <Button
+              size="small"
               variant="contained"
               color="success"
               startIcon={<CheckCircleIcon />}
               onClick={() => setApproveDialogOpen(true)}
               disabled={submitting}
-              sx={{ fontSize: { xs: "12px", sm: "14px" } }}
+              sx={{
+                minHeight: 34,
+                px: 1.6,
+                borderRadius: 1.5,
+                fontSize: { xs: "11px", sm: "12px" },
+                fontWeight: 800,
+                textTransform: "none",
+                boxShadow: "none",
+              }}
             >
               {submitting ? "Approving..." : "Approve"}
             </Button>
@@ -903,7 +1120,7 @@ export default function ApprovalReviewPage() {
   );
 }
 
-function StructuredView({ project }: { project: any }) {
+function StructuredView({ project }: { project: ApprovalProject }) {
   return (
     <Stack spacing={3}>
       {/* STRUCTURED VIEW COMPONENT */}
@@ -911,7 +1128,7 @@ function StructuredView({ project }: { project: any }) {
         project={{
           id: project.id,
           name: project.name,
-          scopes: project.scopes || [],
+          scopes: (project.scopes || []) as unknown as Scope[],
         }}
       />
     </Stack>

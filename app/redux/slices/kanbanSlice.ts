@@ -34,6 +34,15 @@ export interface KanbanSubtask {
   remarks?: string; // Additional remarks
   
   checklists?: KanbanChecklist[];
+  checklist?: KanbanChecklist[];
+  checklistCount?: number;
+  project?: { id: string; name: string };
+  Scope?: { id: string; name: string };
+  scope?: { id: string; name: string };
+  task?: { id: string; title: string };
+  projectName?: string;
+  scopeName?: string;
+  taskName?: string;
 }
 
 // 🔥 BOARD FILTER DATA
@@ -70,14 +79,6 @@ const computeStatus = (progress?: number) => {
   if (!progress || progress <= 0) return 0;
   if (progress < 100) return 1;
   return 2;
-};
-
-// 🔥 PROGRESS FROM CHECKLISTS
-const computeChecklistProgress = (checklists?: KanbanChecklist[]) => {
-  if (!checklists || checklists.length === 0) return 0;
-
-  const done = checklists.filter((c) => c.isCompleted).length;
-  return Math.round((done / checklists.length) * 100);
 };
 
 const kanbanSlice = createSlice({
@@ -176,12 +177,27 @@ const kanbanSlice = createSlice({
 
         if (checklist) {
           checklist.isCompleted = !checklist.isCompleted;
-
-          const progress = computeChecklistProgress(subtask.checklists);
-
-          subtask.progress = progress;
-          subtask.status = computeStatus(progress);
         }
+      });
+    },
+    addChecklistLocal(
+      state,
+      action: PayloadAction<{ subtaskId: string; checklist: KanbanChecklist }>,
+    ) {
+      const subtask = state.subtasks.find((s) => s.id === action.payload.subtaskId);
+      if (!subtask) return;
+
+      subtask.checklists = subtask.checklists || [];
+      subtask.checklists.push(action.payload.checklist);
+    },
+    removeChecklistLocal(
+      state,
+      action: PayloadAction<{ checklistId: string }>,
+    ) {
+      state.subtasks.forEach((subtask) => {
+        subtask.checklists = subtask.checklists?.filter(
+          (checklist) => checklist.id !== action.payload.checklistId,
+        );
       });
     },
     removeSubtask(state, action: PayloadAction<string>) {
@@ -215,6 +231,8 @@ export const {
   addSubtask,
   setLoading,
   toggleChecklistLocal,
+  addChecklistLocal,
+  removeChecklistLocal,
   removeSubtask,
   setBoardFilters,
   setTasksForBoard,
