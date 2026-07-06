@@ -1,4 +1,5 @@
 import axios from "@/app/lib/axios";
+import { AxiosResponse } from "axios";
 import { AppDispatch } from "@/app/redux/store";
 import { uploadAttachments } from "@/app/api-service/attachmentService";
 import {
@@ -35,9 +36,18 @@ import {
   DailyReportCreatePayload,
   DailyReportUpdatePayload,
   DailyReportFilters,
+  DailyReport,
 } from "@/app/redux/slices/dailyReportSlice";
 
-const inboxReportsInFlight = new Map<string, ReturnType<typeof axios.get>>();
+type DailyReportListResponse = {
+  data: DailyReport[];
+  total: number;
+};
+
+const inboxReportsInFlight = new Map<
+  string,
+  Promise<AxiosResponse<DailyReportListResponse>>
+>();
 
 /**
  * Get all daily reports with optional filters

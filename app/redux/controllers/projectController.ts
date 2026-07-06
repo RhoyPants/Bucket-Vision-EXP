@@ -1,5 +1,6 @@
 import { AppDispatch } from "../store";
 import axiosApi from "@/app/lib/axios";
+import { AxiosResponse } from "axios";
 import {
   setProjects,
   addProject,
@@ -53,9 +54,9 @@ const normalizeProjectListResponse = (response: any) => {
 };
 
 // ✅ GET ALL (with full details including members)
-let projectsInFlight: ReturnType<typeof axiosApi.get> | null = null;
+let projectsInFlight: Promise<AxiosResponse<any>> | null = null;
 let activeProjectsInFlight: ReturnType<typeof fetchActiveProjectDropdown> | null = null;
-const fullProjectInFlight = new Map<string, ReturnType<typeof axiosApi.get>>();
+const fullProjectInFlight = new Map<string, Promise<AxiosResponse<any>>>();
 const myDraftsInFlight = new Map<string, ReturnType<typeof fetchMyDrafts>>();
 const myRequestsInFlight = new Map<string, ReturnType<typeof fetchMyRequests>>();
 const myApprovalsInFlight = new Map<string, ReturnType<typeof fetchMyApprovals>>();

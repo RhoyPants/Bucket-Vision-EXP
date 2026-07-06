@@ -1,6 +1,7 @@
 "use client";
 
 import axiosApi from "@/app/lib/axios";
+import { AxiosResponse } from "axios";
 import { AppDispatch } from "../store";
 import {
   setSubtasks,
@@ -22,7 +23,16 @@ const normalizeSubtask = (raw: any, scopeId?: string, scopeName?: string): Subta
 });
 
 // ✅ FETCH SCOPES — /scopes/project/{projectId} (direct array response)
-const calendarScopesInFlight = new Map<string, ReturnType<typeof axiosApi.get>>();
+type CalendarScopeResponseItem = {
+  id: string;
+  name?: string;
+  title?: string;
+};
+
+const calendarScopesInFlight = new Map<
+  string,
+  Promise<AxiosResponse<CalendarScopeResponseItem[]>>
+>();
 const calendarMonthInFlight = new Map<string, Promise<{ subtasks: SubtaskBarData[] }>>();
 
 export const fetchCalendarScopes = (projectId: string) => {
