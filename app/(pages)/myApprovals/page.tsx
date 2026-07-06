@@ -27,15 +27,19 @@ export default function MyApprovalsPage() {
   const [viewType, setViewType] = useState<ViewType>("list");
   const [page, setPage] = useState(1);
   const pageLimit = 10;
-
-  useEffect(() => {
-    dispatch(getMyApprovalsProjects({
+  const query = useMemo(
+    () => ({
       page,
       limit: pageLimit,
       sortBy: "createdAt",
-      sortOrder: "desc",
-    }));
-  }, [dispatch, page]);
+      sortOrder: "desc" as const,
+    }),
+    [page]
+  );
+
+  useEffect(() => {
+    dispatch(getMyApprovalsProjects(query));
+  }, [dispatch, query]);
 
   const counts = useMemo(() => {
     return {
@@ -123,7 +127,7 @@ export default function MyApprovalsPage() {
             emptyMessage="No requests waiting for your action"
             emptySubtext="New review or approval requests assigned to you will appear here"
             pagination={pagination}
-            onPageChange={setPage}
+            onPageChange={(nextPage) => setPage((current) => current === nextPage ? current : nextPage)}
             actionMode="approval"
           />
         </Box>

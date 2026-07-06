@@ -17,26 +17,32 @@ import ProjectsGrid from "@/app/(pages)/projects/components/ProjectsGrid";
 import { ProjectCardActions, ViewType } from "@/app/(pages)/projects/components/types";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { getMyDraftsProjects } from "@/app/redux/controllers/projectController";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 export default function MyDraftsPage() {
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const { canCreate } = usePermissions();
+  const canCreateProject = canCreate("projects");
 
   const { projects, pagination } = useAppSelector((state) => state.project);
-  const { user } = useAppSelector((state) => state.auth);
 
   const [viewType, setViewType] = useState<ViewType>("list");
   const [page, setPage] = useState(1);
   const pageLimit = 10;
-
-  useEffect(() => {
-    dispatch(getMyDraftsProjects({
+  const query = useMemo(
+    () => ({
       page,
       limit: pageLimit,
       sortBy: "createdAt",
-      sortOrder: "desc",
-    }));
-  }, [dispatch, page]);
+      sortOrder: "desc" as const,
+    }),
+    [page]
+  );
+
+  useEffect(() => {
+    dispatch(getMyDraftsProjects(query));
+  }, [dispatch, query]);
 
   const myDrafts = useMemo(() => {
     return projects || [];
@@ -51,7 +57,10 @@ export default function MyDraftsPage() {
     onTeamManage: () => undefined,
     onVersion: (project) => router.push(`/versioning?projectId=${project.id}`),
     onSprint: (projectId) => router.push(`/sprintManagement?projectId=${projectId}`),
-    onCreateProject: () => router.push("/projects/new/setup"),
+    onCreateProject: () => {
+      if (!canCreateProject) return;
+      router.push("/projects/new/setup");
+    },
   };
 
   return (
@@ -83,11 +92,11 @@ export default function MyDraftsPage() {
             actions={actions}
             viewType={viewType}
             onViewTypeChange={setViewType}
-            headerAction={( 
+            headerAction={canCreateProject ? ( 
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
-                onClick={() => router.push("/projects/new/setup")}
+                onClick={actions.onCreateProject}
                 sx={{
                   bgcolor: "#210e64",
                   "&:hover": { bgcolor: "#1a0b4f" },
@@ -95,12 +104,12 @@ export default function MyDraftsPage() {
               >
                 New Project
               </Button>
-            )}
+            ) : null}
             emptyMessage="No draft projects"
             emptySubtext="Start a new project or save a setup as draft to see it here"
-            showCreateButton
+            showCreateButton={canCreateProject}
             pagination={pagination}
-            onPageChange={setPage}
+            onPageChange={(nextPage) => setPage((current) => current === nextPage ? current : nextPage)}
           />
         </Box>
       </Guard>

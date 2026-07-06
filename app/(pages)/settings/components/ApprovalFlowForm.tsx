@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -46,16 +46,7 @@ import { setSelectedFlow } from "@/app/redux/slices/approvalFlowSlice";
 import { ApprovalStep } from "@/app/api-service/approvalFlowService";
 import { getRoles } from "@/app/lib/role.api";
 import { getUsersByRole } from "@/app/api-service/approvalStepUserService";
-
-const AVAILABLE_ROLES = [
-  "BU_HEAD",
-  "OP",
-  "DIRECTOR",
-  "FINANCE",
-  "MANAGER",
-  "ADMIN",
-  "SUPER_ADMIN",
-];
+import { usePermissions } from "@/app/lib/usePermissions";
 
 interface ApprovalFlowFormProps {
   flowId?: string | null;
@@ -77,7 +68,27 @@ interface RoleUserOption {
   };
 }
 
-const normalizeAssignedUsers = (assignedUsers: any[] = []): RoleUserOption[] => {
+interface AssignedUserSource extends Partial<RoleUserOption> {
+  userId?: string;
+  user?: RoleUserOption;
+}
+
+const isRoleOption = (role: unknown): role is RoleOption => {
+  return (
+    typeof role === "object" &&
+    role !== null &&
+    "id" in role &&
+    "name" in role &&
+    typeof (role as { id: unknown }).id === "string" &&
+    typeof (role as { name: unknown }).name === "string"
+  );
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  return error instanceof Error ? error.message : fallback;
+};
+
+const normalizeAssignedUsers = (assignedUsers: AssignedUserSource[] = []): RoleUserOption[] => {
   return assignedUsers
     .map((assignedUser) => {
       if (assignedUser?.user?.id) {
@@ -104,13 +115,18 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
   const { selectedFlow, loading } = useSelector(
     (state: RootState) => state.approvalFlow
   );
+  const { canCreate, canUpdate } = usePermissions();
+  const isEditMode = Boolean(flowId);
+  const canSaveApprovalFlow = isEditMode
+    ? canUpdate("settings_approval_flows")
+    : canCreate("settings_approval_flows");
 
-  const getInitialFormData = () => ({
+  const getInitialFormData = useCallback(() => ({
     name: "",
     description: "",
     isDefault: false,
     steps: [] as ApprovalStep[],
-  });
+  }), []);
 
   const [formData, setFormData] = useState({
     ...getInitialFormData(),
@@ -132,13 +148,21 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
     [roles]
   );
 
-  const resetLocalState = () => {
+  const getRoleOptionsForStep = (selectedRole: string) => {
+    if (!selectedRole || roles.some((role) => role.name === selectedRole)) {
+      return roles;
+    }
+
+    return [{ id: selectedRole, name: selectedRole }, ...roles];
+  };
+
+  const resetLocalState = useCallback(() => {
     setFormData(getInitialFormData());
     setErrors({});
     setSubmitError(null);
     setUsersByStepIndex({});
     setLoadingUsersByStepIndex({});
-  };
+  }, [getInitialFormData]);
 
   const handleCloseModal = () => {
     resetLocalState();
@@ -155,13 +179,13 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
     // Create mode: ensure no stale edit data survives modal reopen.
     resetLocalState();
     dispatch(setSelectedFlow(null));
-  }, [flowId, dispatch]);
+  }, [flowId, dispatch, resetLocalState]);
 
   useEffect(() => {
     const fetchRoles = async () => {
       try {
         const response = await getRoles();
-        const roleList = Array.isArray(response)
+        const roleList: unknown[] = Array.isArray(response)
           ? response
           : Array.isArray(response?.data)
           ? response.data
@@ -169,8 +193,8 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
 
         setRoles(
           roleList
-            .filter((role: any) => role?.id && role?.name)
-            .map((role: any) => ({ id: role.id, name: role.name }))
+            .filter(isRoleOption)
+            .map((role) => ({ id: role.id, name: role.name }))
         );
       } catch (error) {
         console.error("Failed to load roles for approval step user dropdown:", error);
@@ -216,14 +240,27 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
       newErrors.steps = "At least one step is required";
     }
 
+    if (formData.steps.some((step) => !step.role)) {
+      newErrors.steps = "Each step must have a role";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleAddStep = () => {
+    const firstRole = roles[0]?.name;
+    if (!firstRole) {
+      setErrors((prev) => ({
+        ...prev,
+        steps: "Load or create roles before adding approval steps",
+      }));
+      return;
+    }
+
     const newStep: ApprovalStep = {
       order: formData.steps.length + 1,
-      role: "BU_HEAD",
+      role: firstRole,
       stepExecutionMode: "SEQUENTIAL",
       requiresAll: 0,
       canReject: true,
@@ -284,6 +321,7 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
   };
 
   const handleSubmit = async () => {
+    if (!canSaveApprovalFlow) return;
     if (!validateForm()) return;
 
     try {
@@ -311,8 +349,8 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
       }
 
       handleCloseModal();
-    } catch (err: any) {
-      setSubmitError(err?.message || "Failed to save flow");
+    } catch (err: unknown) {
+      setSubmitError(getErrorMessage(err, "Failed to save flow"));
     } finally {
       setSaving(false);
     }
@@ -345,7 +383,7 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
               }}
               error={!!errors.name}
               helperText={errors.name}
-              placeholder="e.g., BU_HEAD → OP"
+              placeholder="e.g., Business Unit Approval"
             />
 
             <TextField
@@ -382,6 +420,7 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
                   size="small"
                   startIcon={<AddIcon />}
                   onClick={handleAddStep}
+                  disabled={roles.length === 0}
                 >
                   Add Step
                 </Button>
@@ -433,11 +472,15 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
                                   }}
                                   label="Role"
                                 >
-                                  {AVAILABLE_ROLES.map((role) => (
-                                    <MenuItem key={role} value={role}>
-                                      {role}
-                                    </MenuItem>
-                                  ))}
+                                  {roles.length === 0 ? (
+                                    <MenuItem disabled>No roles available</MenuItem>
+                                  ) : (
+                                    getRoleOptionsForStep(step.role).map((role) => (
+                                      <MenuItem key={role.id} value={role.name}>
+                                        {role.name}
+                                      </MenuItem>
+                                    ))
+                                  )}
                                 </Select>
                               </FormControl>
                             </Box>
@@ -535,7 +578,7 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
                           {step.useSpecificUsers && (
                             <Box sx={{ pl: 5, pt: 1 }}>
                               <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 1 }}>
-                                Select Users ({AVAILABLE_ROLES.indexOf(step.role) !== -1 ? step.role : ""})
+                                Select Users ({step.role || "No role selected"})
                               </Typography>
                               <FormControl fullWidth size="small">
                                 <InputLabel id={`step-users-label-${index}`}>Users</InputLabel>
@@ -543,7 +586,7 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
                                   labelId={`step-users-label-${index}`}
                                   multiple
                                   label="Users"
-                                  value={(step.assignedUsers || []).map((user: any) => user.id)}
+                                  value={(step.assignedUsers || []).map((user) => user.id)}
                                   onOpen={() => fetchUsersForStepRole(index, step.role)}
                                   onChange={(e) => {
                                     const selectedUserIds = e.target.value as string[];
@@ -552,7 +595,7 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
                                       .map((userId) => stepUsers.find((u) => u.id === userId))
                                       .filter(Boolean) as RoleUserOption[];
 
-                                    handleUpdateStep(index, { assignedUsers: selectedUsers as any[] });
+                                    handleUpdateStep(index, { assignedUsers: selectedUsers });
                                   }}
                                   renderValue={(selected) => {
                                     const selectedIds = selected as string[];
@@ -583,7 +626,7 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
                                     (usersByStepIndex[index] || []).map((user) => (
                                       <MenuItem key={user.id} value={user.id}>
                                         <MuiCheckbox
-                                          checked={(step.assignedUsers || []).some((u: any) => u.id === user.id)}
+                                          checked={(step.assignedUsers || []).some((u) => u.id === user.id)}
                                         />
                                         <Box>
                                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -603,12 +646,12 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
                               </FormControl>
                               {step.assignedUsers && step.assignedUsers.length > 0 && (
                                 <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 1 }}>
-                                  {step.assignedUsers.map((user: any) => (
+                                  {step.assignedUsers.map((user) => (
                                     <Chip
                                       key={user.id}
                                       label={user.name || user.email || user.id}
                                       onDelete={() => {
-                                        const filtered = step.assignedUsers!.filter((u: any) => u.id !== user.id);
+                                        const filtered = step.assignedUsers!.filter((u) => u.id !== user.id);
                                         handleUpdateStep(index, { assignedUsers: filtered });
                                       }}
                                       size="small"
@@ -632,13 +675,15 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
         <Button onClick={handleCloseModal} disabled={isDisabled}>
           Cancel
         </Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={isDisabled}
-        >
-          {saving ? <CircularProgress size={24} /> : "Save Flow"}
-        </Button>
+        {canSaveApprovalFlow && (
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
+            disabled={isDisabled}
+          >
+            {saving ? <CircularProgress size={24} /> : "Save Flow"}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

@@ -16,12 +16,12 @@ export const getUserById = async (userId: string) => {
   return payload;
 };
 
-export const createUser = async (data: any) => {
+export const createUser = async (data: unknown) => {
   const res = await axiosApi.post("/users", data);
   return res.data;
 };
 
-export const updateUser = async (id: string, data: any) => {
+export const updateUser = async (id: string, data: unknown) => {
   const res = await axiosApi.put(`/users/${id}`, data);
   return res.data;
 };
@@ -32,28 +32,6 @@ export const updateUserStatus = async (userId: string, isActive: boolean) => {
 };
 
 export const deleteUser = async (userId: string) => {
-  const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api";
-  const token = localStorage.getItem("token");
-
-  const res = await fetch(`${baseURL}/users/${userId}`, {
-    method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-
-  const payload = await res.json().catch(() => null);
-
-  if (payload) {
-    return payload;
-  }
-
-  return {
-    success: res.ok,
-    message: res.ok ? "User deleted successfully" : "Failed to delete user",
-    error: res.ok ? null : "DELETE_FAILED",
-    data: null,
-  };
+  const res = await axiosApi.delete(`/users/${userId}`);
+  return res.data;
 };

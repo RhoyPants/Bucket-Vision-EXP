@@ -37,12 +37,14 @@ import {
   getProgressLogs,
   saveProgressLog,
   updateProgressLog,
+  deleteProgressLog,
 } from "@/app/redux/controllers/progressController";
 import { getSCurve } from "@/app/redux/controllers/scurveController";
 import axiosApi from "@/app/lib/axios";
 import { joinApiUrl, normalizeApiUrl } from "@/app/lib/apiUrl";
 import { RootState } from "@/app/redux/store";
 import { ProgressAttachment } from "@/app/redux/slices/progressSlice";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 import { Viewer, Worker } from "@react-pdf-viewer/core";
 import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
@@ -77,6 +79,10 @@ export default function ProgressCalendar({
   onSuccess,
 }: ProgressCalendarProps) {
   const dispatch = useDispatch<any>();
+  const { canView, canUpdate, canDelete } = usePermissions();
+  const canViewProgress = canView("progress");
+  const canUpdateProgress = canUpdate("progress");
+  const canDeleteProgress = canDelete("progress");
 
   const logsArray =
     useSelector(
@@ -211,10 +217,13 @@ export default function ProgressCalendar({
   // LOAD DATA
   // =========================
   useEffect(() => {
+    if (!canViewProgress) return;
     dispatch(getProgressLogs(subtaskId));
-  }, [subtaskId]);
+  }, [canViewProgress, dispatch, subtaskId]);
 
   useEffect(() => {
+    if (!canViewProgress) return;
+
     const fetchSubtask = async () => {
       setLoadingSubtask(true);
       setError("");
@@ -234,7 +243,7 @@ export default function ProgressCalendar({
     };
 
     if (subtaskId) fetchSubtask();
-  }, [subtaskId]);
+  }, [canViewProgress, subtaskId]);
 
   // =========================
   // SELECT DATE - RESET FORM
@@ -402,6 +411,7 @@ export default function ProgressCalendar({
   );
 
   const openEditProgressForm = useCallback((log: any) => {
+    if (!canUpdateProgress) return;
     if (!log?.id) return;
 
     const updateCount = getProgressUpdateCount(log);
@@ -425,7 +435,7 @@ export default function ProgressCalendar({
     setSelectedAttachmentIndex(null);
     setShowExistingLogModal(false);
     setShowProgressFormModal(true);
-  }, []);
+  }, [canUpdateProgress]);
 
   const checkCanAddForSelectedDate = useCallback(async () => {
     const date = selectedDate.format("YYYY-MM-DD");
@@ -446,6 +456,11 @@ export default function ProgressCalendar({
   }, [selectedDate, subtaskId]);
 
   const handleOpenProgressForm = useCallback(async () => {
+    if (!canUpdateProgress) {
+      setError("You don't have access to update progress.");
+      return;
+    }
+
     if (cumulativeProgress >= 100) return;
 
     try {
@@ -464,12 +479,17 @@ export default function ProgressCalendar({
     } finally {
       setCheckingCanAdd(false);
     }
-  }, [checkCanAddForSelectedDate, cumulativeProgress]);
+  }, [canUpdateProgress, checkCanAddForSelectedDate, cumulativeProgress]);
 
   // =========================
   // SAVE HANDLER WITH LOADING
   // =========================
   const handleSave = useCallback(async () => {
+    if (!canUpdateProgress) {
+      setError("You don't have access to update progress.");
+      return;
+    }
+
     if (!validateProgress()) return;
 
     try {
@@ -581,14 +601,39 @@ export default function ProgressCalendar({
     isTaskBoard,
     checkCanAddForSelectedDate,
     editingLog,
+    canUpdateProgress,
+    removedAttachmentIds,
   ]);
 
   const remainingProgress = 100 - cumulativeProgress;
   const editableCurrentPercent = editingLog ? Number(editingLog.dailyPercent || 0) : 0;
   const allowedProgressForForm = Math.max(0, remainingProgress + editableCurrentPercent);
 
+  const handleDeleteProgressLog = useCallback(async () => {
+    if (!canDeleteProgress || !selectedLogForDetails?.id) return;
+    if (!window.confirm("Delete this progress log?")) return;
+
+    try {
+      setCheckingCanAdd(true);
+      await dispatch(deleteProgressLog(selectedLogForDetails.id, subtaskId));
+      setShowExistingLogModal(false);
+      setSelectedLogForDetails(null);
+      setSelectedAttachmentIndex(null);
+      onSuccess?.();
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to delete progress log");
+    } finally {
+      setCheckingCanAdd(false);
+    }
+  }, [canDeleteProgress, dispatch, onSuccess, selectedLogForDetails?.id, subtaskId]);
+
   return (
     <Box display="grid" gridTemplateColumns="3fr 1.2fr" gap={2}>
+      {!canViewProgress && (
+        <Alert severity="warning" sx={{ gridColumn: "1/-1" }}>
+          You don&apos;t have permission to view progress.
+        </Alert>
+      )}
       {error && (
         <Alert severity="error" sx={{ gridColumn: "1/-1" }}>
           {error}
@@ -965,6 +1010,7 @@ export default function ProgressCalendar({
         )}
 
         {/* Submit Progress Button */}
+        {canUpdateProgress && (
         <Button
           variant="contained"
           fullWidth
@@ -978,6 +1024,7 @@ export default function ProgressCalendar({
               ? "Checking..."
               : "Submit Progress"}
         </Button>
+        )}
       </Paper>
 
       <Dialog
@@ -1190,19 +1237,21 @@ export default function ProgressCalendar({
                         >
                           {att.name || "Attachment"}
                         </Typography>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => {
-                            if (!att.id) return;
-                            setRemovedAttachmentIds((prev) =>
-                              prev.includes(att.id!) ? prev : [...prev, att.id!],
-                            );
-                          }}
-                          sx={{ p: 0.5 }}
-                        >
-                          <DeleteOutlineIcon sx={{ fontSize: 16 }} />
-                        </IconButton>
+                        {canUpdateProgress && (
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => {
+                              if (!att.id) return;
+                              setRemovedAttachmentIds((prev) =>
+                                prev.includes(att.id!) ? prev : [...prev, att.id!],
+                              );
+                            }}
+                            sx={{ p: 0.5 }}
+                          >
+                            <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        )}
                       </Box>
                     ))}
                 </Stack>
@@ -1210,6 +1259,7 @@ export default function ProgressCalendar({
             ) : null}
 
             {/* Attachments Upload */}
+            {canUpdateProgress && (
             <Box sx={{ mt: 2 }}>
               <input
                 accept="*/*"
@@ -1295,6 +1345,7 @@ export default function ProgressCalendar({
                 </Stack>
               )}
             </Box>
+            )}
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
@@ -1310,7 +1361,7 @@ export default function ProgressCalendar({
           <Button
             onClick={handleSave}
             variant="contained"
-            disabled={checkingCanAdd || isLoading || !dailyPercent || cumulativeProgress >= 100}
+            disabled={checkingCanAdd || isLoading || !dailyPercent || cumulativeProgress >= 100 || !canUpdateProgress}
           >
             {checkingCanAdd
               ? "Checking..."
@@ -1390,7 +1441,7 @@ export default function ProgressCalendar({
           </Typography>
 
           <Stack direction="row" spacing={1} alignItems="center">
-            {selectedLogForDetails?.id ? (
+            {canUpdateProgress && selectedLogForDetails?.id ? (
               <Button
                 variant="outlined"
                 disabled={getProgressUpdateCount(selectedLogForDetails) >= MAX_PROGRESS_UPDATE_COUNT}
@@ -1399,6 +1450,16 @@ export default function ProgressCalendar({
                 {getProgressUpdateCount(selectedLogForDetails) >= MAX_PROGRESS_UPDATE_COUNT
                   ? "Update Limit Reached"
                   : "Edit / Resubmit"}
+              </Button>
+            ) : null}
+            {canDeleteProgress && selectedLogForDetails?.id ? (
+              <Button
+                variant="outlined"
+                color="error"
+                disabled={checkingCanAdd || isLoading}
+                onClick={handleDeleteProgressLog}
+              >
+                Delete
               </Button>
             ) : null}
             <Button

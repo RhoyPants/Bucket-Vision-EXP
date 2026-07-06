@@ -15,7 +15,7 @@ export const getRolePermissions = async (roleId: string) => {
 // 🔹 UPDATE ROLE PERMISSIONS
 export const updateRolePermissions = async (
   roleId: string,
-  permissions: any[]
+  permissions: unknown[]
 ) => {
   const res = await axiosApi.put(`/roles/${roleId}/permissions`, {
     permissions,
@@ -26,8 +26,14 @@ export const updateRolePermissions = async (
 // 🔹 CREATE ROLE
 export const createRole = async (data: {
   name: string;
-  permissions: any[];
+  permissions: unknown[];
 }) => {
   const res = await axiosApi.post("/roles", data);
+  return res.data;
+};
+
+// Delete role
+export const deleteRole = async (roleId: string) => {
+  const res = await axiosApi.delete(`/roles/${roleId}`);
   return res.data;
 };

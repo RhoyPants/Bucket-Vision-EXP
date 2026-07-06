@@ -29,6 +29,7 @@ import {
   getApprovalFlows,
   setProjectApprovalFlow,
 } from "@/app/redux/controllers/approvalFlowController";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 interface ProjectApprovalConfigProps {
   projectId: string | null;
@@ -55,6 +56,8 @@ export default function ProjectApprovalConfig({
   const { flows, loading } = useSelector(
     (state: RootState) => state.approvalFlow
   );
+  const { canUpdate } = usePermissions();
+  const canUpdateProjectApprovals = canUpdate("settings_project_approvals");
 
   const isDraft = projectStatus === "DRAFT";
   const isNonDraftProject: boolean = !!(projectStatus && !isDraft);
@@ -81,7 +84,7 @@ export default function ProjectApprovalConfig({
   };
 
   const handleSave = async () => {
-    if (!projectId) return;
+    if (!projectId || !canUpdateProjectApprovals) return;
 
     try {
       setSaving(true);
@@ -99,8 +102,8 @@ export default function ProjectApprovalConfig({
       setTimeout(() => {
         onClose();
       }, 1500);
-    } catch (err: any) {
-      setError(err?.message || "Failed to save approval configuration");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to save approval configuration");
     } finally {
       setSaving(false);
     }
@@ -131,6 +134,11 @@ export default function ProjectApprovalConfig({
 
             {error && <Alert severity="error">{error}</Alert>}
             {successMessage && <Alert severity="success">{successMessage}</Alert>}
+            {!canUpdateProjectApprovals && (
+              <Alert severity="info">
+                You can view this project approval setup, but you do not have permission to update it.
+              </Alert>
+            )}
 
             {/* Project Info */}
             {projectName && (
@@ -175,6 +183,7 @@ export default function ProjectApprovalConfig({
                 <Switch
                   checked={approvalEnabled}
                   onChange={(e) => setApprovalEnabled(e.target.checked)}
+                  disabled={!canUpdateProjectApprovals}
                 />
               }
               label="Enable approval workflow for this project"
@@ -183,13 +192,13 @@ export default function ProjectApprovalConfig({
             {/* Flow Selection */}
             {approvalEnabled && (
               <>
-                <FormControl fullWidth disabled={isNonDraftProject}>
+                <FormControl fullWidth disabled={isNonDraftProject || !canUpdateProjectApprovals}>
                   <InputLabel>Select Approval Flow</InputLabel>
                   <Select
                     value={selectedFlowId || ""}
                     onChange={(e) => setSelectedFlowId(e.target.value || null)}
                     label="Select Approval Flow"
-                    disabled={isNonDraftProject}
+                    disabled={isNonDraftProject || !canUpdateProjectApprovals}
                   >
                     <MenuItem value="">
                       <em>Use default flow</em>
@@ -276,14 +285,16 @@ export default function ProjectApprovalConfig({
         <Button onClick={onClose} disabled={saving}>
           Cancel
         </Button>
-        <Button
-          onClick={handleSave}
-          variant="contained"
-          disabled={saving || loading}
-          sx={{ minWidth: 120 }}
-        >
-          {saving ? <CircularProgress size={24} /> : "Save Configuration"}
-        </Button>
+        {canUpdateProjectApprovals && (
+          <Button
+            onClick={handleSave}
+            variant="contained"
+            disabled={saving || loading}
+            sx={{ minWidth: 120 }}
+          >
+            {saving ? <CircularProgress size={24} /> : "Save Configuration"}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

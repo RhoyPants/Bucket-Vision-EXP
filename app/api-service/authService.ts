@@ -2,6 +2,7 @@ import api from "@/app/lib/axios";
 import axios from "@/app/lib/axios";
 import rawAxios from "axios";
 import { getMsalInstance, microsoftLoginRequest, msalConfig } from "@/app/lib/msalConfig";
+import { PagePermission } from "@/app/lib/permission";
 
 export interface MicrosoftSsoFrontendData {
   accessToken: string;
@@ -17,7 +18,8 @@ export interface MicrosoftSsoFrontendData {
     isPending?: boolean;
     isDenied?: boolean;
   };
-  permissions?: Record<string, string[]>;
+  permissions?: PagePermission[];
+  pagePermissions?: PagePermission[];
 }
 
 export interface MicrosoftSsoFrontendEnvelope {
@@ -81,8 +83,9 @@ export const loginWithMicrosoftPopup =
         ...microsoftLoginRequest,
         ...(popupRedirectUri ? { redirectUri: popupRedirectUri } : {}),
       });
-    } catch (error: any) {
-      if (error?.errorCode === "interaction_in_progress") {
+    } catch (error: unknown) {
+      const msalError = error as { errorCode?: string };
+      if (msalError?.errorCode === "interaction_in_progress") {
         Object.keys(sessionStorage)
           .filter((key) => key.includes("interaction.status"))
           .forEach((key) => sessionStorage.removeItem(key));
@@ -144,6 +147,19 @@ export async function loginRequest(email: string, password: string) {
   const response = await api.post("/auth/login", { email, password });
   return response.data;
 }
+
+export interface PermissionBootstrapResponse {
+  success: boolean;
+  data: {
+    role: string;
+    pages: PagePermission[];
+  };
+}
+
+export const getMyPagePermissions = async () => {
+  const response = await api.get("/auth/me/permissions");
+  return response.data as PermissionBootstrapResponse;
+};
 
 export const getUserSession = async () => {
   const token = localStorage.getItem("token");

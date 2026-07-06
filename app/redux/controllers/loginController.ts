@@ -13,18 +13,13 @@ export const login = (email: string, password: string) => {
         password,
       });
 
-      const { accessToken, user } = res.data;
+      const { accessToken, user, permissions, pagePermissions } = res.data;
 
-      // 🔥 SAVE TOKEN
       localStorage.setItem("token", accessToken);
+      dispatch(setUser({ user, token: accessToken, permissions, pagePermissions }));
 
-      // 🔥 UPDATE REDUX WITH LOGIN RESPONSE
-      dispatch(setUser({ user, token: accessToken }));
-
-      // 🔥 FETCH FULL USER DATA WITH PERMISSIONS
-      await dispatch(fetchCurrentUser() as any);
-
-    } catch (err: any) {
+      await fetchCurrentUser()(dispatch);
+    } catch (err: unknown) {
       dispatch(setError("Login failed"));
       throw err;
     } finally {

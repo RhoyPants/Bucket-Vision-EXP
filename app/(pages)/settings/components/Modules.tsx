@@ -26,6 +26,7 @@ import {
 } from "@mui/material";
 import axiosApi from "@/app/lib/axios";
 import AddIcon from "@mui/icons-material/Add";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 interface Module {
   id: string;
@@ -34,7 +35,27 @@ interface Module {
   isActive: boolean;
 }
 
+const extractModules = (payload: unknown): Module[] => {
+  if (Array.isArray(payload)) return payload as Module[];
+
+  const wrapped = payload as {
+    data?: unknown;
+    modules?: unknown;
+  } | null;
+
+  if (Array.isArray(wrapped?.modules)) return wrapped.modules as Module[];
+  if (Array.isArray(wrapped?.data)) return wrapped.data as Module[];
+
+  const nested = wrapped?.data as { modules?: unknown } | null;
+  if (Array.isArray(nested?.modules)) return nested.modules as Module[];
+
+  return [];
+};
+
 export default function Modules() {
+  const { canCreate } = usePermissions();
+  const canCreateModule = canCreate("settings_modules");
+
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -53,7 +74,7 @@ export default function Modules() {
     try {
       const res = await axiosApi.get("/modules");
       if (res.status === 200) {
-        setModules(res.data);
+        setModules(extractModules(res.data));
       } else {
         setError("Failed to load modules.");
       }
@@ -69,6 +90,8 @@ export default function Modules() {
   }, []);
 
   const handleCreate = async () => {
+    if (!canCreateModule) return;
+
     if (!name.trim() || !path.trim()) {
       setError("Both name and path are required.");
       return;
@@ -110,7 +133,8 @@ export default function Modules() {
       </Typography>
 
       {/* ── Create Form ───────────────────────────────────────── */}
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
+      {canCreateModule && (
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
         <Typography fontWeight={600} mb={2}>
           Add New Module
         </Typography>
@@ -152,7 +176,8 @@ export default function Modules() {
 
         {error && <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>{error}</Alert>}
         {success && <Alert severity="success" onClose={() => setSuccess(null)}>{success}</Alert>}
-      </Paper>
+        </Paper>
+      )}
 
       <Divider sx={{ mb: 3 }} />
 

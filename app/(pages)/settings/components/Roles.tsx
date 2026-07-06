@@ -21,17 +21,28 @@ import {
   CardActions,
 } from "@mui/material";
 import { useEffect, useState } from "react";
-import { getRoles } from "@/app/lib/role.api";
+import { deleteRole, getRoles } from "@/app/lib/role.api";
+import { usePermissions } from "@/app/lib/usePermissions";
 import RoleModal from "../../../components/shared/modals/RoleModal";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 
+type Role = {
+  id: string;
+  name: string;
+};
+
 export default function Roles() {
-  const [roles, setRoles] = useState<any[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [open, setOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<any>(null);
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const canCreateRole = canCreate("settings_roles");
+  const canUpdateRole = canUpdate("settings_roles");
+  const canDeleteRole = canDelete("settings_roles");
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -53,7 +64,7 @@ export default function Roles() {
     }
   };
 
-  const handleEdit = (role: any) => {
+  const handleEdit = (role: Role) => {
     setSelectedRole(role);
     setOpen(true);
   };
@@ -61,6 +72,22 @@ export default function Roles() {
   const handleAddRole = () => {
     setSelectedRole(null);
     setOpen(true);
+  };
+
+  const handleDelete = async (role: Role) => {
+    const confirmed = window.confirm(`Delete role "${role.name}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(role.id);
+      await deleteRole(role.id);
+      await fetchRoles();
+    } catch (err) {
+      setError("Failed to delete role. Please try again.");
+      console.error(err);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (loading) {
@@ -82,9 +109,11 @@ export default function Roles() {
           <Typography variant="h5" fontWeight={600}>
             Roles
           </Typography>
-          <Button variant="contained" color="success" onClick={handleAddRole}>
-            Add Role
-          </Button>
+          {canCreateRole ? (
+            <Button variant="contained" color="success" onClick={handleAddRole}>
+              Add Role
+            </Button>
+          ) : null}
         </Box>
         <Alert severity="info">No roles found. Create your first role to get started.</Alert>
         <RoleModal
@@ -104,9 +133,11 @@ export default function Roles() {
         <Typography variant="h5" fontWeight={600}>
           Roles
         </Typography>
-        <Button variant="contained" color="success" onClick={handleAddRole}>
-          Add Role
-        </Button>
+        {canCreateRole ? (
+          <Button variant="contained" color="success" onClick={handleAddRole}>
+            Add Role
+          </Button>
+        ) : null}
       </Box>
 
       {/* DESKTOP TABLE VIEW */}
@@ -139,24 +170,30 @@ export default function Roles() {
                   </TableCell>
                   <TableCell sx={{ textAlign: "right" }}>
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<EditIcon />}
-                        onClick={() => handleEdit(role)}
-                        sx={{ textTransform: "none" }}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="error"
-                        startIcon={<DeleteIcon />}
-                        sx={{ textTransform: "none" }}
-                      >
-                        Delete
-                      </Button>
+                      {canUpdateRole ? (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<EditIcon />}
+                          onClick={() => handleEdit(role)}
+                          sx={{ textTransform: "none" }}
+                        >
+                          Edit
+                        </Button>
+                      ) : null}
+                      {canDeleteRole ? (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          startIcon={<DeleteIcon />}
+                          onClick={() => handleDelete(role)}
+                          disabled={deletingId === role.id}
+                          sx={{ textTransform: "none" }}
+                        >
+                          {deletingId === role.id ? "Deleting..." : "Delete"}
+                        </Button>
+                      ) : null}
                     </Stack>
                   </TableCell>
                 </TableRow>
@@ -180,22 +217,28 @@ export default function Roles() {
                 </Typography>
               </CardContent>
               <CardActions sx={{ pt: 0 }}>
-                <Button
-                  size="small"
-                  startIcon={<EditIcon />}
-                  onClick={() => handleEdit(role)}
-                  sx={{ textTransform: "none" }}
-                >
-                  Edit
-                </Button>
-                <Button
-                  size="small"
-                  color="error"
-                  startIcon={<DeleteIcon />}
-                  sx={{ textTransform: "none" }}
-                >
-                  Delete
-                </Button>
+                {canUpdateRole ? (
+                  <Button
+                    size="small"
+                    startIcon={<EditIcon />}
+                    onClick={() => handleEdit(role)}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Edit
+                  </Button>
+                ) : null}
+                {canDeleteRole ? (
+                  <Button
+                    size="small"
+                    color="error"
+                    startIcon={<DeleteIcon />}
+                    onClick={() => handleDelete(role)}
+                    disabled={deletingId === role.id}
+                    sx={{ textTransform: "none" }}
+                  >
+                    {deletingId === role.id ? "Deleting..." : "Delete"}
+                  </Button>
+                ) : null}
               </CardActions>
             </Card>
           ))}

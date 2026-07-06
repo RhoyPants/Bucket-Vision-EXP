@@ -17,47 +17,65 @@ import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 
 import SidebarItem from "./SidebarItem";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { getMyApprovals } from "@/app/api-service/projectService";
-import { useAppSelector } from "@/app/redux/hook";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 const drawerWidth = 240;
 const collapsedDrawerWidth = 80;
 const sidebarCollapsedStorageKey = "bv-sidebar-collapsed";
-const approvalsCacheStorageKey = "bv-my-approvals-cache";
-const approvalsCacheTtlMs = 60 * 1000;
 const settingsTabs = [
-  { key: "profile", label: "My Profile" },
-  { key: "roles", label: "Roles" },
-  { key: "users", label: "Users" },
-  { key: "userRequests", label: "User Requests" },
-  { key: "relations", label: "User Relations" },
-  { key: "approvals", label: "Approval Flows" },
-  { key: "projectApprovals", label: "Project Approvals" },
-  { key: "modules", label: "Modules" },
-  { key: "businessUnits", label: "Business Units" },
+  { key: "profile", label: "My Profile", permissionKey: "settings_profile" },
+  { key: "roles", label: "Roles", permissionKey: "settings_roles" },
+  { key: "users", label: "Users", permissionKey: "settings_users" },
+  { key: "userRequests", label: "User Requests", permissionKey: "settings_user_requests" },
+  { key: "relations", label: "User Relations", permissionKey: "settings_user_relations" },
+  { key: "approvals", label: "Approval Flows", permissionKey: "settings_approval_flows" },
+  { key: "projectApprovals", label: "Project Approvals", permissionKey: "settings_project_approvals" },
+  { key: "modules", label: "Modules", permissionKey: "settings_modules" },
+  { key: "businessUnits", label: "Business Units", permissionKey: "settings_business_units" },
 ] as const;
 
-type ApprovalQueueItem = {
-  status?: string;
+const mainNavItems = [
+  { label: "Personal Dashboard", href: "/personalDashboard", permissionKey: "personal_dashboard", icon: <SpaceDashboardOutlinedIcon /> },
+  { label: "Projects", href: "/projects", permissionKey: "projects", icon: <FolderOpenOutlinedIcon /> },
+  { label: "My Requests", href: "/myRequests", permissionKey: "my_requests", icon: <SendOutlinedIcon /> },
+  { label: "My Approvals", href: "/myApprovals", permissionKey: "my_approvals", icon: <FactCheckOutlinedIcon /> },
+  { label: "Sprint Management", href: "/sprintManagement", permissionKey: "sprint_management", icon: <AssignmentTurnedInOutlinedIcon /> },
+  { label: "Task Board", href: "/taskboard", permissionKey: "task_board", icon: <ViewKanbanOutlinedIcon /> },
+  { label: "Team Overview", href: "/teamOverview", permissionKey: "team_overview", icon: <GroupsOutlinedIcon /> },
+  { label: "My Drafts", href: "/myDrafts", permissionKey: "my_drafts", icon: <DraftsOutlinedIcon /> },
+  { label: "Reports", href: "/reports", permissionKey: "reports", icon: <AssessmentOutlinedIcon /> },
+] as const;
+
+const subscribeToHydration = (onStoreChange: () => void) => {
+  const timer = window.setTimeout(onStoreChange, 0);
+  return () => window.clearTimeout(timer);
 };
+
+const getHydratedSnapshot = () => true;
+const getServerHydratedSnapshot = () => false;
 
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user } = useAppSelector((state) => state.auth);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.localStorage.getItem(sidebarCollapsedStorageKey) === "true"
+  const { canView } = usePermissions();
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    getHydratedSnapshot,
+    getServerHydratedSnapshot
   );
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(true);
-  const [approvalQueue, setApprovalQueue] = useState<ApprovalQueueItem[]>([]);
-  const isSuperAdmin = user?.role?.toUpperCase() === "SUPERADMIN";
-
+  const allowedSettingsTabs = hydrated
+    ? settingsTabs.filter((tab) => canView(tab.permissionKey))
+    : [];
+  const canViewSettings = hydrated
+    ? canView("settings") || allowedSettingsTabs.length > 0
+    : false;
   const handleToggle = () => setMobileOpen((prev) => !prev);
   const handleCollapseToggle = () => {
     setCollapsed((prev) => {
@@ -70,58 +88,17 @@ export default function Sidebar() {
   };
 
   useEffect(() => {
-    const fetchApprovalQueue = async () => {
-      if (typeof window !== "undefined") {
-        const cachedRaw = window.sessionStorage.getItem(approvalsCacheStorageKey);
+    const timer = window.setTimeout(() => {
+      setCollapsed(window.localStorage.getItem(sidebarCollapsedStorageKey) === "true");
+    }, 0);
 
-        if (cachedRaw) {
-          try {
-            const cached = JSON.parse(cachedRaw) as {
-              ts: number;
-              items: ApprovalQueueItem[];
-            };
-
-            if (Date.now() - cached.ts < approvalsCacheTtlMs) {
-              setApprovalQueue(Array.isArray(cached.items) ? cached.items : []);
-              return;
-            }
-          } catch {
-            // Ignore invalid cache and fetch fresh data.
-          }
-        }
-      }
-
-      try {
-        const items = await getMyApprovals();
-        const safeItems = Array.isArray(items) ? items : [];
-        setApprovalQueue(safeItems);
-
-        if (typeof window !== "undefined") {
-          window.sessionStorage.setItem(
-            approvalsCacheStorageKey,
-            JSON.stringify({ ts: Date.now(), items: safeItems })
-          );
-        }
-      } catch (error) {
-        console.error("Failed to load my approvals count:", error);
-      }
-    };
-
-    fetchApprovalQueue();
+    return () => window.clearTimeout(timer);
   }, []);
-
-  const approvalBadgeCount = useMemo(() => {
-    const forReview = approvalQueue.filter((p) => p?.status === "FOR_REVIEW").length;
-    const forApproval = approvalQueue.filter((p) => p?.status === "FOR_APPROVAL").length;
-    const total = forReview + forApproval;
-
-    return total;
-  }, [approvalQueue]);
 
   const currentWidth = collapsed ? collapsedDrawerWidth : drawerWidth;
   const settingsTab = searchParams.get("tab") || "profile";
   const isOnSettings = pathname === "/settings";
-  const showSettingsSubmenu = isSuperAdmin && isOnSettings && !collapsed && settingsMenuOpen;
+  const showSettingsSubmenu = isOnSettings && !collapsed && settingsMenuOpen && allowedSettingsTabs.length > 0;
 
   const sidebarContent = (
     <Box
@@ -139,7 +116,19 @@ export default function Sidebar() {
     >
       {/* Logo Section */}
       <Box sx={{ height: 30, display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "flex-start", px: 1.5, mb: 5 }}>
-        <img src="/images/GVI_LOGO_DARK.png" width={collapsed ? 42 : 130} alt="GVI Logo" style={{ display: "block", filter: "brightness(0) invert(1)" }} />
+        <Image
+          src="/images/GVI_LOGO_DARK.png"
+          width={130}
+          height={42}
+          priority
+          alt="GVI Logo"
+          style={{
+            display: "block",
+            width: collapsed ? 42 : 130,
+            height: "auto",
+            filter: "brightness(0) invert(1)",
+          }}
+        />
       </Box>
 
       {/* Menu */}
@@ -185,16 +174,19 @@ export default function Sidebar() {
           },
         }}
       >
-        <SidebarItem label="Personal Dashboard" href="/personalDashboard" icon={<SpaceDashboardOutlinedIcon />} collapsed={collapsed} />
-        <SidebarItem label="Projects" href="/projects" icon={<FolderOpenOutlinedIcon />} collapsed={collapsed} />
-        <SidebarItem label="My Requests" href="/myRequests" icon={<SendOutlinedIcon />} collapsed={collapsed} />
-        <SidebarItem label="My Approvals" href="/myApprovals" badgeCount={approvalBadgeCount} icon={<FactCheckOutlinedIcon />} collapsed={collapsed} />
-        <SidebarItem label="Sprint Management" href="/sprintManagement" icon={<AssignmentTurnedInOutlinedIcon />} collapsed={collapsed} />
-        <SidebarItem label="Task Board" href="/taskboard" icon={<ViewKanbanOutlinedIcon />} collapsed={collapsed} />
-        <SidebarItem label="Team Overview" href="/teamOverview" icon={<GroupsOutlinedIcon />} collapsed={collapsed} />
-        <SidebarItem label="My Drafts" href="/myDrafts" icon={<DraftsOutlinedIcon />} collapsed={collapsed} />
-        <SidebarItem label="Reports" href="/reports" icon={<AssessmentOutlinedIcon />} collapsed={collapsed} />
+        {mainNavItems
+          .filter((item) => hydrated && canView(item.permissionKey))
+          .map((item) => (
+            <SidebarItem
+              key={item.permissionKey}
+              label={item.label}
+              href={item.href}
+              icon={item.icon}
+              collapsed={collapsed}
+            />
+          ))}
 
+        {canViewSettings ? (
         <Box
           onClick={() => {
             if (collapsed) {
@@ -202,14 +194,9 @@ export default function Sidebar() {
               return;
             }
 
-            if (!isSuperAdmin) {
-              router.push("/settings?tab=profile");
-              return;
-            }
-
             if (!isOnSettings) {
               setSettingsMenuOpen(true);
-              router.push("/settings?tab=profile");
+              router.push(`/settings?tab=${allowedSettingsTabs[0]?.key || "profile"}`);
               return;
             }
 
@@ -267,7 +254,7 @@ export default function Sidebar() {
             </Typography>
           </Box>
 
-          {!collapsed && isSuperAdmin ? (
+          {!collapsed && allowedSettingsTabs.length > 0 ? (
             <ExpandMoreRoundedIcon
               sx={{
                 fontSize: 18,
@@ -278,10 +265,11 @@ export default function Sidebar() {
             />
           ) : null}
         </Box>
+        ) : null}
 
         {showSettingsSubmenu ? (
           <Box sx={{ ml: 1.5, mb: 1, mt: -0.25, pr: 0.75 }}>
-            {settingsTabs.map((tab) => {
+            {allowedSettingsTabs.map((tab) => {
               const isActive = settingsTab === tab.key;
 
               return (
@@ -364,7 +352,6 @@ export default function Sidebar() {
         open={mobileOpen}
         onClose={handleToggle}
         variant="temporary"
-        ModalProps={{ keepMounted: true }}
         sx={{
           display: { xs: "block", md: "none" },
           "& .MuiDrawer-paper": {
@@ -373,7 +360,7 @@ export default function Sidebar() {
           },
         }}
       >
-        {sidebarContent}
+        {mobileOpen ? sidebarContent : null}
       </Drawer>
 
       {/* DESKTOP SIDEBAR (fixed) */}

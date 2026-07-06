@@ -29,6 +29,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ProgressCalendarModal from "../modals/ProgressCalendarModal";
 import SubtaskModal from "../modals/SubtaskModal";
 import { formatBudget } from "@/app/utils/formatters";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 const SourceTooltip = styled(({ className, ...props }: React.ComponentProps<typeof Tooltip>) => (
   <Tooltip {...props} classes={{ popper: className }} />
@@ -74,6 +75,8 @@ export default function KanbanSortableCard({
   showHierarchy?: boolean;
 }) {
   const dispatch = useAppDispatch();
+  const { canView } = usePermissions();
+  const canViewProgress = canView("progress");
   const isTaskBoardCard = showHierarchy && parentTaskId === null;
 
   const [adding, setAdding] = useState(false);
@@ -186,6 +189,7 @@ export default function KanbanSortableCard({
 
   const handleOpenProgressFromMenu = () => {
     handleCloseTaskBoardMenu();
+    if (!canViewProgress) return;
     setOpenCalendar(true);
   };
 
@@ -294,19 +298,21 @@ export default function KanbanSortableCard({
                 </IconButton>
               </Tooltip>
 
-              <Tooltip title="Add Progress" arrow>
-                <IconButton
-                  size="small"
-                  onClick={() => setOpenCalendar(true)}
-                  sx={{
-                    background: "#fff",
-                    border: "1px solid #eee",
-                    "&:hover": { background: "#f5f5f5" },
-                  }}
-                >
-                  <EventIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
+              {canViewProgress && (
+                <Tooltip title="Add Progress" arrow>
+                  <IconButton
+                    size="small"
+                    onClick={() => setOpenCalendar(true)}
+                    sx={{
+                      background: "#fff",
+                      border: "1px solid #eee",
+                      "&:hover": { background: "#f5f5f5" },
+                    }}
+                  >
+                    <EventIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
 
               <Tooltip title="Checklist" arrow>
                 <IconButton
@@ -802,14 +808,16 @@ export default function KanbanSortableCard({
             },
           }}
         >
-          <MenuItem onClick={handleOpenProgressFromMenu} sx={{ fontSize: 13, gap: 1 }}>
-            <ListItemIcon sx={{ minWidth: "28px !important" }}>
-              <EventIcon sx={{ fontSize: 18, color: "#475569" }} />
-            </ListItemIcon>
-            <ListItemText primaryTypographyProps={{ fontSize: 13, fontWeight: 650 }}>
-              Add progress
-            </ListItemText>
-          </MenuItem>
+          {canViewProgress && (
+            <MenuItem onClick={handleOpenProgressFromMenu} sx={{ fontSize: 13, gap: 1 }}>
+              <ListItemIcon sx={{ minWidth: "28px !important" }}>
+                <EventIcon sx={{ fontSize: 18, color: "#475569" }} />
+              </ListItemIcon>
+              <ListItemText primaryTypographyProps={{ fontSize: 13, fontWeight: 650 }}>
+                Add progress
+              </ListItemText>
+            </MenuItem>
+          )}
           <MenuItem onClick={handleOpenChecklistFromMenu} sx={{ fontSize: 13, gap: 1 }}>
             <ListItemIcon sx={{ minWidth: "28px !important" }}>
               <ChecklistIcon sx={{ fontSize: 18, color: "#475569" }} />

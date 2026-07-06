@@ -11,6 +11,7 @@ import CalendarHeader from "@/app/components/shared/calendar/CalendarHeader";
 import CalendarGrid from "@/app/components/shared/calendar/CalendarGrid";
 import ScopeFilter from "@/app/components/shared/calendar/ScopeFilter";
 import ProgressCalendarModal from "@/app/components/shared/modals/ProgressCalendarModal";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 interface DashboardCalendarProps {
   projectId: string | null;
@@ -22,6 +23,8 @@ export default function DashboardCalendar({
   projectStartDate,
 }: DashboardCalendarProps) {
   const dispatch = useAppDispatch();
+  const { canView } = usePermissions();
+  const canViewProgress = canView("progress");
 
   // Initialize to project's start month if provided, otherwise today
   const getInitialDate = () => {
@@ -95,6 +98,7 @@ export default function DashboardCalendar({
   };
 
   const handleSubtaskClick = (subtaskId: string) => {
+    if (!canViewProgress) return;
     setSelectedSubtaskId(subtaskId);
     setModalOpen(true);
   };

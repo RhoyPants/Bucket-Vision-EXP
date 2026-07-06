@@ -10,30 +10,41 @@ import {
   Typography,
   CircularProgress,
 } from "@mui/material";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getUsers } from "@/app/lib/user.api";
 import { assignManager, getUserRelations } from "@/app/lib/userRelation.api";
+import { usePermissions } from "@/app/lib/usePermissions";
+
+type RelationUser = {
+  id: string;
+  name?: string;
+};
+
+type UserRelationModalProps = {
+  open: boolean;
+  onClose: () => void;
+  user?: RelationUser | null;
+  refresh: () => void;
+};
 
 export default function UserRelationModal({
   open,
   onClose,
   user,
   refresh,
-}: any) {
-  const [users, setUsers] = useState<any[]>([]);
+}: UserRelationModalProps) {
+  const [users, setUsers] = useState<RelationUser[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const { canUpdate } = usePermissions();
+  const canUpdateUsers = canUpdate("settings_users");
 
   // =========================
   // LOAD USERS (FILTERED)
   // =========================
-  useEffect(() => {
-    if (open && user) {
-      fetchUsers();
-    }
-  }, [open, user]);
+  const fetchUsers = useCallback(async () => {
+    if (!user) return;
 
-  const fetchUsers = async () => {
     try {
       setLoading(true);
 
@@ -42,13 +53,13 @@ export default function UserRelationModal({
         getUserRelations(user.id),
       ]);
 
-      const assignedManagerIds = relations.managers.map((m: any) => m.id);
+      const assignedManagerIds = relations.managers.map((m: RelationUser) => m.id);
 
       // 🔥 FILTER:
       // - remove self
       // - remove already assigned managers
       const filtered = allUsers.filter(
-        (u: any) =>
+        (u: RelationUser) =>
           u.id !== user.id && !assignedManagerIds.includes(u.id)
       );
 
@@ -58,7 +69,13 @@ export default function UserRelationModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (open && user) {
+      fetchUsers();
+    }
+  }, [fetchUsers, open, user]);
 
   // =========================
   // TOGGLE SELECT
@@ -75,7 +92,7 @@ export default function UserRelationModal({
   // SAVE (BULK)
   // =========================
   const handleSave = async () => {
-    if (!user || selectedIds.length === 0) return;
+    if (!user || selectedIds.length === 0 || !canUpdateUsers) return;
 
     try {
       setLoading(true);
@@ -151,7 +168,7 @@ export default function UserRelationModal({
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={selectedIds.length === 0 || loading}
+            disabled={selectedIds.length === 0 || loading || !canUpdateUsers}
           >
             Save
           </Button>

@@ -1,26 +1,33 @@
-import { AppDispatch } from "../store";
+import { getMyPagePermissions } from "@/app/api-service/authService";
 import axiosApi from "@/app/lib/axios";
-import { setUser, setLoading, setError } from "../slices/authSlice";
+import { AppDispatch } from "../store";
+import {
+  setError,
+  setLoading,
+  setPagePermissions,
+  setUser,
+} from "../slices/authSlice";
 
-/**
- * Fetch current user data from backend
- * Called after login to populate user details and permissions
- */
 export const fetchCurrentUser = () => {
   return async (dispatch: AppDispatch) => {
     try {
       dispatch(setLoading(true));
 
       const res = await axiosApi.get("/auth/me");
-      const { user, permissions } = res.data;
-
-      // Get token from localStorage
+      const { user, permissions, pagePermissions } = res.data;
       const token = localStorage.getItem("token");
 
-      // 🔥 UPDATE REDUX WITH FULL USER DATA
-      dispatch(setUser({ user, token: token || "", permissions }));
+      dispatch(setUser({ user, token: token || "", permissions, pagePermissions }));
 
-    } catch (err: any) {
+      const permissionRes = await getMyPagePermissions();
+      dispatch(
+        setPagePermissions({
+          role: permissionRes.data?.role,
+          pages: permissionRes.data?.pages || [],
+        })
+      );
+    } catch (err: unknown) {
+      dispatch(setPagePermissions({ role: null, pages: [] }));
       dispatch(setError("Failed to fetch user data"));
       throw err;
     } finally {

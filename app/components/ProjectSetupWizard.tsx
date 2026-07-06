@@ -81,6 +81,7 @@ import {
   getProjectAttachments,
   uploadAttachments,
 } from "@/app/api-service/attachmentService";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 
 const WIZARD_STEPS = ["Create Project", "Team Management", "Project Structure", "Confirmation & Summary"];
@@ -100,6 +101,9 @@ export default function ProjectSetupWizard({
 }: ProjectSetupWizardProps) {
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const { canCreate, canUpdate } = usePermissions();
+  const canCreateProject = canCreate("projects");
+  const canUpdateProject = canUpdate("projects");
   const { user } = useAppSelector((state) => state.auth);
   const { members } = useAppSelector((state) => state.user);
   const [currentProjectId, setCurrentProjectId] = useState<string | undefined>(projectId);
@@ -110,6 +114,7 @@ export default function ProjectSetupWizard({
   const [loading, setLoading] = useState(!initialData && !!projectId);
   const [saving, setSaving] = useState(false);
   const isCreatingNew = mode === "create" || !currentProjectId;
+  const canSaveProjectDetails = isCreatingNew && !currentProjectId ? canCreateProject : canUpdateProject;
   const activeStepRef = useRef(initialStep);
 
   // ===== PROJECT FORM STATE =====
@@ -684,6 +689,16 @@ export default function ProjectSetupWizard({
 
   // SAVE PROJECT DETAILS (called from project setup step)
   const handleSaveProjectDetails = async () => {
+    if (!canSaveProjectDetails) {
+      setProjectErrors([
+        {
+          field: "submit",
+          message: `You don't have access to ${isCreatingNew && !currentProjectId ? "create" : "update"} project.`,
+        },
+      ]);
+      return false;
+    }
+
     const validation = validateProjectForm(projectForm);
     
     if (!validation.isValid) {
@@ -718,7 +733,7 @@ export default function ProjectSetupWizard({
         window.history.replaceState({}, "", `/projects/${createdId}/setup`);
         setProject(createdProject);
 
-        if (projectAttachmentFiles.length > 0) {
+        if (canUpdateProject && projectAttachmentFiles.length > 0) {
           setAttachmentBusy(true);
           try {
             await uploadAttachments("projects", createdId, projectAttachmentFiles);
@@ -743,7 +758,7 @@ export default function ProjectSetupWizard({
           }));
         }
 
-        if (projectAttachmentFiles.length > 0) {
+        if (canUpdateProject && projectAttachmentFiles.length > 0) {
           setAttachmentBusy(true);
           try {
             await uploadAttachments("projects", currentProjectId, projectAttachmentFiles);
@@ -817,6 +832,11 @@ export default function ProjectSetupWizard({
   };
 
   const handleSaveDraft = async () => {
+    if (!canUpdateProject) {
+      setSubmitMessage("You don't have access to update project.");
+      return;
+    }
+
     try {
       setSaving(true);
       if (currentProjectId) {
@@ -835,6 +855,8 @@ export default function ProjectSetupWizard({
   };
 
   const handleProjectAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canUpdateProject) return;
+
     const inputEl = e.currentTarget;
     const selected = Array.from(inputEl.files || []);
     if (!selected.length) return;
@@ -872,6 +894,8 @@ export default function ProjectSetupWizard({
   };
 
   const removePendingProjectAttachment = (target: File) => {
+    if (!canUpdateProject) return;
+
     setProjectAttachmentFiles((prev) =>
       prev.filter(
         (f) => !(f.name === target.name && f.size === target.size && f.lastModified === target.lastModified),
@@ -880,6 +904,11 @@ export default function ProjectSetupWizard({
   };
 
   const handleDeleteProjectAttachment = async (att: any) => {
+    if (!canUpdateProject) {
+      setSubmitMessage("You don't have access to update project attachments.");
+      return;
+    }
+
     if (!att?.id) return;
 
     try {
@@ -992,6 +1021,11 @@ export default function ProjectSetupWizard({
                   {projectErrors.find((e) => e.field === "submit")?.message}
                 </Alert>
               )}
+              {!canSaveProjectDetails && (
+                <Alert severity="warning" sx={{ mb: 3 }}>
+                  You don't have access to {isCreatingNew && !currentProjectId ? "create" : "update"} project details.
+                </Alert>
+              )}
               <CreateProject
                 form={projectForm}
                 setForm={setProjectForm}
@@ -1020,43 +1054,49 @@ export default function ProjectSetupWizard({
                       Project Attachments
                     </Typography>
                     <Typography variant="caption" sx={{ color: "#666", display: "block", mb: 2 }}>
-                      Upload supporting files (max 10 files, 50MB each)
+                      {canUpdateProject
+                        ? "Upload supporting files (max 10 files, 50MB each)"
+                        : "You need project update permission to upload or remove attachments."}
                     </Typography>
 
 
-                    <input
-                      id="project-attachments-input"
-                      type="file"
-                      multiple
-                      accept="*/*"
-                      onChange={handleProjectAttachmentChange}
-                      style={{ display: "none" }}
-                      disabled={attachmentBusy}
-                    />
-                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mb: 2 }}>
-                      <label htmlFor="project-attachments-input" style={{ width: "100%" }}>
-                        <Button
-                          component="span"
-                          variant="outlined"
-                          fullWidth
-                          endIcon={<CloudUploadIcon />}
+                    {canUpdateProject && (
+                      <>
+                        <input
+                          id="project-attachments-input"
+                          type="file"
+                          multiple
+                          accept="*/*"
+                          onChange={handleProjectAttachmentChange}
+                          style={{ display: "none" }}
                           disabled={attachmentBusy}
-                          sx={{
-                            height: 56,
-                            borderStyle: "dashed",
-                            borderColor: "#cbd5e1",
-                            color: "#374151",
-                            justifyContent: "space-between",
-                            px: 2,
-                            textTransform: "none",
-                            fontWeight: 500,
-                            backgroundColor: "#fff",
-                          }}
-                        >
-                          Select files to attach
-                        </Button>
-                      </label>
-                    </Stack>
+                        />
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mb: 2 }}>
+                          <label htmlFor="project-attachments-input" style={{ width: "100%" }}>
+                            <Button
+                              component="span"
+                              variant="outlined"
+                              fullWidth
+                              endIcon={<CloudUploadIcon />}
+                              disabled={attachmentBusy}
+                              sx={{
+                                height: 56,
+                                borderStyle: "dashed",
+                                borderColor: "#cbd5e1",
+                                color: "#374151",
+                                justifyContent: "space-between",
+                                px: 2,
+                                textTransform: "none",
+                                fontWeight: 500,
+                                backgroundColor: "#fff",
+                              }}
+                            >
+                              Select files to attach
+                            </Button>
+                          </label>
+                        </Stack>
+                      </>
+                    )}
 
                     {projectAttachmentFiles.length > 0 && (
                       <Box
@@ -1152,7 +1192,7 @@ export default function ProjectSetupWizard({
                               {getAttachmentFileName(att, `Attachment ${idx + 1}`)}
                             </Button>
 
-                            {!!att?.id && (
+                            {canUpdateProject && !!att?.id && (
                               <IconButton
                                 color="error"
                                 size="small"
@@ -1682,7 +1722,7 @@ export default function ProjectSetupWizard({
             variant="outlined"
             startIcon={<SaveIcon />}
             onClick={handleSaveDraft}
-            disabled={saving}
+            disabled={saving || !canUpdateProject}
           >
             Save as Draft
           </Button>
@@ -1690,7 +1730,7 @@ export default function ProjectSetupWizard({
           <Button
             variant="contained"
             onClick={handleNext}
-            disabled={saving || (activeStep === 2 && !project)}
+            disabled={saving || (activeStep === 0 && !canSaveProjectDetails) || (activeStep === 2 && !project)}
           >
             {activeStep === WIZARD_STEPS.length - 1 ? "Submit for Approval" : "Next"}
           </Button>

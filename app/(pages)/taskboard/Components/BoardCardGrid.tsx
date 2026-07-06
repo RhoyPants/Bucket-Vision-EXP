@@ -24,6 +24,7 @@ interface BoardCardGridProps {
   subtasks: SubtaskCardData[];
   onUpdateProgress: (subtask: SubtaskCardData) => void;
   actionLoadingId?: string | null;
+  canViewProgress?: boolean;
   page: number;
   totalPages: number;
   total: number;
@@ -58,6 +59,7 @@ export default function BoardCardGrid({
   subtasks,
   onUpdateProgress,
   actionLoadingId,
+  canViewProgress = true,
   page,
   totalPages,
   total,
@@ -226,22 +228,24 @@ export default function BoardCardGrid({
                   </TableCell>
 
                   <TableCell align="right" sx={{ width: 120 }}>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      endIcon={<OpenInNewOutlinedIcon sx={{ fontSize: 16 }} />}
-                      disabled={actionLoadingId === subtask.id}
-                      onClick={() => onUpdateProgress(subtask)}
-                      sx={{
-                        borderRadius: 1,
-                        textTransform: "none",
-                        fontWeight: 700,
-                        bgcolor: "#0F172A",
-                        "&:hover": { bgcolor: "#1E293B" },
-                      }}
-                    >
-                      {actionLoadingId === subtask.id ? "Opening" : "Update"}
-                    </Button>
+                    {canViewProgress && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        endIcon={<OpenInNewOutlinedIcon sx={{ fontSize: 16 }} />}
+                        disabled={actionLoadingId === subtask.id}
+                        onClick={() => onUpdateProgress(subtask)}
+                        sx={{
+                          borderRadius: 1,
+                          textTransform: "none",
+                          fontWeight: 700,
+                          bgcolor: "#0F172A",
+                          "&:hover": { bgcolor: "#1E293B" },
+                        }}
+                      >
+                        {actionLoadingId === subtask.id ? "Opening" : "Update"}
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               );

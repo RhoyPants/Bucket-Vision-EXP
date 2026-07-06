@@ -39,7 +39,7 @@ import SendIcon from "@mui/icons-material/Send";
 import PeopleIcon from "@mui/icons-material/People";
 import ProjectCard, { getProjectVersionLabel } from "./ProjectCard";
 import { ProjectCardActions, ViewType } from "./types";
-import Guard from "@/app/components/shared/Guard";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 interface ProjectsGridProps {
   projects: ProjectGridItem[];
@@ -118,6 +118,10 @@ export default function ProjectsGrid({
 }: ProjectsGridProps) {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuProject, setMenuProject] = useState<ProjectGridItem | null>(null);
+  const { canView, canCreate, canUpdate, canDelete } = usePermissions();
+  const canCreateProject = canCreate("projects");
+  const canUpdateProject = canUpdate("projects");
+  const canDeleteProject = canDelete("projects");
 
   const menuOpen = Boolean(menuAnchor) && Boolean(menuProject);
   const approvalOnly = actionMode === "approval";
@@ -291,8 +295,7 @@ export default function ProjectsGrid({
             {emptySubtext}
           </Typography>
         )}
-        {showCreateButton && (
-          <Guard module="PROJECTS" action="CREATE">
+        {showCreateButton && canCreateProject && (
             <Button
               variant="contained"
               sx={{ backgroundColor: "#4B2E83", "&:hover": { backgroundColor: "#3d2363" } }}
@@ -300,7 +303,6 @@ export default function ProjectsGrid({
             >
               {createButtonLabel}
             </Button>
-          </Guard>
         )}
       </Card>
     );
@@ -558,7 +560,7 @@ export default function ProjectsGrid({
           >
             {menuProject
             ? [
-                (!menuProject.status || menuProject.status === "DRAFT" || menuProject.status === "FOR_REVIEW" || menuProject.status === "NEEDS_REVISION") && (
+                canUpdateProject && (!menuProject.status || menuProject.status === "DRAFT" || menuProject.status === "FOR_REVIEW" || menuProject.status === "NEEDS_REVISION") && (
                   <MenuItem key="setup" onClick={() => runMenuAction(() => actions.onSetup(menuProject.id))}>
                     <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Setup Project</ListItemText>
@@ -570,19 +572,19 @@ export default function ProjectsGrid({
                     <ListItemText>View Approval</ListItemText>
                   </MenuItem>
                 ),
-                (menuProject.status === "NEEDS_REVISION" || menuProject.status === "REJECTED") && (
+                canUpdateProject && (menuProject.status === "NEEDS_REVISION" || menuProject.status === "REJECTED") && (
                   <MenuItem key="resubmit" onClick={() => runMenuAction(() => actions.onSubmitForApproval(menuProject))}>
                     <ListItemIcon><SendIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Revise &amp; Resubmit</ListItemText>
                   </MenuItem>
                 ),
-                (menuProject.status === "ACTIVE" || menuProject.status === "APPROVED") && (
+                (menuProject.status === "ACTIVE" || menuProject.status === "APPROVED") && canView("team_management") && (
                   <MenuItem key="team-management" onClick={() => runMenuAction(() => actions.onTeamManage(menuProject))}>
                     <ListItemIcon><PeopleIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Team Management</ListItemText>
                   </MenuItem>
                 ),
-                (menuProject.status === "ACTIVE" || menuProject.status === "APPROVED") && (
+                (menuProject.status === "ACTIVE" || menuProject.status === "APPROVED") && canView("versioning") && (
                   <MenuItem key="project-versions" onClick={() => runMenuAction(() => actions.onVersion(menuProject))}>
                     <ListItemIcon><LayersIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Project Versions</ListItemText>
@@ -592,13 +594,14 @@ export default function ProjectsGrid({
                   <ListItemIcon><AssignmentIcon fontSize="small" /></ListItemIcon>
                   <ListItemText>Sprint Management</ListItemText>
                 </MenuItem>,
-                menuProject.status !== "ARCHIVED" && (
+                menuProject.status !== "ARCHIVED" && canUpdateProject && (
                   <MenuItem key="edit" onClick={() => runMenuAction(() => actions.onEdit(menuProject))}>
                     <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Edit Project</ListItemText>
                   </MenuItem>
                 ),
                 <Divider key="divider" />,
+                canDeleteProject && (
                 <MenuItem
                   key="delete"
                   onClick={() => runMenuAction(() => actions.onDelete(menuProject.id))}
@@ -606,7 +609,8 @@ export default function ProjectsGrid({
                 >
                   <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
                   <ListItemText>Delete</ListItemText>
-                </MenuItem>,
+                </MenuItem>
+                ),
               ]
               : null}
           </Menu>

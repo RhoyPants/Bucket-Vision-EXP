@@ -31,6 +31,7 @@ import {
   selectVersionsForComparison,
 } from "@/app/redux/controllers/versioningController";
 import { AppDispatch, RootState } from "@/app/redux/store";
+import Guard from "@/app/components/shared/Guard";
 import CompareVersionsTab from "./components/CompareVersionsTab";
 import VersionHistoryTab from "./components/VersionHistoryTab";
 
@@ -235,24 +236,26 @@ function VersioningPageContent() {
           </Box>
 
           <Stack direction="row" spacing={1.25} alignItems="center">
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateVersionModalOpen(true)}
-              sx={{
-                height: 35,
-                px: 2.5,
-                borderRadius: 2.25,
-                textTransform: "none",
-                fontWeight: 900,
-                bgcolor: "#b1aaff",
-                color: "#15123d",
-                boxShadow: "none",
-                "&:hover": { bgcolor: "#9c97df", boxShadow: "none" },
-              }}
-            >
-              Create New Version
-            </Button>
+            <Guard permissionKey="versioning" action="create">
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateVersionModalOpen(true)}
+                sx={{
+                  height: 35,
+                  px: 2.5,
+                  borderRadius: 2.25,
+                  textTransform: "none",
+                  fontWeight: 900,
+                  bgcolor: "#b1aaff",
+                  color: "#15123d",
+                  boxShadow: "none",
+                  "&:hover": { bgcolor: "#9c97df", boxShadow: "none" },
+                }}
+              >
+                Create New Version
+              </Button>
+            </Guard>
             <Button
               variant="text"
               startIcon={<CloseIcon />}

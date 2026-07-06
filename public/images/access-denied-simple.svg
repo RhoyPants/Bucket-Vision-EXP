@@ -1,0 +1,26 @@
+<svg width="420" height="180" viewBox="0 0 420 180" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Access denied</title>
+  <desc id="desc">Simple access denied illustration with a lock, shield, key, and user figure.</desc>
+  <rect width="420" height="180" rx="18" fill="#FFFFFF"/>
+  <circle cx="278" cy="77" r="62" fill="#E0DAE6" opacity="0.52"/>
+  <circle cx="141" cy="118" r="46" fill="#E8E7E2"/>
+  <path d="M67 136H353" stroke="#E8E7E2" stroke-width="3" stroke-linecap="round"/>
+  <path d="M98 74H150" stroke="#210E64" stroke-width="8" stroke-linecap="round" opacity="0.78"/>
+  <path d="M108 96H170" stroke="#210E64" stroke-width="8" stroke-linecap="round" opacity="0.32"/>
+  <rect x="188" y="52" width="88" height="100" rx="20" fill="#E0DAE6"/>
+  <rect x="201" y="66" width="62" height="72" rx="14" fill="#FFFFFF"/>
+  <circle cx="232" cy="91" r="15" fill="#E0DAE6"/>
+  <path d="M207 130C211 116 220 109 232 109C244 109 253 116 257 130" fill="#E0DAE6"/>
+  <path d="M284 50L337 72V100C337 129 315 145 284 153C253 145 231 129 231 100V72L284 50Z" fill="#210E64"/>
+  <path d="M284 63L324 79V101C324 122 308 134 284 141C260 134 244 122 244 101V79L284 63Z" fill="#FFFFFF" opacity="0.92"/>
+  <rect x="269" y="101" width="31" height="24" rx="7" fill="#210E64"/>
+  <path d="M274 101V93C274 87.477 278.477 83 284 83C289.523 83 294 87.477 294 93V101" stroke="#210E64" stroke-width="7" stroke-linecap="round"/>
+  <path d="M252 133L319 66" stroke="#E94B5A" stroke-width="9" stroke-linecap="round"/>
+  <path d="M252 133L319 66" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+  <circle cx="340" cy="54" r="11" fill="#E0DAE6"/>
+  <circle cx="359" cy="80" r="6" fill="#E0DAE6"/>
+  <circle cx="164" cy="65" r="8" fill="#E0DAE6"/>
+  <path d="M124 133H165" stroke="#210E64" stroke-width="6" stroke-linecap="round" opacity="0.28"/>
+  <circle cx="171" cy="133" r="8" fill="#E0DAE6" stroke="#210E64" stroke-width="5" opacity="0.72"/>
+  <path d="M179 133H199" stroke="#210E64" stroke-width="5" stroke-linecap="round" opacity="0.72"/>
+</svg>

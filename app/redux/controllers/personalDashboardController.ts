@@ -43,13 +43,24 @@ const getErrorMessage = (err: unknown, fallback: string) => {
   return fallback;
 };
 
+let dashboardsInFlight: ReturnType<typeof getPersonalDashboards> | null = null;
+const dashboardDetailInFlight = new Map<string, ReturnType<typeof getPersonalDashboardDetail>>();
+const dashboardChartInFlight = new Map<string, ReturnType<typeof getDashboardChartData>>();
+const dashboardReportInFlight = new Map<string, ReturnType<typeof getDashboardReportTable>>();
+
 export const fetchPersonalDashboards = () => {
   return async (dispatch: AppDispatch) => {
     try {
       dispatch(setLoading(true));
       dispatch(clearError());
 
-      const response = await getPersonalDashboards();
+      dashboardsInFlight =
+        dashboardsInFlight ||
+        getPersonalDashboards().finally(() => {
+          dashboardsInFlight = null;
+        });
+
+      const response = await dashboardsInFlight;
       dispatch(setDashboards(response.data));
 
       return response.data;
@@ -70,7 +81,14 @@ export const fetchPersonalDashboardDetail = (id: string) => {
       dispatch(setDetailLoading(true));
       dispatch(clearError());
 
-      const dashboard = await getPersonalDashboardDetail(id);
+      const request =
+        dashboardDetailInFlight.get(id) ||
+        getPersonalDashboardDetail(id).finally(() => {
+          dashboardDetailInFlight.delete(id);
+        });
+      dashboardDetailInFlight.set(id, request);
+
+      const dashboard = await request;
       dispatch(setSelectedDashboard(dashboard));
 
       return dashboard;
@@ -287,7 +305,14 @@ export const fetchDashboardChartData = (dashboardId: string) => {
     try {
       dispatch(setChartLoading(true));
 
-      const chartData = await getDashboardChartData(dashboardId);
+      const request =
+        dashboardChartInFlight.get(dashboardId) ||
+        getDashboardChartData(dashboardId).finally(() => {
+          dashboardChartInFlight.delete(dashboardId);
+        });
+      dashboardChartInFlight.set(dashboardId, request);
+
+      const chartData = await request;
       dispatch(setChartData(chartData));
 
       return chartData;
@@ -306,7 +331,14 @@ export const fetchDashboardReportTable = (dashboardId: string) => {
     try {
       dispatch(setReportLoading(true));
 
-      const reportTable = await getDashboardReportTable(dashboardId);
+      const request =
+        dashboardReportInFlight.get(dashboardId) ||
+        getDashboardReportTable(dashboardId).finally(() => {
+          dashboardReportInFlight.delete(dashboardId);
+        });
+      dashboardReportInFlight.set(dashboardId, request);
+
+      const reportTable = await request;
       dispatch(setReportTable(reportTable));
 
       return reportTable;

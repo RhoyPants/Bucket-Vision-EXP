@@ -44,6 +44,7 @@ import {
   setFlowAsDefault,
 } from "@/app/redux/controllers/approvalFlowController";
 import dynamic from "next/dynamic";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 const ApprovalFlowForm = dynamic(() => import("./ApprovalFlowForm"), {
   ssr: false,
@@ -54,12 +55,22 @@ export default function ApprovalFlowsList() {
   const { flows, loading, error } = useSelector(
     (state: RootState) => state.approvalFlow
   );
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const canCreateApprovalFlow = canCreate("settings_approval_flows");
+  const canUpdateApprovalFlow = canUpdate("settings_approval_flows");
+  const canDeleteApprovalFlow = canDelete("settings_approval_flows");
 
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editFlowId, setEditFlowId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [defaultDialog, setDefaultDialog] = useState(false);
+  const [selectedDefaultFlow, setSelectedDefaultFlow] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [settingDefault, setSettingDefault] = useState(false);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -69,12 +80,13 @@ export default function ApprovalFlowsList() {
   }, [dispatch]);
 
   const handleDeleteClick = (flowId: string) => {
+    if (!canDeleteApprovalFlow) return;
     setSelectedFlowId(flowId);
     setDeleteDialog(true);
   };
 
   const handleConfirmDelete = async () => {
-    if (!selectedFlowId) return;
+    if (!selectedFlowId || !canDeleteApprovalFlow) return;
     try {
       setDeleting(true);
       await dispatch(deleteFlow(selectedFlowId));
@@ -87,16 +99,35 @@ export default function ApprovalFlowsList() {
     }
   };
 
-  const handleSetDefault = async (flowId: string) => {
+  const handleSetDefaultClick = (flow: { id: string; name: string }) => {
+    if (!canUpdateApprovalFlow) return;
+    setSelectedDefaultFlow(flow);
+    setDefaultDialog(true);
+  };
+
+  const handleConfirmSetDefault = async () => {
+    if (!selectedDefaultFlow || !canUpdateApprovalFlow) return;
     try {
-      await dispatch(setFlowAsDefault(flowId));
+      setSettingDefault(true);
+      await dispatch(setFlowAsDefault(selectedDefaultFlow.id));
+      setDefaultDialog(false);
+      setSelectedDefaultFlow(null);
     } catch (err) {
       console.error("Error setting default flow:", err);
+    } finally {
+      setSettingDefault(false);
     }
   };
 
   const handleEditClick = (flowId: string) => {
+    if (!canUpdateApprovalFlow) return;
     setEditFlowId(flowId);
+    setShowForm(true);
+  };
+
+  const handleCreateClick = () => {
+    if (!canCreateApprovalFlow) return;
+    setEditFlowId(null);
     setShowForm(true);
   };
 
@@ -119,17 +150,16 @@ export default function ApprovalFlowsList() {
         <Typography variant="h5" fontWeight={700}>
           Approval Flows
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setEditFlowId(null);
-            setShowForm(true);
-          }}
-          sx={{ textTransform: "none" }}
-        >
-          Create Flow
-        </Button>
+        {canCreateApprovalFlow && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateClick}
+            sx={{ textTransform: "none" }}
+          >
+            Create Flow
+          </Button>
+        )}
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -186,11 +216,11 @@ export default function ApprovalFlowsList() {
                   </TableCell>
                   <TableCell align="right">
                     <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                      {!flow.isDefault && (
+                      {!flow.isDefault && canUpdateApprovalFlow && (
                         <Tooltip title="Set as default">
                           <IconButton
                             size="small"
-                            onClick={() => handleSetDefault(flow.id)}
+                            onClick={() => handleSetDefaultClick(flow)}
                           >
                             <StarBorderIcon fontSize="small" />
                           </IconButton>
@@ -203,23 +233,27 @@ export default function ApprovalFlowsList() {
                           </IconButton>
                         </Tooltip>
                       )}
-                      <Tooltip title="Edit">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEditClick(flow.id)}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDeleteClick(flow.id)}
-                          disabled={flow.isDefault}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      {canUpdateApprovalFlow && (
+                        <Tooltip title="Edit">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditClick(flow.id)}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {canDeleteApprovalFlow && (
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteClick(flow.id)}
+                            disabled={flow.isDefault}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </Stack>
                   </TableCell>
                 </TableRow>
@@ -260,34 +294,38 @@ export default function ApprovalFlowsList() {
               </CardContent>
               <CardActions>
                 <Stack direction="row" spacing={1}>
-                  {!flow.isDefault && (
+                  {!flow.isDefault && canUpdateApprovalFlow && (
                     <Button
                       size="small"
                       startIcon={<StarBorderIcon />}
-                      onClick={() => handleSetDefault(flow.id)}
+                      onClick={() => handleSetDefaultClick(flow)}
                       sx={{ textTransform: "none" }}
                     >
                       Default
                     </Button>
                   )}
-                  <Button
-                    size="small"
-                    startIcon={<EditIcon />}
-                    onClick={() => handleEditClick(flow.id)}
-                    sx={{ textTransform: "none" }}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    size="small"
-                    color="error"
-                    startIcon={<DeleteIcon />}
-                    onClick={() => handleDeleteClick(flow.id)}
-                    disabled={flow.isDefault}
-                    sx={{ textTransform: "none" }}
-                  >
-                    Delete
-                  </Button>
+                  {canUpdateApprovalFlow && (
+                    <Button
+                      size="small"
+                      startIcon={<EditIcon />}
+                      onClick={() => handleEditClick(flow.id)}
+                      sx={{ textTransform: "none" }}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                  {canDeleteApprovalFlow && (
+                    <Button
+                      size="small"
+                      color="error"
+                      startIcon={<DeleteIcon />}
+                      onClick={() => handleDeleteClick(flow.id)}
+                      disabled={flow.isDefault}
+                      sx={{ textTransform: "none" }}
+                    >
+                      Delete
+                    </Button>
+                  )}
                 </Stack>
               </CardActions>
             </Card>
@@ -311,6 +349,28 @@ export default function ApprovalFlowsList() {
             disabled={deleting}
           >
             {deleting ? <CircularProgress size={20} /> : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={defaultDialog} onClose={() => setDefaultDialog(false)}>
+        <DialogTitle>Set Default Approval Flow?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to set &quot;{selectedDefaultFlow?.name}&quot; as the default
+            approval flow? New projects without a custom approval setup will use this flow.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDefaultDialog(false)} disabled={settingDefault}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmSetDefault}
+            variant="contained"
+            disabled={settingDefault}
+          >
+            {settingDefault ? <CircularProgress size={20} /> : "Set Default"}
           </Button>
         </DialogActions>
       </Dialog>

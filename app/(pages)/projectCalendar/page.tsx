@@ -19,11 +19,14 @@ import CalendarHeader from "@/app/components/shared/calendar/CalendarHeader";
 import CalendarGrid from "@/app/components/shared/calendar/CalendarGrid";
 import ScopeFilter from "@/app/components/shared/calendar/ScopeFilter";
 import ProgressCalendarModal from "@/app/components/shared/modals/ProgressCalendarModal";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 function ProjectCalendarContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useDispatch<AppDispatch>();
+  const { canView } = usePermissions();
+  const canViewProgress = canView("progress");
 
   // ✅ Get projectId from URL
   const projectId = searchParams.get("projectId") || "";
@@ -103,6 +106,7 @@ function ProjectCalendarContent() {
 
   // ✅ Subtask click handler
   const handleSubtaskClick = (subtaskId: string) => {
+    if (!canViewProgress) return;
     setSelectedSubtaskId(subtaskId);
     setModalOpen(true);
   };

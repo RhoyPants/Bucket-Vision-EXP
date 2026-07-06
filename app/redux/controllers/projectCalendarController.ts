@@ -22,10 +22,20 @@ const normalizeSubtask = (raw: any, scopeId?: string, scopeName?: string): Subta
 });
 
 // ✅ FETCH SCOPES — /scopes/project/{projectId} (direct array response)
+const calendarScopesInFlight = new Map<string, ReturnType<typeof axiosApi.get>>();
+const calendarMonthInFlight = new Map<string, Promise<{ subtasks: SubtaskBarData[] }>>();
+
 export const fetchCalendarScopes = (projectId: string) => {
   return async (dispatch: AppDispatch) => {
     try {
-      const res = await axiosApi.get(`/scopes/project/${projectId}`);
+      const request =
+        calendarScopesInFlight.get(projectId) ||
+        axiosApi.get(`/scopes/project/${projectId}`).finally(() => {
+          calendarScopesInFlight.delete(projectId);
+        });
+      calendarScopesInFlight.set(projectId, request);
+
+      const res = await request;
       const scopes = (res.data || []).map((s: any) => ({
         id: s.id,
         name: s.name || s.title || "Unnamed",
@@ -50,64 +60,86 @@ export const fetchCalendarMonth = (
   scopeId?: string
 ) => {
   return async (dispatch: AppDispatch) => {
+    const cacheKey = [projectId, year, month, scopeId || "all"].join(":");
+
     try {
       dispatch(setLoading(true));
       dispatch(setError(null));
 
-      // Step 1: Get all scopes for the project
-      const scopesRes = await axiosApi.get(`/scopes/project/${projectId}`);
-      const allScopes: any[] = scopesRes.data || [];
-
-      const scopesToQuery = scopeId
-        ? allScopes.filter((s) => s.id === scopeId)
-        : allScopes;
-
-      if (scopesToQuery.length === 0) {
-        dispatch(setSubtasks([]));
-        return { subtasks: [] };
+      const existingRequest = calendarMonthInFlight.get(cacheKey);
+      if (existingRequest) {
+        const result = await existingRequest;
+        dispatch(setSubtasks(result.subtasks));
+        return result;
       }
 
-      // Step 2: Get tasks for each scope in parallel
-      const scopeTaskResults = await Promise.all(
-        scopesToQuery.map((scope) =>
-          axiosApi
-            .get(`/tasks/scope/${scope.id}`)
-            .then((r) => ({ tasks: r.data || [], scopeId: scope.id, scopeName: scope.name }))
-            .catch(() => ({ tasks: [], scopeId: scope.id, scopeName: scope.name }))
-        )
-      );
+      const request = (async () => {
+        // Step 1: Get all scopes for the project
+        const scopesRequest =
+          calendarScopesInFlight.get(projectId) ||
+          axiosApi.get(`/scopes/project/${projectId}`).finally(() => {
+            calendarScopesInFlight.delete(projectId);
+          });
+        calendarScopesInFlight.set(projectId, scopesRequest);
 
-      const taskRefs: { taskId: string; scopeId: string; scopeName: string }[] = [];
-      scopeTaskResults.forEach(({ tasks, scopeId: sId, scopeName: sName }) => {
-        tasks.forEach((task: any) => taskRefs.push({ taskId: task.id, scopeId: sId, scopeName: sName }));
-      });
+        const scopesRes = await scopesRequest;
+        const allScopes: any[] = scopesRes.data || [];
 
-      if (taskRefs.length === 0) {
-        dispatch(setSubtasks([]));
-        return { subtasks: [] };
-      }
+        const scopesToQuery = scopeId
+          ? allScopes.filter((s) => s.id === scopeId)
+          : allScopes;
 
-      // Step 3: Get full task data (includes subtasks[]) for each task in parallel
-      const fullTaskResults = await Promise.all(
-        taskRefs.map(({ taskId, scopeId: sId, scopeName: sName }) =>
-          axiosApi
-            .get(`/tasks/${taskId}`)
-            .then((r) => ({ task: r.data, scopeId: sId, scopeName: sName }))
-            .catch(() => ({ task: null, scopeId: sId, scopeName: sName }))
-        )
-      );
+        if (scopesToQuery.length === 0) {
+          return { subtasks: [] };
+        }
 
-      // Step 4: Extract and normalize all subtasks
-      const allSubtasks: SubtaskBarData[] = [];
-      fullTaskResults.forEach(({ task, scopeId: sId, scopeName: sName }) => {
-        if (!task) return;
-        (task.subtasks || []).forEach((s: any) => {
-          allSubtasks.push(normalizeSubtask(s, sId, sName));
+        // Step 2: Get tasks for each scope in parallel
+        const scopeTaskResults = await Promise.all(
+          scopesToQuery.map((scope) =>
+            axiosApi
+              .get(`/tasks/scope/${scope.id}`)
+              .then((r) => ({ tasks: r.data || [], scopeId: scope.id, scopeName: scope.name }))
+              .catch(() => ({ tasks: [], scopeId: scope.id, scopeName: scope.name }))
+          )
+        );
+
+        const taskRefs: { taskId: string; scopeId: string; scopeName: string }[] = [];
+        scopeTaskResults.forEach(({ tasks, scopeId: sId, scopeName: sName }) => {
+          tasks.forEach((task: any) => taskRefs.push({ taskId: task.id, scopeId: sId, scopeName: sName }));
         });
-      });
 
-      dispatch(setSubtasks(allSubtasks));
-      return { subtasks: allSubtasks };
+        if (taskRefs.length === 0) {
+          return { subtasks: [] };
+        }
+
+        // Step 3: Get full task data (includes subtasks[]) for each task in parallel
+        const fullTaskResults = await Promise.all(
+          taskRefs.map(({ taskId, scopeId: sId, scopeName: sName }) =>
+            axiosApi
+              .get(`/tasks/${taskId}`)
+              .then((r) => ({ task: r.data, scopeId: sId, scopeName: sName }))
+              .catch(() => ({ task: null, scopeId: sId, scopeName: sName }))
+          )
+        );
+
+        // Step 4: Extract and normalize all subtasks
+        const allSubtasks: SubtaskBarData[] = [];
+        fullTaskResults.forEach(({ task, scopeId: sId, scopeName: sName }) => {
+          if (!task) return;
+          (task.subtasks || []).forEach((s: any) => {
+            allSubtasks.push(normalizeSubtask(s, sId, sName));
+          });
+        });
+
+        return { subtasks: allSubtasks };
+      })().finally(() => {
+        calendarMonthInFlight.delete(cacheKey);
+      });
+      calendarMonthInFlight.set(cacheKey, request);
+
+      const result = await request;
+      dispatch(setSubtasks(result.subtasks));
+      return result;
     } catch (err) {
       console.error("❌ Error fetching calendar data:", err);
       dispatch(setError("Failed to load calendar"));

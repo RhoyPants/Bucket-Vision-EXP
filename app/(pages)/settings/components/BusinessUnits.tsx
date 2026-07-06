@@ -30,12 +30,12 @@ import {
   createBusinessUnit,
   updateBusinessUnit,
   deleteBusinessUnit,
-  assignBUHead,
-  assignAssistantBUHead,
 } from "@/app/redux/controllers/businessUnitController";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
+import { BusinessUnit } from "@/app/redux/slices/businessUnitSlice";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 const ENTITIES = ["GVI", "GVE", "HULMA"];
 
@@ -47,14 +47,13 @@ interface FormData {
   assistantHead: string;
 }
 
-interface HeadFormData {
-  buHead?: string;
-  assistantHead?: string;
-}
-
 export default function BusinessUnits() {
   const dispatch = useAppDispatch();
   const { businessUnits, loading, error } = useAppSelector((state) => state.businessUnit);
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const canCreateBusinessUnit = canCreate("settings_business_units");
+  const canUpdateBusinessUnit = canUpdate("settings_business_units");
+  const canDeleteBusinessUnit = canDelete("settings_business_units");
 
   const [openDialog, setOpenDialog] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -66,17 +65,14 @@ export default function BusinessUnits() {
     assistantHead: "",
   });
 
-  const [openHeadDialog, setOpenHeadDialog] = useState(false);
-  const [headEditingId, setHeadEditingId] = useState<string | null>(null);
-  const [headFormData, setHeadFormData] = useState<HeadFormData>({});
-
   // Load business units on mount
   useEffect(() => {
-    dispatch(getAllBusinessUnits() as any);
+    dispatch(getAllBusinessUnits());
   }, [dispatch]);
 
   // Handle dialog open for create
   const handleOpenDialog = () => {
+    if (!canCreateBusinessUnit) return;
     setEditingId(null);
     setFormData({
       code: "",
@@ -89,7 +85,8 @@ export default function BusinessUnits() {
   };
 
   // Handle dialog open for edit
-  const handleEditClick = (bu: any) => {
+  const handleEditClick = (bu: BusinessUnit) => {
+    if (!canUpdateBusinessUnit) return;
     setEditingId(bu.id);
     setFormData({
       code: bu.code,
@@ -109,6 +106,9 @@ export default function BusinessUnits() {
 
   // Handle form submit
   const handleSubmit = async () => {
+    const canSave = editingId ? canUpdateBusinessUnit : canCreateBusinessUnit;
+    if (!canSave) return;
+
     if (!formData.code.trim() || !formData.name.trim()) {
       alert("Code and Name are required");
       return;
@@ -123,7 +123,7 @@ export default function BusinessUnits() {
             entity: formData.entity,
             buHead: formData.buHead || null,
             assistantHead: formData.assistantHead || null,
-          }) as any
+          })
         );
       } else {
         // Create
@@ -134,7 +134,7 @@ export default function BusinessUnits() {
             entity: formData.entity,
             buHead: formData.buHead || null,
             assistantHead: formData.assistantHead || null,
-          }) as any
+          })
         );
       }
       handleCloseDialog();
@@ -143,46 +143,12 @@ export default function BusinessUnits() {
     }
   };
 
-  // Handle head assignment dialog
-  const handleOpenHeadDialog = (bu: any, type: "buHead" | "assistantHead") => {
-    setHeadEditingId(bu.id);
-    setHeadFormData({
-      [type]: type === "buHead" ? bu.buHead : bu.assistantHead,
-    });
-    setOpenHeadDialog(true);
-  };
-
-  const handleCloseHeadDialog = () => {
-    setOpenHeadDialog(false);
-    setHeadEditingId(null);
-    setHeadFormData({});
-  };
-
-  // Handle head submission
-  const handleHeadSubmit = async () => {
-    if (!headEditingId) return;
-
-    try {
-      if (headFormData.buHead !== undefined) {
-        await dispatch(
-          assignBUHead(headEditingId, headFormData.buHead || null) as any
-        );
-      } else if (headFormData.assistantHead !== undefined) {
-        await dispatch(
-          assignAssistantBUHead(headEditingId, headFormData.assistantHead || null) as any
-        );
-      }
-      handleCloseHeadDialog();
-    } catch (err) {
-      console.error("Error assigning head:", err);
-    }
-  };
-
   // Handle delete
   const handleDelete = async (id: string) => {
+    if (!canDeleteBusinessUnit) return;
     if (window.confirm("Are you sure you want to delete this Business Unit?")) {
       try {
-        await dispatch(deleteBusinessUnit(id) as any);
+        await dispatch(deleteBusinessUnit(id));
       } catch (err) {
         console.error("Error deleting business unit:", err);
       }
@@ -196,14 +162,16 @@ export default function BusinessUnits() {
         <Typography variant="h6" fontWeight={700}>
           Business Unit Management
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleOpenDialog}
-          disabled={loading}
-        >
-          New Business Unit
-        </Button>
+        {canCreateBusinessUnit && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleOpenDialog}
+            disabled={loading}
+          >
+            New Business Unit
+          </Button>
+        )}
       </Stack>
 
       {/* Error Alert */}
@@ -261,22 +229,26 @@ export default function BusinessUnits() {
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleEditClick(bu)}
-                      color="primary"
-                      title="Edit"
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDelete(bu.id)}
-                      color="error"
-                      title="Delete"
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
+                    {canUpdateBusinessUnit && (
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEditClick(bu)}
+                        color="primary"
+                        title="Edit"
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                    {canDeleteBusinessUnit && (
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDelete(bu.id)}
+                        color="error"
+                        title="Delete"
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -348,9 +320,11 @@ export default function BusinessUnits() {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button onClick={handleSubmit} variant="contained" disabled={loading}>
-            {editingId ? "Update" : "Create"}
-          </Button>
+          {(editingId ? canUpdateBusinessUnit : canCreateBusinessUnit) && (
+            <Button onClick={handleSubmit} variant="contained" disabled={loading}>
+              {editingId ? "Update" : "Create"}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

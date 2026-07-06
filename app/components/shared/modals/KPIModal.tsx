@@ -30,6 +30,7 @@ import {
   fetchKpiSourcePreview,
   updateKpi,
 } from "@/app/redux/controllers/personalDashboardController";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 const statusColors: Record<string, { bg: string; color: string; accent: string }> = {
   CRITICAL: { bg: "#fef2f2", color: "#b91c1c", accent: "#ef4444" },
@@ -172,7 +173,11 @@ export default function KPIModal({
 }: KPIModalProps) {
   const dispatch = useAppDispatch();
   const { sourceOptions, sourceLoading } = useAppSelector((state) => state.personalDashboard);
+  const { canCreate, canUpdate } = usePermissions();
   const isEdit = Boolean(editingKpi?.id);
+  const canSaveKpi = isEdit
+    ? canUpdate("personal_dashboard")
+    : canCreate("personal_dashboard");
   const [preview, setPreview] = useState<SourcePreview | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -293,7 +298,7 @@ export default function KPIModal({
   };
 
   const handleSubmit = async () => {
-    if (!dashboard?.id || !isValid) return;
+    if (!dashboard?.id || !isValid || !canSaveKpi) return;
     try {
       setSaving(true);
       setError("");
@@ -533,9 +538,11 @@ export default function KPIModal({
       </DialogContent>
       <DialogActions sx={{ p: 2 }}>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" disabled={!isValid || saving} onClick={handleSubmit}>
-          {saving ? "Saving..." : isEdit ? "Update KPI" : "Create KPI"}
-        </Button>
+        {canSaveKpi && (
+          <Button variant="contained" disabled={!isValid || saving} onClick={handleSubmit}>
+            {saving ? "Saving..." : isEdit ? "Update KPI" : "Create KPI"}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

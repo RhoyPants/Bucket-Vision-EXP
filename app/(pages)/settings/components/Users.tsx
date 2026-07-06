@@ -25,20 +25,42 @@ import {
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { deleteUser, getUserById, getUsers, updateUserStatus } from "@/app/lib/user.api";
+import { usePermissions } from "@/app/lib/usePermissions";
 import UserModal from "@/app/components/shared/modals/UserModal";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 
+type SettingsUser = {
+  id: string;
+  name?: string;
+  fullName?: string;
+  email?: string;
+  isActive?: boolean;
+  role?: {
+    id?: string;
+    name?: string;
+  } | null;
+};
+
+const getErrorMessage = (err: unknown, fallback: string) => {
+  const error = err as { response?: { data?: { message?: string } }; message?: string };
+  return error?.response?.data?.message || error?.message || fallback;
+};
+
 export default function Users() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<SettingsUser[]>([]);
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<any>(null);
+  const [selected, setSelected] = useState<SettingsUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const canCreateUser = canCreate("settings_users");
+  const canUpdateUser = canUpdate("settings_users");
+  const canDeleteUser = canDelete("settings_users");
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -66,7 +88,7 @@ export default function Users() {
     setOpen(true);
   };
 
-  const handleEditUser = async (user: any) => {
+  const handleEditUser = async (user: SettingsUser) => {
     try {
       setEditingId(user.id);
       setError(null);
@@ -74,15 +96,15 @@ export default function Users() {
       const details = await getUserById(user.id);
       setSelected({ ...user, ...(details || {}) });
       setOpen(true);
-    } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || "Failed to load user details.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to load user details."));
       console.error(err);
     } finally {
       setEditingId(null);
     }
   };
 
-  const handleDeleteUser = async (user: any) => {
+  const handleDeleteUser = async (user: SettingsUser) => {
     const displayName = user?.name || user?.fullName || "this user";
     const confirmed = window.confirm(`Delete ${displayName}? This action cannot be undone.`);
 
@@ -108,15 +130,15 @@ export default function Users() {
 
       setUsers((prev) => prev.filter((u) => u.id !== user.id));
       setSuccess(result?.message || `${displayName} deleted successfully.`);
-    } catch (err: any) {
-      setError(err?.message || "Failed to delete user. Please try again.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to delete user. Please try again."));
       console.error(err);
     } finally {
       setDeletingId(null);
     }
   };
 
-  const handleToggleUserStatus = async (user: any) => {
+  const handleToggleUserStatus = async (user: SettingsUser) => {
     try {
       setStatusUpdatingId(user.id);
       setError(null);
@@ -134,8 +156,8 @@ export default function Users() {
         prev.map((u) => (u.id === user.id ? { ...u, isActive: nextStatus } : u))
       );
       setSuccess(result?.message || `User ${nextStatus ? "activated" : "deactivated"} successfully.`);
-    } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || "Failed to update user status.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to update user status."));
       console.error(err);
     } finally {
       setStatusUpdatingId(null);
@@ -161,9 +183,11 @@ export default function Users() {
           <Typography variant="h5" fontWeight={600}>
             Users
           </Typography>
-          <Button variant="contained" onClick={handleAddUser}>
-            Add User
-          </Button>
+          {canCreateUser ? (
+            <Button variant="contained" onClick={handleAddUser}>
+              Add User
+            </Button>
+          ) : null}
         </Box>
         <Alert severity="info">No users found. Create your first user to get started.</Alert>
         <UserModal
@@ -183,9 +207,11 @@ export default function Users() {
         <Typography variant="h5" fontWeight={600}>
           Users
         </Typography>
-        <Button variant="contained" onClick={handleAddUser}>
-          Add User
-        </Button>
+        {canCreateUser ? (
+          <Button variant="contained" onClick={handleAddUser}>
+            Add User
+          </Button>
+        ) : null}
       </Box>
 
       {error && (
@@ -254,37 +280,43 @@ export default function Users() {
                         color={user?.isActive ? "success" : "default"}
                         variant={user?.isActive ? "filled" : "outlined"}
                       />
-                      <Switch
-                        size="small"
-                        checked={Boolean(user?.isActive)}
-                        disabled={statusUpdatingId === user.id}
-                        onChange={() => handleToggleUserStatus(user)}
-                      />
+                      {canUpdateUser ? (
+                        <Switch
+                          size="small"
+                          checked={Boolean(user?.isActive)}
+                          disabled={statusUpdatingId === user.id}
+                          onChange={() => handleToggleUserStatus(user)}
+                        />
+                      ) : null}
                     </Stack>
                   </TableCell>
                   <TableCell sx={{ textAlign: "right" }}>
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<EditIcon />}
-                        onClick={() => handleEditUser(user)}
-                        disabled={editingId === user.id}
-                        sx={{ textTransform: "none" }}
-                      >
-                        {editingId === user.id ? "Loading..." : "Edit"}
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="error"
-                        startIcon={<DeleteIcon />}
-                        onClick={() => handleDeleteUser(user)}
-                        disabled={deletingId === user.id}
-                        sx={{ textTransform: "none" }}
-                      >
-                        {deletingId === user.id ? "Deleting..." : "Delete"}
-                      </Button>
+                      {canUpdateUser ? (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<EditIcon />}
+                          onClick={() => handleEditUser(user)}
+                          disabled={editingId === user.id}
+                          sx={{ textTransform: "none" }}
+                        >
+                          {editingId === user.id ? "Loading..." : "Edit"}
+                        </Button>
+                      ) : null}
+                      {canDeleteUser ? (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          startIcon={<DeleteIcon />}
+                          onClick={() => handleDeleteUser(user)}
+                          disabled={deletingId === user.id}
+                          sx={{ textTransform: "none" }}
+                        >
+                          {deletingId === user.id ? "Deleting..." : "Delete"}
+                        </Button>
+                      ) : null}
                     </Stack>
                   </TableCell>
                 </TableRow>
@@ -321,40 +353,46 @@ export default function Users() {
                     color={user?.isActive ? "success" : "default"}
                     variant={user?.isActive ? "filled" : "outlined"}
                   />
-                  <FormControlLabel
-                    sx={{ ml: 0 }}
-                    control={
-                      <Switch
-                        size="small"
-                        checked={Boolean(user?.isActive)}
-                        disabled={statusUpdatingId === user.id}
-                        onChange={() => handleToggleUserStatus(user)}
-                      />
-                    }
-                    label=""
-                  />
+                  {canUpdateUser ? (
+                    <FormControlLabel
+                      sx={{ ml: 0 }}
+                      control={
+                        <Switch
+                          size="small"
+                          checked={Boolean(user?.isActive)}
+                          disabled={statusUpdatingId === user.id}
+                          onChange={() => handleToggleUserStatus(user)}
+                        />
+                      }
+                      label=""
+                    />
+                  ) : null}
                 </Stack>
               </CardContent>
               <CardActions sx={{ pt: 0 }}>
-                <Button
-                  size="small"
-                  startIcon={<EditIcon />}
-                  onClick={() => handleEditUser(user)}
-                  disabled={editingId === user.id}
-                  sx={{ textTransform: "none" }}
-                >
-                  {editingId === user.id ? "Loading..." : "Edit"}
-                </Button>
-                <Button
-                  size="small"
-                  color="error"
-                  startIcon={<DeleteIcon />}
-                  onClick={() => handleDeleteUser(user)}
-                  disabled={deletingId === user.id}
-                  sx={{ textTransform: "none" }}
-                >
-                  {deletingId === user.id ? "Deleting..." : "Delete"}
-                </Button>
+                {canUpdateUser ? (
+                  <Button
+                    size="small"
+                    startIcon={<EditIcon />}
+                    onClick={() => handleEditUser(user)}
+                    disabled={editingId === user.id}
+                    sx={{ textTransform: "none" }}
+                  >
+                    {editingId === user.id ? "Loading..." : "Edit"}
+                  </Button>
+                ) : null}
+                {canDeleteUser ? (
+                  <Button
+                    size="small"
+                    color="error"
+                    startIcon={<DeleteIcon />}
+                    onClick={() => handleDeleteUser(user)}
+                    disabled={deletingId === user.id}
+                    sx={{ textTransform: "none" }}
+                  >
+                    {deletingId === user.id ? "Deleting..." : "Delete"}
+                  </Button>
+                ) : null}
               </CardActions>
             </Card>
           ))}

@@ -116,8 +116,14 @@ const TABS: TabConfig[] = [
   { key: "APPROVED", label: "Approved", color: "success", canApprove: false, canReject: false },
 ];
 
-const extractRoles = (res: any): Role[] => {
-  if (Array.isArray(res?.data)) return res.data;
+const getErrorMessage = (err: unknown, fallback: string) => {
+  const error = err as { response?: { data?: { message?: string } }; message?: string };
+  return error?.response?.data?.message || error?.message || fallback;
+};
+
+const extractRoles = (res: unknown): Role[] => {
+  const wrapped = res as { data?: unknown } | null;
+  if (Array.isArray(wrapped?.data)) return wrapped.data as Role[];
   if (Array.isArray(res)) return res;
   return [];
 };
@@ -135,9 +141,9 @@ const getEmail = (item: RegistrationRequest) =>
   item.email || item.prefill?.email || item.user?.email || "-";
 
 export default function UserRequestsPanel() {
-  const { can } = usePermissions();
-  const canReadUsers = can("USERS", "READ");
-  const canUpdateUsers = can("USERS", "UPDATE");
+  const { canView, canUpdate } = usePermissions();
+  const canViewUserRequests = canView("settings_user_requests");
+  const canUpdateUserRequests = canUpdate("settings_user_requests");
 
   const [allRequests, setAllRequests] = useState<Record<TabKey, RegistrationRequest[]>>({
     PENDING: [],
@@ -201,8 +207,8 @@ export default function UserRequestsPanel() {
     try {
       const list = await getSsoRegistrationRequests(tab);
       setAllRequests((prev) => ({ ...prev, [tab]: Array.isArray(list) ? list : [] }));
-    } catch (err: any) {
-      setError(err?.response?.data?.message || `Failed to load ${tab} requests.`);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, `Failed to load ${tab} requests.`));
     } finally {
       setLoadingTab(null);
     }
@@ -215,8 +221,8 @@ export default function UserRequestsPanel() {
         const rows = await getSsoRegistrationAudits(params || {});
         setAudits(Array.isArray(rows) ? rows : []);
         setAuditTarget(label || "All");
-      } catch (err: any) {
-        setError(err?.response?.data?.message || "Failed to load registration audits.");
+      } catch (err: unknown) {
+        setError(getErrorMessage(err, "Failed to load registration audits."));
         setAudits([]);
       } finally {
         setAuditLoading(false);
@@ -240,12 +246,12 @@ export default function UserRequestsPanel() {
       }
     };
 
-    if (canReadUsers) {
+    if (canViewUserRequests) {
       bootstrap();
     } else {
       setLoading(false);
     }
-  }, [loadTab, canReadUsers, loadAudits]);
+  }, [loadTab, canViewUserRequests, loadAudits]);
 
   useEffect(() => {
     setSearch("");
@@ -321,7 +327,11 @@ export default function UserRequestsPanel() {
   const toggleOne = (id: string) =>
     setSelected((prev) => {
       const next = new Set(prev[activeTab]);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return { ...prev, [activeTab]: next };
     });
 
@@ -378,7 +388,7 @@ export default function UserRequestsPanel() {
   };
 
   const handleApprove = async () => {
-    if (!reviewItem) return;
+    if (!reviewItem || !canUpdateUserRequests) return;
     setSubmitting(true);
     setError(null);
     setSuccess(null);
@@ -389,14 +399,16 @@ export default function UserRequestsPanel() {
       setReviewOpen(false);
       await Promise.all([loadTab(activeTab), loadTab("APPROVED")]);
       clearSelection();
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to approve request.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to approve request."));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleReject = async () => {
+    if (!canUpdateUserRequests) return;
+
     if (!rejectItem || !rejectReason.trim()) {
       setError("Rejection reason is required.");
       return;
@@ -411,14 +423,16 @@ export default function UserRequestsPanel() {
       setRejectOpen(false);
       await Promise.all([loadTab(activeTab), loadTab("REJECTED")]);
       clearSelection();
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to reject request.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to reject request."));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleBulkApprove = async () => {
+    if (!canUpdateUserRequests) return;
+
     const ids = Array.from(tabSelection);
     if (!ids.length) return;
 
@@ -430,14 +444,16 @@ export default function UserRequestsPanel() {
       setSuccess(`${ids.length} request(s) approved.`);
       await Promise.all([loadTab(activeTab), loadTab("APPROVED")]);
       clearSelection();
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Bulk approve partially failed.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Bulk approve partially failed."));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleBulkReject = async () => {
+    if (!canUpdateUserRequests) return;
+
     if (!bulkRejectReason.trim()) {
       setError("Rejection reason is required.");
       return;
@@ -456,8 +472,8 @@ export default function UserRequestsPanel() {
       setBulkRejectReason("");
       await Promise.all([loadTab(activeTab), loadTab("REJECTED")]);
       clearSelection();
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Bulk reject partially failed.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Bulk reject partially failed."));
     } finally {
       setSubmitting(false);
     }
@@ -477,9 +493,9 @@ export default function UserRequestsPanel() {
 
   return (
     <Box>
-      {!canReadUsers && (
+      {!canViewUserRequests && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          You do not have USERS READ permission.
+          You do not have permission to view user requests.
         </Alert>
       )}
 
@@ -498,7 +514,7 @@ export default function UserRequestsPanel() {
                   ? loadTab(activeTab)
                   : loadAudits(undefined, auditTarget || "All")
               }
-              disabled={(viewTab === "REQUESTS" ? isTabLoading : auditLoading) || !canReadUsers}
+              disabled={(viewTab === "REQUESTS" ? isTabLoading : auditLoading) || !canViewUserRequests}
             >
               Refresh
             </Button>
@@ -628,7 +644,7 @@ export default function UserRequestsPanel() {
           <Typography variant="body2" fontWeight={600}>
             {tabSelection.size} selected
           </Typography>
-          {tabCfg.canApprove && canUpdateUsers && (
+          {tabCfg.canApprove && canUpdateUserRequests && (
             <Button
               size="small"
               variant="contained"
@@ -639,7 +655,7 @@ export default function UserRequestsPanel() {
               Bulk Approve
             </Button>
           )}
-          {tabCfg.canReject && canUpdateUsers && (
+          {tabCfg.canReject && canUpdateUserRequests && (
             <Button
               size="small"
               color="error"
@@ -712,7 +728,7 @@ export default function UserRequestsPanel() {
                 >
                   <TableHead sx={{ backgroundColor: "#f5f5f5" }}>
                     <TableRow>
-                      {(tabCfg.canApprove || tabCfg.canReject) && canUpdateUsers && (
+                      {(tabCfg.canApprove || tabCfg.canReject) && canUpdateUserRequests && (
                         <TableCell padding="checkbox">
                           <Checkbox
                             size="small"
@@ -741,7 +757,7 @@ export default function UserRequestsPanel() {
                         selected={tabSelection.has(item.id)}
                         sx={{ "&.Mui-selected": { backgroundColor: "#f0f4ff" } }}
                       >
-                        {(tabCfg.canApprove || tabCfg.canReject) && canUpdateUsers && (
+                        {(tabCfg.canApprove || tabCfg.canReject) && canUpdateUserRequests && (
                           <TableCell padding="checkbox">
                             <Checkbox
                               size="small"
@@ -776,7 +792,7 @@ export default function UserRequestsPanel() {
                         <TableCell>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "-"}</TableCell>
                         <TableCell align="right">
                           <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                            {tabCfg.canApprove && canUpdateUsers && (
+                            {tabCfg.canApprove && canUpdateUserRequests && (
                               <Button size="small" variant="contained" onClick={() => openReview(item)}>
                                 {activeTab === "INACTIVE_ACCOUNT" ? "Activate" : "Approve"}
                               </Button>
@@ -818,15 +834,16 @@ export default function UserRequestsPanel() {
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         transformOrigin={{ vertical: "top", horizontal: "right" }}
       >
-        <MenuItem
-          onClick={() => {
-            if (menuItem && canUpdateUsers) openReview(menuItem);
-            closeRowMenu();
-          }}
-          disabled={!canUpdateUsers}
-        >
-          Edit
-        </MenuItem>
+        {canUpdateUserRequests ? (
+          <MenuItem
+            onClick={() => {
+              if (menuItem) openReview(menuItem);
+              closeRowMenu();
+            }}
+          >
+            Edit
+          </MenuItem>
+        ) : null}
         <MenuItem
           onClick={async () => {
             if (menuItem) await openAudit(menuItem);
@@ -835,13 +852,12 @@ export default function UserRequestsPanel() {
         >
           Audit
         </MenuItem>
-        {tabCfg.canReject && (
+        {tabCfg.canReject && canUpdateUserRequests && (
           <MenuItem
             onClick={() => {
-              if (menuItem && canUpdateUsers) openReject(menuItem);
+              if (menuItem) openReject(menuItem);
               closeRowMenu();
             }}
-            disabled={!canUpdateUsers}
             sx={{ color: "error.main" }}
           >
             Reject
@@ -871,7 +887,7 @@ export default function UserRequestsPanel() {
               size="small"
               variant="outlined"
               onClick={() => loadAudits(undefined, "All")}
-              disabled={auditLoading || !canReadUsers}
+              disabled={auditLoading || !canViewUserRequests}
             >
               Show All
             </Button>
@@ -879,7 +895,7 @@ export default function UserRequestsPanel() {
               size="small"
               variant="outlined"
               onClick={() => loadAudits(undefined, auditTarget)}
-              disabled={auditLoading || !canReadUsers}
+              disabled={auditLoading || !canViewUserRequests}
             >
               Refresh Audit
             </Button>
@@ -1047,7 +1063,7 @@ export default function UserRequestsPanel() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setReviewOpen(false)} disabled={submitting}>Cancel</Button>
-          {tabCfg.canApprove && canUpdateUsers && (
+          {tabCfg.canApprove && canUpdateUserRequests && (
             <Button onClick={handleApprove} variant="contained" disabled={submitting}>
               {submitting ? "Saving..." : activeTab === "INACTIVE_ACCOUNT" ? "Activate" : "Approve"}
             </Button>
@@ -1076,9 +1092,11 @@ export default function UserRequestsPanel() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setRejectOpen(false)} disabled={submitting}>Cancel</Button>
-          <Button onClick={handleReject} color="error" variant="contained" disabled={submitting}>
-            {submitting ? "Rejecting..." : "Reject"}
-          </Button>
+          {canUpdateUserRequests ? (
+            <Button onClick={handleReject} color="error" variant="contained" disabled={submitting}>
+              {submitting ? "Rejecting..." : "Reject"}
+            </Button>
+          ) : null}
         </DialogActions>
       </Dialog>
 
@@ -1096,9 +1114,11 @@ export default function UserRequestsPanel() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setBulkRejectOpen(false)} disabled={submitting}>Cancel</Button>
-          <Button onClick={handleBulkReject} color="error" variant="contained" disabled={submitting}>
-            {submitting ? "Rejecting..." : `Reject ${tabSelection.size}`}
-          </Button>
+          {canUpdateUserRequests ? (
+            <Button onClick={handleBulkReject} color="error" variant="contained" disabled={submitting}>
+              {submitting ? "Rejecting..." : `Reject ${tabSelection.size}`}
+            </Button>
+          ) : null}
         </DialogActions>
       </Dialog>
 

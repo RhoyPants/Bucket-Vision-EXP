@@ -1,13 +1,3 @@
-/**
- * usePermissions.ts
- *
- * React hook — reads permissions from Redux and exposes `can()`, `canAny()`, `canAll()`.
- *
- * Usage:
- *   const { can, canAny, role } = usePermissions();
- *   {can("PROJECTS", "DELETE") && <DeleteButton />}
- */
-
 "use client";
 
 import { useAppSelector } from "@/app/redux/hook";
@@ -21,49 +11,41 @@ import {
 
 export function usePermissions() {
   const permissions = useAppSelector((s) => s.auth.permissions);
+  const permissionsBootstrapped = useAppSelector(
+    (s) => s.auth.permissionsBootstrapped
+  );
+  const permissionRole = useAppSelector((s) => s.auth.permissionRole);
   const user = useAppSelector((s) => s.auth.user);
 
-  /**
-   * Check single permission.
-   * Returns false automatically if module or action is absent.
-   *
-   * @example can("PROJECTS", "DELETE")
-   */
-  const can = (module: PermissionModule, action: PermissionAction): boolean =>
-    hasPermission(permissions, module, action);
+  const can = (key: PermissionModule, action: PermissionAction): boolean =>
+    hasPermission(permissions, key, action);
 
-  /**
-   * Returns true if user has AT LEAST ONE of the given permissions.
-   *
-   * @example
-   * canAny([
-   *   { module: "PROJECTS", action: "READ" },
-   *   { module: "APPROVAL", action: "READ" },
-   * ])
-   */
+  const canView = (key: string): boolean => can(key, "view");
+  const canCreate = (key: string): boolean => can(key, "create");
+  const canUpdate = (key: string): boolean => can(key, "update");
+  const canDelete = (key: string): boolean => can(key, "delete");
+  const canApprove = (key: string): boolean => can(key, "approve");
+
   const canAny = (
-    checks: Array<{ module: PermissionModule; action: PermissionAction }>
+    checks: Array<{ module?: PermissionModule; key?: string; action: PermissionAction }>
   ): boolean => hasAnyPermission(permissions, checks);
 
-  /**
-   * Returns true only if user has ALL of the given permissions.
-   *
-   * @example
-   * canAll([
-   *   { module: "PROJECTS", action: "UPDATE" },
-   *   { module: "APPROVAL", action: "APPROVE" },
-   * ])
-   */
   const canAll = (
-    checks: Array<{ module: PermissionModule; action: PermissionAction }>
+    checks: Array<{ module?: PermissionModule; key?: string; action: PermissionAction }>
   ): boolean => hasAllPermissions(permissions, checks);
 
   return {
     can,
+    canView,
+    canCreate,
+    canUpdate,
+    canDelete,
+    canApprove,
     canAny,
     canAll,
-    role: user?.role,
+    role: permissionRole || user?.role,
     user,
     permissions,
+    permissionsBootstrapped,
   };
 }

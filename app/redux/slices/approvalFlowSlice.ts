@@ -47,10 +47,11 @@ export const approvalFlowSlice = createSlice({
     },
     setDefaultFlow: (state, action: PayloadAction<ApprovalFlow>) => {
       state.defaultFlow = action.payload;
-      const index = state.flows.findIndex((f) => f.id === action.payload.id);
-      if (index !== -1) {
-        state.flows[index] = action.payload;
-      }
+      state.flows = state.flows.map((flow) =>
+        flow.id === action.payload.id
+          ? { ...action.payload, isDefault: true }
+          : { ...flow, isDefault: false }
+      );
       state.error = null;
     },
     setProjectApprovalConfig: (state, action: PayloadAction<ProjectApprovalConfig>) => {

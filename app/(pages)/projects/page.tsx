@@ -17,7 +17,6 @@ import { useRouter } from "next/navigation";
 
 import { getProjects, deleteProject } from "@/app/redux/controllers/projectController";
 import {
-  getPendingProjectsForApproval,
   getProjectApprovals,
   getApprovalAuditTrail,
   approveProject,
@@ -26,13 +25,13 @@ import {
 } from "@/app/redux/controllers/approvalController";
 
 import Layout from "@/app/components/shared/Layout";
-import Guard from "@/app/components/shared/Guard";
 import ProjectModal from "@/app/components/shared/modals/ProjectModal";
 import { ApprovalDetailModal, ApprovalSubmitModal } from "@/app/components/shared/modals/ApprovalModals";
 import TeamManagementModal from "@/app/components/shared/modals/TeamManagementModal";
 
 import ProjectsGrid from "./components/ProjectsGrid";
 import { ProjectCardActions, ViewType } from "./components/types";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 export default function ProjectsPage() {
   const dispatch = useAppDispatch();
@@ -41,6 +40,10 @@ export default function ProjectsPage() {
   const { projects } = useAppSelector((state) => state.project);
   const { allApprovals, auditTrail } = useAppSelector((state) => state.approval);
   const { user } = useAppSelector((state) => state.auth);
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const canCreateProject = canCreate("projects");
+  const canUpdateProject = canUpdate("projects");
+  const canDeleteProject = canDelete("projects");
 
   const [viewType, setViewType] = useState<ViewType>("card");
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,20 +60,9 @@ export default function ProjectsPage() {
   const [teamManagementModalOpen, setTeamManagementModalOpen] = useState(false);
   const [selectedProjectForTeam, setSelectedProjectForTeam] = useState<any>(null);
 
-  const [approvalProjects, setApprovalProjects] = useState<any[]>([]);
-
   useEffect(() => {
     dispatch(getProjects());
-    (dispatch(getPendingProjectsForApproval() as any) as Promise<any>)
-      .then((res: any) => setApprovalProjects(res || []))
-      .catch(() => setApprovalProjects([]));
   }, [dispatch]);
-
-  const refreshApprovals = () => {
-    (dispatch(getPendingProjectsForApproval() as any) as Promise<any>)
-      .then((res: any) => setApprovalProjects(res || []))
-      .catch(() => setApprovalProjects([]));
-  };
 
   const counts = useMemo(() => {
     const list = projects || [];
@@ -106,11 +98,15 @@ export default function ProjectsPage() {
 
   const actions: ProjectCardActions = {
     onEdit: (project) => {
+      if (!canUpdateProject) return;
       setProjectModalMode("edit");
       setSelectedProject(project);
       setProjectModalOpen(true);
     },
-    onDelete: (projectId) => dispatch(deleteProject(projectId)),
+    onDelete: (projectId) => {
+      if (!canDeleteProject) return;
+      dispatch(deleteProject(projectId));
+    },
     onSetup: (projectId) => router.push(`/projects/${projectId}/setup`),
     onViewApproval: async (project) => {
       if (!project?.id) return;
@@ -139,11 +135,10 @@ export default function ProjectsPage() {
     },
     onSprint: (projectId) => router.push(`/sprintManagement?projectId=${projectId}`),
     onCreateProject: () => {
+      if (!canCreateProject) return;
       router.push("/projects/new/setup");
     },
   };
-
-  const allProjects = projects || [];
 
   return (
     <Layout>
@@ -210,8 +205,8 @@ export default function ProjectsPage() {
           actions={actions}
           viewType={viewType}
           onViewTypeChange={setViewType}
-          headerAction={(
-            <Guard module="PROJECTS" action="CREATE">
+          headerAction={
+            canCreateProject ? (
               <Button
                 variant="contained"
                 sx={{
@@ -224,8 +219,8 @@ export default function ProjectsPage() {
               >
                 + New Project
               </Button>
-            </Guard>
-          )}
+            ) : null
+          }
           emptyMessage="No active projects"
           emptySubtext="Projects appear here once they are approved and activated"
         />
@@ -266,7 +261,6 @@ export default function ProjectsPage() {
               await dispatch(approveProject(selectedProjectForApproval.id));
               setApprovalDetailOpen(false);
               dispatch(getProjects());
-              refreshApprovals();
             } catch (err) {
               console.error("Failed to approve project:", err);
             }
@@ -277,7 +271,6 @@ export default function ProjectsPage() {
               await dispatch(rejectProject(selectedProjectForApproval.id, remarks));
               setApprovalDetailOpen(false);
               dispatch(getProjects());
-              refreshApprovals();
             } catch (err) {
               console.error("Failed to reject project:", err);
             }
@@ -298,7 +291,6 @@ export default function ProjectsPage() {
               await dispatch(submitProjectForApproval(selectedProjectForApproval.id));
               setApprovalSubmitOpen(false);
               dispatch(getProjects());
-              refreshApprovals();
             } catch (err) {
               console.error("Failed to submit project for approval:", err);
             }

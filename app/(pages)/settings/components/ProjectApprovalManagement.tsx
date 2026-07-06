@@ -20,11 +20,13 @@ import {
   Grid,
   Typography,
   CircularProgress,
+  type ChipProps,
 } from "@mui/material";
 import { ViewList as ViewListIcon, ViewAgenda as ViewAgendaIcon, Security as SecurityIcon } from "@mui/icons-material";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { getProjects } from "@/app/redux/controllers/projectController";
 import dynamic from "next/dynamic";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 const ProjectApprovalConfig = dynamic(() => import("./ProjectApprovalConfig"), {
   ssr: false,
@@ -47,6 +49,8 @@ interface ProjectWithApproval {
 export default function ProjectApprovalManagement() {
   const dispatch = useAppDispatch();
   const { projects, loading } = useAppSelector((state) => state.project);
+  const { canUpdate } = usePermissions();
+  const canUpdateProjectApprovals = canUpdate("settings_project_approvals");
 
   const [viewMode, setViewMode] = useState<"table" | "card">("card");
   const [approvalConfigOpen, setApprovalConfigOpen] = useState(false);
@@ -57,6 +61,7 @@ export default function ProjectApprovalManagement() {
   }, [dispatch]);
 
   const handleOpenConfig = (project: ProjectWithApproval) => {
+    if (!canUpdateProjectApprovals) return;
     setSelectedProject(project);
     setApprovalConfigOpen(true);
   };
@@ -67,7 +72,7 @@ export default function ProjectApprovalManagement() {
     dispatch(getProjects());
   };
 
-  const getStatusColor = (status?: string) => {
+  const getStatusColor = (status?: string): ChipProps["color"] => {
     switch (status) {
       case "APPROVED":
         return "success";
@@ -168,7 +173,7 @@ export default function ProjectApprovalManagement() {
                     <Chip
                       label={project.status || "DRAFT"}
                       size="small"
-                      color={getStatusColor(project.status) as any}
+                      color={getStatusColor(project.status)}
                       variant="outlined"
                     />
                   </TableCell>
@@ -191,18 +196,20 @@ export default function ProjectApprovalManagement() {
                     />
                   </TableCell>
                   <TableCell sx={{ textAlign: "center" }}>
-                    <Tooltip title="Configure Approval Workflow">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenConfig(project)}
-                        sx={{
-                          color: "#4B2E83",
-                          "&:hover": { backgroundColor: "#f0e6ff" },
-                        }}
-                      >
-                        <SecurityIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    {canUpdateProjectApprovals && (
+                      <Tooltip title="Configure Approval Workflow">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpenConfig(project)}
+                          sx={{
+                            color: "#4B2E83",
+                            "&:hover": { backgroundColor: "#f0e6ff" },
+                          }}
+                        >
+                          <SecurityIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -259,7 +266,7 @@ export default function ProjectApprovalManagement() {
                       <Chip
                         label={project.status || "DRAFT"}
                         size="small"
-                        color={getStatusColor(project.status) as any}
+                        color={getStatusColor(project.status)}
                         variant="outlined"
                       />
                     </Box>
@@ -305,7 +312,8 @@ export default function ProjectApprovalManagement() {
                   </Stack>
                 </CardContent>
 
-                <Box sx={{ p: 2, borderTop: "1px solid #e5e7eb" }}>
+                {canUpdateProjectApprovals && (
+                  <Box sx={{ p: 2, borderTop: "1px solid #e5e7eb" }}>
                   <Tooltip title="Configure Approval Workflow">
                     <Stack
                       component="button"
@@ -333,7 +341,8 @@ export default function ProjectApprovalManagement() {
                       🔐 Configure
                     </Stack>
                   </Tooltip>
-                </Box>
+                  </Box>
+                )}
               </Card>
             </Grid>
           ))}

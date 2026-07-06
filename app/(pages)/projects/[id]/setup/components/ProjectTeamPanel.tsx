@@ -30,6 +30,7 @@ import { getProjectById } from "@/app/redux/controllers/projectController";
 
 import AssignSubOwnerSelect from "@/app/components/shared/selectors/AssignSubOwnerSelect";
 import AssignMemberSelect from "@/app/components/shared/selectors/AssignMemberSelect";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -41,6 +42,11 @@ export default function ProjectTeamPanel({
   projectId,
 }: ProjectTeamPanelProps) {
   const dispatch = useAppDispatch();
+  const { canView, canCreate, canUpdate, canDelete } = usePermissions();
+  const canViewTeamMember = canView("team_management");
+  const canCreateTeamMember = canCreate("team_management");
+  const canUpdateTeamMember = canUpdate("team_management");
+  const canDeleteTeamMember = canDelete("team_management");
 
   const { projectMembers, loading, error } = useAppSelector(
     (state) => state.projectMembers
@@ -68,17 +74,17 @@ export default function ProjectTeamPanel({
   // FETCH
   // =========================
   useEffect(() => {
-    if (projectId) {
+    if (projectId && canViewTeamMember) {
       dispatch(getProjectMembers(projectId) as any);
       dispatch(getProjectById(projectId) as any);
     }
-  }, [projectId, dispatch]);
+  }, [projectId, canViewTeamMember, dispatch]);
 
   useEffect(() => {
-    if (!users.length) {
+    if (canCreateTeamMember && !users.length) {
       dispatch(getUsers() as any);
     }
-  }, [dispatch, users.length]);
+  }, [canCreateTeamMember, dispatch, users.length]);
 
   // =========================
   // 🔥 NORMALIZED ASSIGNED USERS (FIX BUG)
@@ -110,6 +116,8 @@ export default function ProjectTeamPanel({
     users: any[],
     role: "SUB_OWNER" | "MEMBER"
   ) => {
+    if (!canCreateTeamMember) return;
+
     try {
       const userIds = users.map((u) => u.id);
 
@@ -150,6 +158,8 @@ export default function ProjectTeamPanel({
   };
 
   const handleRemove = async (userIds: string | string[]) => {
+    if (!canDeleteTeamMember) return;
+
     try {
       // Normalize to array
       const ids = Array.isArray(userIds) ? userIds : [userIds];
@@ -190,6 +200,8 @@ export default function ProjectTeamPanel({
 
   // 🔄 TOGGLE MEMBER ROLE
   const handleToggleRole = async (userId: string, currentRole: string) => {
+    if (!canUpdateTeamMember) return;
+
     try {
       setToggling(userId);
       const newRole = currentRole === "SUB_OWNER" ? "MEMBER" : "SUB_OWNER";
@@ -343,15 +355,17 @@ export default function ProjectTeamPanel({
                 }}
               >
                 {/* CHECKBOX */}
-                <Checkbox
-                  size="small"
-                  checked={isSelected}
-                  onChange={() => toggleSelection(uid)}
-                  disabled={isRemoving}
-                  sx={{
-                    mr: 1,
-                  }}
-                />
+                {canDeleteTeamMember ? (
+                  <Checkbox
+                    size="small"
+                    checked={isSelected}
+                    onChange={() => toggleSelection(uid)}
+                    disabled={isRemoving}
+                    sx={{
+                      mr: 1,
+                    }}
+                  />
+                ) : null}
 
                 {/* AVATAR + NAME */}
                 <Box flex={1} display="flex" alignItems="center" gap={1.5}>
@@ -400,7 +414,7 @@ export default function ProjectTeamPanel({
                 />
 
                 {/* TOGGLE ROLE BUTTON (for LEADER users only) */}
-                {getRole(member)?.toLowerCase() === "leader" && title !== "Owners" && (
+                {canUpdateTeamMember && getRole(member)?.toLowerCase() === "leader" && title !== "Owners" && (
                   <Tooltip
                     title={`Change to ${title === "Sub Owners" ? "Member" : "Sub-Owner"}`}
                   >
@@ -431,30 +445,32 @@ export default function ProjectTeamPanel({
                 )}
 
                 {/* QUICK DELETE BUTTON */}
-                <Tooltip title="Remove member">
-                  <IconButton
-                    size="small"
-                    onClick={() => handleRemove(uid)}
-                    disabled={isRemoving || selectedForRemoval.size > 0}
-                    sx={{
-                      color: "error.main",
-                      transition: "all 0.2s ease",
-                      "&:hover": {
-                        bgcolor: "error.lighter",
-                        transform: "scale(1.1)",
-                      },
-                    }}
-                  >
-                    <DeleteOutlinedIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                {canDeleteTeamMember ? (
+                  <Tooltip title="Remove member">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleRemove(uid)}
+                      disabled={isRemoving || selectedForRemoval.size > 0}
+                      sx={{
+                        color: "error.main",
+                        transition: "all 0.2s ease",
+                        "&:hover": {
+                          bgcolor: "error.lighter",
+                          transform: "scale(1.1)",
+                        },
+                      }}
+                    >
+                      <DeleteOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                ) : null}
               </Box>
             );
           })}
         </Box>
 
         {/* BATCH DELETE SECTION */}
-        {selectedInSection.length > 0 && (
+        {canDeleteTeamMember && selectedInSection.length > 0 && (
           <Box
             sx={{
               bgcolor: "rgba(239, 68, 68, 0.05)",
@@ -523,6 +539,16 @@ export default function ProjectTeamPanel({
   // =========================
   // RENDER
   // =========================
+  if (!canViewTeamMember) {
+    return (
+      <Box>
+        <Alert severity="warning" sx={{ borderRadius: 2 }}>
+          You don&apos;t have permission to view team management.
+        </Alert>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       {/* HEADER */}
@@ -549,64 +575,66 @@ export default function ProjectTeamPanel({
       )}
 
       {/* ADD MEMBER SECTION */}
-      <Paper
-        sx={{
-          p: 3,
-          mb: 4,
-          borderRadius: 2,
-          background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
-          border: "1px solid rgba(102, 126, 234, 0.1)",
-          boxShadow: "0 4px 15px rgba(102, 126, 234, 0.1)",
-        }}
-      >
-        <Box display="flex" alignItems="center" gap={1.5} mb={2.5}>
-          <PersonAddOutlinedIcon sx={{ fontSize: 22, color: "#667eea" }} />
-          <Typography fontSize={16} fontWeight={600}>
-            Add Team Members
-          </Typography>
-        </Box>
-
-        {usersLoading ? (
-          <Box display="flex" gap={2}>
-            <Skeleton variant="rectangular" width={200} height={42} sx={{ borderRadius: 1 }} />
-            <Skeleton variant="rectangular" width={200} height={42} sx={{ borderRadius: 1 }} />
+      {canCreateTeamMember ? (
+        <Paper
+          sx={{
+            p: 3,
+            mb: 4,
+            borderRadius: 2,
+            background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
+            border: "1px solid rgba(102, 126, 234, 0.1)",
+            boxShadow: "0 4px 15px rgba(102, 126, 234, 0.1)",
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={1.5} mb={2.5}>
+            <PersonAddOutlinedIcon sx={{ fontSize: 22, color: "#667eea" }} />
+            <Typography fontSize={16} fontWeight={600}>
+              Add Team Members
+            </Typography>
           </Box>
-        ) : (
-          <Box
-            display="grid"
-            gridTemplateColumns={{ xs: "1fr", md: "1fr 1fr" }}
-            gap={2}
-          >
-            <AssignSubOwnerSelect
-              members={users}
-              assignedUsers={assignedUsers}
-              excludedUserIds={pendingMemberIds}
-              onSelectionChange={(selected) => setPendingSubOwnerIds(selected.map((u) => u.id))}
-              onSelectMultiple={(selectedUsers) => {
-                if (selectedUsers.length > 0) {
-                  setPendingSubOwnerIds([]);
-                  handleAddMultipleMembers(selectedUsers, "SUB_OWNER");
-                }
-              }}
-              loading={usersLoading}
-            />
 
-            <AssignMemberSelect
-              members={users}
-              assignedUsers={assignedUsers}
-              excludedUserIds={pendingSubOwnerIds}
-              onSelectionChange={(selected) => setPendingMemberIds(selected.map((u) => u.id))}
-              onSelectMultiple={(selectedUsers) => {
-                if (selectedUsers.length > 0) {
-                  setPendingMemberIds([]);
-                  handleAddMultipleMembers(selectedUsers, "MEMBER");
-                }
-              }}
-              loading={usersLoading}
-            />
-          </Box>
-        )}
-      </Paper>
+          {usersLoading ? (
+            <Box display="flex" gap={2}>
+              <Skeleton variant="rectangular" width={200} height={42} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="rectangular" width={200} height={42} sx={{ borderRadius: 1 }} />
+            </Box>
+          ) : (
+            <Box
+              display="grid"
+              gridTemplateColumns={{ xs: "1fr", md: "1fr 1fr" }}
+              gap={2}
+            >
+              <AssignSubOwnerSelect
+                members={users}
+                assignedUsers={assignedUsers}
+                excludedUserIds={pendingMemberIds}
+                onSelectionChange={(selected) => setPendingSubOwnerIds(selected.map((u) => u.id))}
+                onSelectMultiple={(selectedUsers) => {
+                  if (selectedUsers.length > 0) {
+                    setPendingSubOwnerIds([]);
+                    handleAddMultipleMembers(selectedUsers, "SUB_OWNER");
+                  }
+                }}
+                loading={usersLoading}
+              />
+
+              <AssignMemberSelect
+                members={users}
+                assignedUsers={assignedUsers}
+                excludedUserIds={pendingSubOwnerIds}
+                onSelectionChange={(selected) => setPendingMemberIds(selected.map((u) => u.id))}
+                onSelectMultiple={(selectedUsers) => {
+                  if (selectedUsers.length > 0) {
+                    setPendingMemberIds([]);
+                    handleAddMultipleMembers(selectedUsers, "MEMBER");
+                  }
+                }}
+                loading={usersLoading}
+              />
+            </Box>
+          )}
+        </Paper>
+      ) : null}
 
       {/* MEMBERS LIST */}
       {loading ? (
@@ -740,7 +768,7 @@ export default function ProjectTeamPanel({
                   No team members assigned yet. Add your first member above!
                 </Typography>
               </Paper>
-            )}
+          )}
         </>
       )}
     </Box>

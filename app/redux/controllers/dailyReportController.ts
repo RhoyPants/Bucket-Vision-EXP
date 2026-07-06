@@ -37,6 +37,8 @@ import {
   DailyReportFilters,
 } from "@/app/redux/slices/dailyReportSlice";
 
+const inboxReportsInFlight = new Map<string, ReturnType<typeof axios.get>>();
+
 /**
  * Get all daily reports with optional filters
  */
@@ -221,9 +223,15 @@ export const getInboxReports =
       if (filters?.dateTo) params.append("dateTo", filters.dateTo);
       if (filters?.search) params.append("search", filters.search);
 
-      const response = await axios.get(
-        `/daily-reports/inbox?${params.toString()}`
-      );
+      const url = `/daily-reports/inbox?${params.toString()}`;
+      const request =
+        inboxReportsInFlight.get(url) ||
+        axios.get(url).finally(() => {
+          inboxReportsInFlight.delete(url);
+        });
+      inboxReportsInFlight.set(url, request);
+
+      const response = await request;
       dispatch(
         getInboxReportsSuccess({
           data: response.data.data,

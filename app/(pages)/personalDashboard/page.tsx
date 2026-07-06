@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -55,7 +55,6 @@ import {
 } from "@/app/api-service/personalDashboardService";
 import {
   fetchDashboardChartData,
-  fetchDashboardReportTable,
   fetchPersonalDashboardDetail,
   fetchPersonalDashboards,
   removeDashboard,
@@ -70,6 +69,7 @@ import {
   editChecklistItem,
   removeChecklistItemFromNote,
 } from "@/app/redux/controllers/notesController";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 const statusColors: Record<string, { bg: string; color: string; accent: string }> = {
   CRITICAL: { bg: "#fef2f2", color: "#b91c1c", accent: "#ef4444" },
@@ -95,8 +95,21 @@ const flatCardSx = {
 
 type ProjectOption = Pick<Projects, "id" | "name">;
 
-const getErrorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback;
+interface InboxReportPreview {
+  id: string;
+  status?: string;
+  date?: string;
+  weekStart?: string;
+  weekEnd?: string;
+  user?: {
+    name?: string;
+  };
+}
+
+type DashboardReportState = {
+  dailyReport?: { inboxReports?: InboxReportPreview[] };
+  weeklyReport?: { inboxReports?: InboxReportPreview[] };
+};
 
 const getSummary = (dashboard?: PersonalDashboard | null) => dashboard?.summary ?? defaultSummary;
 
@@ -122,8 +135,18 @@ export default function PersonalDashboardPage() {
   } = useAppSelector((state) => state.personalDashboard);
   const { notes, loading: notesLoading, error: notesError } = useAppSelector((state) => state.notes);
   const authToken = useAppSelector((state) => state.auth.token);
-  const dailyInboxReports = useAppSelector((state) => (state as any).dailyReport?.inboxReports || []);
-  const weeklyInboxReports = useAppSelector((state) => (state as any).weeklyReport?.inboxReports || []);
+  const dailyInboxReports = useAppSelector(
+    (state) => (state as DashboardReportState).dailyReport?.inboxReports || []
+  );
+  const weeklyInboxReports = useAppSelector(
+    (state) => (state as DashboardReportState).weeklyReport?.inboxReports || []
+  );
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const canCreatePersonalDashboard = canCreate("personal_dashboard");
+  const canUpdatePersonalDashboard = canUpdate("personal_dashboard");
+  const canDeletePersonalDashboard = canDelete("personal_dashboard");
+  const canMutatePersonalDashboard =
+    canCreatePersonalDashboard || canUpdatePersonalDashboard || canDeletePersonalDashboard;
   const router = useRouter();
   const [selectedId, setSelectedId] = useState("");
   const [reportTab, setReportTab] = useState(0);
@@ -134,11 +157,27 @@ export default function PersonalDashboardPage() {
   const [editingKpi, setEditingKpi] = useState<PersonalDashboardKpi | null>(null);
   const [chartConfigOpen, setChartConfigOpen] = useState(false);
   const [interactionMode, setInteractionMode] = useState<"view" | "edit">("view");
+  const fetchedDailyInboxRef = useRef(false);
+  const fetchedWeeklyInboxRef = useRef(false);
   const [localTokenAvailable] = useState(
     () => typeof window !== "undefined" && Boolean(window.localStorage.getItem("token"))
   );
   const hasAccessToken = Boolean(authToken) || localTokenAvailable;
   const isEditMode = interactionMode === "edit";
+
+  const closeEditSurfaces = () => {
+    setDashboardModalOpen(false);
+    setKpiModalOpen(false);
+    setChartConfigOpen(false);
+    setEditingDashboard(null);
+    setEditingKpi(null);
+  };
+
+  const handleInteractionModeChange = (_: React.MouseEvent<HTMLElement>, value: "view" | "edit" | null) => {
+    if (!value) return;
+    if (value === "view") closeEditSurfaces();
+    setInteractionMode(value);
+  };
 
   const selectedDashboardId = useMemo(() => {
     if (selectedId && dashboards.some((dashboard) => dashboard.id === selectedId)) {
@@ -161,7 +200,6 @@ export default function PersonalDashboardPage() {
       await Promise.all([
         dispatch(fetchPersonalDashboardDetail(selectedDashboardId)),
         dispatch(fetchDashboardChartData(selectedDashboardId)),
-        dispatch(fetchDashboardReportTable(selectedDashboardId)),
       ]);
     } catch {
       // Controller stores the error in Redux.
@@ -176,14 +214,26 @@ export default function PersonalDashboardPage() {
 
   useEffect(() => {
     if (!hasAccessToken || !selectedDashboardId) return;
-    dispatch(fetchNotes(selectedDashboardId) as any);
+    dispatch(fetchNotes(selectedDashboardId));
   }, [dispatch, hasAccessToken, selectedDashboardId]);
 
   useEffect(() => {
     if (!hasAccessToken) return;
-    dispatch(getInboxReports() as any);
-    dispatch(getInboxWeeklyReports() as any);
-  }, [dispatch, hasAccessToken]);
+    if (reportTab === 0 && !fetchedDailyInboxRef.current) {
+      fetchedDailyInboxRef.current = true;
+      const request = dispatch(getInboxReports() as never) as unknown as Promise<unknown>;
+      request.catch(() => {
+        fetchedDailyInboxRef.current = false;
+      });
+    }
+    if (reportTab === 1 && !fetchedWeeklyInboxRef.current) {
+      fetchedWeeklyInboxRef.current = true;
+      const request = dispatch(getInboxWeeklyReports() as never) as unknown as Promise<unknown>;
+      request.catch(() => {
+        fetchedWeeklyInboxRef.current = false;
+      });
+    }
+  }, [dispatch, hasAccessToken, reportTab]);
 
   useEffect(() => {
     if (!hasAccessToken) return;
@@ -198,22 +248,13 @@ export default function PersonalDashboardPage() {
   );
   const calendarProjectId = selectedDashboard?.projectId ?? null;
   const calendarProject = projects?.find((p) => p.id === calendarProjectId);
-  const calendarProjectStartDate = (calendarProject as any)?.startDate ?? null;
+  const calendarProjectStartDate = calendarProject?.startDate ?? null;
   const recentReports = (reportTab === 0 ? dailyInboxReports : weeklyInboxReports).slice(0, 5);
 
   useEffect(() => {
     if (!hasAccessToken || !calendarProjectId) return;
-    dispatch(getProjectFull(calendarProjectId) as any);
+    dispatch(getProjectFull(calendarProjectId));
   }, [dispatch, hasAccessToken, calendarProjectId]);
-
-  useEffect(() => {
-    if (isEditMode) return;
-    setDashboardModalOpen(false);
-    setKpiModalOpen(false);
-    setChartConfigOpen(false);
-    setEditingDashboard(null);
-    setEditingKpi(null);
-  }, [isEditMode]);
 
   const refreshSelected = async () => {
     await loadDashboards();
@@ -221,6 +262,7 @@ export default function PersonalDashboardPage() {
   };
 
   const handleDeleteDashboard = async (dashboard: PersonalDashboard) => {
+    if (!canDeletePersonalDashboard) return;
     if (!window.confirm(`Delete "${dashboard.name}"?`)) return;
     await dispatch(removeDashboard(dashboard.id));
     if (selectedId === dashboard.id) setSelectedId("");
@@ -228,6 +270,7 @@ export default function PersonalDashboardPage() {
   };
 
   const handleDeleteKpi = async (kpi: PersonalDashboardKpi) => {
+    if (!canDeletePersonalDashboard) return;
     if (!selectedDashboard?.id || !window.confirm(`Delete KPI "${kpi.name}"?`)) return;
     await dispatch(removeKpi(selectedDashboard.id, kpi.id));
     await refreshSelected();
@@ -323,30 +366,32 @@ export default function PersonalDashboardPage() {
             alignItems="center"
             sx={{ alignSelf: { xs: "stretch", md: "center" } }}
           >
-            <ToggleButtonGroup
-              value={interactionMode}
-              exclusive
-              onChange={(_, value) => value && setInteractionMode(value)}
-              size="small"
-              sx={{
-                "& .MuiToggleButton-root": {
-                  textTransform: "none",
-                  fontWeight: 700,
-                  border: "1px solid #dbeafe",
-                  color: "#64748B",
-                  px: 1.5,
-                },
-                "& .Mui-selected": {
-                  color: "#1E40AF",
-                  backgroundColor: "#EFF6FF",
-                },
-              }}
-            >
-              <ToggleButton value="view">View Mode</ToggleButton>
-              <ToggleButton value="edit">Edit Mode</ToggleButton>
-            </ToggleButtonGroup>
+            {canMutatePersonalDashboard && (
+              <ToggleButtonGroup
+                value={interactionMode}
+                exclusive
+                onChange={handleInteractionModeChange}
+                size="small"
+                sx={{
+                  "& .MuiToggleButton-root": {
+                    textTransform: "none",
+                    fontWeight: 700,
+                    border: "1px solid #dbeafe",
+                    color: "#64748B",
+                    px: 1.5,
+                  },
+                  "& .Mui-selected": {
+                    color: "#1E40AF",
+                    backgroundColor: "#EFF6FF",
+                  },
+                }}
+              >
+                <ToggleButton value="view">View Mode</ToggleButton>
+                <ToggleButton value="edit">Edit Mode</ToggleButton>
+              </ToggleButtonGroup>
+            )}
 
-            {isEditMode && (
+            {isEditMode && canCreatePersonalDashboard && (
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
@@ -421,37 +466,45 @@ export default function PersonalDashboardPage() {
                       </Box>
                       {isEditMode && (
                         <Stack direction="row" spacing={1}>
-                          <Tooltip title="Edit dashboard">
-                            <IconButton
+                          {canUpdatePersonalDashboard && (
+                            <>
+                              <Tooltip title="Edit dashboard">
+                                <IconButton
+                                  onClick={() => {
+                                    setEditingDashboard(selectedDashboard);
+                                    setDashboardModalOpen(true);
+                                  }}
+                                >
+                                  <EditIcon />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Chart settings">
+                                <IconButton onClick={() => setChartConfigOpen(true)}>
+                                  <SettingsIcon />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
+                          {canDeletePersonalDashboard && (
+                            <Tooltip title="Delete dashboard">
+                              <IconButton color="error" onClick={() => selectedDashboard && handleDeleteDashboard(selectedDashboard)}>
+                                <DeleteIcon />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {canCreatePersonalDashboard && (
+                            <Button
+                              variant="contained"
+                              startIcon={<AddIcon />}
                               onClick={() => {
-                                setEditingDashboard(selectedDashboard);
-                                setDashboardModalOpen(true);
+                                setEditingKpi(null);
+                                setKpiModalOpen(true);
                               }}
+                              sx={{ textTransform: "none", fontWeight: 800, backgroundColor: "#4B2E83" }}
                             >
-                              <EditIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Chart settings">
-                            <IconButton onClick={() => setChartConfigOpen(true)}>
-                              <SettingsIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete dashboard">
-                            <IconButton color="error" onClick={() => selectedDashboard && handleDeleteDashboard(selectedDashboard)}>
-                              <DeleteIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Button
-                            variant="contained"
-                            startIcon={<AddIcon />}
-                            onClick={() => {
-                              setEditingKpi(null);
-                              setKpiModalOpen(true);
-                            }}
-                            sx={{ textTransform: "none", fontWeight: 800, backgroundColor: "#4B2E83" }}
-                          >
-                            Create KPI
-                          </Button>
+                              Create KPI
+                            </Button>
+                          )}
                         </Stack>
                       )}
                     </Stack>
@@ -479,30 +532,29 @@ export default function PersonalDashboardPage() {
                     notes={notes}
                     loading={notesLoading}
                     error={notesError}
-                    isEditMode={isEditMode}
                     onCreateNote={async (payload) => {
                       if (!selectedDashboardId) return;
-                      await dispatch(createNote(selectedDashboardId, payload) as any);
+                      await dispatch(createNote(selectedDashboardId, payload));
                     }}
                     onEditNote={async (noteId, payload) => {
                       if (!selectedDashboardId) return;
-                      await dispatch(editNote(selectedDashboardId, noteId, payload) as any);
+                      await dispatch(editNote(selectedDashboardId, noteId, payload));
                     }}
                     onDeleteNote={async (noteId) => {
                       if (!selectedDashboardId) return;
-                      await dispatch(deleteNote(selectedDashboardId, noteId) as any);
+                      await dispatch(deleteNote(selectedDashboardId, noteId));
                     }}
                     onAddChecklistItem={async (noteId, payload) => {
                       if (!selectedDashboardId) return;
-                      await dispatch(addChecklistItemToNote(selectedDashboardId, noteId, payload) as any);
+                      await dispatch(addChecklistItemToNote(selectedDashboardId, noteId, payload));
                     }}
                     onEditChecklistItem={async (noteId, itemId, payload) => {
                       if (!selectedDashboardId) return;
-                      await dispatch(editChecklistItem(selectedDashboardId, noteId, itemId, payload) as any);
+                      await dispatch(editChecklistItem(selectedDashboardId, noteId, itemId, payload));
                     }}
                     onDeleteChecklistItem={async (noteId, itemId) => {
                       if (!selectedDashboardId) return;
-                      await dispatch(removeChecklistItemFromNote(selectedDashboardId, noteId, itemId) as any);
+                      await dispatch(removeChecklistItemFromNote(selectedDashboardId, noteId, itemId));
                     }}
                   />
                   <KpiStatusPieCard summary={selectedSummary} />
@@ -599,22 +651,26 @@ export default function PersonalDashboardPage() {
                                   </Typography>
                                 </Stack>
                               </Stack>
-                              {isEditMode && (
+                              {isEditMode && (canUpdatePersonalDashboard || canDeletePersonalDashboard) && (
                                 <Stack direction="row" spacing={0.5} sx={{ mt: 1 }}>
-                                  <Button
-                                    size="small"
-                                    startIcon={<EditIcon sx={{ fontSize: "14px !important" }} />}
-                                    sx={{ fontSize: 11, py: 0.25, px: 0.75, minWidth: 0 }}
-                                    onClick={() => {
-                                      setEditingKpi(kpi);
-                                      setKpiModalOpen(true);
-                                    }}
-                                  >
-                                    Edit
-                                  </Button>
-                                  <Button size="small" color="error" startIcon={<DeleteIcon sx={{ fontSize: "14px !important" }} />} sx={{ fontSize: 11, py: 0.25, px: 0.75, minWidth: 0 }} onClick={() => handleDeleteKpi(kpi)}>
-                                    Delete
-                                  </Button>
+                                  {canUpdatePersonalDashboard && (
+                                    <Button
+                                      size="small"
+                                      startIcon={<EditIcon sx={{ fontSize: "14px !important" }} />}
+                                      sx={{ fontSize: 11, py: 0.25, px: 0.75, minWidth: 0 }}
+                                      onClick={() => {
+                                        setEditingKpi(kpi);
+                                        setKpiModalOpen(true);
+                                      }}
+                                    >
+                                      Edit
+                                    </Button>
+                                  )}
+                                  {canDeletePersonalDashboard && (
+                                    <Button size="small" color="error" startIcon={<DeleteIcon sx={{ fontSize: "14px !important" }} />} sx={{ fontSize: 11, py: 0.25, px: 0.75, minWidth: 0 }} onClick={() => handleDeleteKpi(kpi)}>
+                                      Delete
+                                    </Button>
+                                  )}
                                 </Stack>
                               )}
                             </Box>
@@ -688,113 +744,6 @@ export default function PersonalDashboardPage() {
                     </CardContent>
                   </Card>
                 )}
-
-                {/* Recent Reports */}
-                <Card sx={flatCardSx}>
-                  <CardContent>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-                      <Typography fontWeight={900}>Recent Reports</Typography>
-                      <Button
-                        size="small"
-                        variant="text"
-                        sx={{ textTransform: "none", fontWeight: 700, color: "#4B2E83" }}
-                        onClick={() => router.push("/reports")}
-                      >
-                        View All Reports →
-                      </Button>
-                    </Stack>
-
-                    <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-                      <Chip
-                        label="Daily"
-                        size="small"
-                        onClick={() => setReportTab(0)}
-                        color={reportTab === 0 ? "primary" : "default"}
-                        sx={{ cursor: "pointer", fontWeight: 700 }}
-                      />
-                      <Chip
-                        label="Weekly"
-                        size="small"
-                        onClick={() => setReportTab(1)}
-                        color={reportTab === 1 ? "primary" : "default"}
-                        sx={{ cursor: "pointer", fontWeight: 700 }}
-                      />
-                    </Stack>
-
-                    {recentReports.length === 0 ? (
-                      <Alert severity="info">
-                        No recent {reportTab === 0 ? "daily" : "weekly"} reports received.
-                      </Alert>
-                    ) : (
-                      <Stack spacing={0.75}>
-                        {recentReports.map((report: any) => (
-                          <Box
-                            key={report.id}
-                            onClick={() => router.push("/reports")}
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1.5,
-                              p: 1,
-                              borderRadius: 1.5,
-                              border: "1px solid #e5e7eb",
-                              cursor: "pointer",
-                              transition: "all 0.2s",
-                              "&:hover": { backgroundColor: "#f0eef9", borderColor: "#4B2E83" },
-                            }}
-                          >
-                            <Box
-                              sx={{
-                                width: 32,
-                                height: 32,
-                                borderRadius: "50%",
-                                backgroundColor: "#4B2E83",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                color: "#fff",
-                                fontWeight: 700,
-                                fontSize: 11,
-                                flexShrink: 0,
-                              }}
-                            >
-                              {report.user?.name?.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) || "U"}
-                            </Box>
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography sx={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {report.user?.name || "Unknown"}
-                              </Typography>
-                              <Typography sx={{ fontSize: 10, color: "#999" }}>
-                                {reportTab === 0
-                                  ? report.date
-                                    ? new Date(report.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-                                    : "-"
-                                  : report.weekStart
-                                    ? `${new Date(report.weekStart).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(report.weekEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
-                                    : "-"}
-                              </Typography>
-                            </Box>
-                            <Chip
-                              size="small"
-                              label={report.status || "SUBMITTED"}
-                              sx={{
-                                height: 20,
-                                fontSize: 10,
-                                fontWeight: 700,
-                                bgcolor:
-                                  report.status === "LATE" ? "#fef2f2" :
-                                  report.status === "REVIEWED" ? "#ecfdf5" : "#eff6ff",
-                                color:
-                                  report.status === "LATE" ? "#b91c1c" :
-                                  report.status === "REVIEWED" ? "#047857" : "#1d4ed8",
-                              }}
-                            />
-                          </Box>
-                        ))}
-                      </Stack>
-                    )}
-                  </CardContent>
-                </Card>
               </Stack>
             )}
           </Box>

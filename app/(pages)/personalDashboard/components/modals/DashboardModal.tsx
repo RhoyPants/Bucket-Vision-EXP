@@ -18,6 +18,7 @@ import {
   updateDashboard,
 } from "@/app/redux/controllers/personalDashboardController";
 import { PersonalDashboard } from "@/app/api-service/personalDashboardService";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 type ProjectOption = { id: string; name: string };
 
@@ -40,7 +41,11 @@ export default function DashboardModal({
   dashboardCount: number;
 }) {
   const dispatch = useAppDispatch();
+  const { canCreate, canUpdate } = usePermissions();
   const isEdit = Boolean(dashboard?.id);
+  const canSaveDashboard = isEdit
+    ? canUpdate("personal_dashboard")
+    : canCreate("personal_dashboard");
   const [form, setForm] = useState({ name: "", description: "", projectId: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -56,7 +61,7 @@ export default function DashboardModal({
   }, [dashboard, open]);
 
   const projectIdValue = form.projectId || "";
-  const canSave = form.name.trim().length > 0 && Boolean(projectIdValue) && (isEdit || dashboardCount < 5);
+  const canSave = canSaveDashboard && form.name.trim().length > 0 && Boolean(projectIdValue) && (isEdit || dashboardCount < 5);
 
   const handleSubmit = async () => {
     if (!canSave) return;
@@ -135,9 +140,11 @@ export default function DashboardModal({
       </DialogContent>
       <DialogActions sx={{ p: 2 }}>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" disabled={!canSave || saving} onClick={handleSubmit}>
-          {saving ? "Saving..." : isEdit ? "Update Dashboard" : "Create Dashboard"}
-        </Button>
+        {canSaveDashboard && (
+          <Button variant="contained" disabled={!canSave || saving} onClick={handleSubmit}>
+            {saving ? "Saving..." : isEdit ? "Update Dashboard" : "Create Dashboard"}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

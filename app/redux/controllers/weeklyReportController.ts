@@ -40,6 +40,8 @@ import {
   WeeklyReportFilters,
 } from "@/app/redux/slices/weeklyReportSlice";
 
+const inboxWeeklyReportsInFlight = new Map<string, ReturnType<typeof axios.get>>();
+
 /**
  * Get all weekly reports with optional filters
  */
@@ -264,9 +266,15 @@ export const getInboxWeeklyReports =
       if (filters?.dateTo) params.append("dateTo", filters.dateTo);
       if (filters?.search) params.append("search", filters.search);
 
-      const response = await axios.get(
-        `/weekly-reports/inbox?${params.toString()}`
-      );
+      const url = `/weekly-reports/inbox?${params.toString()}`;
+      const request =
+        inboxWeeklyReportsInFlight.get(url) ||
+        axios.get(url).finally(() => {
+          inboxWeeklyReportsInFlight.delete(url);
+        });
+      inboxWeeklyReportsInFlight.set(url, request);
+
+      const response = await request;
       dispatch(
         getInboxReportsSuccess({
           data: response.data.data,

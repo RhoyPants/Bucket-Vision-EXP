@@ -14,11 +14,59 @@ import {
   Switch,
 } from "@mui/material";
 import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import axiosApi from "@/app/lib/axios";
 import { getBusinessUnitsDropdown } from "@/app/api-service/businessUnitService";
 import { createUser, updateUser } from "@/app/lib/user.api";
+import { usePermissions } from "@/app/lib/usePermissions";
 
-const getInitialForm = (user: any) => {
+type UserModalUser = {
+  id: string;
+  name?: string;
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  company?: string;
+  roleId?: string;
+  role?: {
+    id?: string;
+  } | null;
+  businessUnitId?: string;
+  businessUnit?: {
+    id?: string;
+    buHead?: string;
+  } | null;
+  buHead?: string;
+  position?: string;
+  isActive?: boolean;
+};
+
+type RoleOption = {
+  id: string;
+  name: string;
+};
+
+type BusinessUnitOption = {
+  id: string;
+  name: string;
+  code?: string;
+  buHead?: string;
+};
+
+type UserModalProps = {
+  open: boolean;
+  onClose: () => void;
+  user?: UserModalUser | null;
+  refresh: () => void;
+};
+
+const getErrorMessage = (err: unknown, fallback: string) => {
+  const error = err as { response?: { data?: { message?: string } }; message?: string };
+  return error?.response?.data?.message || error?.message || fallback;
+};
+
+const getInitialForm = (user?: UserModalUser | null) => {
   if (!user) {
     return {
       name: "",
@@ -52,10 +100,12 @@ const getInitialForm = (user: any) => {
   };
 };
 
-export default function UserModal({ open, onClose, user, refresh }: any) {
-  const [roles, setRoles] = useState<any[]>([]);
-  const [businessUnits, setBusinessUnits] = useState<any[]>([]);
+export default function UserModal({ open, onClose, user, refresh }: UserModalProps) {
+  const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [businessUnits, setBusinessUnits] = useState<BusinessUnitOption[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const { canCreate, canUpdate } = usePermissions();
+  const canSaveUser = user ? canUpdate("settings_users") : canCreate("settings_users");
   const [form, setForm] = useState({
     name: "",
     firstName: "",
@@ -70,15 +120,7 @@ export default function UserModal({ open, onClose, user, refresh }: any) {
     isActive: true,
   });
 
-  useEffect(() => {
-    if (open) {
-      fetchLookups();
-      setForm(getInitialForm(user));
-      setError(null);
-    }
-  }, [open, user]);
-
-  const fetchLookups = async () => {
+  const fetchLookups = useCallback(async () => {
     try {
       const [rolesRes, businessUnitsRes] = await Promise.all([
         axiosApi.get("/roles"),
@@ -97,9 +139,23 @@ export default function UserModal({ open, onClose, user, refresh }: any) {
       console.error("Failed to load user modal lookups", err);
       setError("Failed to load roles/business units.");
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      const timer = window.setTimeout(() => {
+        fetchLookups();
+        setForm(getInitialForm(user));
+        setError(null);
+      }, 0);
+
+      return () => window.clearTimeout(timer);
+    }
+  }, [fetchLookups, open, user]);
 
   const handleSave = async () => {
+    if (!canSaveUser) return;
+
     if (!form.name || !form.email || (!user && !form.password)) {
       alert("Required fields missing");
       return;
@@ -132,8 +188,8 @@ export default function UserModal({ open, onClose, user, refresh }: any) {
 
       refresh();
       onClose();
-    } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || "Failed to save user details.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to save user details."));
     }
   };
 
@@ -269,7 +325,7 @@ export default function UserModal({ open, onClose, user, refresh }: any) {
 
         <Box mt={2} display="flex" justifyContent="flex-end">
           <Button onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained">
+          <Button onClick={handleSave} variant="contained" disabled={!canSaveUser}>
             Save
           </Button>
         </Box>

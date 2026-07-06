@@ -1,0 +1,60 @@
+<svg width="560" height="260" viewBox="0 0 560 260" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Access denied illustration</title>
+  <desc id="desc">A branded shield and lock illustration in violet, pink, and slate colors.</desc>
+  <rect width="560" height="260" rx="28" fill="#E8E7E2"/>
+  <path d="M0 0H560V260H0V0Z" fill="url(#wash)"/>
+  <circle cx="456" cy="40" r="88" fill="#E0DAE6" opacity="0.74"/>
+  <circle cx="78" cy="217" r="96" fill="#E0DAE6" opacity="0.52"/>
+  <path d="M83 82C126 37 190 34 236 75" stroke="#210E64" stroke-width="7" stroke-linecap="round" opacity="0.16"/>
+  <path d="M326 197C373 226 438 220 478 178" stroke="#210E64" stroke-width="7" stroke-linecap="round" opacity="0.13"/>
+  <g filter="url(#shadow)">
+    <path d="M280 38L397 82V134C397 191 346 222 280 235C214 222 163 191 163 134V82L280 38Z" fill="white"/>
+    <path d="M280 54L380 91V135C380 179 341 205 280 218C219 205 180 179 180 135V91L280 54Z" fill="#210E64"/>
+    <path d="M280 72L361 102V136C361 169 331 190 280 202C229 190 199 169 199 136V102L280 72Z" fill="#E0DAE6"/>
+  </g>
+  <g filter="url(#lockShadow)">
+    <rect x="232" y="121" width="96" height="72" rx="18" fill="white"/>
+    <path d="M252 122V108C252 91.984 264.984 79 281 79C297.016 79 310 91.984 310 108V122" stroke="#210E64" stroke-width="13" stroke-linecap="round"/>
+    <rect x="247" y="132" width="66" height="42" rx="12" fill="#210E64"/>
+    <circle cx="280" cy="151" r="7" fill="#E0DAE6"/>
+    <path d="M280 157V166" stroke="#E0DAE6" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <path d="M224 205L336 62" stroke="#E94B5A" stroke-width="16" stroke-linecap="round"/>
+  <path d="M224 205L336 62" stroke="white" stroke-width="6" stroke-linecap="round" opacity="0.9"/>
+  <g opacity="0.78">
+    <rect x="64" y="76" width="76" height="12" rx="6" fill="#210E64"/>
+    <rect x="74" y="102" width="112" height="10" rx="5" fill="#210E64" opacity="0.52"/>
+    <rect x="392" y="150" width="92" height="12" rx="6" fill="#210E64"/>
+    <rect x="374" y="176" width="116" height="10" rx="5" fill="#210E64" opacity="0.52"/>
+  </g>
+  <circle cx="120" cy="152" r="14" fill="#210E64" opacity="0.14"/>
+  <circle cx="430" cy="93" r="18" fill="#210E64" opacity="0.12"/>
+  <circle cx="465" cy="113" r="7" fill="#210E64" opacity="0.18"/>
+  <defs>
+    <linearGradient id="wash" x1="41" y1="20" x2="534" y2="238" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E0DAE6"/>
+      <stop offset="0.52" stop-color="#F6F4F8"/>
+      <stop offset="1" stop-color="#E8E7E2"/>
+    </linearGradient>
+    <filter id="shadow" x="135" y="17" width="290" height="245" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="8"/>
+      <feGaussianBlur stdDeviation="14"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.129 0 0 0 0 0.055 0 0 0 0 0.392 0 0 0 0.2 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
+    </filter>
+    <filter id="lockShadow" x="214" y="61" width="132" height="150" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="8"/>
+      <feGaussianBlur stdDeviation="9"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.129 0 0 0 0 0.055 0 0 0 0 0.392 0 0 0 0.24 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_2"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_2" result="shape"/>
+    </filter>
+  </defs>
+</svg>

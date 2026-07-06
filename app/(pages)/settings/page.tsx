@@ -19,7 +19,7 @@ import Modules from "./components/Modules";
 import BusinessUnits from "./components/BusinessUnits";
 import UserRequests from "@/app/(pages)/settings/components/UserRequestsPanel";
 import Guard from "@/app/components/shared/Guard";
-import { useAppSelector } from "@/app/redux/hook";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 type TabType =
   | "profile"
@@ -35,77 +35,73 @@ type TabType =
 interface NavItem {
   id: TabType;
   label: string;
-  requiredModule?: "SETTINGS" | "USERS";
-  requiredAction?: "UPDATE" | "READ";
+  permissionKey: string;
+  requiredAction?: "view" | "update";
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: "profile", label: "My Profile" },
+  { id: "profile", label: "My Profile", permissionKey: "settings_profile" },
   {
     id: "roles",
     label: "Roles",
-    requiredModule: "SETTINGS",
-    requiredAction: "UPDATE",
+    permissionKey: "settings_roles",
+    requiredAction: "view",
   },
   {
     id: "users",
     label: "Users",
-    requiredModule: "SETTINGS",
-    requiredAction: "UPDATE",
+    permissionKey: "settings_users",
+    requiredAction: "view",
   },
   {
     id: "userRequests",
     label: "User Requests",
-    requiredModule: "USERS",
-    requiredAction: "READ",
+    permissionKey: "settings_user_requests",
+    requiredAction: "view",
   },
   {
     id: "relations",
     label: "User Relations",
-    requiredModule: "SETTINGS",
-    requiredAction: "READ",
+    permissionKey: "settings_user_relations",
+    requiredAction: "view",
   },
   {
     id: "approvals",
     label: "Approval Flows",
-    requiredModule: "SETTINGS",
-    requiredAction: "READ",
+    permissionKey: "settings_approval_flows",
+    requiredAction: "view",
   },
   {
     id: "projectApprovals",
     label: "Project Approvals",
-    requiredModule: "SETTINGS",
-    requiredAction: "UPDATE",
+    permissionKey: "settings_project_approvals",
+    requiredAction: "view",
   },
   {
     id: "modules",
     label: "Modules",
-    requiredModule: "SETTINGS",
-    requiredAction: "UPDATE",
+    permissionKey: "settings_modules",
+    requiredAction: "view",
   },
   {
     id: "businessUnits",
     label: "Business Units",
-    requiredModule: "SETTINGS",
-    requiredAction: "READ",
+    permissionKey: "settings_business_units",
+    requiredAction: "view",
   },
 ];
 
 function SettingsPageContent() {
   const searchParams = useSearchParams();
-  const { user } = useAppSelector((state) => state.auth);
+  const { canView } = usePermissions();
 
-  const isSuperAdmin = user?.role?.toUpperCase() === "SUPERADMIN";
   const allowedTabs = useMemo(
     () =>
-      (isSuperAdmin
-        ? NAV_ITEMS
-        : NAV_ITEMS.filter((item) => item.id === "profile")
-      ).map((item) => item.id),
-    [isSuperAdmin]
+      NAV_ITEMS.filter((item) => canView(item.permissionKey)).map((item) => item.id),
+    [canView]
   );
   const tabParam = searchParams.get("tab") as TabType | null;
-  const activeTab = tabParam && allowedTabs.includes(tabParam) ? tabParam : "profile";
+  const activeTab = tabParam && allowedTabs.includes(tabParam) ? tabParam : allowedTabs[0];
 
   const renderContent = () => {
     switch (activeTab) {
@@ -114,11 +110,11 @@ function SettingsPageContent() {
       case "roles":
         return (
           <Guard
-            module="SETTINGS"
-            action="UPDATE"
+            permissionKey="settings_roles"
+            action="view"
             fallback={
               <Alert severity="error">
-                You don&apos;t have permission to manage roles.
+                You don&apos;t have permission to view roles.
               </Alert>
             }
           >
@@ -128,11 +124,11 @@ function SettingsPageContent() {
       case "users":
         return (
           <Guard
-            module="SETTINGS"
-            action="UPDATE"
+            permissionKey="settings_users"
+            action="view"
             fallback={
               <Alert severity="error">
-                You don&apos;t have permission to manage users.
+                You don&apos;t have permission to view users.
               </Alert>
             }
           >
@@ -142,8 +138,8 @@ function SettingsPageContent() {
       case "relations":
         return (
           <Guard
-            module="SETTINGS"
-            action="READ"
+            permissionKey="settings_user_relations"
+            action="view"
             fallback={
               <Alert severity="error">
                 You don&apos;t have permission to view user relations.
@@ -156,8 +152,8 @@ function SettingsPageContent() {
       case "approvals":
         return (
           <Guard
-            module="SETTINGS"
-            action="READ"
+            permissionKey="settings_approval_flows"
+            action="view"
             fallback={
               <Alert severity="error">
                 You don&apos;t have permission to view approval flows.
@@ -170,11 +166,11 @@ function SettingsPageContent() {
       case "projectApprovals":
         return (
           <Guard
-            module="SETTINGS"
-            action="UPDATE"
+            permissionKey="settings_project_approvals"
+            action="view"
             fallback={
               <Alert severity="error">
-                You don&apos;t have permission to manage project approvals.
+                You don&apos;t have permission to view project approvals.
               </Alert>
             }
           >
@@ -184,11 +180,11 @@ function SettingsPageContent() {
       case "modules":
         return (
           <Guard
-            module="SETTINGS"
-            action="UPDATE"
+            permissionKey="settings_modules"
+            action="view"
             fallback={
               <Alert severity="error">
-                You don&apos;t have permission to manage modules.
+                You don&apos;t have permission to view modules.
               </Alert>
             }
           >
@@ -198,8 +194,8 @@ function SettingsPageContent() {
       case "businessUnits":
         return (
           <Guard
-            module="SETTINGS"
-            action="READ"
+            permissionKey="settings_business_units"
+            action="view"
             fallback={
               <Alert severity="error">
                 You don&apos;t have permission to view business units.
@@ -212,8 +208,8 @@ function SettingsPageContent() {
       case "userRequests":
         return (
           <Guard
-            module="USERS"
-            action="READ"
+            permissionKey="settings_user_requests"
+            action="view"
             fallback={
               <Alert severity="error">
                 You don&apos;t have permission to manage user requests.

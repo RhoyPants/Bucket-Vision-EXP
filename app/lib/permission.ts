@@ -11,6 +11,23 @@
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type PagePermissionAction =
+  | "view"
+  | "create"
+  | "update"
+  | "delete"
+  | "approve";
+
+export type PermissionAction =
+  | PagePermissionAction
+  | "CREATE"
+  | "READ"
+  | "UPDATE"
+  | "DELETE"
+  | "APPROVE"
+  | "REJECT"
+  | "EXPORT";
+
 export type PermissionModule =
   | "PROJECTS"
   | "USERS"
@@ -23,18 +40,66 @@ export type PermissionModule =
   | "SETTINGS"
   | "SPRINT_MANAGEMENT"
   | "TEAM_OVERVIEW"
-  | "VERSIONING";
+  | "TEAM_MANAGEMENT"
+  | "VERSIONING"
+  | string;
 
-export type PermissionAction =
-  | "CREATE"
-  | "READ"
-  | "UPDATE"
-  | "DELETE"
-  | "APPROVE"
-  | "REJECT"
-  | "EXPORT";
+export interface PagePermission {
+  key: string;
+  name: string;
+  path: string;
+  canView: 0 | 1 | boolean;
+  canCreate: 0 | 1 | boolean;
+  canUpdate: 0 | 1 | boolean;
+  canDelete: 0 | 1 | boolean;
+  canApprove?: 0 | 1 | boolean;
+}
 
-export type Permissions = Record<string, string[]>;
+export type PermissionMap = Record<string, PagePermission>;
+export type Permissions = PermissionMap;
+
+const legacyModuleKeyMap: Record<string, string> = {
+  PROJECTS: "projects",
+  USERS: "settings_users",
+  SCOPE: "project_setup",
+  TASK: "task_board",
+  SUBTASK: "task_board",
+  REPORTS: "reports",
+  APPROVAL: "my_approvals",
+  DASHBOARD: "personal_dashboard",
+  SETTINGS: "settings",
+  SPRINT_MANAGEMENT: "sprint_management",
+  TEAM_OVERVIEW: "team_overview",
+  TEAM_MANAGEMENT: "team_management",
+  VERSIONING: "versioning",
+};
+
+const actionKeyMap: Record<string, keyof PagePermission | null> = {
+  view: "canView",
+  read: "canView",
+  READ: "canView",
+  create: "canCreate",
+  CREATE: "canCreate",
+  update: "canUpdate",
+  UPDATE: "canUpdate",
+  delete: "canDelete",
+  DELETE: "canDelete",
+  approve: "canApprove",
+  APPROVE: "canApprove",
+  REJECT: "canApprove",
+  EXPORT: "canView",
+};
+
+const isEnabled = (value: unknown): boolean =>
+  value === 1 || value === true || value === "1";
+
+const impliedActionKeys: Partial<Record<keyof PagePermission, Array<keyof PagePermission>>> = {
+  canView: ["canView", "canCreate", "canUpdate", "canDelete"],
+  canCreate: ["canCreate", "canUpdate", "canDelete"],
+  canUpdate: ["canUpdate", "canDelete"],
+  canDelete: ["canDelete"],
+  canApprove: ["canApprove"],
+};
 
 // ─── Core Helpers ─────────────────────────────────────────────────────────────
 
@@ -49,7 +114,15 @@ export function hasPermission(
   module: PermissionModule,
   action: PermissionAction
 ): boolean {
-  return permissions?.[module]?.includes(action) ?? false;
+  const permissionKey = legacyModuleKeyMap[module] || module;
+  const actionKey = actionKeyMap[action];
+
+  if (!actionKey) return false;
+
+  const permission = permissions?.[permissionKey];
+  const keysToCheck = impliedActionKeys[actionKey] || [actionKey];
+
+  return keysToCheck.some((key) => isEnabled(permission?.[key]));
 }
 
 /**
@@ -63,10 +136,10 @@ export function hasPermission(
  */
 export function hasAnyPermission(
   permissions: Permissions | null | undefined,
-  checks: Array<{ module: PermissionModule; action: PermissionAction }>
+  checks: Array<{ module?: PermissionModule; key?: string; action: PermissionAction }>
 ): boolean {
-  return checks.some(({ module, action }) =>
-    hasPermission(permissions, module, action)
+  return checks.some(({ module, key, action }) =>
+    hasPermission(permissions, key || module || "", action)
   );
 }
 
@@ -81,9 +154,24 @@ export function hasAnyPermission(
  */
 export function hasAllPermissions(
   permissions: Permissions | null | undefined,
-  checks: Array<{ module: PermissionModule; action: PermissionAction }>
+  checks: Array<{ module?: PermissionModule; key?: string; action: PermissionAction }>
 ): boolean {
-  return checks.every(({ module, action }) =>
-    hasPermission(permissions, module, action)
+  return checks.every(({ module, key, action }) =>
+    hasPermission(permissions, key || module || "", action)
   );
+}
+
+export function normalizePermissions(
+  pages: PagePermission[] | PermissionMap | null | undefined
+): PermissionMap {
+  if (!pages) return {};
+
+  if (Array.isArray(pages)) {
+    return pages.reduce<PermissionMap>((acc, page) => {
+      if (page?.key) acc[page.key] = page;
+      return acc;
+    }, {});
+  }
+
+  return pages;
 }

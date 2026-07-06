@@ -4,12 +4,37 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Box, Button, CircularProgress, Paper, Stack, Typography } from "@mui/material";
 import { handleMicrosoftCallback } from "@/app/api-service/authService";
+import { normalizePermissions, PagePermission } from "@/app/lib/permission";
 
 type CallbackStatus = "processing" | "error";
+type GraphProfile = {
+  displayName?: string;
+  givenName?: string;
+  surname?: string;
+  mail?: string;
+  userPrincipalName?: string;
+  jobTitle?: string;
+  department?: string;
+  officeLocation?: string;
+  companyName?: string;
+};
+type SsoExchangeData = {
+  statusCode?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  user?: {
+    role?: string;
+    [key: string]: unknown;
+  };
+  permissions?: PagePermission[];
+  pagePermissions?: PagePermission[];
+  registration?: unknown;
+  message?: string;
+};
 
 const normalizePrefill = (
   claims: Record<string, unknown>,
-  graphProfile?: any
+  graphProfile?: GraphProfile | null
 ) => {
   const firstName =
     graphProfile?.givenName ||
@@ -72,7 +97,7 @@ export default function SSOCallbackPage() {
         }
 
         const { exchange, idToken, idTokenClaims, accessToken } = callbackResult;
-        const data = exchange?.data as any;
+        const data = exchange?.data as SsoExchangeData | null;
 
         if (!exchange?.success || !data) {
           throw new Error(exchange?.message || "SSO login failed.");
@@ -83,7 +108,7 @@ export default function SSOCallbackPage() {
         const claims = (idTokenClaims || {}) as Record<string, unknown>;
 
         // Fetch Microsoft Graph profile to populate prefill data
-        let graphProfile: any = null;
+        let graphProfile: GraphProfile | null = null;
         if (accessToken) {
           try {
             const graphRes = await fetch(
@@ -96,9 +121,9 @@ export default function SSOCallbackPage() {
             );
 
             if (graphRes.ok) {
-              graphProfile = await graphRes.json();
+              graphProfile = (await graphRes.json()) as GraphProfile;
             }
-          } catch (graphErr) {
+          } catch {
             // Graph fetch failed, continue with claims fallback
             console.warn("Graph profile fetch failed, using claims fallback");
           }
@@ -109,12 +134,17 @@ export default function SSOCallbackPage() {
         const statusCode = data.statusCode;
 
         if (statusCode === "LOGIN_SUCCESS") {
-          const { accessToken, refreshToken, user, permissions } = data;
-          localStorage.setItem("token", accessToken);
-          localStorage.setItem("accessToken", accessToken);
+          const { accessToken, refreshToken, user, permissions, pagePermissions } = data;
+          const normalizedPermissions = normalizePermissions(pagePermissions || permissions || []);
+          localStorage.setItem("token", accessToken || "");
+          localStorage.setItem("accessToken", accessToken || "");
           localStorage.setItem("refreshToken", refreshToken || "");
-          localStorage.setItem("user", JSON.stringify(user));
-          localStorage.setItem("permissions", JSON.stringify(permissions || {}));
+          localStorage.setItem("user", JSON.stringify(user || {}));
+          localStorage.setItem("permissions", JSON.stringify(normalizedPermissions));
+          localStorage.setItem("pagePermissions", JSON.stringify(normalizedPermissions));
+          if (user?.role) {
+            localStorage.setItem("permissionRole", user.role);
+          }
 
           localStorage.removeItem("sso_prefill");
           localStorage.removeItem("sso_registration");
@@ -149,8 +179,10 @@ export default function SSOCallbackPage() {
         }
 
         throw new Error(data?.message || exchange?.message || "Unhandled SSO status.");
-      } catch (err: any) {
-        setErrorMessage(err?.message || "Microsoft login callback failed.");
+      } catch (err: unknown) {
+        setErrorMessage(
+          err instanceof Error ? err.message : "Microsoft login callback failed."
+        );
         setStatus("error");
       }
     };

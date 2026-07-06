@@ -17,11 +17,23 @@ import { getUsers } from "@/app/lib/user.api";
 import { getUserRelations, removeRelation } from "@/app/lib/userRelation.api";
 import UserRelationModal from "@/app/components/shared/modals/UserRelationModal";
 import OrgChartView from "./OrgChartView";
+import { usePermissions } from "@/app/lib/usePermissions";
+
+type RelationUser = {
+  id: string;
+  name?: string;
+  email?: string;
+};
+
+type UserRelationsState = {
+  managers: RelationUser[];
+  members: RelationUser[];
+};
 
 export default function UserRelations() {
-  const [users, setUsers] = useState<any[]>([]);
-  const [selected, setSelected] = useState<any>(null);
-  const [relations, setRelations] = useState<any>({
+  const [users, setUsers] = useState<RelationUser[]>([]);
+  const [selected, setSelected] = useState<RelationUser | null>(null);
+  const [relations, setRelations] = useState<UserRelationsState>({
     managers: [],
     members: [],
   });
@@ -30,6 +42,8 @@ export default function UserRelations() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { canUpdate } = usePermissions();
+  const canUpdateUsers = canUpdate("settings_users");
 
   // =========================
   // LOAD USERS
@@ -84,7 +98,7 @@ export default function UserRelations() {
   // =========================
   // SELECT USER
   // =========================
-  const handleSelectUser = (user: any) => {
+  const handleSelectUser = (user: RelationUser) => {
     if (selected?.id === user.id) return; // prevent duplicate click
     setSelected(user);
   };
@@ -208,24 +222,26 @@ export default function UserRelations() {
                           Managers ({relations.managers.length})
                         </Typography>
 
-                        <Button
-                          size="small"
-                          variant="contained"
-                          onClick={() => setOpen(true)}
-                        >
-                          + Assign Manager
-                        </Button>
+                        {canUpdateUsers ? (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => setOpen(true)}
+                          >
+                            + Assign Manager
+                          </Button>
+                        ) : null}
                       </Box>
 
                       <Divider sx={{ mb: 2 }} />
 
                       <Box display="flex" gap={1} flexWrap="wrap">
                         {relations.managers.length > 0 ? (
-                          relations.managers.map((m: any) => (
+                          relations.managers.map((m) => (
                             <Chip
                               key={m.id}
                               label={m.name}
-                              onDelete={() => handleRemove(m.id)}
+                              onDelete={canUpdateUsers ? () => handleRemove(m.id) : undefined}
                               color="primary"
                               variant="outlined"
                             />
@@ -248,7 +264,7 @@ export default function UserRelations() {
 
                       <Box display="flex" gap={1} flexWrap="wrap">
                         {relations.members.length > 0 ? (
-                          relations.members.map((m: any) => (
+                          relations.members.map((m) => (
                             <Chip
                               key={m.id}
                               label={m.name}

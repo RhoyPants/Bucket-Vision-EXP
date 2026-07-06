@@ -53,6 +53,15 @@ const normalizeProjectListResponse = (response: any) => {
 };
 
 // ✅ GET ALL (with full details including members)
+let projectsInFlight: ReturnType<typeof axiosApi.get> | null = null;
+let activeProjectsInFlight: ReturnType<typeof fetchActiveProjectDropdown> | null = null;
+const fullProjectInFlight = new Map<string, ReturnType<typeof axiosApi.get>>();
+const myDraftsInFlight = new Map<string, ReturnType<typeof fetchMyDrafts>>();
+const myRequestsInFlight = new Map<string, ReturnType<typeof fetchMyRequests>>();
+const myApprovalsInFlight = new Map<string, ReturnType<typeof fetchMyApprovals>>();
+
+const queryKey = (params?: ProjectListQuery) => JSON.stringify(params || {});
+
 export const getProjects = () => {
   return async (dispatch: AppDispatch) => {
     try {
@@ -60,7 +69,13 @@ export const getProjects = () => {
 
 
       // 🔥 FETCH FULL PROJECT DATA WITH MEMBERS
-      const res = await axiosApi.get("/projects?full=true");
+      projectsInFlight =
+        projectsInFlight ||
+        axiosApi.get("/projects?full=true").finally(() => {
+          projectsInFlight = null;
+        });
+
+      const res = await projectsInFlight;
       
       
       // Handle both direct array and nested data structure
@@ -93,7 +108,14 @@ export const getProjectFull = (projectId: string) => {
     try {
       dispatch(setLoading(true));
 
-      const res = await axiosApi.get(`/projects/${projectId}/full`);
+      const request =
+        fullProjectInFlight.get(projectId) ||
+        axiosApi.get(`/projects/${projectId}/full`).finally(() => {
+          fullProjectInFlight.delete(projectId);
+        });
+      fullProjectInFlight.set(projectId, request);
+
+      const res = await request;
 
       // 🔥 STORE IN REDUX
       dispatch(setFullProject(res.data));
@@ -198,7 +220,15 @@ export const getMyApprovalsProjects = (params?: ProjectListQuery) => {
     try {
       dispatch(setLoading(true));
 
-      const response = await fetchMyApprovals(params);
+      const key = queryKey(params);
+      const request =
+        myApprovalsInFlight.get(key) ||
+        fetchMyApprovals(params).finally(() => {
+          myApprovalsInFlight.delete(key);
+        });
+      myApprovalsInFlight.set(key, request);
+
+      const response = await request;
       const { data: projectsData, meta } = normalizeProjectListResponse(response);
 
       dispatch(setProjects(projectsData));
@@ -220,7 +250,15 @@ export const getMyRequestsProjects = (params?: ProjectListQuery) => {
     try {
       dispatch(setLoading(true));
 
-      const response = await fetchMyRequests(params);
+      const key = queryKey(params);
+      const request =
+        myRequestsInFlight.get(key) ||
+        fetchMyRequests(params).finally(() => {
+          myRequestsInFlight.delete(key);
+        });
+      myRequestsInFlight.set(key, request);
+
+      const response = await request;
       const { data: projectsData, meta } = normalizeProjectListResponse(response);
 
       dispatch(setProjects(projectsData));
@@ -242,7 +280,15 @@ export const getMyDraftsProjects = (params?: ProjectListQuery) => {
     try {
       dispatch(setLoading(true));
 
-      const response = await fetchMyDrafts(params);
+      const key = queryKey(params);
+      const request =
+        myDraftsInFlight.get(key) ||
+        fetchMyDrafts(params).finally(() => {
+          myDraftsInFlight.delete(key);
+        });
+      myDraftsInFlight.set(key, request);
+
+      const response = await request;
       const { data: projectsData, meta } = normalizeProjectListResponse(response);
 
       dispatch(setProjects(projectsData));
@@ -285,7 +331,13 @@ export const getActiveProjects = () => {
     try {
       dispatch(setLoading(true));
 
-      const projectsData = await fetchActiveProjectDropdown();
+      activeProjectsInFlight =
+        activeProjectsInFlight ||
+        fetchActiveProjectDropdown().finally(() => {
+          activeProjectsInFlight = null;
+        });
+
+      const projectsData = await activeProjectsInFlight;
       const normalizedProjectsData = Array.isArray(projectsData)
         ? projectsData.map(normalizeProjectRow)
         : [];

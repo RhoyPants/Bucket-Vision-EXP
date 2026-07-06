@@ -17,6 +17,7 @@ import {
   PersonalDashboard,
 } from "@/app/api-service/personalDashboardService";
 import { saveDashboardCharts } from "@/app/redux/controllers/personalDashboardController";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 const chartOptions = [
   { chartType: "KPI_SUMMARY", label: "KPI Summary Cards" },
@@ -50,6 +51,8 @@ export default function ChartConfigDialog({
   onSaved: () => void;
 }) {
   const dispatch = useAppDispatch();
+  const { canUpdate } = usePermissions();
+  const canUpdateDashboard = canUpdate("personal_dashboard");
   const [charts, setCharts] = useState<DashboardChartConfig[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -58,6 +61,7 @@ export default function ChartConfigDialog({
   }, [dashboard?.charts, open]);
 
   const handleToggle = (chartType: string) => {
+    if (!canUpdateDashboard) return;
     setCharts((prev) =>
       prev.map((chart) =>
         chart.chartType === chartType ? { ...chart, isEnabled: !chart.isEnabled } : chart
@@ -66,7 +70,7 @@ export default function ChartConfigDialog({
   };
 
   const handleSave = async () => {
-    if (!dashboard?.id) return;
+    if (!dashboard?.id || !canUpdateDashboard) return;
     setSaving(true);
     try {
       await dispatch(saveDashboardCharts(dashboard.id, charts));
@@ -87,7 +91,7 @@ export default function ChartConfigDialog({
             return (
               <FormControlLabel
                 key={option.chartType}
-                control={<Checkbox checked={checked} onChange={() => handleToggle(option.chartType)} />}
+                control={<Checkbox checked={checked} disabled={!canUpdateDashboard} onChange={() => handleToggle(option.chartType)} />}
                 label={option.label}
               />
             );
@@ -96,9 +100,11 @@ export default function ChartConfigDialog({
       </DialogContent>
       <DialogActions sx={{ p: 2 }}>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving}>
-          {saving ? "Saving..." : "Save Charts"}
-        </Button>
+        {canUpdateDashboard && (
+          <Button variant="contained" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save Charts"}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

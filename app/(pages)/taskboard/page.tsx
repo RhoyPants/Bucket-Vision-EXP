@@ -19,6 +19,7 @@ import TaskBoardFilters from "./Components/TaskBoardFilters";
 import BoardCardGrid from "./Components/BoardCardGrid";
 import KanbanBoard from "@/app/components/shared/kanban/KanbanBoard";
 import ProgressCalendarModal from "@/app/components/shared/modals/ProgressCalendarModal";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import {
@@ -42,6 +43,8 @@ export default function TaskBoardPage() {
   // Ã°Å¸â€Â¥ REDUX HOOKS
   // ========================================
   const dispatch = useAppDispatch();
+  const { canView } = usePermissions();
+  const canViewProgress = canView("progress");
   const subtasks = useAppSelector((state) => {
     const kanbanSubtasks = state.kanban.subtasks || [];
     // Map KanbanSubtask to SubtaskCardData if needed
@@ -252,6 +255,11 @@ export default function TaskBoardPage() {
   // Ã°Å¸â€Â¥ HANDLERS
   // ========================================
   const handleUpdateProgress = useCallback(async (subtask: SubtaskCardData) => {
+    if (!canViewProgress) {
+      setError("You don't have permission to view progress.");
+      return;
+    }
+
     setActionLoadingId(subtask.id);
     setError("");
 
@@ -264,7 +272,7 @@ export default function TaskBoardPage() {
     } finally {
       setActionLoadingId(null);
     }
-  }, [dispatch]);
+  }, [canViewProgress, dispatch]);
 
   const handleProgressModalClose = () => {
     setProgressModalOpen(false);
@@ -465,6 +473,7 @@ export default function TaskBoardPage() {
             subtasks={safeFilteredSubtasks}
             onUpdateProgress={handleUpdateProgress}
             actionLoadingId={actionLoadingId}
+            canViewProgress={canViewProgress}
             page={pagination.page}
             totalPages={pagination.totalPages}
             total={pagination.total}

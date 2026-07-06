@@ -30,6 +30,7 @@ import LayersIcon from "@mui/icons-material/Layers";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import SendIcon from "@mui/icons-material/Send";
 import { ProjectCardActions, ViewType } from "./types";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 type ProjectCardProject = {
   id: string;
@@ -302,6 +303,9 @@ export default function ProjectCard({
   actionMode = "default",
 }: ProjectCardProps) {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const { canView, canUpdate, canDelete } = usePermissions();
+  const canUpdateProject = canUpdate("projects");
+  const canDeleteProject = canDelete("projects");
   const menuOpen = Boolean(menuAnchor);
 
   const isActive = project.status === "ACTIVE" || project.status === "APPROVED";
@@ -337,6 +341,7 @@ export default function ProjectCard({
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     closeMenu();
+    if (!canDeleteProject) return;
     actions.onDelete(project.id);
   };
 
@@ -349,7 +354,7 @@ export default function ProjectCard({
         </MenuItem>
       ) : (
         [
-      needsSetup && (
+      canUpdateProject && needsSetup && (
         <MenuItem key="setup" onClick={menuAction(() => actions.onSetup(project.id))}>
           <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Setup Project</ListItemText>
@@ -361,19 +366,19 @@ export default function ProjectCard({
           <ListItemText>View Approval</ListItemText>
         </MenuItem>
       ),
-      isRejected && (
+      canUpdateProject && isRejected && (
         <MenuItem key="resubmit" onClick={menuAction(() => actions.onSubmitForApproval(project))}>
           <ListItemIcon><SendIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Revise &amp; Resubmit</ListItemText>
         </MenuItem>
       ),
-      isActive && (
+      isActive && canView("team_management") && (
         <MenuItem key="team-management" onClick={menuAction(() => actions.onTeamManage(project))}>
           <ListItemIcon><PeopleIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Team Management</ListItemText>
         </MenuItem>
       ),
-      isActive && (
+      isActive && canView("versioning") && (
         <MenuItem key="project-versions" onClick={menuAction(() => actions.onVersion(project))}>
           <ListItemIcon><LayersIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Project Versions</ListItemText>
@@ -384,17 +389,19 @@ export default function ProjectCard({
         <ListItemText>Sprint Management</ListItemText>
       </MenuItem>
       ,
-      !isArchived && (
+      !isArchived && canUpdateProject && (
         <MenuItem key="edit" onClick={menuAction(() => actions.onEdit(project))}>
           <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Edit Project</ListItemText>
         </MenuItem>
       ),
       <Divider key="divider" />,
+      canDeleteProject && (
       <MenuItem key="delete" onClick={handleDelete} sx={{ color: "#B91C1C" }}>
         <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
         <ListItemText>Delete</ListItemText>
-      </MenuItem>,
+      </MenuItem>
+      ),
         ]
       )}
     </Menu>

@@ -18,11 +18,23 @@ import {
   UpdateChecklistItemPayload,
 } from "@/app/api-service/personalNotesService";
 
+const notesInFlight = new Map<
+  string,
+  ReturnType<typeof personalNotesService.getNotes>
+>();
+
 export const fetchNotes = (dashboardId: string) => async (dispatch: AppDispatch) => {
   try {
     dispatch(setLoading(true));
     dispatch(setError(null));
-    const response = await personalNotesService.getNotes(dashboardId);
+    const request =
+      notesInFlight.get(dashboardId) ||
+      personalNotesService.getNotes(dashboardId).finally(() => {
+        notesInFlight.delete(dashboardId);
+      });
+    notesInFlight.set(dashboardId, request);
+
+    const response = await request;
     dispatch(setNotes(response.data || []));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch notes";

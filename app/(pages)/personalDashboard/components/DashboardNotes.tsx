@@ -33,7 +33,6 @@ interface DashboardNotesProps {
   notes: DashboardNote[];
   loading: boolean;
   error: string | null;
-  isEditMode: boolean;
   onCreateNote: (payload: { title: string; content: string; sortOrder: number; items?: Array<{ text: string; isDone: boolean; sortOrder: number }> }) => Promise<void>;
   onEditNote: (noteId: string, payload: { title?: string; content?: string; sortOrder?: number }) => Promise<void>;
   onDeleteNote: (noteId: string) => Promise<void>;
@@ -534,12 +533,12 @@ export default function DashboardNotes({
                       <Button
                         size="small"
                         startIcon={<AddIcon sx={{ fontSize: 14 }} />}
-                          variant="outlined"
-                          onClick={() => handleAddInlineItem(selectedNote)}
-                          disabled={inlineItemSavingNoteId === selectedNote.id}
-                          sx={{ fontSize: 11, textTransform: "none", fontWeight: 800, whiteSpace: "nowrap" }}
+                        variant="outlined"
+                        onClick={() => handleAddInlineItem(selectedNote)}
+                        disabled={inlineItemSavingNoteId === selectedNote.id}
+                        sx={{ fontSize: 11, textTransform: "none", fontWeight: 800, whiteSpace: "nowrap" }}
                       >
-                          {inlineItemSavingNoteId === selectedNote.id ? "Adding..." : "Add"}
+                        {inlineItemSavingNoteId === selectedNote.id ? "Adding..." : "Add"}
                       </Button>
                       </Stack>
                     </Stack>

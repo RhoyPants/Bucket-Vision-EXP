@@ -4,6 +4,8 @@ import { Box } from "@mui/material";
 import { Suspense } from "react";
 import Header from "./Header";
 import Sidebar from "./sidebar/Sidebar";
+import RouteGuard from "./RouteGuard";
+import AccessDeniedModal from "./modals/AccessDeniedModal";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -20,9 +22,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Page Content */}
         <Box sx={{ flexGrow: 1, overflowY: "auto", overflowX: "hidden", padding: 0.2, minWidth: 0, backgroundColor: "#f8fafc" }}>
-          {children}
+          <RouteGuard>{children}</RouteGuard>
         </Box>
       </Box>
+      <AccessDeniedModal />
     </Box>
   );
 }

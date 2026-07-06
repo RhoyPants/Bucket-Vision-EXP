@@ -1,6 +1,10 @@
 "use client";
 
 import axios, { AxiosError } from "axios";
+import {
+  accessDeniedEventName,
+  AccessDeniedDetail,
+} from "@/app/lib/accessDeniedEvent";
 
 // Verify API base URL is configured
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -23,12 +27,78 @@ const axiosApi = axios.create({
   withCredentials: false,
 });
 
+const mutatingMethods = new Set(["post", "put", "patch", "delete"]);
+
+const methodActionMap: Record<string, string> = {
+  post: "create",
+  put: "update",
+  patch: "update",
+  delete: "delete",
+};
+
+const resourceLabelMap: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /^\/roles(?:\/|$)/, label: "Role" },
+  { pattern: /^\/projects\/my-drafts(?:\/|$)/, label: "Project Draft" },
+  { pattern: /^\/projects(?:\/|$)/, label: "Project" },
+  { pattern: /^\/subtasks(?:\/|$)/, label: "Subtask" },
+  { pattern: /^\/tasks(?:\/|$)/, label: "Task" },
+  { pattern: /^\/scopes?(?:\/|$)/, label: "Scope" },
+  { pattern: /^\/sprints?(?:\/|$)/, label: "Sprint" },
+  { pattern: /^\/versioning(?:\/|$)/, label: "Version" },
+  { pattern: /^\/users(?:\/|$)/, label: "User" },
+  { pattern: /^\/business-units(?:\/|$)/, label: "Business Unit" },
+  { pattern: /^\/approval-flows(?:\/|$)/, label: "Approval Flow" },
+  { pattern: /^\/daily-reports(?:\/|$)/, label: "Daily Report" },
+  { pattern: /^\/weekly-reports(?:\/|$)/, label: "Weekly Report" },
+  { pattern: /^\/reports(?:\/|$)/, label: "Report" },
+  { pattern: /^\/personal-dashboards(?:\/|$)/, label: "Personal Dashboard" },
+  { pattern: /^\/notes(?:\/|$)/, label: "Note" },
+  { pattern: /^\/kpis?(?:\/|$)/, label: "KPI" },
+];
+
+const normalizeRequestPath = (url?: string) => {
+  if (!url) return "/";
+
+  try {
+    return new URL(url, "http://local").pathname;
+  } catch {
+    return url.split("?")[0] || "/";
+  }
+};
+
+const labelFromPath = (path: string) => {
+  const mapped = resourceLabelMap.find((item) => item.pattern.test(path));
+  if (mapped) return mapped.label;
+
+  const segment =
+    path
+      .split("/")
+      .filter(Boolean)
+      .find((part) => !part.includes(":") && !/^[0-9a-f-]{12,}$/i.test(part)) ||
+    "resource";
+
+  return segment
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const notifyAccessDenied = (response: { config?: { method?: string; url?: string } }) => {
+  if (typeof window === "undefined") return;
+
+  const method = response.config?.method?.toLowerCase() || "";
+  if (!mutatingMethods.has(method)) return;
+
+  const detail: AccessDeniedDetail = {
+    action: methodActionMap[method] || "manage",
+    resource: labelFromPath(normalizeRequestPath(response.config?.url)),
+  };
+
+  window.dispatchEvent(new CustomEvent(accessDeniedEventName, { detail }));
+};
+
 // 🔐 Auto-attach token from Redux before every request
 axiosApi.interceptors.request.use(
   (config) => {
-    // Lazy import to avoid circular imports
-    const { store } = require("../redux/store");
-
     // Get token from localStorage
     const token = localStorage.getItem("token");
 
@@ -81,6 +151,10 @@ axiosApi.interceptors.response.use(
 
     // Handle other error statuses
     if (response.status >= 400) {
+      if (response.status === 403) {
+        notifyAccessDenied(response);
+      }
+
       console.error("❌ API Error:", response.status, response.data);
       return Promise.reject(
         response.data?.message || `HTTP Error: ${response.status}`

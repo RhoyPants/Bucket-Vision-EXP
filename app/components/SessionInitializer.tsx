@@ -1,9 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { useAppDispatch } from "@/app/redux/hook";
+import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { fetchCurrentUser } from "@/app/redux/controllers/authController";
+import { restoreSession } from "@/app/redux/slices/authSlice";
+
+const publicPaths = new Set([
+  "/",
+  "/pending-access",
+  "/sso/callback",
+  "/sso/pending",
+  "/sso/register",
+  "/sso/rejected",
+]);
 
 export default function SessionInitializer({
   children,
@@ -12,27 +22,38 @@ export default function SessionInitializer({
 }) {
   const dispatch = useAppDispatch();
   const pathname = usePathname();
+  const token = useAppSelector((state) => state.auth.token);
+  const permissionsBootstrapped = useAppSelector(
+    (state) => state.auth.permissionsBootstrapped
+  );
+  const bootstrappedTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
-    console.log("🔵 SessionInitializer: pathname =", pathname);
+    dispatch(restoreSession());
+  }, [dispatch]);
 
-    // Skip auth checks on SSO callback page - let it process Microsoft response first
-    if (pathname === "/sso/callback") {
-      console.log("🟢 SessionInitializer: SKIPPING fetchCurrentUser on /sso/callback");
-      return;
-    }
+  useEffect(() => {
+    if (publicPaths.has(pathname)) return;
 
-    // Check if user is already logged in (token exists in localStorage)
     if (typeof window !== "undefined") {
-      const token = localStorage.getItem("token");
-      console.log("🔵 SessionInitializer: token exists =", !!token);
-      if (token) {
-        console.log("🔵 SessionInitializer: calling fetchCurrentUser");
-        // Restore user data from backend
-        dispatch(fetchCurrentUser() as any);
+      const currentToken = token || localStorage.getItem("token");
+
+      if (!currentToken || bootstrappedTokenRef.current === currentToken) {
+        return;
       }
+
+      if (permissionsBootstrapped && token === currentToken) {
+        bootstrappedTokenRef.current = currentToken;
+        return;
+      }
+
+      bootstrappedTokenRef.current = currentToken;
+      fetchCurrentUser()(dispatch).catch((error: unknown) => {
+        bootstrappedTokenRef.current = null;
+        console.error("Failed to bootstrap session permissions:", error);
+      });
     }
-  }, [pathname, dispatch]); // Run when pathname changes
+  }, [pathname, dispatch, token, permissionsBootstrapped]);
 
   return <>{children}</>;
 }

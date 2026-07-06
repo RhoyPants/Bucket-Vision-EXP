@@ -51,6 +51,7 @@ import {
 import {
   getBusinessUnitsDropdown,
 } from "@/app/api-service/businessUnitService";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 export default function ProjectModal({
   open,
@@ -60,6 +61,8 @@ export default function ProjectModal({
 }: any) {
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const { canCreate, canUpdate } = usePermissions();
+  const canSaveProject = mode === "edit" ? canUpdate("projects") : canCreate("projects");
 
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState(0);
@@ -99,13 +102,15 @@ export default function ProjectModal({
   const validationStatus = useMemo(() => validateProjectForm(form), [form]);
 
   useEffect(() => {
+    if (!open) return;
+
     setErrors([]);
     setTouched({});
 
     if (mode === "edit" && project?.id) {
       dispatch(getProjectById(project.id)).then((data: any) => {
-        setForm({
-          ...form,
+        setForm((prev: any) => ({
+          ...prev,
           ...data,
           location: {
             regionCode: data.location?.regionCode ?? "",
@@ -127,7 +132,7 @@ export default function ProjectModal({
           totalBudget: data.totalBudget ?? 0,
           description: data.description ?? "",
           name: data.name ?? "",
-        });
+        }));
       });
     }
 
@@ -155,10 +160,12 @@ export default function ProjectModal({
         totalBudget: 0,
       });
     }
-  }, [open, project, mode]);
+  }, [open, project, mode, dispatch]);
 
   // Load regions from backend
   useEffect(() => {
+    if (!open) return;
+
     const loadRegions = async () => {
       try {
         const data = await getAllRegions();
@@ -168,10 +175,12 @@ export default function ProjectModal({
       }
     };
     loadRegions();
-  }, []);
+  }, [open]);
 
   // Load business units from backend
   useEffect(() => {
+    if (!open) return;
+
     const loadBusinessUnits = async () => {
       try {
         const data = await getBusinessUnitsDropdown();
@@ -181,11 +190,11 @@ export default function ProjectModal({
       }
     };
     loadBusinessUnits();
-  }, []);
+  }, [open]);
 
   // Load provinces when region code changes
   useEffect(() => {
-    if (!form.location.regionCode) return;
+    if (!open || !form.location.regionCode) return;
     const loadProvinces = async () => {
       try {
         const data = await getProvincesByRegion(form.location.regionCode);
@@ -201,11 +210,11 @@ export default function ProjectModal({
       }
     };
     loadProvinces();
-  }, [form.location.regionCode]);
+  }, [open, form.location.regionCode]);
 
   // Load cities when province changes
   useEffect(() => {
-    if (!form.location.provinceCode) return;
+    if (!open || !form.location.provinceCode) return;
     const loadCities = async () => {
       try {
         const data = await getCitiesByProvince(form.location.provinceCode);
@@ -220,11 +229,11 @@ export default function ProjectModal({
       }
     };
     loadCities();
-  }, [form.location.provinceCode]);
+  }, [open, form.location.provinceCode]);
 
   // Load barangays when city changes
   useEffect(() => {
-    if (!form.location.cityCode) return;
+    if (!open || !form.location.cityCode) return;
     const loadBarangays = async () => {
       try {
         const data = await getBarangaysByCity(form.location.cityCode);
@@ -238,9 +247,19 @@ export default function ProjectModal({
       }
     };
     loadBarangays();
-  }, [form.location.cityCode]);
+  }, [open, form.location.cityCode]);
 
   const handleSubmit = async () => {
+    if (!canSaveProject) {
+      setErrors([
+        {
+          field: "submit",
+          message: `You don't have access to ${mode === "edit" ? "update" : "create"} project.`,
+        },
+      ]);
+      return;
+    }
+
     const validation = validateProjectForm(form);
 
     if (!validation.isValid) {
@@ -1005,7 +1024,7 @@ export default function ProjectModal({
           <Button
             variant="contained"
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={saving || !canSaveProject}
             sx={{
               borderRadius: 1,
               textTransform: "none",

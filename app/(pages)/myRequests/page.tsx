@@ -20,6 +20,7 @@ import ProjectsGrid from "@/app/(pages)/projects/components/ProjectsGrid";
 import { ProjectCardActions, ViewType } from "@/app/(pages)/projects/components/types";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { getMyRequestsProjects } from "@/app/redux/controllers/projectController";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 type MyRequestProject = {
   id: string;
@@ -34,6 +35,8 @@ type MyRequestProject = {
 export default function MyRequestsPage() {
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const { canCreate } = usePermissions();
+  const canCreateProject = canCreate("projects");
 
   const { projects, pagination } = useAppSelector((state) => state.project);
 
@@ -100,7 +103,10 @@ export default function MyRequestsPage() {
     onTeamManage: () => undefined,
     onVersion: (project) => router.push(`/versioning?projectId=${project.id}`),
     onSprint: (projectId) => router.push(`/sprintManagement?projectId=${projectId}`),
-    onCreateProject: () => router.push("/projects/new/setup"),
+    onCreateProject: () => {
+      if (!canCreateProject) return;
+      router.push("/projects/new/setup");
+    },
   };
 
   return (
@@ -186,11 +192,11 @@ export default function MyRequestsPage() {
             actions={actions}
             viewType={viewType}
             onViewTypeChange={setViewType}
-            headerAction={(
+            headerAction={canCreateProject ? (
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
-                onClick={() => router.push("/projects/new/setup")}
+                onClick={actions.onCreateProject}
                 sx={{
                   bgcolor: "#210e64",
                   "&:hover": { bgcolor: "#1a0b4f" },
@@ -198,14 +204,14 @@ export default function MyRequestsPage() {
               >
                 New Request
               </Button>
-            )}
+            ) : null}
             emptyMessage="No submitted requests yet"
             emptySubtext={
               myRequests.length === 0
                 ? "Create a new project request to start tracking its review and approval status."
                 : "Try adjusting your filters to find an existing request."
             }
-            showCreateButton={myRequests.length === 0}
+            showCreateButton={canCreateProject && myRequests.length === 0}
             createButtonLabel="Create New Request"
             pagination={pagination}
             onPageChange={setPage}

@@ -187,7 +187,7 @@ export const saveProgressLog = (data: {
         // The backend does not expose /progress/subtask/:id/details.
         const currentState = getState();
         const taskId = currentState.task?.currentTaskId;
-        let projectId = currentState.project?.currentProjectId;
+        const projectId = currentState.project?.currentProjectId;
         
 
         // Step 2: Refresh the task and subtask via kanban (updates subtask progress)
@@ -285,6 +285,24 @@ export const updateProgressLog = (
       return response.data;
     } catch (err: any) {
       console.error("❌ Error updating progress log:", err);
+      throw err;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
+};
+
+export const deleteProgressLog = (progressLogId: string, subtaskId: string) => {
+  return async (dispatch: AppDispatch, getState: any) => {
+    try {
+      dispatch(setLoading(true));
+
+      await axiosApi.delete(`/progress/${progressLogId}`);
+      await refreshProgressDependencies(dispatch, getState, subtaskId);
+
+      return true;
+    } catch (err: any) {
+      console.error("❌ Error deleting progress log:", err);
       throw err;
     } finally {
       dispatch(setLoading(false));
