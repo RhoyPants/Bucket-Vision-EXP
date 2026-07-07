@@ -68,8 +68,8 @@ export const createBusinessUnit = (data: {
   code: string;
   name: string;
   entity: string;
-  buHead?: string | null;
-  assistantHead?: string | null;
+  buHeadUserId?: string | null;
+  assistantHeadUserId?: string | null;
 }) => {
   return async (dispatch: AppDispatch) => {
     try {
@@ -99,8 +99,8 @@ export const updateBusinessUnit = (
   data: Partial<{
     name: string;
     entity: string;
-    buHead: string | null;
-    assistantHead: string | null;
+    buHeadUserId: string | null;
+    assistantHeadUserId: string | null;
     isActive: boolean;
   }>
 ) => {

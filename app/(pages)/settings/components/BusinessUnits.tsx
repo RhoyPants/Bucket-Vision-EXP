@@ -36,6 +36,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import { BusinessUnit } from "@/app/redux/slices/businessUnitSlice";
 import { usePermissions } from "@/app/lib/usePermissions";
+import { getUsers } from "@/app/lib/user.api";
 
 const ENTITIES = ["GVI", "GVE", "HULMA"];
 
@@ -43,8 +44,17 @@ interface FormData {
   code: string;
   name: string;
   entity: string;
-  buHead: string;
-  assistantHead: string;
+  buHeadUserId: string;
+  assistantHeadUserId: string;
+  isActive: boolean;
+}
+
+interface UserOption {
+  id: string;
+  name?: string;
+  fullName?: string;
+  email?: string;
+  isActive?: boolean;
 }
 
 export default function BusinessUnits() {
@@ -57,18 +67,53 @@ export default function BusinessUnits() {
 
   const [openDialog, setOpenDialog] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [users, setUsers] = useState<UserOption[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     code: "",
     name: "",
     entity: "GVI",
-    buHead: "",
-    assistantHead: "",
+    buHeadUserId: "",
+    assistantHeadUserId: "",
+    isActive: true,
   });
 
   // Load business units on mount
   useEffect(() => {
     dispatch(getAllBusinessUnits());
   }, [dispatch]);
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        setUsersLoading(true);
+        const response = await getUsers();
+        const userList = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+          ? response.data
+          : [];
+
+        setUsers(
+          userList.filter(
+            (user: UserOption) =>
+              Boolean(user?.id) && user?.isActive !== false
+          )
+        );
+      } catch (err) {
+        console.error("Error loading users for business unit assignment:", err);
+      } finally {
+        setUsersLoading(false);
+      }
+    };
+
+    loadUsers();
+  }, []);
+
+  const getUserLabel = (user: UserOption) => {
+    const primary = user.name || user.fullName || "Unnamed User";
+    return user.email ? `${primary} (${user.email})` : primary;
+  };
 
   // Handle dialog open for create
   const handleOpenDialog = () => {
@@ -78,8 +123,9 @@ export default function BusinessUnits() {
       code: "",
       name: "",
       entity: "GVI",
-      buHead: "",
-      assistantHead: "",
+      buHeadUserId: "",
+      assistantHeadUserId: "",
+      isActive: true,
     });
     setOpenDialog(true);
   };
@@ -92,8 +138,9 @@ export default function BusinessUnits() {
       code: bu.code,
       name: bu.name,
       entity: bu.entity,
-      buHead: bu.buHead || "",
-      assistantHead: bu.assistantHead || "",
+      buHeadUserId: bu.buHeadUserId || "",
+      assistantHeadUserId: bu.assistantHeadUserId || "",
+      isActive: bu.isActive,
     });
     setOpenDialog(true);
   };
@@ -121,8 +168,9 @@ export default function BusinessUnits() {
           updateBusinessUnit(editingId, {
             name: formData.name,
             entity: formData.entity,
-            buHead: formData.buHead || null,
-            assistantHead: formData.assistantHead || null,
+            buHeadUserId: formData.buHeadUserId.trim() || null,
+            assistantHeadUserId: formData.assistantHeadUserId.trim() || null,
+            isActive: formData.isActive,
           })
         );
       } else {
@@ -132,8 +180,8 @@ export default function BusinessUnits() {
             code: formData.code,
             name: formData.name,
             entity: formData.entity,
-            buHead: formData.buHead || null,
-            assistantHead: formData.assistantHead || null,
+            buHeadUserId: formData.buHeadUserId.trim() || null,
+            assistantHeadUserId: formData.assistantHeadUserId.trim() || null,
           })
         );
       }
@@ -235,6 +283,7 @@ export default function BusinessUnits() {
                         onClick={() => handleEditClick(bu)}
                         color="primary"
                         title="Edit"
+                        sx={{ mr: 0.5 }}
                       >
                         <EditIcon fontSize="small" />
                       </IconButton>
@@ -300,23 +349,52 @@ export default function BusinessUnits() {
             ))}
           </TextField>
           <TextField
+            select
             label="BU Head"
-            value={formData.buHead}
-            onChange={(e) => setFormData({ ...formData, buHead: e.target.value })}
+            value={formData.buHeadUserId}
+            onChange={(e) => setFormData({ ...formData, buHeadUserId: e.target.value })}
             fullWidth
             size="small"
-            placeholder="Optional"
-            inputProps={{ maxLength: 100 }}
-          />
+            disabled={usersLoading}
+            helperText="Select a user. Leave empty to clear BU Head."
+          >
+            <MenuItem value="">None</MenuItem>
+            {users.map((user) => (
+              <MenuItem key={user.id} value={user.id}>
+                {getUserLabel(user)}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField
+            select
             label="Assistant BU Head"
-            value={formData.assistantHead}
-            onChange={(e) => setFormData({ ...formData, assistantHead: e.target.value })}
+            value={formData.assistantHeadUserId}
+            onChange={(e) => setFormData({ ...formData, assistantHeadUserId: e.target.value })}
             fullWidth
             size="small"
-            placeholder="Optional"
-            inputProps={{ maxLength: 100 }}
-          />
+            disabled={usersLoading}
+            helperText="Select a user. Leave empty to clear Assistant BU Head."
+          >
+            <MenuItem value="">None</MenuItem>
+            {users.map((user) => (
+              <MenuItem key={user.id} value={user.id}>
+                {getUserLabel(user)}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            label="Status"
+            value={formData.isActive ? "ACTIVE" : "INACTIVE"}
+            onChange={(e) =>
+              setFormData({ ...formData, isActive: e.target.value === "ACTIVE" })
+            }
+            fullWidth
+            size="small"
+          >
+            <MenuItem value="ACTIVE">Active</MenuItem>
+            <MenuItem value="INACTIVE">Inactive</MenuItem>
+          </TextField>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>

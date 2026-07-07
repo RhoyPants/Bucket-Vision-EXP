@@ -6,7 +6,9 @@ export interface BusinessUnit {
   name: string;
   entity: string;
   buHead: string | null;
+  buHeadUserId?: string | null;
   assistantHead: string | null;
+  assistantHeadUserId?: string | null;
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;

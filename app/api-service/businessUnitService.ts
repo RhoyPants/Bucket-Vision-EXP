@@ -66,8 +66,8 @@ export async function createBusinessUnit(data: {
   code: string;
   name: string;
   entity: string;
-  buHead?: string | null;
-  assistantHead?: string | null;
+  buHeadUserId?: string | null;
+  assistantHeadUserId?: string | null;
 }) {
   const response = await axiosApi.post("/business-units", data);
   return response.data?.data;
@@ -85,8 +85,8 @@ export async function updateBusinessUnit(
   data: Partial<{
     name: string;
     entity: string;
-    buHead: string | null;
-    assistantHead: string | null;
+    buHeadUserId: string | null;
+    assistantHeadUserId: string | null;
     isActive: boolean;
   }>
 ) {
@@ -95,28 +95,23 @@ export async function updateBusinessUnit(
 }
 
 /**
- * Assign BU Head to business unit
- * @param id - Business Unit ID
- * @param buHead - BU Head name or null to clear
+ * @deprecated Use updateBusinessUnit with buHeadUserId.
  */
-export async function assignBUHead(id: string, buHead: string | null) {
-  const response = await axiosApi.put(`/business-units/${id}/bu-head`, { buHead });
+export async function assignBUHead(id: string, buHeadUserId: string | null) {
+  const response = await axiosApi.put(`/business-units/${id}`, { buHeadUserId });
   return response.data?.data;
 }
 
 /**
- * Assign Assistant BU Head to business unit
- * @param id - Business Unit ID
- * @param assistantHead - Assistant Head name or null to clear
+ * @deprecated Use updateBusinessUnit with assistantHeadUserId.
  */
 export async function assignAssistantBUHead(
   id: string,
-  assistantHead: string | null
+  assistantHeadUserId: string | null
 ) {
-  const response = await axiosApi.put(
-    `/business-units/${id}/assistant-bu-head`,
-    { assistantHead }
-  );
+  const response = await axiosApi.put(`/business-units/${id}`, {
+    assistantHeadUserId,
+  });
   return response.data?.data;
 }
 
