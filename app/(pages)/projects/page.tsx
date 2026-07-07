@@ -11,6 +11,7 @@ import {
   TextField,
   MenuItem,
 } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
 
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { useRouter } from "next/navigation";
@@ -209,20 +210,21 @@ export default function ProjectsPage() {
             canCreateProject ? (
               <Button
                 variant="contained"
-                sx={{
-                  borderRadius: 2,
-                  textTransform: "none",
-                  backgroundColor: "#4B2E83",
-                  "&:hover": { backgroundColor: "#3d2363" },
-                }}
+                startIcon={<AddIcon />}
                 onClick={actions.onCreateProject}
+                sx={{
+                  bgcolor: "#210e64",
+                  "&:hover": { bgcolor: "#1a0b4f" },
+                }}
               >
-                + New Project
+                Create Project
               </Button>
             ) : null
           }
           emptyMessage="No active projects"
           emptySubtext="Projects appear here once they are approved and activated"
+          showCreateButton={canCreateProject && activeProjects.length === 0}
+          createButtonLabel="Create Project"
         />
 
         

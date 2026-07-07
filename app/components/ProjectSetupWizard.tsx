@@ -24,7 +24,7 @@ import {
   IconButton,
 } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import SaveIcon from "@mui/icons-material/Save";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -101,6 +101,7 @@ export default function ProjectSetupWizard({
 }: ProjectSetupWizardProps) {
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const pathname = usePathname();
   const { canCreate, canUpdate } = usePermissions();
   const canCreateProject = canCreate("projects");
   const canUpdateProject = canUpdate("projects");
@@ -114,6 +115,7 @@ export default function ProjectSetupWizard({
   const [loading, setLoading] = useState(!initialData && !!projectId);
   const [saving, setSaving] = useState(false);
   const isCreatingNew = mode === "create" || !currentProjectId;
+  const isVersioningContext = pathname?.includes("/versioning") ?? false;
   const canSaveProjectDetails = isCreatingNew && !currentProjectId ? canCreateProject : canUpdateProject;
   const activeStepRef = useRef(initialStep);
 
@@ -174,6 +176,7 @@ export default function ProjectSetupWizard({
 
   // DIALOG STATE
   const [submitConfirm, setSubmitConfirm] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
   const [submitSuccessOpen, setSubmitSuccessOpen] = useState(false);
   const [draftSuccessOpen, setDraftSuccessOpen] = useState(false);
@@ -939,7 +942,21 @@ export default function ProjectSetupWizard({
   };
 
   const handleBack = () => {
+    if (!isVersioningContext && activeStep === 0) {
+      setLeaveConfirmOpen(true);
+      return;
+    }
+
     setActiveStep((prev) => Math.max(prev - 1, 0));
+  };
+
+  const handleConfirmLeave = () => {
+    setLeaveConfirmOpen(false);
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push("/projects");
   };
 
   if (loading && currentProjectId) {
@@ -1712,7 +1729,7 @@ export default function ProjectSetupWizard({
         <Button
           startIcon={<ArrowBackIcon />}
           onClick={handleBack}
-          disabled={activeStep === 0 || saving}
+          disabled={saving || (isVersioningContext && activeStep === 0)}
         >
           Back
         </Button>
@@ -1722,7 +1739,7 @@ export default function ProjectSetupWizard({
             variant="outlined"
             startIcon={<SaveIcon />}
             onClick={handleSaveDraft}
-            disabled={saving || !canUpdateProject}
+            disabled={saving || !canUpdateProject || !currentProjectId}
           >
             Save as Draft
           </Button>
@@ -1736,6 +1753,27 @@ export default function ProjectSetupWizard({
           </Button>
         </Stack>
       </Box>
+
+      {/* SUBMIT CONFIRMATION DIALOG */}
+      <Dialog
+        open={leaveConfirmOpen}
+        onClose={() => setLeaveConfirmOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Leave Project Setup?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mt: 1 }}>
+            Leaving this page will discard your current unsaved form data.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLeaveConfirmOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="warning" onClick={handleConfirmLeave}>
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* SUBMIT CONFIRMATION DIALOG */}
       <Dialog
