@@ -69,10 +69,10 @@ export const validateProjectForm = (form: Partial<ProjectFormData>): ValidationR
       field: "pin",
       message: "Project Code must be at least 2 characters",
     });
-  } else if (form.pin.length > 20) {
+  } else if (form.pin.length > 50) {
     errors.push({
       field: "pin",
-      message: "Project Code must not exceed 20 characters",
+      message: "Project Code must not exceed 50 characters",
     });
   } else if (!/^[A-Z0-9\-_]+$/i.test(form.pin)) {
     errors.push({
