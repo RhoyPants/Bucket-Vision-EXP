@@ -114,7 +114,7 @@ export default function CreateProject({
               helperText={touched.pin && getFieldError("pin", errors)}
               variant="outlined"
               size="small"
-              inputProps={{ maxLength: 20 }}
+              inputProps={{ maxLength: 50 }}
               sx={{ "& .MuiOutlinedInput-root": { borderRadius: 1.5, fontFamily: "monospace" } }}
             />
           </Box>
