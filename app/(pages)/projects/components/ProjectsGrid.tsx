@@ -226,9 +226,9 @@ export default function ProjectsGrid({
         Priority Legend
       </Typography>
       {[
-        { label: "Low", color: "#ECFDF5" },
-        { label: "Medium", color: "#FFF7ED" },
-        { label: "High", color: "#FFF1F2" },
+        { label: "Low", color: "#73FED5" },
+        { label: "Medium", color: "#9DC9FE" },
+        { label: "High", color: "#FDD6AD" },
       ].map((item) => (
         <Stack key={item.label} direction="row" spacing={0.75} alignItems="center">
           <Box
