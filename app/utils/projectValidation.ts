@@ -74,11 +74,6 @@ export const validateProjectForm = (form: Partial<ProjectFormData>): ValidationR
       field: "pin",
       message: "Project Code must not exceed 50 characters",
     });
-  } else if (!/^[A-Z0-9\-_]+$/i.test(form.pin)) {
-    errors.push({
-      field: "pin",
-      message: "Project Code can only contain alphanumeric characters, hyphens, and underscores",
-    });
   }
 
   // ✅ Priority validation
@@ -184,14 +179,6 @@ export const validateProjectForm = (form: Partial<ProjectFormData>): ValidationR
     today.setHours(0, 0, 0, 0);
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(0, 0, 0, 0);
-
-    // ✅ Start date must not be earlier than today
-    if (startDate < today) {
-      errors.push({
-        field: "startDate",
-        message: "Start date cannot be earlier than today",
-      });
-    }
 
     // ✅ End date must be AFTER start date (not equal)
     if (startDate >= endDate) {

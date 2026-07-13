@@ -36,6 +36,10 @@ type ProjectCardProject = {
   id: string;
   name?: string;
   description?: string;
+  progress?: number;
+  overallProgress?: number;
+  completionRate?: number;
+  completionPercentage?: number;
   status?: string;
   priority?: string;
   startDate?: string;
@@ -130,11 +134,29 @@ const priorityTone = (priority?: string) => {
 
 const priorityCardTone = (priority?: string) => {
   const normalized = String(priority || "").toUpperCase();
-  if (normalized === "HIGH") return "#FFF1F2";
-  if (normalized === "MEDIUM") return "#FFF7ED";
-  if (normalized === "LOW") return "#ECFDF5";
-  if (normalized === "CRITICAL") return "#FEF2F2";
-  return "#FFFFFF";
+  if (normalized === "HIGH") return "#FDD6AD";
+  if (normalized === "MEDIUM") return "#9DC9FE";
+  if (normalized === "LOW") return "#73FED5";
+  if (normalized === "CRITICAL") return "#F4989E";
+  return "#8282B1";
+};
+
+const getHeaderTone = (priority?: string) => {
+  if (!priority) {
+    return {
+      title: "#FEFEFE",
+      subtitle: "#E9EDF5",
+      icon: "#FEFEFE",
+      border: "#E9EDF5",
+    };
+  }
+
+  return {
+    title: "#555B66",
+    subtitle: "#555B66",
+    icon: "#555B66",
+    border: "#D9DEE8",
+  };
 };
 
 const statusChipColor = (status?: string) => {
@@ -152,6 +174,43 @@ const formatDate = (value?: string) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Not set";
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+};
+
+const normalizeProgress = (raw: unknown): number => {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return 0;
+
+  if (value >= 0 && value <= 1) {
+    return Math.round(value * 100);
+  }
+
+  return Math.max(0, Math.min(100, Math.round(value)));
+};
+
+const getProjectProgress = (project: ProjectCardProject): number => {
+  const raw =
+    project.overallProgress ??
+    project.progress ??
+    project.completionPercentage ??
+    project.completionRate;
+
+  return normalizeProgress(raw);
+};
+
+const getProgressColor = (progress: number): string => {
+  if (progress <= 0) return "#6B7280"; // gray
+  if (progress < 40) return "#D97706"; // orange
+  if (progress < 70) return "#1D4ED8"; // blue
+  if (progress < 100) return "#15803D"; // green (dark)
+  return "#22C55E"; // green (complete)
+};
+
+const getProgressGradientStops = (progress: number): [string, string] => {
+  if (progress <= 0) return ["#9CA3AF", "#6B7280"];
+  if (progress < 40) return ["#F59E0B", "#D97706"];
+  if (progress < 70) return ["#3B82F6", "#1D4ED8"];
+  if (progress < 100) return ["#22C55E", "#15803D"];
+  return ["#4ADE80", "#16A34A"];
 };
 
 function MetaItem({
@@ -324,8 +383,13 @@ export default function ProjectCard({
   const businessUnitName = project.businessUnitDetails?.name || project.businessUnit || "No BU";
   const versionLabel = getProjectVersionLabel(project);
   const approvalOnly = actionMode === "approval";
+  const progressPercent = getProjectProgress(project);
+  const progressColor = getProgressColor(progressPercent);
+  const progressDegree = Math.round((progressPercent / 100) * 360);
+  const [progressStartColor, progressEndColor] = getProgressGradientStops(progressPercent);
   const headerBackground = cardBackground;
-  const headerBorder = project.priority ? priorityStyle.border : "#E5E7EB";
+  const headerTone = getHeaderTone(project.priority);
+  const headerBorder = headerTone.border;
 
   const openMenu = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
@@ -571,12 +635,12 @@ export default function ProjectCard({
           }}
         >
           <Box sx={{ flex: 1, minWidth: 0, pr: approvalOnly ? 10 : 4, width: "100%" }}>
-            <Typography fontWeight={800} sx={{ fontSize: 15, color: "#0F172A", lineHeight: 1.35, mb: 0.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <Typography fontWeight={800} sx={{ fontSize: 15, color: headerTone.title, lineHeight: 1.35, mb: 0.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {project.name || "Untitled Project"}
             </Typography>
             <Typography
               variant="caption"
-              color="#64748B"
+              color={headerTone.subtitle}
               sx={{
                 display: "-webkit-box",
                 WebkitLineClamp: 2,
@@ -640,7 +704,7 @@ export default function ProjectCard({
                 size="small"
                 onClick={openMenu}
                 sx={{
-                  color: "#64748B",
+                  color: headerTone.icon,
                   position: "absolute",
                   top: 12,
                   right: 12,
@@ -654,28 +718,77 @@ export default function ProjectCard({
           )}
         </Box>
 
-        <Stack spacing={1.1} sx={{ mb: 2, px: 2, pt: 3, pb: 2 }}>
+        <Box sx={{ mb: 2, px: 2, pt: 3, pb: 2 }}>
+          <Stack direction="row" spacing={1.5} alignItems="stretch" sx={{ mb: 1.25 }}>
+            <Stack spacing={1.1} sx={{ flex: "0 0 65%", minWidth: 0 }}>
+              <MetaItem
+                icon={<CalendarMonthIcon sx={{ fontSize: 16 }} />}
+                label="Expected Start Date"
+                value={formatDate(project.startDate)}
+              />
+              <MetaItem
+                icon={<CalendarMonthIcon sx={{ fontSize: 16 }} />}
+                label="Expected End Date"
+                value={formatDate(project.expectedEndDate)}
+              />
+              <MetaItem
+                icon={<BusinessIcon sx={{ fontSize: 16 }} />}
+                label="Business Unit"
+                value={businessUnitName}
+              />
+            </Stack>
+
+            <Stack
+              alignItems="center"
+              justifyContent="center"
+              spacing={1}
+              sx={{
+                flex: "0 0 35%",
+                flexShrink: 0,
+                pr: 3,
+                pl: 1,
+                py: 0.75,
+              }}
+            >
+
+              <Box
+                sx={{
+                  display: "grid",
+                  placeItems: "center",
+                  width: 84,
+                  height: 84,
+                  borderRadius: "50%",
+                  background: `conic-gradient(${progressStartColor} 0deg, ${progressEndColor} ${progressDegree}deg, #E5E7EB ${progressDegree}deg 360deg)`,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 68,
+                    height: 68,
+                    borderRadius: "50%",
+                    bgcolor: "#FFFFFF",
+                    display: "grid",
+                    placeItems: "center",
+                    boxShadow: "inset 0 0 0 1px rgba(148, 163, 184, 0.16)",
+                  }}
+                >
+                  <Typography sx={{ fontSize: 15, fontWeight: 800, color: progressColor, lineHeight: 1 }}>
+                    {`${progressPercent}%`}
+                  </Typography>
+                </Box>
+              </Box>
+              <Typography sx={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: 0.3 }}>
+                Progress
+              </Typography>
+            </Stack>
+          </Stack>
+
           <MetaItem
             icon={<PlaceIcon sx={{ fontSize: 16 }} />}
             label="Location"
             value={formatLocation(project.location)}
           />
-          <MetaItem
-            icon={<CalendarMonthIcon sx={{ fontSize: 16 }} />}
-            label="Expected Start Date"
-            value={formatDate(project.startDate)}
-          />
-          <MetaItem
-            icon={<CalendarMonthIcon sx={{ fontSize: 16 }} />}
-            label="Expected End Date"
-            value={formatDate(project.expectedEndDate)}
-          />
-          <MetaItem
-            icon={<BusinessIcon sx={{ fontSize: 16 }} />}
-            label="Business Unit"
-            value={businessUnitName}
-          />
-        </Stack>
+        </Box>
       </CardContent>
 
       <Box sx={{ px: 2, pb: 2, mt: "auto" }}>
