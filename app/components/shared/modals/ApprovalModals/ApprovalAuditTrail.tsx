@@ -20,6 +20,7 @@ interface ApprovalAuditTrailProps {
   loading?: boolean;
   empty?: boolean;
   variant?: "default" | "simple";
+  onLogClick?: (log: ApprovalAuditLog) => void;
 }
 
 const actionConfig: Record<
@@ -67,6 +68,7 @@ export default function ApprovalAuditTrail({
   loading = false,
   empty = false,
   variant = "default",
+  onLogClick,
 }: ApprovalAuditTrailProps) {
   if (loading) {
     return (
@@ -102,6 +104,7 @@ export default function ApprovalAuditTrail({
           return (
             <Box
               key={log.id}
+              onClick={onLogClick ? () => onLogClick(log) : undefined}
               sx={{
                 display: "grid",
                 gridTemplateColumns: log.remarks ? "1fr auto" : "1fr",
@@ -110,6 +113,11 @@ export default function ApprovalAuditTrail({
                 py: 1.1,
                 borderBottom: isLast ? "none" : "1px solid #eef2f7",
                 alignItems: "start",
+                cursor: onLogClick ? "pointer" : "default",
+                transition: "background-color 0.2s ease",
+                "&:hover": onLogClick
+                  ? { backgroundColor: "#f8fafc" }
+                  : undefined,
               }}
             >
               <Box sx={{ minWidth: 0 }}>
@@ -220,12 +228,14 @@ export default function ApprovalAuditTrail({
 
                 {/* Card content */}
                 <Card
+                  onClick={onLogClick ? () => onLogClick(log) : undefined}
                   sx={{
                     flex: 1,
                     p: 2,
                     border: `1px solid ${config.borderColor}`,
                     backgroundColor: config.bgColor,
                     boxShadow: "none",
+                    cursor: onLogClick ? "pointer" : "default",
                   }}
                 >
                   <Box

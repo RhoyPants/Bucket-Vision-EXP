@@ -20,7 +20,9 @@ import ProjectsGrid from "@/app/(pages)/projects/components/ProjectsGrid";
 import { ProjectCardActions, ViewType } from "@/app/(pages)/projects/components/types";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { getMyRequestsProjects } from "@/app/redux/controllers/projectController";
+import { getApprovalAuditTrail } from "@/app/redux/controllers/approvalController";
 import { usePermissions } from "@/app/lib/usePermissions";
+import NeedsRevisionModal from "@/app/components/shared/modals/NeedsRevisionModal";
 
 type MyRequestProject = {
   id: string;
@@ -46,6 +48,52 @@ export default function MyRequestsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [businessUnitFilter, setBusinessUnitFilter] = useState("ALL");
+  const [needsRevisionOpen, setNeedsRevisionOpen] = useState(false);
+  const [needsRevisionInfo, setNeedsRevisionInfo] = useState<any>(null);
+
+  const openNeedsRevisionModal = async (project: any) => {
+    try {
+      const logs = await dispatch(getApprovalAuditTrail(project.id) as any);
+      const normalizedLogs = Array.isArray(logs) ? logs : [];
+      const sorted = [...normalizedLogs].sort(
+        (a: any, b: any) => new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime()
+      );
+      const rejectLog =
+        sorted.find(
+          (log: any) =>
+            log?.action === "REJECTED" ||
+            log?.newStatus === "NEEDS_REVISION" ||
+            log?.newStatus === "REJECTED"
+        ) || sorted[0];
+
+      const reason =
+        rejectLog?.reason ||
+        rejectLog?.rejectionReason ||
+        (rejectLog?.action === "REJECTED"
+          ? "Rejected during approval review and returned for revision."
+          : "This request requires updates before resubmission.");
+
+      setNeedsRevisionInfo({
+        projectId: project.id,
+        projectName: project.name,
+        rejectedBy: rejectLog?.approverName,
+        rejectedAt: rejectLog?.createdAt,
+        reason,
+        remarks: rejectLog?.remarks,
+      });
+      setNeedsRevisionOpen(true);
+    } catch {
+      setNeedsRevisionInfo({
+        projectId: project.id,
+        projectName: project.name,
+        rejectedBy: "N/A",
+        rejectedAt: "",
+        reason: "This request requires updates before resubmission.",
+        remarks: "No remarks provided.",
+      });
+      setNeedsRevisionOpen(true);
+    }
+  };
 
   useEffect(() => {
     dispatch(getMyRequestsProjects({
@@ -98,8 +146,20 @@ export default function MyRequestsPage() {
     onEdit: (project) => router.push(`/projects/${project.id}/setup`),
     onDelete: () => undefined,
     onSetup: (projectId) => router.push(`/projects/${projectId}/setup`),
-    onViewApproval: (project) => router.push(`/approvals/${project.id}?source=my-requests`),
-    onSubmitForApproval: (project) => router.push(`/projects/${project.id}/setup`),
+    onViewApproval: async (project) => {
+      if (project?.status === "NEEDS_REVISION") {
+        await openNeedsRevisionModal(project);
+        return;
+      }
+      router.push(`/approvals/${project.id}?source=my-requests`);
+    },
+    onSubmitForApproval: async (project) => {
+      if (project?.status === "NEEDS_REVISION") {
+        await openNeedsRevisionModal(project);
+        return;
+      }
+      router.push(`/projects/${project.id}/setup`);
+    },
     onTeamManage: () => undefined,
     onVersion: (project) => router.push(`/versioning?projectId=${project.id}`),
     onSprint: (projectId) => router.push(`/sprintManagement?projectId=${projectId}`),
@@ -215,6 +275,22 @@ export default function MyRequestsPage() {
             createButtonLabel="Create New Request"
             pagination={pagination}
             onPageChange={setPage}
+          />
+
+          <NeedsRevisionModal
+            open={needsRevisionOpen}
+            onClose={() => setNeedsRevisionOpen(false)}
+            onReviseResubmit={() => {
+              setNeedsRevisionOpen(false);
+              if (needsRevisionInfo?.projectId) {
+                router.push(`/projects/${needsRevisionInfo.projectId}/setup`);
+              }
+            }}
+            projectName={needsRevisionInfo?.projectName}
+            rejectedBy={needsRevisionInfo?.rejectedBy}
+            rejectedAt={needsRevisionInfo?.rejectedAt}
+            reason={needsRevisionInfo?.reason}
+            remarks={needsRevisionInfo?.remarks}
           />
         </Box>
       </Guard>

@@ -291,6 +291,7 @@ function ApprovalStatusBadge({ project, onViewApproval, onResubmit }: {
   const tone = statusChipColor(status);
   const isPending = ["FOR_REVIEW", "FOR_APPROVAL"].includes(status ?? "");
   const isRejected = status === "NEEDS_REVISION" || status === "REJECTED";
+  const isNeedsRevision = status === "NEEDS_REVISION";
   const isActive = status === "ACTIVE" || status === "APPROVED";
 
   const badgeBase = {
@@ -336,12 +337,14 @@ function ApprovalStatusBadge({ project, onViewApproval, onResubmit }: {
   if (isRejected) {
     return (
       <Box
-        onClick={onResubmit}
+        onClick={isNeedsRevision ? onViewApproval : onResubmit}
         sx={{ ...badgeBase, cursor: "pointer", "&:hover": { borderColor: tone.color } }}
       >
         <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: tone.color, flexShrink: 0 }} />
         <Typography sx={{ fontSize: 11, fontWeight: 700, color: tone.color }}>Needs Revision</Typography>
-        <Typography sx={{ fontSize: 10, color: "#475569", ml: "auto", fontWeight: 700 }}>Revise</Typography>
+        <Typography sx={{ fontSize: 10, color: "#475569", ml: "auto", fontWeight: 700 }}>
+          {isNeedsRevision ? "View" : "Revise"}
+        </Typography>
       </Box>
     );
   }
@@ -412,6 +415,11 @@ export default function ProjectCard({
   const actionMenu = (
     <Menu anchorEl={menuAnchor} open={menuOpen} onClose={closeMenu} onClick={(e) => e.stopPropagation()}>
       {approvalOnly ? (
+        <MenuItem onClick={menuAction(() => actions.onViewApproval(project))}>
+          <ListItemIcon><VisibilityIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>View</ListItemText>
+        </MenuItem>
+      ) : project.status === "NEEDS_REVISION" ? (
         <MenuItem onClick={menuAction(() => actions.onViewApproval(project))}>
           <ListItemIcon><VisibilityIcon fontSize="small" /></ListItemIcon>
           <ListItemText>View</ListItemText>
@@ -561,7 +569,7 @@ export default function ProjectCard({
         </Box>
 
         <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-          {approvalOnly ? (
+          {approvalOnly || project.status === "NEEDS_REVISION" ? (
             <Button
               size="small"
               variant="outlined"
@@ -698,7 +706,7 @@ export default function ProjectCard({
               boxShadow: "0 2px 6px rgba(15, 23, 42, 0.08)",
             }}
           />
-          {!approvalOnly && (
+              {!approvalOnly && project.status !== "NEEDS_REVISION" && (
                 <Tooltip title="Actions">
               <IconButton
                 size="small"
@@ -715,6 +723,29 @@ export default function ProjectCard({
                     <MoreVertIcon sx={{ fontSize: 18 }} />
                   </IconButton>
                 </Tooltip>
+          )}
+          {!approvalOnly && project.status === "NEEDS_REVISION" && (
+            <Tooltip title="View">
+              <IconButton
+                size="small"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  actions.onViewApproval(project);
+                }}
+                sx={{
+                  color: "#1D4ED8",
+                  position: "absolute",
+                  top: 12,
+                  right: 12,
+                  width: 26,
+                  height: 26,
+                  border: "1px solid #BFDBFE",
+                  backgroundColor: "#EFF6FF",
+                }}
+              >
+                <VisibilityIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
           )}
         </Box>
 

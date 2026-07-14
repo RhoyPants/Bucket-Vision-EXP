@@ -30,6 +30,7 @@ import ProjectModal from "@/app/components/shared/modals/ProjectModal";
 import { ApprovalDetailModal, ApprovalSubmitModal } from "@/app/components/shared/modals/ApprovalModals";
 import TeamManagementModal from "@/app/components/shared/modals/TeamManagementModal";
 import ConfirmationModal from "@/app/components/shared/modals/ConfirmationModal";
+import NeedsRevisionModal from "@/app/components/shared/modals/NeedsRevisionModal";
 
 import ProjectsGrid from "./components/ProjectsGrid";
 import { ProjectCardActions, ViewType } from "./components/types";
@@ -64,6 +65,52 @@ export default function ProjectsPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<any>(null);
   const [deletingProject, setDeletingProject] = useState(false);
+  const [needsRevisionOpen, setNeedsRevisionOpen] = useState(false);
+  const [needsRevisionInfo, setNeedsRevisionInfo] = useState<any>(null);
+
+  const openNeedsRevisionModal = async (project: any) => {
+    try {
+      const logs = await dispatch(getApprovalAuditTrail(project.id) as any);
+      const normalizedLogs = Array.isArray(logs) ? logs : [];
+      const sorted = [...normalizedLogs].sort(
+        (a: any, b: any) => new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime()
+      );
+      const rejectLog =
+        sorted.find(
+          (log: any) =>
+            log?.action === "REJECTED" ||
+            log?.newStatus === "NEEDS_REVISION" ||
+            log?.newStatus === "REJECTED"
+        ) || sorted[0];
+
+      const reason =
+        rejectLog?.reason ||
+        rejectLog?.rejectionReason ||
+        (rejectLog?.action === "REJECTED"
+          ? "Rejected during approval review and returned for revision."
+          : "This request requires updates before resubmission.");
+
+      setNeedsRevisionInfo({
+        projectId: project.id,
+        projectName: project.name,
+        rejectedBy: rejectLog?.approverName,
+        rejectedAt: rejectLog?.createdAt,
+        reason,
+        remarks: rejectLog?.remarks,
+      });
+      setNeedsRevisionOpen(true);
+    } catch {
+      setNeedsRevisionInfo({
+        projectId: project.id,
+        projectName: project.name,
+        rejectedBy: "N/A",
+        rejectedAt: "",
+        reason: "This request requires updates before resubmission.",
+        remarks: "No remarks provided.",
+      });
+      setNeedsRevisionOpen(true);
+    }
+  };
 
   const handleDeleteClick = (projectId: string) => {
     const targetProject = (projects || []).find((p: any) => p.id === projectId) || { id: projectId };
@@ -136,6 +183,10 @@ export default function ProjectsPage() {
     onSetup: (projectId) => router.push(`/projects/${projectId}/setup`),
     onViewApproval: async (project) => {
       if (!project?.id) return;
+      if (project.status === "NEEDS_REVISION") {
+        await openNeedsRevisionModal(project);
+        return;
+      }
       setSelectedProjectForApproval(project);
       setApprovalDetailOpen(true);
 
@@ -148,7 +199,13 @@ export default function ProjectsPage() {
         console.error("Failed to load approval details:", err);
       }
     },
-    onSubmitForApproval: (project) => router.push(`/projects/${project.id}/setup`),
+    onSubmitForApproval: async (project) => {
+      if (project?.status === "NEEDS_REVISION") {
+        await openNeedsRevisionModal(project);
+        return;
+      }
+      router.push(`/projects/${project.id}/setup`);
+    },
     onTeamManage: (project) => {
       setSelectedProjectForTeam(project);
       setTeamManagementModalOpen(true);
@@ -166,7 +223,6 @@ export default function ProjectsPage() {
   return (
     <Layout>
       <Box sx={{ p: { xs: 2, md: 4 } }}>
-
         {/* KPI CARDS */}
         <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
           {[
@@ -335,6 +391,22 @@ export default function ProjectsPage() {
           message={`Are you sure you want to delete "${projectToDelete?.name || "this project"}"? This action cannot be undone.`}
           confirmLabel="Delete"
           cancelLabel="Cancel"
+        />
+
+        <NeedsRevisionModal
+          open={needsRevisionOpen}
+          onClose={() => setNeedsRevisionOpen(false)}
+          onReviseResubmit={() => {
+            setNeedsRevisionOpen(false);
+            if (needsRevisionInfo?.projectId) {
+              router.push(`/projects/${needsRevisionInfo.projectId}/setup`);
+            }
+          }}
+          projectName={needsRevisionInfo?.projectName}
+          rejectedBy={needsRevisionInfo?.rejectedBy}
+          rejectedAt={needsRevisionInfo?.rejectedAt}
+          reason={needsRevisionInfo?.reason}
+          remarks={needsRevisionInfo?.remarks}
         />
       </Box>
     </Layout>

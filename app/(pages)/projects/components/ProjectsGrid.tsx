@@ -460,29 +460,26 @@ export default function ProjectsGrid({
                       className="project-action-cell"
                       sx={{ ...tableBodyCellSx, ...stickyActionCellSx }}
                     >
-                      {approvalOnly ? (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<VisibilityIcon sx={{ fontSize: 16 }} />}
-                          onClick={() => actions.onViewApproval(project)}
-                          sx={{
-                            minWidth: 72,
-                            borderRadius: 1.5,
-                            textTransform: "none",
-                            fontWeight: 800,
-                            fontSize: 12,
-                            color: "#1D4ED8",
-                            borderColor: "#BFDBFE",
-                            bgcolor: "#EFF6FF",
-                            "&:hover": {
-                              bgcolor: "#DBEAFE",
-                              borderColor: "#93C5FD",
-                            },
-                          }}
-                        >
-                          View
-                        </Button>
+                      {approvalOnly || project.status === "NEEDS_REVISION" ? (
+                        <Tooltip title="View">
+                          <IconButton
+                            size="small"
+                            onClick={() => actions.onViewApproval(project)}
+                            sx={{
+                              color: "#1D4ED8",
+                              border: "1px solid #BFDBFE",
+                              bgcolor: "#EFF6FF",
+                              width: 30,
+                              height: 30,
+                              "&:hover": {
+                                bgcolor: "#DBEAFE",
+                                borderColor: "#93C5FD",
+                              },
+                            }}
+                          >
+                            <VisibilityIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
                       ) : (
                         <Tooltip title="Actions">
                           <IconButton
@@ -559,7 +556,14 @@ export default function ProjectsGrid({
             onClose={closeMenu}
           >
             {menuProject
-            ? [
+            ? menuProject.status === "NEEDS_REVISION"
+              ? [
+                <MenuItem key="view-only" onClick={() => runMenuAction(() => actions.onViewApproval(menuProject))}>
+                  <ListItemIcon><VisibilityIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText>View</ListItemText>
+                </MenuItem>,
+              ]
+              : [
                 canUpdateProject && (!menuProject.status || menuProject.status === "DRAFT" || menuProject.status === "FOR_REVIEW" || menuProject.status === "NEEDS_REVISION") && (
                   <MenuItem key="setup" onClick={() => runMenuAction(() => actions.onSetup(menuProject.id))}>
                     <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>

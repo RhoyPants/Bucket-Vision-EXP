@@ -113,13 +113,13 @@ export default function ProjectModal({
           ...prev,
           ...data,
           location: {
-            regionCode: data.location?.regionCode ?? "",
+            regionCode: String(data.location?.regionCode ?? ""),
             regionName: data.location?.regionName ?? "",
-            provinceCode: data.location?.provinceCode ?? "",
+            provinceCode: String(data.location?.provinceCode ?? ""),
             provinceName: data.location?.provinceName ?? "",
-            cityCode: data.location?.cityCode ?? "",
+            cityCode: String(data.location?.cityCode ?? ""),
             cityName: data.location?.cityName ?? "",
-            barangayCode: data.location?.barangayCode ?? "",
+            barangayCode: String(data.location?.barangayCode ?? ""),
             barangayName: data.location?.barangayName ?? "",
             street: data.location?.street ?? "",
           },
@@ -236,6 +236,24 @@ export default function ProjectModal({
     };
     loadBarangays();
   }, [open, form.location.cityCode]);
+
+  const hasRegionCode = regions.some(
+    (r) => String(r.regCode) === String(form.location.regionCode)
+  );
+  const hasProvinceCode = provinces.some(
+    (p) => String(p.provCode) === String(form.location.provinceCode)
+  );
+  const hasCityCode = cities.some(
+    (c) => String(c.cityCode) === String(form.location.cityCode)
+  );
+  const hasBarangayCode = barangays.some(
+    (b) => String(b.brgyCode) === String(form.location.barangayCode)
+  );
+
+  const regionSelectValue = hasRegionCode ? String(form.location.regionCode) : "";
+  const provinceSelectValue = hasProvinceCode ? String(form.location.provinceCode) : "";
+  const citySelectValue = hasCityCode ? String(form.location.cityCode) : "";
+  const barangaySelectValue = hasBarangayCode ? String(form.location.barangayCode) : "";
 
   const handleSubmit = async () => {
     if (!canSaveProject) {
@@ -647,17 +665,19 @@ export default function ProjectModal({
                     <TextField
                       select
                       fullWidth
-                      value={form.location.regionCode}
+                      value={regionSelectValue}
                       onChange={(e) => {
                         const selected = regions.find(
-                          (r) => r.regCode === e.target.value
+                          (r) => String(r.regCode) === String(e.target.value)
                         );
+
+                        if (!selected) return;
 
                         setForm({
                           ...form,
                           location: {
                             ...form.location,
-                            regionCode: selected.regCode,
+                            regionCode: String(selected.regCode),
                             regionName: selected.regName,
                             provinceCode: "",
                             provinceName: "",
@@ -682,7 +702,7 @@ export default function ProjectModal({
                     >
                       <MenuItem value="">---Select Region---</MenuItem>
                       {regions.map((r) => (
-                        <MenuItem key={r.regCode} value={r.regCode}>
+                        <MenuItem key={r.regCode} value={String(r.regCode)}>
                           {r.regName}
                         </MenuItem>
                       ))}
@@ -698,17 +718,19 @@ export default function ProjectModal({
                       select
                       fullWidth
                       disabled={!form.location.regionCode}
-                      value={form.location.provinceCode}
+                      value={provinceSelectValue}
                       onChange={(e) => {
                         const selected = provinces.find(
-                          (p) => p.provCode === e.target.value
+                          (p) => String(p.provCode) === String(e.target.value)
                         );
+
+                        if (!selected) return;
 
                         setForm({
                           ...form,
                           location: {
                             ...form.location,
-                            provinceCode: selected.provCode,
+                            provinceCode: String(selected.provCode),
                             provinceName: selected.provName,
                             cityCode: "",
                             cityName: "",
@@ -731,7 +753,7 @@ export default function ProjectModal({
                     >
                       <MenuItem value="">---Select Province---</MenuItem>
                       {provinces.map((p) => (
-                        <MenuItem key={p.provCode} value={p.provCode}>
+                        <MenuItem key={p.provCode} value={String(p.provCode)}>
                           {p.provName}
                         </MenuItem>
                       ))}
@@ -747,17 +769,19 @@ export default function ProjectModal({
                       select
                       fullWidth
                       disabled={!form.location.provinceCode}
-                      value={form.location.cityCode}
+                      value={citySelectValue}
                       onChange={(e) => {
                         const selected = cities.find(
-                          (c) => c.cityCode === e.target.value
+                          (c) => String(c.cityCode) === String(e.target.value)
                         );
+
+                        if (!selected) return;
 
                         setForm({
                           ...form,
                           location: {
                             ...form.location,
-                            cityCode: selected.cityCode,
+                            cityCode: String(selected.cityCode),
                             cityName: selected.cityName,
                             barangayCode: "",
                             barangayName: "",
@@ -778,7 +802,7 @@ export default function ProjectModal({
                     >
                       <MenuItem value="">---Select City---</MenuItem>
                       {cities.map((c) => (
-                        <MenuItem key={c.cityCode} value={c.cityCode}>
+                        <MenuItem key={c.cityCode} value={String(c.cityCode)}>
                           {c.cityName}
                         </MenuItem>
                       ))}
@@ -794,17 +818,19 @@ export default function ProjectModal({
                       select
                       fullWidth
                       disabled={!form.location.cityCode}
-                      value={form.location.barangayCode}
+                      value={barangaySelectValue}
                       onChange={(e) => {
                         const selected = barangays.find(
-                          (b) => b.brgyCode === e.target.value
+                          (b) => String(b.brgyCode) === String(e.target.value)
                         );
+
+                        if (!selected) return;
 
                         setForm({
                           ...form,
                           location: {
                             ...form.location,
-                            barangayCode: selected.brgyCode,
+                            barangayCode: String(selected.brgyCode),
                             barangayName: selected.brgyName,
                           },
                         });
@@ -823,7 +849,7 @@ export default function ProjectModal({
                     >
                       <MenuItem value="">---Select Barangay---</MenuItem>
                       {barangays.map((b) => (
-                        <MenuItem key={b.brgyCode} value={b.brgyCode}>
+                        <MenuItem key={b.brgyCode} value={String(b.brgyCode)}>
                           {b.brgyName}
                         </MenuItem>
                       ))}

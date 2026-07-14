@@ -27,6 +27,8 @@ import ViewWeekIcon from "@mui/icons-material/ViewWeek";
 import ViewAgendaIcon from "@mui/icons-material/ViewAgenda";
 import DownloadIcon from "@mui/icons-material/Download";
 import LayersIcon from "@mui/icons-material/Layers";
+import HistoryIcon from "@mui/icons-material/History";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import axios from "@/app/lib/axios";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import {
@@ -34,6 +36,7 @@ import {
   approveProject,
   rejectProject,
 } from "@/app/redux/controllers/approvalController";
+import type { ApprovalAuditLog } from "@/app/redux/slices/approvalSlice";
 import ApprovalFlowUI from "@/app/components/shared/modals/ApprovalModals/ApprovalFlowUI";
 import ApprovalAuditTrail from "@/app/components/shared/modals/ApprovalModals/ApprovalAuditTrail";
 import ApprovalRejectDialog from "@/app/components/shared/modals/ApprovalModals/ApprovalRejectDialog";
@@ -116,6 +119,33 @@ const getErrorMessage = (err: unknown, fallback: string) => {
   return apiError.response?.data?.message || fallback;
 };
 
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+const getCreatorName = (log: ApprovalAuditLog | null) => {
+  if (!log) return "N/A";
+  const item = log as unknown as Record<string, unknown>;
+  const raw =
+    item.createdByName ||
+    item.creatorName ||
+    item.requestedByName ||
+    item.createdBy ||
+    item.creator ||
+    null;
+  return raw ? String(raw) : "N/A";
+};
+
 const getApprovalVersionLabel = (project: ApprovalProject): string => {
   const raw =
     project?.versionLabel ||
@@ -164,6 +194,8 @@ function ApprovalReviewPageContent() {
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [successAction, setSuccessAction] = useState<"approved" | "rejected" | null>(null);
+  const [selectedAuditLog, setSelectedAuditLog] = useState<ApprovalAuditLog | null>(null);
+  const [auditDetailOpen, setAuditDetailOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [projectAttachments, setProjectAttachments] = useState<ApiAttachment[]>([]);
 
@@ -398,6 +430,10 @@ function ApprovalReviewPageContent() {
               auditLogs={auditLogs}
               empty={auditLogs.length === 0}
               variant="simple"
+              onLogClick={(log) => {
+                setSelectedAuditLog(log);
+                setAuditDetailOpen(true);
+              }}
             />
 
             <Box sx={{ height: { xs: 32, md: 180 } }} />
@@ -1094,6 +1130,118 @@ function ApprovalReviewPageContent() {
           </DialogActions>
         </Dialog>
       )}
+
+      <Dialog
+        open={auditDetailOpen}
+        onClose={() => setAuditDetailOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            backgroundColor: "#eff6ff",
+            borderBottom: "1px solid #dbeafe",
+          }}
+        >
+          <HistoryIcon sx={{ color: "#1d4ed8", fontSize: 20 }} />
+          Request History Details
+        </DialogTitle>
+        <DialogContent dividers>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+              gap: 1.25,
+            }}
+          >
+            <Box>
+              <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
+                Action
+              </Typography>
+              <Typography sx={{ fontSize: 14, color: "#0f172a", fontWeight: 600 }}>
+                {selectedAuditLog?.action || "N/A"}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
+                Approver
+              </Typography>
+              <Typography sx={{ fontSize: 14, color: "#0f172a", fontWeight: 600 }}>
+                {selectedAuditLog?.approverName || "System"}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
+                Creator
+              </Typography>
+              <Typography sx={{ fontSize: 14, color: "#0f172a", fontWeight: 600 }}>
+                {getCreatorName(selectedAuditLog)}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
+                Approval Level
+              </Typography>
+              <Typography sx={{ fontSize: 14, color: "#0f172a", fontWeight: 600 }}>
+                {selectedAuditLog?.level || "N/A"}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
+                Previous Status
+              </Typography>
+              <Typography sx={{ fontSize: 14, color: "#0f172a", fontWeight: 600 }}>
+                {selectedAuditLog?.previousStatus || "N/A"}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
+                New Status
+              </Typography>
+              <Typography sx={{ fontSize: 14, color: "#0f172a", fontWeight: 600 }}>
+                {selectedAuditLog?.newStatus || "N/A"}
+              </Typography>
+            </Box>
+            <Box sx={{ gridColumn: { xs: "1 / -1", sm: "1 / -1" } }}>
+              <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
+                Date & Time
+              </Typography>
+              <Typography sx={{ fontSize: 14, color: "#0f172a", fontWeight: 600 }}>
+                {formatDateTime(selectedAuditLog?.createdAt)}
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                gridColumn: { xs: "1 / -1", sm: "1 / -1" },
+                backgroundColor: "#fff7ed",
+                border: "1px solid #fed7aa",
+                borderRadius: 1,
+                px: 1.25,
+                py: 1,
+              }}
+            >
+              <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
+                <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+                  <ChatBubbleOutlineIcon sx={{ fontSize: 14, color: "#c2410c" }} />
+                  Remarks
+                </Box>
+              </Typography>
+              <Typography sx={{ fontSize: 14, color: "#0f172a", fontWeight: 600, whiteSpace: "pre-wrap" }}>
+                {selectedAuditLog?.remarks || "N/A"}
+              </Typography>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAuditDetailOpen(false)} variant="contained">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
