@@ -25,6 +25,7 @@ import SubtaskList from "./SubtaskList";
 
 interface TaskCardProps {
   task: any;
+  isInvalidTask?: boolean;
   scopeBudget: number;
   subtaskInputs: Record<string, any>;
   setSubtaskInputs: (inputs: any) => void;
@@ -40,6 +41,7 @@ interface TaskCardProps {
 
 function TaskCard({
   task,
+  isInvalidTask = false,
   scopeBudget,
   subtaskInputs,
   setSubtaskInputs,
@@ -125,19 +127,35 @@ function TaskCard({
 
           overflow: "hidden",
 
-          backgroundColor: "#f0f9ff",
+          backgroundColor: isInvalidTask ? "#FEF2F2" : "#f0f9ff",
           p: 2,
           mt: 1.5,
-          border: "2px solid #0ea5e9",
+          border: isInvalidTask ? "2px solid #EF4444" : "2px solid #0ea5e9",
           borderRadius: 1,
           position: "relative",
           transition: "all 0.2s ease",
+          boxShadow: isInvalidTask ? "0 0 0 2px rgba(239, 68, 68, 0.12)" : undefined,
           "&:hover": {
             boxShadow: "0 2px 8px rgba(6, 182, 212, 0.15)",
             "& .task-actions": { opacity: 1 },
           },
         }}
       >
+        {isInvalidTask && (
+          <Typography
+            sx={{
+              position: "absolute",
+              top: 6,
+              right: 8,
+              color: "#B91C1C",
+              fontSize: 11,
+              fontWeight: 800,
+            }}
+          >
+            * Needs subtask
+          </Typography>
+        )}
+
         {isEditing ? (
           // EDIT MODE
           <Box display="flex" gap={1} alignItems="flex-start" flexWrap="wrap">

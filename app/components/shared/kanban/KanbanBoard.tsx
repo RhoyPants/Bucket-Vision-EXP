@@ -33,6 +33,7 @@ export default function KanbanBoard({
   projectId = "",
   onProgressSuccess,
   showHierarchy = false,
+  allowCreateSubtask = true,
 }: {
   parentTaskId: string | null;
   columns: { id: number; title: string }[];
@@ -41,6 +42,7 @@ export default function KanbanBoard({
   projectId?: string;
   onProgressSuccess?: () => void;
   showHierarchy?: boolean;
+  allowCreateSubtask?: boolean;
 }) {
   const dispatch = useAppDispatch();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -145,7 +147,7 @@ export default function KanbanBoard({
         <Typography fontWeight={700}>SUBTASK</Typography>
 
         {/* 🔥 Hide "Add Subtask" button on task board (when parentTaskId is null) */}
-        {parentTaskId && (
+        {parentTaskId && allowCreateSubtask && (
           <Button
             variant="contained"
             size="small"
@@ -214,7 +216,7 @@ export default function KanbanBoard({
 
       {/* MODAL */}
       {/* 🔥 Only show on sprint management (when parentTaskId is provided) */}
-      {parentTaskId && (
+      {parentTaskId && allowCreateSubtask && (
         <SubtaskModal
           open={openTaskModal}
           onClose={() => setOpenTaskModal(false)}

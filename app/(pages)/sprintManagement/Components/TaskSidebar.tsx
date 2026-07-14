@@ -5,12 +5,10 @@ import {
   LinearProgress,
   IconButton,
   Typography,
-  Button,
   Chip,
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import AddIcon from "@mui/icons-material/Add";
 
 interface TaskItem {
   budgetPercent: number;
@@ -26,14 +24,12 @@ export default function TaskSidebar({
   activeTaskId,
   onSelectTask,
   onDeleteTask,
-  onAddTask,
   onViewTask,
 }: {
   tasks: TaskItem[];
   activeTaskId: string | null;
   onSelectTask: (taskId: string) => void;
   onDeleteTask?: (task: TaskItem) => void;
-  onAddTask?: () => void;
   onViewTask?: (task: TaskItem) => void;
 }) {
   const getProgressColor = (progress?: number) => {
@@ -63,11 +59,11 @@ export default function TaskSidebar({
         overflow: "hidden", 
       }}
     >
-      {/* Header with Add Button */}
+      {/* Header */}
       <Box
         sx={{
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent: "flex-start",
           alignItems: "center",
           gap: 1,
         }}
@@ -75,25 +71,6 @@ export default function TaskSidebar({
         <Typography fontWeight={700} sx={{ color: "#210e64" }}>
           Tasks
         </Typography>
-
-        <Button
-          size="small"
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={onAddTask}
-          sx={{
-            textTransform: "none",
-            fontWeight: 600,
-            borderRadius: "8px",
-            px: 1.5,
-            backgroundColor: "#210e64",
-            "&:hover": {
-              backgroundColor: "#1a0b50",
-            },
-          }}
-        >
-          Add Task
-        </Button>
       </Box>
 
       {/* Horizontal Scrollable Container - Always Visible Scrollbar */}

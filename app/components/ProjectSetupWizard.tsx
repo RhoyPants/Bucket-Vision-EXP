@@ -82,9 +82,18 @@ import {
   uploadAttachments,
 } from "@/app/api-service/attachmentService";
 import { usePermissions } from "@/app/lib/usePermissions";
+import ValidationModal from "@/app/components/shared/modals/ValidationModal";
 
 
 const WIZARD_STEPS = ["Create Project", "Team Management", "Project Structure", "Confirmation & Summary"];
+
+type StructureValidationFeedback = {
+  title: string;
+  details: string[];
+  targets?: string[];
+  invalidScopeIds?: string[];
+  invalidTaskIds?: string[];
+};
 
 interface ProjectSetupWizardProps {
   projectId?: string;
@@ -185,6 +194,14 @@ export default function ProjectSetupWizard({
   const [attachmentBusy, setAttachmentBusy] = useState(false);
   const [attachmentLimitDialogOpen, setAttachmentLimitDialogOpen] = useState(false);
   const [attachmentLimitDialogMessage, setAttachmentLimitDialogMessage] = useState("");
+  const [structureValidationModalOpen, setStructureValidationModalOpen] = useState(false);
+  const [structureValidationFeedback, setStructureValidationFeedback] = useState<StructureValidationFeedback>({
+    title: "Project Structure Validation",
+    details: [],
+    targets: [],
+    invalidScopeIds: [],
+    invalidTaskIds: [],
+  });
 
   // GET PROJECT MEMBERS FROM REDUX
   const { projectMembers } = useAppSelector((state) => state.projectMembers);
@@ -222,6 +239,52 @@ export default function ProjectSetupWizard({
   useEffect(() => {
     activeStepRef.current = activeStep;
   }, [activeStep]);
+
+  useEffect(() => {
+    if (activeStep !== 2) return;
+    const currentInvalidScopeIds = structureValidationFeedback.invalidScopeIds || [];
+    const currentInvalidTaskIds = structureValidationFeedback.invalidTaskIds || [];
+    if (!currentInvalidScopeIds.length && !currentInvalidTaskIds.length) return;
+
+    const scopes = project?.scopes || [];
+    const scopeMap = new Map<string, any>(scopes.map((scope: any) => [String(scope.id), scope]));
+    const taskMap = new Map(
+      scopes.flatMap((scope: any) => (scope.tasks || []).map((task: any) => [String(task.id), task]))
+    );
+
+    const nextInvalidScopeIds = currentInvalidScopeIds.filter((scopeId) => {
+      const scope: any = scopeMap.get(String(scopeId));
+      return scope ? !scope.tasks || scope.tasks.length === 0 : false;
+    });
+
+    const nextInvalidTaskIds = currentInvalidTaskIds.filter((taskId) => {
+      const task: any = taskMap.get(String(taskId));
+      return task ? !task.subtasks || task.subtasks.length === 0 : false;
+    });
+
+    const scopeChanged =
+      nextInvalidScopeIds.length !== currentInvalidScopeIds.length ||
+      nextInvalidScopeIds.some((id, index) => id !== currentInvalidScopeIds[index]);
+    const taskChanged =
+      nextInvalidTaskIds.length !== currentInvalidTaskIds.length ||
+      nextInvalidTaskIds.some((id, index) => id !== currentInvalidTaskIds[index]);
+
+    if (scopeChanged || taskChanged) {
+      const noInvalidTargets = !nextInvalidScopeIds.length && !nextInvalidTaskIds.length;
+
+      setStructureValidationFeedback((prev) => ({
+        ...prev,
+        invalidScopeIds: nextInvalidScopeIds,
+        invalidTaskIds: nextInvalidTaskIds,
+        targets: noInvalidTargets ? [] : prev.targets,
+        details: noInvalidTargets ? [] : prev.details,
+      }));
+
+      if (noInvalidTargets) {
+        setSubmitMessage("");
+      }
+    }
+  }, [activeStep, project?.scopes, structureValidationFeedback.invalidScopeIds, structureValidationFeedback.invalidTaskIds]);
 
   useEffect(() => {
     if (!project) return;
@@ -690,6 +753,33 @@ export default function ProjectSetupWizard({
     );
   }, [project?.scopes]);
 
+  const teamMemberCount = useMemo(() => {
+    const ids = new Set<string>();
+
+    const addMemberId = (member: any) => {
+      const id = member?.user?.id || member?.id || member?.userId;
+      if (id) ids.add(String(id));
+    };
+
+    (projectMembers?.owner || []).forEach(addMemberId);
+    (projectMembers?.subOwners || []).forEach(addMemberId);
+    (projectMembers?.members || []).forEach(addMemberId);
+
+    if (ids.size > 0) return ids.size;
+
+    if (Array.isArray(project?.projectMembers) && project.projectMembers.length > 0) {
+      const fallbackIds = new Set<string>();
+      project.projectMembers.forEach((member: any) => {
+        const id = member?.user?.id || member?.id || member?.userId;
+        if (id) fallbackIds.add(String(id));
+      });
+      if (fallbackIds.size > 0) return fallbackIds.size;
+      return project.projectMembers.length;
+    }
+
+    return Number(project?._count?.projectMembers || 0);
+  }, [projectMembers, project?.projectMembers, project?._count?.projectMembers]);
+
   // SAVE PROJECT DETAILS (called from project setup step)
   const handleSaveProjectDetails = async () => {
     if (!canSaveProjectDetails) {
@@ -926,11 +1016,85 @@ export default function ProjectSetupWizard({
     }
   };
 
+  const validateProjectStructureForNext = (): StructureValidationFeedback | null => {
+    if (!project?.scopes || project.scopes.length === 0) {
+      return {
+        title: "Project Structure Incomplete",
+        details: [
+          "Add at least one scope before proceeding to confirmation.",
+          "Each scope must include at least one task.",
+          "Each task must include at least one subtask.",
+        ],
+        targets: ["No scope found"],
+        invalidScopeIds: [],
+        invalidTaskIds: [],
+      };
+    }
+
+    const invalidScopeIds: string[] = [];
+    const invalidTaskIds: string[] = [];
+    const targetItems: string[] = [];
+
+    for (const scope of project.scopes) {
+      const scopeName = scope?.name || "Unnamed scope";
+      const tasks = scope?.tasks || [];
+
+      if (!tasks.length) {
+        if (scope?.id) invalidScopeIds.push(String(scope.id));
+        targetItems.push(`Scope: ${scopeName}`);
+        continue;
+      }
+
+      for (const task of tasks) {
+        if (!task?.subtasks || task.subtasks.length === 0) {
+          if (scope?.id) invalidScopeIds.push(String(scope.id));
+          if (task?.id) invalidTaskIds.push(String(task.id));
+          targetItems.push(`Scope: ${scopeName} | Task: ${task?.title || "Unnamed task"}`);
+        }
+      }
+    }
+
+    if (invalidScopeIds.length || invalidTaskIds.length) {
+      return {
+        title: "Project Structure Needs Fixes",
+        details: [
+          `${new Set(invalidScopeIds).size} scope(s) require at least one task.`,
+          `${new Set(invalidTaskIds).size} task(s) require at least one subtask.`,
+          "Fix all highlighted items, then click Next again.",
+        ],
+        targets: Array.from(new Set(targetItems)),
+        invalidScopeIds: Array.from(new Set(invalidScopeIds)),
+        invalidTaskIds: Array.from(new Set(invalidTaskIds)),
+      };
+    }
+
+    return null;
+  };
+
   const handleNext = async () => {
     // Step 0 (Create Project) requires save before moving forward
     if (activeStep === 0) {
       const success = await handleSaveProjectDetails();
       if (!success) return;
+    }
+
+    // Step 2 (Project Structure) validation before moving to Step 3 (Summary)
+    if (activeStep === 2) {
+      const structureFeedback = validateProjectStructureForNext();
+      if (structureFeedback) {
+        setSubmitMessage("⚠️ Complete project structure requirements before proceeding.");
+        setStructureValidationFeedback(structureFeedback);
+        setStructureValidationModalOpen(true);
+        return;
+      }
+      setSubmitMessage("");
+      setStructureValidationFeedback({
+        title: "Project Structure Validation",
+        details: [],
+        targets: [],
+        invalidScopeIds: [],
+        invalidTaskIds: [],
+      });
     }
 
     if (activeStep === WIZARD_STEPS.length - 1) {
@@ -1281,6 +1445,8 @@ export default function ProjectSetupWizard({
                 {/* Scope List with Tasks & Subtasks */}
                 <ScopeList
                   scopes={sortedScopes}
+                  invalidScopeIds={structureValidationFeedback.invalidScopeIds}
+                  invalidTaskIds={structureValidationFeedback.invalidTaskIds}
                   scopeEdit={scopeEdit}
                   setScopeEdit={setScopeEdit}
                   taskInputs={taskInputs}
@@ -1814,7 +1980,7 @@ export default function ProjectSetupWizard({
                   • <strong>Budget:</strong> ₱{formatBudget(projectForm.totalBudget || project?.totalBudget || 0)}
                 </Typography>
                 <Typography sx={{ fontSize: 12 }}>
-                  • <strong>Team:</strong> {project?._count?.projectMembers || 0} member(s)
+                  • <strong>Team:</strong> {teamMemberCount} member(s)
                 </Typography>
                 <Typography sx={{ fontSize: 12 }}>
                   • <strong>Structure:</strong> {project?.scopes?.length || 0} scope(s), {project?.scopes?.reduce((sum: number, s: any) => sum + (s.tasks?.length || 0), 0) || 0} task(s)
@@ -1926,6 +2092,15 @@ export default function ProjectSetupWizard({
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ValidationModal
+        open={structureValidationModalOpen}
+        title={structureValidationFeedback.title}
+        details={structureValidationFeedback.details}
+        targets={structureValidationFeedback.targets}
+        onClose={() => setStructureValidationModalOpen(false)}
+        actionLabel="Back to Structure"
+      />
 
       {/* SUBMISSION LOADING MODAL */}
       <Backdrop

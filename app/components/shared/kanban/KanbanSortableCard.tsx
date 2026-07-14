@@ -368,6 +368,12 @@ export default function KanbanSortableCard({
               sx={{
                 fontSize: isTaskBoardCard ? 13 : "inherit",
                 lineHeight: 1.25,
+                minHeight: "2.5em",
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
                 wordBreak: "break-word",
               }}
             >

@@ -201,10 +201,6 @@ export default function ProjectModal({
         setProvinces(data);
         setCities([]);
         setBarangays([]);
-        setForm((prev: any) => ({
-          ...prev,
-          location: { ...prev.location, provinceCode: "", cityCode: "", barangayCode: "" },
-        }));
       } catch (err) {
         console.error("Failed to load provinces:", err);
       }
@@ -220,10 +216,6 @@ export default function ProjectModal({
         const data = await getCitiesByProvince(form.location.provinceCode);
         setCities(data);
         setBarangays([]);
-        setForm((prev: any) => ({
-          ...prev,
-          location: { ...prev.location, cityCode: "", barangayCode: "" },
-        }));
       } catch (err) {
         console.error("Failed to load cities:", err);
       }
@@ -238,10 +230,6 @@ export default function ProjectModal({
       try {
         const data = await getBarangaysByCity(form.location.cityCode);
         setBarangays(data);
-        setForm((prev: any) => ({
-          ...prev,
-          location: { ...prev.location, barangayCode: "" },
-        }));
       } catch (err) {
         console.error("Failed to load barangays:", err);
       }
@@ -903,6 +891,7 @@ export default function ProjectModal({
                       size="small"
                       inputProps={{
                         min: new Date().toISOString().split("T")[0],
+                        readOnly: mode === "edit",
                       }}
                       sx={{
                         "& .MuiOutlinedInput-root": {
@@ -947,6 +936,7 @@ export default function ProjectModal({
                                 .split("T")[0]
                             : new Date().toISOString().split("T")[0]
                           : new Date().toISOString().split("T")[0],
+                        readOnly: mode === "edit",
                       }}
                       sx={{
                         "& .MuiOutlinedInput-root": {

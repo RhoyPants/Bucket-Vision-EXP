@@ -18,7 +18,7 @@ import {
 } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { createSubtask, updateSubtask } from "@/app/redux/controllers/subTaskController";
-import { getEngagedUsers } from "@/app/redux/controllers/projectMemberController";
+import { getEngagedUsers, getProjectMembers } from "@/app/redux/controllers/projectMemberController";
 import AssignUsersSelect from "@/app/components/shared/selectors/AssignUsersSelect";
 import {
   validateSubtaskForm,
@@ -48,7 +48,9 @@ export default function SubtaskModal({
 }) {
   const dispatch = useAppDispatch();
   const { engagedUsers } = useAppSelector((state) => state.projectMembers);
+  const { projectMembers } = useAppSelector((state) => state.projectMembers);
   const { fullProject } = useAppSelector((state) => state.project);
+  const { user } = useAppSelector((state) => state.auth);
   const { users = [] } = useAppSelector((state) => state.user);
 
   const [form, setForm] = useState({
@@ -66,15 +68,18 @@ export default function SubtaskModal({
   const [localMode, setLocalMode] = useState<"create" | "view" | "edit">(mode);
   const [errors, setErrors] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
+  const [accessError, setAccessError] = useState("");
 
   useEffect(() => {
     if (projectId) {
       dispatch(getEngagedUsers(projectId) as any);
+      dispatch(getProjectMembers(projectId) as any);
     }
   }, [projectId, dispatch]);
 
   useEffect(() => {
     if (mode === "create") {
+      setAccessError("");
       setForm({
         title: "",
         description: "",
@@ -89,6 +94,7 @@ export default function SubtaskModal({
       setLocalMode("create");
     } else if (mode === "view" || mode === "edit") {
       if (subtask) {
+        setAccessError("");
         // 🔥 Handle both assignees (backend) and userIds (Kanban card)
         let assignedUsers = [];
         if (subtask.assignees?.length > 0) {
@@ -163,6 +169,47 @@ export default function SubtaskModal({
       ? calculateBudgetPercent(form.budgetAllocated, taskBudget)
       : 0;
 
+  const readableDisabledFieldSx = {
+    "& .MuiInputBase-input.Mui-disabled": {
+      WebkitTextFillColor: "#1F2937",
+      color: "#1F2937",
+      opacity: 1,
+    },
+    "& .MuiSelect-select.Mui-disabled": {
+      WebkitTextFillColor: "#1F2937",
+      color: "#1F2937",
+      opacity: 1,
+    },
+    "& .MuiInputBase-root.Mui-disabled": {
+      bgcolor: "#FFFFFF",
+    },
+    "& .MuiInputLabel-root.Mui-disabled": {
+      color: "#6B7280",
+    },
+  } as const;
+
+  const canEditSubtask = useMemo(() => {
+    const currentUserId = String(user?.id || "");
+    if (!currentUserId) return false;
+
+    const ownerIds = new Set<string>();
+    if (fullProject?.ownerId) {
+      ownerIds.add(String(fullProject.ownerId));
+    }
+    (projectMembers?.owner || []).forEach((member: any) => {
+      const memberId = member?.id || member?.userId;
+      if (memberId) ownerIds.add(String(memberId));
+    });
+
+    const subOwnerIds = new Set<string>();
+    (projectMembers?.subOwners || []).forEach((member: any) => {
+      const memberId = member?.id || member?.userId;
+      if (memberId) subOwnerIds.add(String(memberId));
+    });
+
+    return ownerIds.has(currentUserId) || subOwnerIds.has(currentUserId);
+  }, [user?.id, fullProject?.ownerId, projectMembers]);
+
   const handleChange = (field: string, value: any) => {
     setForm((prev) => ({
       ...prev,
@@ -171,6 +218,11 @@ export default function SubtaskModal({
   };
 
   const handleSave = async () => {
+    if (localMode === "edit" && !canEditSubtask) {
+      setAccessError("Only project owner or sub-owner is allowed to edit this subtask.");
+      return;
+    }
+
     const userIds = form.users?.map((u: any) => u.id || u.userId) || [];
 
     const validation = validateSubtaskForm(
@@ -242,6 +294,8 @@ export default function SubtaskModal({
   };
 
   const isViewOnly = localMode === "view";
+  const isEditingMode = localMode === "edit";
+  const isDateDisabled = isEditingMode || saving;
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -263,6 +317,7 @@ export default function SubtaskModal({
             error={hasFieldError("title", errors)}
             helperText={getFieldError("title", errors) || ""}
             disabled={isViewOnly || saving}
+            sx={readableDisabledFieldSx}
           />
 
           {/* Priority & Budget */}
@@ -272,6 +327,7 @@ export default function SubtaskModal({
                 value={form.priority}
                 onChange={(e) => handleChange("priority", e.target.value)}
                 disabled={isViewOnly || saving}
+                sx={readableDisabledFieldSx}
               >
                 <MenuItem value="HIGH">HIGH</MenuItem>
                 <MenuItem value="MEDIUM">MEDIUM</MenuItem>
@@ -294,7 +350,8 @@ export default function SubtaskModal({
               error={hasFieldError("budgetAllocated", errors)}
               helperText={getFieldError("budgetAllocated", errors) || ""}
               sx={{ flex: 1 }}
-              disabled={isViewOnly || saving}
+              disabled={saving}
+              InputProps={{ readOnly: isViewOnly }}
             />
           </Box>
 
@@ -328,8 +385,9 @@ export default function SubtaskModal({
               error={hasFieldError("projectedStartDate", errors)}
               helperText={getFieldError("projectedStartDate", errors) || ""}
               InputLabelProps={{ shrink: true }}
-              sx={{ flex: 1 }}
-              disabled={isViewOnly || saving}
+              sx={isViewOnly ? { flex: 1, ...readableDisabledFieldSx } : { flex: 1 }}
+              disabled={isDateDisabled}
+              InputProps={{ readOnly: isViewOnly }}
             />
 
             <TextField
@@ -342,8 +400,9 @@ export default function SubtaskModal({
               error={hasFieldError("projectedEndDate", errors)}
               helperText={getFieldError("projectedEndDate", errors) || ""}
               InputLabelProps={{ shrink: true }}
-              sx={{ flex: 1 }}
-              disabled={isViewOnly || saving}
+              sx={isViewOnly ? { flex: 1, ...readableDisabledFieldSx } : { flex: 1 }}
+              disabled={isDateDisabled}
+              InputProps={{ readOnly: isViewOnly }}
             />
           </Box>
 
@@ -356,7 +415,8 @@ export default function SubtaskModal({
               members={assignableUsers}
               projectId={projectId}
               value={form.users}
-              disabled={isViewOnly || saving}
+              disabled={saving}
+              readOnly={isViewOnly}
               onChange={(users) => !isViewOnly && handleChange("users", users)}
             />
           </Box>
@@ -375,6 +435,7 @@ export default function SubtaskModal({
               getFieldError("description", errors) || `${form.description?.length || 0}/500`
             }
             disabled={isViewOnly || saving}
+            sx={readableDisabledFieldSx}
           />
 
           {/* Remarks */}
@@ -390,12 +451,19 @@ export default function SubtaskModal({
             helperText={
               getFieldError("remarks", errors) || `${form.remarks?.length || 0}/500`
             }
-            disabled={isViewOnly || saving}
+            disabled={saving}
+            InputProps={{ readOnly: isViewOnly }}
+            sx={readableDisabledFieldSx}
           />
         </Box>
       </DialogContent>
 
       <DialogActions>
+        {(accessError || (isViewOnly && !canEditSubtask)) && (
+          <Typography variant="caption" sx={{ color: "#B91C1C", mr: "auto", px: 1 }}>
+            {accessError || "Only project owner or sub-owner is allowed to edit this subtask."}
+          </Typography>
+        )}
         <Button onClick={onClose}>
           {isViewOnly ? "Close" : "Cancel"}
         </Button>
@@ -403,7 +471,15 @@ export default function SubtaskModal({
           <Button
             variant="outlined"
             startIcon={<EditIcon />}
-            onClick={() => setLocalMode("edit")}
+            disabled={!canEditSubtask}
+            onClick={() => {
+              if (!canEditSubtask) {
+                setAccessError("Only project owner or sub-owner is allowed to edit this subtask.");
+                return;
+              }
+              setAccessError("");
+              setLocalMode("edit");
+            }}
           >
             Edit
           </Button>
@@ -412,7 +488,7 @@ export default function SubtaskModal({
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || (localMode === "edit" && !canEditSubtask)}
             startIcon={saving ? <CircularProgress size={16} /> : null}
           >
             {localMode === "create" ? "Create" : "Save"}

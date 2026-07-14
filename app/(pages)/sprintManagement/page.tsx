@@ -454,7 +454,6 @@ function SprintManagementContent() {
                       onSelectTask={(taskId: string) => {
                         dispatch(setCurrentTask(taskId));
                       }}
-                      onAddTask={() => handleOpenTaskModal("create")}
                       onViewTask={(task) => handleOpenTaskModal("view", task)}
                     />
                   </Paper>
@@ -487,6 +486,7 @@ function SprintManagementContent() {
                         taskBudget={currentTask?.budgetAllocated || 0}
                         projectId={currentProjectId || ""}
                         onProgressSuccess={handleProgressSuccess}
+                        allowCreateSubtask={false}
                       />
                     </Box>
                   )}

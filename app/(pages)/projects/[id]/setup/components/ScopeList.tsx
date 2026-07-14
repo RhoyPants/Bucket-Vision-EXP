@@ -3,6 +3,8 @@ import ScopeCard from "./ScopeCard";
 
 interface ScopeListProps {
   scopes: any[];
+  invalidScopeIds?: string[];
+  invalidTaskIds?: string[];
   scopeEdit: any;
   setScopeEdit: (scope: any) => void;
   taskInputs: Record<string, any>;
@@ -25,6 +27,8 @@ interface ScopeListProps {
 
 export default function ScopeList({
   scopes,
+  invalidScopeIds = [],
+  invalidTaskIds = [],
   scopeEdit,
   setScopeEdit,
   taskInputs,
@@ -50,6 +54,8 @@ export default function ScopeList({
         <ScopeCard
           key={scope.id}
           scope={scope}
+          isInvalidScope={invalidScopeIds.includes(String(scope.id))}
+          invalidTaskIds={invalidTaskIds}
           scopeEdit={scopeEdit}
           setScopeEdit={setScopeEdit}
           taskInputs={taskInputs}

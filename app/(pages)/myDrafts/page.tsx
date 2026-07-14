@@ -53,7 +53,7 @@ export default function MyDraftsPage() {
     onDelete: () => undefined,
     onSetup: (projectId) => router.push(`/projects/${projectId}/setup`),
     onViewApproval: (project) => router.push(`/approvals/${project.id}`),
-    onSubmitForApproval: (project) => router.push(`/approvals/${project.id}`),
+    onSubmitForApproval: (project) => router.push(`/projects/${project.id}/setup`),
     onTeamManage: () => undefined,
     onVersion: (project) => router.push(`/versioning?projectId=${project.id}`),
     onSprint: (projectId) => router.push(`/sprintManagement?projectId=${projectId}`),

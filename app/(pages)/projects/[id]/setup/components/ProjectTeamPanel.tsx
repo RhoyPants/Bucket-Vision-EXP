@@ -251,6 +251,12 @@ export default function ProjectTeamPanel({
     const getUserId = (m: any) => m.userId || m.user?.id || m.id;
     const getName = (m: any) => m.name || m.user?.name || "Unnamed";
     const getRole = (m: any) => m.user?.role?.name || "No role";
+    const isBuHeadRole = (m: any) => {
+      const normalizedRole = String(m?.user?.role?.name || "")
+        .toLowerCase()
+        .replace(/[-\s]/g, "_");
+      return normalizedRole === "bu_head";
+    };
 
     // Count selected in this section
     const selectedInSection = members.filter((m) =>
@@ -413,8 +419,8 @@ export default function ProjectTeamPanel({
                   }}
                 />
 
-                {/* TOGGLE ROLE BUTTON (for LEADER users only) */}
-                {canUpdateTeamMember && getRole(member)?.toLowerCase() === "leader" && title !== "Owners" && (
+                {/* TOGGLE ROLE BUTTON (for BU_HEAD users only) */}
+                {canUpdateTeamMember && isBuHeadRole(member) && title !== "Owners" && (
                   <Tooltip
                     title={`Change to ${title === "Sub Owners" ? "Member" : "Sub-Owner"}`}
                   >

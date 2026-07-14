@@ -56,12 +56,12 @@ export default function AssignSubOwnerSelect({
     );
   }, [assignedUsers]);
 
-  const isLeader = (m: User) =>
-    m?.role?.name?.toLowerCase() === "leader" ||
-    m?.role?.id?.toLowerCase() === "leader";
+  const isBuHead = (m: User) =>
+    m?.role?.name?.toLowerCase() === "bu_head" ||
+    m?.role?.id?.toLowerCase() === "bu_head";
 
-  // ✅ Filter: only leaders, not already assigned as MEMBER, not already selected, not pending as member
-  const leaders = useMemo(() => {
+  // ✅ Filter: only BU_HEAD users, not already assigned as MEMBER, not already selected, not pending as member
+  const buHeads = useMemo(() => {
     const selectedIds = new Set(selectedUsers.map((u) => u.id));
     const excludedIds = new Set(excludedUserIds);
     // Get all users assigned as MEMBER (not SUB_OWNER)
@@ -72,7 +72,7 @@ export default function AssignSubOwnerSelect({
     );
     const filtered = members
       .filter((m) => m && m.id)
-      .filter((m) => isLeader(m))
+      .filter((m) => isBuHead(m))
       .filter((m) => !assignedIds.has(m.id)) // Not already assigned at all
       .filter((m) => !memberAssignedIds.has(m.id)) // Not assigned as MEMBER
       .filter((m) => !selectedIds.has(m.id))
@@ -81,7 +81,7 @@ export default function AssignSubOwnerSelect({
     return filtered;
   }, [members, assignedIds, assignedUsers, selectedUsers, excludedUserIds]);
 
-  const totalSelectableCount = selectedUsers.length + leaders.length;
+  const totalSelectableCount = selectedUsers.length + buHeads.length;
   const allSelected = totalSelectableCount > 0 && selectedUsers.length === totalSelectableCount;
 
   const handleSelectAll = () => {
@@ -89,7 +89,7 @@ export default function AssignSubOwnerSelect({
       setSelectedUsers([]);
       onSelectionChange?.([]);
     } else {
-      const nextUsers = [...selectedUsers, ...leaders];
+      const nextUsers = [...selectedUsers, ...buHeads];
       setSelectedUsers(nextUsers);
       onSelectionChange?.(nextUsers);
     }
@@ -118,9 +118,9 @@ export default function AssignSubOwnerSelect({
         name: allSelected ? "Deselect All" : "Select All",
         isSelectAll: true,
       },
-      ...leaders,
+      ...buHeads,
     ];
-  }, [allSelected, leaders, totalSelectableCount]);
+  }, [allSelected, buHeads, totalSelectableCount]);
 
   return (
     <Box display="flex" flexDirection="column" gap={2} flex={1} minWidth={250}>
@@ -144,7 +144,7 @@ export default function AssignSubOwnerSelect({
         }}
         getOptionLabel={(option) => option?.name || ""}
         isOptionEqualToValue={(o, v) => o.id === v.id}
-        noOptionsText={loading ? "Loading..." : "No available leaders"}
+        noOptionsText={loading ? "Loading..." : "No available BU_HEAD users"}
         loading={loading}
         disableCloseOnSelect
         sx={{
@@ -237,7 +237,7 @@ export default function AssignSubOwnerSelect({
                     {option.name}
                   </Typography>
                   <Typography fontSize={11} color="textSecondary" noWrap>
-                    {option?.email || "Team Leader"}
+                    {option?.email || "BU Head"}
                   </Typography>
                 </Box>
 

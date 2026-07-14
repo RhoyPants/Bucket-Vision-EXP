@@ -23,6 +23,7 @@ type Props = {
   members: User[];
   projectId?: string;
   disabled?: boolean;
+  readOnly?: boolean;
 };
 
 export default function AssignUsersSelect({
@@ -31,6 +32,7 @@ export default function AssignUsersSelect({
   members = [],
   projectId,
   disabled = false,
+  readOnly = false,
 }: Props) {
   // =========================
   // 🔥 CLEAN + SAFE OPTIONS (from project team only)
@@ -67,6 +69,7 @@ export default function AssignUsersSelect({
     <Autocomplete
       multiple
       disabled={disabled}
+      readOnly={readOnly}
       options={uniqueMembers}
       value={uniqueValue}
       onChange={(e, newValue) => onChange(newValue)}
@@ -124,6 +127,10 @@ export default function AssignUsersSelect({
         <TextField
           {...params}
           disabled={disabled}
+          InputProps={{
+            ...params.InputProps,
+            readOnly,
+          }}
           size="small"
           label="Assign Users"
           placeholder="Select team members"

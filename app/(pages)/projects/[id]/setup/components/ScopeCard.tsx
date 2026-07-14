@@ -16,6 +16,8 @@ import {
 
 interface ScopeCardProps {
   scope: any;
+  isInvalidScope?: boolean;
+  invalidTaskIds?: string[];
   scopeEdit: any;
   setScopeEdit: (scope: any) => void;
   taskInputs: Record<string, any>;
@@ -38,6 +40,8 @@ interface ScopeCardProps {
 
 function ScopeCard({
   scope,
+  isInvalidScope = false,
+  invalidTaskIds = [],
   scopeEdit,
   setScopeEdit,
   taskInputs,
@@ -124,16 +128,33 @@ function ScopeCard({
           backgroundColor: "white",
           p: 3,
           mb: 3,
-          border: "1px solid #e5e7eb",
+          border: isInvalidScope ? "2px solid #EF4444" : "1px solid #e5e7eb",
           borderRadius: 2,
           position: "relative",
           transition: "all 0.2s",
+          boxShadow: isInvalidScope ? "0 0 0 3px rgba(239, 68, 68, 0.12)" : "none",
           "&:hover": {
             boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
             "& .scope-actions": { opacity: 1 },
           },
         }}
       >
+        {isInvalidScope && (
+          <Chip
+            label="* Needs changes"
+            size="small"
+            sx={{
+              position: "absolute",
+              top: 10,
+              right: 12,
+              bgcolor: "#FEF2F2",
+              color: "#B91C1C",
+              border: "1px solid #FECACA",
+              fontWeight: 700,
+            }}
+          />
+        )}
+
         {/* SCOPE HEADER */}
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Box>
@@ -187,6 +208,7 @@ function ScopeCard({
             <TaskCard
               key={task.id}
               task={task}
+              isInvalidTask={invalidTaskIds.includes(String(task.id))}
               scopeBudget={Number(scope.budgetAllocated) || 0}
               subtaskInputs={subtaskInputs}
               setSubtaskInputs={setSubtaskInputs}

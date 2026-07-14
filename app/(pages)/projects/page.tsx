@@ -29,6 +29,7 @@ import Layout from "@/app/components/shared/Layout";
 import ProjectModal from "@/app/components/shared/modals/ProjectModal";
 import { ApprovalDetailModal, ApprovalSubmitModal } from "@/app/components/shared/modals/ApprovalModals";
 import TeamManagementModal from "@/app/components/shared/modals/TeamManagementModal";
+import ConfirmationModal from "@/app/components/shared/modals/ConfirmationModal";
 
 import ProjectsGrid from "./components/ProjectsGrid";
 import { ProjectCardActions, ViewType } from "./components/types";
@@ -60,6 +61,30 @@ export default function ProjectsPage() {
 
   const [teamManagementModalOpen, setTeamManagementModalOpen] = useState(false);
   const [selectedProjectForTeam, setSelectedProjectForTeam] = useState<any>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<any>(null);
+  const [deletingProject, setDeletingProject] = useState(false);
+
+  const handleDeleteClick = (projectId: string) => {
+    const targetProject = (projects || []).find((p: any) => p.id === projectId) || { id: projectId };
+    setProjectToDelete(targetProject);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!projectToDelete?.id) return;
+    try {
+      setDeletingProject(true);
+      await dispatch(deleteProject(projectToDelete.id) as any);
+      setDeleteConfirmOpen(false);
+      setProjectToDelete(null);
+      dispatch(getProjects());
+    } catch (err) {
+      console.error("Failed to delete project:", err);
+    } finally {
+      setDeletingProject(false);
+    }
+  };
 
   useEffect(() => {
     dispatch(getProjects());
@@ -106,7 +131,7 @@ export default function ProjectsPage() {
     },
     onDelete: (projectId) => {
       if (!canDeleteProject) return;
-      dispatch(deleteProject(projectId));
+      handleDeleteClick(projectId);
     },
     onSetup: (projectId) => router.push(`/projects/${projectId}/setup`),
     onViewApproval: async (project) => {
@@ -123,10 +148,7 @@ export default function ProjectsPage() {
         console.error("Failed to load approval details:", err);
       }
     },
-    onSubmitForApproval: (project) => {
-      setSelectedProjectForApproval(project);
-      setApprovalSubmitOpen(true);
-    },
+    onSubmitForApproval: (project) => router.push(`/projects/${project.id}/setup`),
     onTeamManage: (project) => {
       setSelectedProjectForTeam(project);
       setTeamManagementModalOpen(true);
@@ -297,6 +319,22 @@ export default function ProjectsPage() {
               console.error("Failed to submit project for approval:", err);
             }
           }}
+        />
+
+        <ConfirmationModal
+          open={deleteConfirmOpen}
+          onClose={() => {
+            if (deletingProject) return;
+            setDeleteConfirmOpen(false);
+            setProjectToDelete(null);
+          }}
+          onConfirm={handleDeleteConfirm}
+          loading={deletingProject}
+          danger
+          title="Delete Project?"
+          message={`Are you sure you want to delete "${projectToDelete?.name || "this project"}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
         />
       </Box>
     </Layout>
