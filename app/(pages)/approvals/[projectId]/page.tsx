@@ -36,6 +36,12 @@ import {
   approveProject,
   rejectProject,
 } from "@/app/redux/controllers/approvalController";
+import { sendEmail } from "@/app/api-service/emailService";
+import {
+  buildApprovalEmailHTML,
+  buildRejectionEmailHTML,
+} from "@/app/components/shared/email/ApprovalEmailTemplate";
+import { getApprovalStepOrder } from "@/app/utils/approvalEmailNotification";
 import type { ApprovalAuditLog } from "@/app/redux/slices/approvalSlice";
 import ApprovalFlowUI from "@/app/components/shared/modals/ApprovalModals/ApprovalFlowUI";
 import ApprovalAuditTrail from "@/app/components/shared/modals/ApprovalModals/ApprovalAuditTrail";
@@ -184,6 +190,7 @@ function ApprovalReviewPageContent() {
   const projectId = params.projectId as string;
   const dispatch = useAppDispatch();
   const { auditTrail } = useAppSelector((state) => state.approval);
+  const currentUser = useAppSelector((state) => state.auth.user);
   const isReadOnlyFromMyRequests = searchParams.get("source") === "my-requests";
 
   const [project, setProject] = useState<ApprovalProject | null>(null);
@@ -239,6 +246,52 @@ function ApprovalReviewPageContent() {
     try {
       setSubmitting(true);
       await dispatch(approveProject(projectId));
+
+      // Fetch fresh approvals to find the next pending step
+      try {
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        const freshRes = await axios.get(`/approvals/${projectId}`);
+        const freshApprovals: any[] = (freshRes.data?.data || []).map((a: any) => ({
+          ...a,
+          approverEmail: a.approver?.email || null,
+          approverName: a.approver?.name || null,
+        }));
+
+        const pending = freshApprovals.filter((a: any) => a.status === "PENDING");
+        if (pending.length > 0) {
+          const minLevel = Math.min(...pending.map(getApprovalStepOrder));
+          const nextStep = pending.filter((a: any) => getApprovalStepOrder(a) === minLevel);
+
+          const emailJobs = nextStep
+            .filter((a: any) => a.approverEmail)
+            .map((a: any) =>
+              sendEmail({
+                to: a.approverEmail,
+                subject: `New Approval Request — ${project?.name || "Project"}`,
+                message: buildApprovalEmailHTML({
+                  recipientName: a.approverName || "Approver",
+                  projectName: project?.name || "—",
+                  pin: (project?.pin as string) || "—",
+                  priorityType: (project?.priority as string) || "—",
+                  projectedStart: project?.startDate
+                    ? new Date(project.startDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+                    : "—",
+                  projectedEnd: project?.expectedEndDate
+                    ? new Date(project.expectedEndDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+                    : "—",
+                  requestedBy: (project?.owner as any)?.name || "—",
+                  date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+                  approvalUrl: `${origin}/myApprovals`,
+                }),
+              }).catch((err) => console.warn("Step email failed:", err))
+            );
+
+          await Promise.allSettled(emailJobs);
+        }
+      } catch (emailErr) {
+        console.warn("Could not send next-step email:", emailErr);
+      }
+
       setSuccessAction("approved");
       setSuccessDialogOpen(true);
     } catch (err: unknown) {
@@ -258,6 +311,33 @@ function ApprovalReviewPageContent() {
       setSubmitting(true);
       await dispatch(rejectProject(projectId, remarks));
       setRejectDialogOpen(false);
+
+      // Email the project owner/creator about the rejection
+      const ownerEmail = (project?.owner as any)?.email;
+      if (ownerEmail) {
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        sendEmail({
+          to: ownerEmail,
+          subject: `Project Revision Required — ${project?.name || "Project"}`,
+          message: buildRejectionEmailHTML({
+            recipientName: (project?.owner as any)?.name || "Project Owner",
+            projectName: project?.name || "—",
+            pin: (project?.pin as string) || "—",
+            priorityType: (project?.priority as string) || "—",
+            projectedStart: project?.startDate
+              ? new Date(project.startDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+              : "—",
+            projectedEnd: project?.expectedEndDate
+              ? new Date(project.expectedEndDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+              : "—",
+            rejectedBy: currentUser?.name || "Approver",
+            rejectionReason: remarks,
+            date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+            revisionUrl: `${origin}/projects/${projectId}/setup`,
+          }),
+        }).catch((err) => console.warn("Rejection email failed:", err));
+      }
+
       setSuccessAction("rejected");
       setSuccessDialogOpen(true);
     } catch (err: unknown) {

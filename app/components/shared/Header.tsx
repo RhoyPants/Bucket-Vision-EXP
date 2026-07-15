@@ -1,9 +1,8 @@
 "use client";
 
-import { AppBar, Toolbar, Typography, Box, Avatar, Menu, MenuItem, Divider, IconButton, Badge } from "@mui/material";
+import { AppBar, Toolbar, Typography, Box, Avatar, Menu, MenuItem, Divider, IconButton } from "@mui/material";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
-import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -160,12 +159,6 @@ export default function Header() {
             gap: "20px",
           }}
         >
-          <IconButton sx={{ color: "#374151" }}>
-            <Badge badgeContent={3} color="error" sx={{ "& .MuiBadge-badge": { minWidth: 16, height: 16, fontSize: 10 } }}>
-              <NotificationsNoneIcon sx={{ fontSize: 20 }} />
-            </Badge>
-          </IconButton>
-
           <IconButton sx={{ color: "#374151" }}>
             <HelpOutlineIcon sx={{ fontSize: 20 }} />
           </IconButton>

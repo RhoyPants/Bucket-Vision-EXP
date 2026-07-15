@@ -98,6 +98,11 @@ export default function SidebarItem({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            animation: "sidebar-notification-pulse 1.5s ease-in-out infinite",
+            "@keyframes sidebar-notification-pulse": {
+              "0%, 100%": { boxShadow: "0 0 0 0 rgba(239, 68, 68, 0.7)" },
+              "50%": { boxShadow: "0 0 0 5px rgba(239, 68, 68, 0)" },
+            },
           }}
         >
           {badgeCount > 99 ? "99+" : badgeCount}

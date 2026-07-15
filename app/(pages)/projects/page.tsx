@@ -35,6 +35,7 @@ import NeedsRevisionModal from "@/app/components/shared/modals/NeedsRevisionModa
 import ProjectsGrid from "./components/ProjectsGrid";
 import { ProjectCardActions, ViewType } from "./components/types";
 import { usePermissions } from "@/app/lib/usePermissions";
+import { notifyFirstApprovalStep } from "@/app/utils/approvalEmailNotification";
 
 export default function ProjectsPage() {
   const dispatch = useAppDispatch();
@@ -369,6 +370,15 @@ export default function ProjectsPage() {
             if (!selectedProjectForApproval?.id) return;
             try {
               await dispatch(submitProjectForApproval(selectedProjectForApproval.id));
+              try {
+                await notifyFirstApprovalStep(
+                  selectedProjectForApproval.id,
+                  selectedProjectForApproval,
+                  user?.name
+                );
+              } catch (emailError) {
+                console.warn("Could not send approval email notifications:", emailError);
+              }
               setApprovalSubmitOpen(false);
               dispatch(getProjects());
             } catch (err) {

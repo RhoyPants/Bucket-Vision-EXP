@@ -55,6 +55,7 @@ import {
 } from "@/app/redux/controllers/subTaskController";
 import { getEngagedUsers, getProjectMembers } from "@/app/redux/controllers/projectMemberController";
 import { submitProjectForApproval } from "@/app/redux/controllers/approvalController";
+import { notifyFirstApprovalStep } from "@/app/utils/approvalEmailNotification";
 import {
   validateProjectForm,
   hasFieldError,
@@ -909,7 +910,21 @@ export default function ProjectSetupWizard({
       setSaving(true);
 
       // Submit project for approval
-      await dispatch(submitProjectForApproval(currentProjectId));
+      await dispatch(submitProjectForApproval(currentProjectId) as any);
+
+      // Notify only the first approval step after the submission succeeds.
+      try {
+        await notifyFirstApprovalStep(currentProjectId, {
+          name: projectForm.name || project?.name,
+          pin: projectForm.pin || project?.pin,
+          priority: projectForm.priority || project?.priority,
+          startDate: projectForm.startDate,
+          expectedEndDate: projectForm.expectedEndDate,
+        }, user?.name);
+      } catch (emailErr) {
+        // Email failure must never block the success flow
+        console.warn("Could not send approval email notifications:", emailErr);
+      }
 
       setSubmitMessage("");
       setSubmitConfirm(false);

@@ -379,23 +379,24 @@ export default function ReportsPage() {
             <Tab label="📋 Daily Reports" />
             <Tab label="📊 Weekly Reports" />
           </Tabs>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => (reportTypeTab === 0 ? setCreateDailyModalOpen(true) : setCreateWeeklyModalOpen(true))}
-            sx={{
-              backgroundColor: "#4B2E83",
-              fontWeight: 600,
-              textTransform: "none",
-              fontSize: 14,
-              flexShrink: 0,
-              "&:hover": {
-                backgroundColor: "#3d2363",
-              },
-            }}
-          >
-            New {reportTypeTab === 0 ? "Daily" : "Weekly"} Report
-          </Button>
+          <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => (reportTypeTab === 0 ? setCreateDailyModalOpen(true) : setCreateWeeklyModalOpen(true))}
+              sx={{
+                backgroundColor: "#4B2E83",
+                fontWeight: 600,
+                textTransform: "none",
+                fontSize: 14,
+                "&:hover": {
+                  backgroundColor: "#3d2363",
+                },
+              }}
+            >
+              New {reportTypeTab === 0 ? "Daily" : "Weekly"} Report
+            </Button>
+          </Stack>
         </Paper>
 
         {/* Main Split Layout */}
