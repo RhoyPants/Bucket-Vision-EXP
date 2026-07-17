@@ -37,21 +37,43 @@ import { ProjectCardActions, ViewType } from "./components/types";
 import { usePermissions } from "@/app/lib/usePermissions";
 import { notifyFirstApprovalStep } from "@/app/utils/approvalEmailNotification";
 
+const projectStatuses = [
+  { value: "DRAFT", label: "Draft", bg: "#f3f4f6", color: "#4b5563" },
+  { value: "FOR_REVIEW", label: "For Review", bg: "#fffbeb", color: "#92400e" },
+  { value: "FOR_APPROVAL", label: "For Approval", bg: "#eff6ff", color: "#1d4ed8" },
+  { value: "NEEDS_REVISION", label: "Needs Revision", bg: "#fff7ed", color: "#9a3412" },
+  { value: "ACTIVE", label: "Active", bg: "#ecfdf5", color: "#047857" },
+] as const;
+
+const hiddenProjectStatuses = new Set([
+  "REJECTED",
+  "APPROVED",
+  "INACTIVE",
+  "ARCHIVED",
+]);
+
 export default function ProjectsPage() {
   const dispatch = useAppDispatch();
   const router = useRouter();
 
   const { projects } = useAppSelector((state) => state.project);
   const { allApprovals, auditTrail } = useAppSelector((state) => state.approval);
-  const { user } = useAppSelector((state) => state.auth);
+  const { user, permissionRole } = useAppSelector((state) => state.auth);
   const { canCreate, canUpdate, canDelete } = usePermissions();
   const canCreateProject = canCreate("projects");
   const canUpdateProject = canUpdate("projects");
-  const canDeleteProject = canDelete("projects");
+  const normalizedRole = String(permissionRole || user?.role || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+  const isSuperAdmin = normalizedRole === "SUPERADMIN";
+  const canDeleteProject = canDelete("projects") && isSuperAdmin;
+  const canViewAllProjectStatuses =
+    normalizedRole === "BUHEAD" || isSuperAdmin;
 
   const [viewType, setViewType] = useState<ViewType>("card");
   const [searchQuery, setSearchQuery] = useState("");
   const [businessUnitFilter, setBusinessUnitFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ACTIVE");
 
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [projectModalMode, setProjectModalMode] = useState<"create" | "edit">("create");
@@ -139,36 +161,73 @@ export default function ProjectsPage() {
   }, [dispatch]);
 
   const counts = useMemo(() => {
-    const list = projects || [];
+    const list = (projects || []).filter(
+      (project: any) => !hiddenProjectStatuses.has(project.status)
+    );
     return {
-      active: list.filter((p: any) => p.status === "ACTIVE" || p.status === "APPROVED").length,
+      total: list.length,
+      byStatus: projectStatuses.reduce<Record<string, number>>((result, status) => {
+        result[status.value] = list.filter((project: any) => project.status === status.value).length;
+        return result;
+      }, {}),
     };
   }, [projects]);
 
-  const activeProjects = useMemo(() => {
-    return (projects || []).filter((p: any) => p.status === "ACTIVE" || p.status === "APPROVED");
+  const allProjects = useMemo(() => {
+    return (projects || []).filter(
+      (project: any) => !hiddenProjectStatuses.has(project.status)
+    );
   }, [projects]);
+
+  const activeProjects = useMemo(() => {
+    return allProjects.filter(
+      (project: any) => project.status === "ACTIVE" || project.status === "APPROVED"
+    );
+  }, [allProjects]);
+
+  const visibleProjects = canViewAllProjectStatuses ? allProjects : activeProjects;
 
   const businessUnitOptions = useMemo(() => {
     const buSet = new Set<string>();
-    activeProjects.forEach((p: any) => {
+    visibleProjects.forEach((p: any) => {
       const buName = p?.businessUnitDetails?.name;
       if (buName) buSet.add(buName);
     });
     return Array.from(buSet).sort((a, b) => a.localeCompare(b));
-  }, [activeProjects]);
+  }, [visibleProjects]);
 
   const filteredProjects = useMemo(() => {
-    return activeProjects.filter((p: any) => {
+    return visibleProjects.filter((p: any) => {
       const matchesSearch =
         !searchQuery ||
         String(p?.name || "").toLowerCase().includes(searchQuery.toLowerCase());
       const matchesBusinessUnit =
         businessUnitFilter === "ALL" ||
         (p?.businessUnitDetails?.name || "") === businessUnitFilter;
-      return matchesSearch && matchesBusinessUnit;
+      const matchesStatus =
+        !canViewAllProjectStatuses || statusFilter === "ALL" || p?.status === statusFilter;
+      return matchesSearch && matchesBusinessUnit && matchesStatus;
     });
-  }, [activeProjects, searchQuery, businessUnitFilter]);
+  }, [visibleProjects, searchQuery, businessUnitFilter, statusFilter, canViewAllProjectStatuses]);
+
+  const kpiCards = canViewAllProjectStatuses
+    ? [
+        { label: "Total Projects", value: counts.total, bg: "#ecfdf5", color: "#065f46" },
+        ...projectStatuses.map((status) => ({
+          label: status.label,
+          value: counts.byStatus[status.value],
+          bg: status.bg,
+          color: status.color,
+        })),
+      ]
+    : [
+        {
+          label: "Total Active Projects",
+          value: activeProjects.length,
+          bg: "#ecfdf5",
+          color: "#065f46",
+        },
+      ];
 
   const actions: ProjectCardActions = {
     onEdit: (project) => {
@@ -226,10 +285,8 @@ export default function ProjectsPage() {
       <Box sx={{ p: { xs: 2, md: 4 } }}>
         {/* KPI CARDS */}
         <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
-          {[
-            { label: "Total Active Projects", value: counts.active, bg: "#ecfdf5", color: "#065f46" },
-          ].map((item) => (
-            <Grid key={item.label} size={{ xs: 12, sm: 6, md: 3 }}>
+          {kpiCards.map((item) => (
+            <Grid key={item.label} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
               <Card
                 sx={{
                   px: 1.5,
@@ -278,6 +335,23 @@ export default function ProjectsPage() {
               </MenuItem>
             ))}
           </TextField>
+          {canViewAllProjectStatuses ? (
+            <TextField
+              select
+              label="Project Status"
+              size="small"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              sx={{ minWidth: { xs: "100%", md: 200 } }}
+            >
+              <MenuItem value="ALL">All Statuses</MenuItem>
+              {projectStatuses.map((status) => (
+                <MenuItem key={status.value} value={status.value}>
+                  {status.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          ) : null}
         </Stack>
 
         <ProjectsGrid
@@ -300,9 +374,13 @@ export default function ProjectsPage() {
               </Button>
             ) : null
           }
-          emptyMessage="No active projects"
-          emptySubtext="Projects appear here once they are approved and activated"
-          showCreateButton={canCreateProject && activeProjects.length === 0}
+          emptyMessage={canViewAllProjectStatuses ? "No projects found" : "No active projects"}
+          emptySubtext={
+            canViewAllProjectStatuses
+              ? "Create a project to get started"
+              : "Projects appear here once they are approved and activated"
+          }
+          showCreateButton={canCreateProject && visibleProjects.length === 0}
           createButtonLabel="Create Project"
         />
 

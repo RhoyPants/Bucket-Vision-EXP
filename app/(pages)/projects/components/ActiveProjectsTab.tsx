@@ -10,11 +10,10 @@ interface ActiveProjectsTabProps {
 }
 
 export default function ActiveProjectsTab({ projects, actions, viewType }: ActiveProjectsTabProps) {
-  const filtered = projects.filter((p: any) => p.status === "ACTIVE" || p.status === "APPROVED");
-
+  
   return (
     <ProjectsGrid
-      projects={filtered}
+      projects={projects}
       actions={actions}
       viewType={viewType}
       emptyMessage="No active projects"

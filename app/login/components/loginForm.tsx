@@ -194,7 +194,7 @@ export default function LoginForm({ onSubmit, onMicrosoftLogin, loading }: Login
               "&:hover": {
                 borderColor: "#4f3fd0",
                 backgroundColor: "#f7f7ff",
-              },
+              },  
             }}
           >
             Microsoft Login
@@ -204,7 +204,7 @@ export default function LoginForm({ onSubmit, onMicrosoftLogin, loading }: Login
             variant="caption"
             sx={{ pt: 0.5, display: "block", color: "#737782", fontWeight: 700 }}
           >
-          © {new Date().getFullYear()} Global Visions, Inc. All Rights Reserved
+          © {new Date().getFullYear()} Global Visions Holdings Inc. All Rights Reserved
           </Typography>
         </Stack>
       </Box>

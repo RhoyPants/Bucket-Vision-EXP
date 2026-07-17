@@ -80,7 +80,7 @@ export function buildApprovalEmailHTML(data: ApprovalEmailData): string {
     </div>
 
     <p style="text-align:center;color:#bbb;font-size:11px;margin-top:16px">
-      © ${new Date().getFullYear()} V.I.S.I.O.N · Global Visions Inc.
+      © ${new Date().getFullYear()} V.I.S.I.O.N · Global Visions Holdings Inc.
     </p>
   </div>
 </div>`.trim();
@@ -190,7 +190,7 @@ export function ApprovalEmailPreview({ data }: { data: ApprovalEmailData }) {
 
         {/* Footer */}
         <Typography sx={{ textAlign: "center", color: "#bbb", fontSize: 11, mt: 1.5 }}>
-          © {new Date().getFullYear()} V.I.S.I.O.N · Global Visions Inc.
+          © {new Date().getFullYear()} V.I.S.I.O.N · Global Visions Holdings Inc.
         </Typography>
       </Box>
     </Box>
@@ -272,7 +272,7 @@ export function buildRejectionEmailHTML(data: RejectionEmailData): string {
     </div>
 
     <p style="text-align:center;color:#bbb;font-size:11px;margin-top:16px">
-      © ${new Date().getFullYear()} V.I.S.I.O.N · Global Visions Inc.
+      © ${new Date().getFullYear()} V.I.S.I.O.N · Global Visions Holdings Inc.
     </p>
   </div>
 </div>`.trim();

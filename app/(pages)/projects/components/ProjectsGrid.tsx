@@ -118,10 +118,13 @@ export default function ProjectsGrid({
 }: ProjectsGridProps) {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuProject, setMenuProject] = useState<ProjectGridItem | null>(null);
-  const { canView, canCreate, canUpdate, canDelete } = usePermissions();
+  const { canView, canCreate, canUpdate, canDelete, role } = usePermissions();
   const canCreateProject = canCreate("projects");
   const canUpdateProject = canUpdate("projects");
-  const canDeleteProject = canDelete("projects");
+  const normalizedRole = String(role || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+  const canDeleteProject = canDelete("projects") && normalizedRole === "SUPERADMIN";
 
   const menuOpen = Boolean(menuAnchor) && Boolean(menuProject);
   const approvalOnly = actionMode === "approval";
