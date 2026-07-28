@@ -9,6 +9,7 @@ export type ProjectTab =
   | "archived";
 
 export interface ProjectCardActions {
+  onOpenDashboard?: (projectId: string) => void;
   onEdit: (project: any) => void;
   onDelete: (projectId: string) => void;
   onSetup: (projectId: string) => void;

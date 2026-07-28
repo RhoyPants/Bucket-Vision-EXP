@@ -76,11 +76,18 @@ export default function DashboardCharts({
     .filter((chart) => chart.isEnabled)
     .sort((a, b) => a.sortOrder - b.sortOrder);
   const summary = chartData?.summary ?? dashboard?.summary ?? defaultSummary;
+  const combinedSummary = {
+    totalKpis: summary.total ?? summary.totalKpis,
+    criticalKpis: summary.critical ?? summary.criticalKpis,
+    onflowKpis: summary.onflow ?? summary.onflowKpis,
+    healthyKpis: summary.healthy ?? summary.healthyKpis,
+    unclassifiedKpis: summary.unclassified ?? summary.unclassifiedKpis,
+  };
   const statusData = [
-    { name: "Critical", value: summary.criticalKpis, color: statusColors.CRITICAL.accent },
-    { name: "Onflow", value: summary.onflowKpis, color: statusColors.ONFLOW.accent },
-    { name: "Healthy", value: summary.healthyKpis, color: statusColors.HEALTHY.accent },
-    { name: "Unclassified", value: summary.unclassifiedKpis, color: statusColors.UNCLASSIFIED.accent },
+    { name: "Critical", value: combinedSummary.criticalKpis, color: statusColors.CRITICAL.accent },
+    { name: "Onflow", value: combinedSummary.onflowKpis, color: statusColors.ONFLOW.accent },
+    { name: "Healthy", value: combinedSummary.healthyKpis, color: statusColors.HEALTHY.accent },
+    { name: "Unclassified", value: combinedSummary.unclassifiedKpis, color: statusColors.UNCLASSIFIED.accent },
   ];
   const trendData = chartData?.progressTrend ?? [];
   const completionData = chartData?.taskCompletion

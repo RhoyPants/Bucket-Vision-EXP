@@ -32,6 +32,7 @@ export interface Projects {
   status: "DRAFT" | "FOR_REVIEW" | "FOR_APPROVAL" | "NEEDS_REVISION" | "REJECTED" | "ACTIVE";
   ownerId: string;
   businessUnit?: string;
+  businessUnitName?: string;
   businessUnitDetails?: BusinessUnitDetails;
   projectMembers?: ProjectMember[];
   createdAt?: string;

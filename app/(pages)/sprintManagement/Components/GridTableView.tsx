@@ -343,13 +343,13 @@ const wbs = (row: any) => {
           "&::-webkit-scrollbar-thumb": { bgcolor: "#c8cdd4", borderRadius: 4 },
         }}
       >
-        {/* INNER â€” sets total scrollable dimensions */}
+        {/* INNER  sets total scrollable dimensions */}
         <Box sx={{ minWidth: LEFT_W + timelineW, minHeight: HDR_H + rows.length * ROW_H }}>
 
-          {/* â”€â”€ STICKY HEADER (top) â”€â”€ */}
+          {/* STICKY HEADER (top) ── */}
           <Box sx={{ position: "sticky", top: 0, zIndex: 30, display: "flex", height: HDR_H }}>
 
-            {/* Left header â€” sticky both top AND left */}
+            {/* Left header sticky both top AND left */}
             <Box sx={{
               position: "sticky", left: 0, zIndex: 40,
               width: STICKY_W, flexShrink: 0, height: HDR_H,
@@ -540,7 +540,7 @@ const wbs = (row: any) => {
                   {/* GANTT BAR */}
                   {start && end && (
                     <Tooltip
-                      title={`${row.name || row.title}  Â·  ${fmtDate(start)} â†’ ${fmtDate(end)}  (${durDays}d)`}
+                      title={`${row.name || row.title}  ·  ${fmtDate(start)} → ${fmtDate(end)}  (${durDays}d)`}
                       placement="top"
                       arrow
                     >

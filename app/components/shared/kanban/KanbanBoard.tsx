@@ -34,6 +34,7 @@ export default function KanbanBoard({
   onProgressSuccess,
   showHierarchy = false,
   allowCreateSubtask = true,
+  compact = false,
 }: {
   parentTaskId: string | null;
   columns: { id: number; title: string }[];
@@ -43,6 +44,7 @@ export default function KanbanBoard({
   onProgressSuccess?: () => void;
   showHierarchy?: boolean;
   allowCreateSubtask?: boolean;
+  compact?: boolean;
 }) {
   const dispatch = useAppDispatch();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -141,10 +143,10 @@ export default function KanbanBoard({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          mb: 2,
+          mb: compact ? 1 : 2,
         }}
       >
-        <Typography fontWeight={700}>SUBTASK</Typography>
+        <Typography fontWeight={700} sx={{ fontSize: compact ? 13 : undefined }}>SUBTASK</Typography>
 
         {/* 🔥 Hide "Add Subtask" button on task board (when parentTaskId is null) */}
         {parentTaskId && allowCreateSubtask && (
@@ -164,9 +166,9 @@ export default function KanbanBoard({
       </Box>
 
       {isTaskBoard ? (
-        <Box sx={{ display: "flex", gap: 2, overflowX: "auto" }}>
+        <Box sx={{ display: "flex", gap: compact ? 1 : 2, overflowX: "auto" }}>
           {columns.map((col) => (
-            <Box key={col.id} sx={{ minWidth: 300 }}>
+            <Box key={col.id} sx={{ minWidth: compact ? 210 : 300, flex: compact ? "1 1 0" : "0 0 auto" }}>
               <KanbanColumn
                 id={String(col.id)}
                 title={col.title}
@@ -177,6 +179,7 @@ export default function KanbanBoard({
                 activeId={null}
                 onProgressSuccess={onProgressSuccess}
                 showHierarchy={showHierarchy}
+                compact={compact}
               />
             </Box>
           ))}
@@ -188,9 +191,9 @@ export default function KanbanBoard({
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-        <Box sx={{ display: "flex", gap: 2, overflowX: "auto" }}>
+        <Box sx={{ display: "flex", gap: compact ? 1 : 2, overflowX: "auto" }}>
           {columns.map((col) => (
-            <Box key={col.id} sx={{ minWidth: 300 }}>
+            <Box key={col.id} sx={{ minWidth: compact ? 210 : 300, flex: compact ? "1 1 0" : "0 0 auto" }}>
               <KanbanColumn
                 id={String(col.id)}
                 title={col.title}
@@ -201,6 +204,7 @@ export default function KanbanBoard({
                 activeId={activeId}
                 onProgressSuccess={onProgressSuccess}
                 showHierarchy={showHierarchy}
+                compact={compact}
               />
             </Box>
           ))}
@@ -208,7 +212,7 @@ export default function KanbanBoard({
 
         <DragOverlay>
           {activeSubtask ? (
-            <KanbanSortableCard subtask={activeSubtask} isOverlay />
+            <KanbanSortableCard subtask={activeSubtask} isOverlay compact={compact} />
           ) : null}
         </DragOverlay>
       </DndContext>

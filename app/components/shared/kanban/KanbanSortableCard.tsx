@@ -5,7 +5,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Tooltip, tooltipClasses } from "@mui/material";
 import { styled } from "@mui/material/styles";
-import { Box, Chip, Typography, IconButton, Stack, Menu, MenuItem, ListItemIcon, ListItemText } from "@mui/material";
+import { Avatar, Box, Chip, Typography, IconButton, Stack, Menu, MenuItem, ListItemIcon, ListItemText } from "@mui/material";
 
 import { useAppDispatch } from "@/app/redux/hook";
 import type { KanbanSubtask } from "@/app/redux/slices/kanbanSlice";
@@ -60,6 +60,7 @@ export default function KanbanSortableCard({
   projectId = "",
   onProgressSuccess,
   showHierarchy = false,
+  compact = false,
 }: {
   subtask: KanbanSubtask & {
     project?: { id: string; name: string };
@@ -73,6 +74,7 @@ export default function KanbanSortableCard({
   projectId?: string;
   onProgressSuccess?: () => void;
   showHierarchy?: boolean;
+  compact?: boolean;
 }) {
   const dispatch = useAppDispatch();
   const { canView } = usePermissions();
@@ -217,9 +219,9 @@ export default function KanbanSortableCard({
         <Box
           sx={{
             position: "relative",
-            borderRadius: isTaskBoardCard ? 1 : 3,
-            p: isTaskBoardCard ? 1.25 : 2,
-            mb: isTaskBoardCard ? 1 : 2,
+            borderRadius: compact ? 1.25 : isTaskBoardCard ? 1 : 3,
+            p: compact ? 1 : isTaskBoardCard ? 1.25 : 2,
+            mb: compact ? 0.8 : isTaskBoardCard ? 1 : 2,
             backgroundColor: isDropTarget
               ? "#e7fbe7"
               : isDragging
@@ -229,6 +231,12 @@ export default function KanbanSortableCard({
             boxShadow: isTaskBoardCard ? "0 1px 4px rgba(15,23,42,0.05)" : "0 2px 8px rgba(0,0,0,0.06)",
             transition: "all 0.2s ease",
             overflow: "hidden",
+            ...(compact && {
+              "& .MuiTypography-root": { fontSize: "0.72rem" },
+              "& .MuiChip-root": { height: 20, fontSize: "0.65rem" },
+              "& .MuiIconButton-root": { width: 24, height: 24, p: 0.25 },
+              "& .MuiSvgIcon-root": { fontSize: 15 },
+            }),
 
             "&:hover": {
               boxShadow: isTaskBoardCard
@@ -542,58 +550,69 @@ export default function KanbanSortableCard({
           {(subtask.assignees && subtask.assignees.length > 0) && (
             <Box
               sx={{
-                mb: isTaskBoardCard ? 1 : 1.5,
-                pb: isTaskBoardCard ? 1 : 1.5,
+                mb: compact ? 0.75 : isTaskBoardCard ? 1 : 1.5,
+                pb: compact ? 0.75 : isTaskBoardCard ? 1 : 1.5,
                 borderBottom: "1px solid #e5e7eb",
               }}
             >
-              {!isTaskBoardCard && (
-              <Typography
-                variant="caption"
-                sx={{
-                  display: "block",
-                  fontSize: "11px",
-                  color: "#374151",
-                  fontWeight: 600,
-                  mb: 0.5,
-                }}
-              >
-                Assigned:
-              </Typography>
-              )}
-              <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5}>
+              <Stack direction="row" alignItems="center" sx={{ pl: 0.25 }}>
                 {subtask.assignees
-                  .slice(0, isTaskBoardCard ? 2 : subtask.assignees.length)
-                  .map((assignee: any, idx: number) => (
-                  <Chip
-                    key={idx}
-                    label={assignee.user?.name || "Unknown"}
-                    size="small"
-                    variant="outlined"
-                    sx={{
-                      fontSize: "10px",
-                      height: "20px",
-                      borderRadius: isTaskBoardCard ? "4px" : undefined,
-                      backgroundColor: "#e3f2fd",
-                      borderColor: "#0C66E4",
-                      color: "#0C66E4",
-                    }}
-                  />
-                ))}
-                {isTaskBoardCard && subtask.assignees.length > 2 && (
-                  <Chip
-                    label={`+${subtask.assignees.length - 2}`}
-                    size="small"
-                    variant="outlined"
-                    sx={{
-                      fontSize: "10px",
-                      height: "20px",
-                      borderRadius: "4px",
-                      backgroundColor: "#F8FAFC",
-                      borderColor: "#CBD5E1",
-                      color: "#475569",
-                    }}
-                  />
+                  .slice(0, compact || isTaskBoardCard ? 3 : 4)
+                  .map((assignee: { user?: { id?: string; name?: string } }, idx: number) => {
+                    const name = assignee.user?.name || "Unknown assignee";
+                    const initials = name
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((part) => part[0]?.toUpperCase())
+                      .join("") || "?";
+
+                    return (
+                      <Tooltip key={assignee.user?.id || `${name}-${idx}`} title={name} arrow>
+                        <Avatar
+                          sx={{
+                            width: compact ? 25 : 28,
+                            height: compact ? 25 : 28,
+                            ml: idx === 0 ? 0 : "-6px",
+                            fontSize: compact ? 9 : 10,
+                            fontWeight: 800,
+                            color: "#1D4ED8",
+                            bgcolor: "#DBEAFE",
+                            border: "2px solid #FFFFFF",
+                            cursor: "default",
+                            transition: "transform 0.15s ease",
+                            "&:hover": { zIndex: 2, transform: "translateY(-2px)" },
+                          }}
+                        >
+                          {initials}
+                        </Avatar>
+                      </Tooltip>
+                    );
+                  })}
+                {subtask.assignees.length > (compact || isTaskBoardCard ? 3 : 4) && (
+                  <Tooltip
+                    title={subtask.assignees
+                      .slice(compact || isTaskBoardCard ? 3 : 4)
+                      .map((assignee: { user?: { name?: string } }) => assignee.user?.name || "Unknown assignee")
+                      .join(", ")}
+                    arrow
+                  >
+                    <Avatar
+                      sx={{
+                        width: compact ? 25 : 28,
+                        height: compact ? 25 : 28,
+                        ml: "-6px",
+                        fontSize: compact ? 9 : 10,
+                        fontWeight: 900,
+                        color: "#475569",
+                        bgcolor: "#F1F5F9",
+                        border: "2px solid #FFFFFF",
+                        cursor: "default",
+                      }}
+                    >
+                      +{subtask.assignees.length - (compact || isTaskBoardCard ? 3 : 4)}
+                    </Avatar>
+                  </Tooltip>
                 )}
               </Stack>
             </Box>

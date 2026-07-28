@@ -32,7 +32,7 @@ export default function GridTableView({
   onUpdateProgress,
 }: GridTableViewProps) {
   // ========================================
-  // Ã°Å¸â€Â¥ FORMATTERS
+  //  FORMATTERS
   // ========================================
   const formatDate = (date?: string | Date) => {
     if (!date) return "-";
@@ -53,7 +53,7 @@ export default function GridTableView({
   };
 
   // ========================================
-  // Ã°Å¸â€Â¥ CALCULATE STATISTICS
+  //  CALCULATE STATISTICS
   // ========================================
   const totalBudget = useMemo(() => {
     return subtasks.reduce((sum, sub) => sum + (sub.budgetAllocated || 0), 0);

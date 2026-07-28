@@ -1,5 +1,6 @@
 import { Box, Card, Typography, Chip, LinearProgress, Stack } from "@mui/material";
 import { Subtask, Priority, CompareTheme } from "./types";
+import { formatBudget } from "@/app/utils/formatters";
 
 const PRIORITY_COLOR_MAP: Record<Priority, { chip: string; text: string }> = {
   LOW: { chip: "#9ca3af", text: "#fff" },
@@ -107,6 +108,18 @@ export default function SubtaskCard({ subtask, theme }: SubtaskCardProps) {
           }}
         />
       </Box>
+
+      {/* BUDGET AND WEIGHT */}
+      <Stack direction="row" justifyContent="space-between" spacing={1} sx={{ mb: 1.5, px: 1, py: 0.75, borderRadius: 1, bgcolor: "rgba(255,255,255,0.65)", border: "1px solid #e5e7eb" }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontSize: 9, color: "#9ca3af", fontWeight: 700, textTransform: "uppercase" }}>Budget</Typography>
+          <Typography noWrap sx={{ fontSize: 10.5, color: "#374151", fontWeight: 700 }}>{formatBudget(subtask.budgetAllocated, true)}</Typography>
+        </Box>
+        <Box sx={{ textAlign: "right" }}>
+          <Typography sx={{ fontSize: 9, color: "#9ca3af", fontWeight: 700, textTransform: "uppercase" }}>Weight</Typography>
+          <Typography sx={{ fontSize: 10.5, color: "#374151", fontWeight: 700 }}>{Number(subtask.budgetPercent || 0).toFixed(2)}%</Typography>
+        </Box>
+      </Stack>
 
       {/* DATES */}
       <Stack spacing={0.75} sx={{ fontSize: 12 }}>

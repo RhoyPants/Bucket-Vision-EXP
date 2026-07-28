@@ -535,7 +535,6 @@ export default function ScopeSelector({
                                           "0 2px 6px rgba(33,14,100,.25)",
                                       }}
                                     >
-                                      Ã¢Å“â€œ
                                     </Box>
                                   )}
                                 </Box>

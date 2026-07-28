@@ -7,7 +7,7 @@ import {
   deleteTaskLocal,
 } from "../slices/taskSlice";
 
-// Ã¢Å“â€¦ GET TASKS BY Scope (MAIN USE)
+//  GET TASKS BY Scope (MAIN USE)
 export const getTasksByScope = (scopeId: string) => {
   return async (dispatch: AppDispatch) => {
     try {
@@ -17,13 +17,13 @@ export const getTasksByScope = (scopeId: string) => {
 
       return res.data;
     } catch (err) {
-      console.error("Ã¢ÂÅ’ Error fetching tasks:", err);
+      console.error("❌ Error fetching tasks:", err);
       return [];
     }
   };
 };
 
-// Ã¢ÂÅ’ REMOVE /tasks/project Ã¢â‚¬â€ NOT IN BACKEND
+//  REMOVE /tasks/project – NOT IN BACKEND
 // (we keep your function but comment for safety)
 /*
 export const getTasksByProject = (projectId: string) => {
@@ -33,27 +33,27 @@ export const getTasksByProject = (projectId: string) => {
       dispatch(setTasks(res.data));
       return res.data;
     } catch (err) {
-      console.error("Ã¢ÂÅ’ Error fetching tasks:", err);
+      console.error("❌ Error fetching tasks:", err);
       throw err;
     }
   };
 };
 */
 
-// Ã¢Å“â€¦ GET SINGLE TASK
+// GET SINGLE TASK
 export const getTaskById = (taskId: string) => {
   return async () => {
     try {
       const res = await axiosApi.get(`/tasks/${taskId}`);
       return res.data;
     } catch (err) {
-      console.error("Ã¢ÂÅ’ Error fetching task:", err);
+      console.error("❌ Error fetching task:", err);
       throw err;
     }
   };
 };
 
-// Ã¢Å“â€¦ CREATE TASK
+// CREATE TASK
 export const createTask = (data: any) => {
   return async (dispatch: AppDispatch) => {
     try {
@@ -64,13 +64,13 @@ export const createTask = (data: any) => {
 
       return res.data;
     } catch (err) {
-      console.error("Ã¢ÂÅ’ Error creating task:", err);
+      console.error("❌ Error creating task:", err);
       throw err;
     }
   };
 };
 
-// Ã¢Å“â€¦ UPDATE TASK
+// UPDATE TASK
 export const updateTask = (taskId: string, data: any) => {
   return async (dispatch: AppDispatch) => {
     try {
@@ -80,13 +80,13 @@ export const updateTask = (taskId: string, data: any) => {
 
       return res.data;
     } catch (err) {
-      console.error("Ã¢ÂÅ’ Error updating task:", err);
+      console.error("❌ Error updating task:", err);
       throw err;
     }
   };
 };
 
-// Ã¢Å“â€¦ DELETE TASK
+// DELETE TASK
 export const deleteTask = (taskId: string) => {
   return async (dispatch: AppDispatch) => {
     try {
@@ -94,7 +94,7 @@ export const deleteTask = (taskId: string) => {
 
       dispatch(deleteTaskLocal(taskId));
     } catch (err) {
-      console.error("Ã¢ÂÅ’ Error deleting task:", err);
+      console.error("❌ Error deleting task:", err);
       throw err;
     }
   };

@@ -38,6 +38,12 @@ interface ProjectWithApproval {
   description?: string;
   status?: string;
   businessUnit?: string;
+  businessUnitName?: string;
+  businessUnitDetails?: {
+    id?: string;
+    code?: string;
+    name?: string;
+  } | null;
   approvalFlowId?: string;
   approvalEnabled?: boolean;
   approvalFlow?: {
@@ -86,6 +92,9 @@ export default function ProjectApprovalManagement() {
         return "default";
     }
   };
+
+  const getBusinessUnitName = (project: ProjectWithApproval) =>
+    project.businessUnitDetails?.name || project.businessUnitName || "-";
 
   if (loading) {
     return (
@@ -177,7 +186,7 @@ export default function ProjectApprovalManagement() {
                       variant="outlined"
                     />
                   </TableCell>
-                  <TableCell>{project.businessUnit || "-"}</TableCell>
+                  <TableCell>{getBusinessUnitName(project)}</TableCell>
                   <TableCell>
                     <Typography sx={{ fontSize: 13, fontWeight: 500 }}>
                       {project.approvalFlow?.name || (
@@ -271,13 +280,13 @@ export default function ProjectApprovalManagement() {
                       />
                     </Box>
 
-                    {project.businessUnit && (
+                    {getBusinessUnitName(project) !== "-" && (
                       <Box>
                         <Typography variant="caption" sx={{ color: "#6b7280", display: "block", mb: 0.5 }}>
                           Business Unit
                         </Typography>
                         <Typography sx={{ fontSize: 13, fontWeight: 500 }}>
-                          {project.businessUnit}
+                          {getBusinessUnitName(project)}
                         </Typography>
                       </Box>
                     )}

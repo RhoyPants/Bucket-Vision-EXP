@@ -21,6 +21,7 @@ export default function KanbanColumn({
   projectId = "",
   onProgressSuccess,
   showHierarchy = false,
+  compact = false,
 }: {
   id: string | number;
   title: string;
@@ -31,6 +32,7 @@ export default function KanbanColumn({
   projectId?: string;
   onProgressSuccess?: () => void;
   showHierarchy?: boolean;
+  compact?: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${id}`,
@@ -50,9 +52,9 @@ export default function KanbanColumn({
       ref={setNodeRef}
       sx={{
         backgroundColor: showHierarchy ? "#F8FAFC" : "#f7f7fb",
-        borderRadius: 2,
-        p: showHierarchy ? 1.5 : 2,
-        minHeight: "300px",
+        borderRadius: compact ? 1.25 : 2,
+        p: compact ? 1 : showHierarchy ? 1.5 : 2,
+        minHeight: compact ? "240px" : "300px",
         maxHeight: "72vh",
         overflowY: "auto",
         transition: "all 0.25s ease",
@@ -66,8 +68,8 @@ export default function KanbanColumn({
       <Typography
         sx={{
           fontWeight: 800,
-          mb: showHierarchy ? 1.25 : 1,
-          fontSize: showHierarchy ? 13 : "inherit",
+          mb: compact ? 0.75 : showHierarchy ? 1.25 : 1,
+          fontSize: compact ? 12 : showHierarchy ? 13 : "inherit",
           color: "#1f2937",
         }}
       >
@@ -86,6 +88,7 @@ export default function KanbanColumn({
               projectId={projectId}
               onProgressSuccess={onProgressSuccess}
               showHierarchy={showHierarchy}
+              compact={compact}
             />
           </Box>
         ))}

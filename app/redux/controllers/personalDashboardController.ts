@@ -1,7 +1,6 @@
 import { AppDispatch } from "../store";
 import {
   DashboardChartConfig,
-  KpiThreshold,
   createDashboardKpi,
   createPersonalDashboard,
   deleteDashboardKpi,
@@ -206,7 +205,8 @@ export const createKpi = (
     scopeId?: string;
     taskId?: string;
     subtaskId?: string;
-    thresholds: KpiThreshold[];
+    criticalBelow: number;
+    healthyAtOrAbove: number;
   }
 ) => {
   return async (dispatch: AppDispatch) => {
@@ -234,8 +234,12 @@ export const updateKpi = (
   kpiId: string,
   data: {
     name: string;
-    description?: string;
-    thresholds: KpiThreshold[];
+    description?: string | null;
+    scopeId?: string | null;
+    taskId?: string | null;
+    subtaskId?: string | null;
+    criticalBelow: number;
+    healthyAtOrAbove: number;
   }
 ) => {
   return async (dispatch: AppDispatch) => {

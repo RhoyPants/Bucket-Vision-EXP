@@ -62,7 +62,7 @@ function SprintManagementContent() {
   const currentTask = tasks.find((t) => t.id === currentTaskId);
 
   // ========================================
-  // Ã°Å¸â€œÅ’ FILTER TASKS BY Scope (NO API CALL)
+  //  FILTER TASKS BY Scope (NO API CALL)
   // ========================================
   const filteredTasksForScope = useMemo(() => {
     if (!currentScopeId || !tasks) return [];
@@ -79,7 +79,7 @@ function SprintManagementContent() {
   }, [currentScopeId, tasks]);
 
   // ========================================
-  // Ã°Å¸â€œÅ’ LOAD CASCADE: Project Ã¢â€ â€™ scopes Ã¢â€ â€™ Tasks Ã¢â€ â€™ Subtasks
+  //  LOAD CASCADE: Project -> scopes -> Tasks -> Subtasks
   // ========================================
   useEffect(() => {
     const loadInitial = async () => {
@@ -108,7 +108,7 @@ function SprintManagementContent() {
 
       if (!fullProjectData) return;
 
-      // Ã¢Å“â€¦ POPULATE REDUX STATE WITH FULL PROJECT DATA
+      // POPULATE REDUX STATE WITH FULL PROJECT DATA
       // Step 4A: Set all scopes in Redux
       if (fullProjectData.scopes?.length) {
         dispatch(setScopes(fullProjectData.scopes));
@@ -162,7 +162,7 @@ function SprintManagementContent() {
   }, [currentTaskId, dispatch]);
 
   // ========================================
-  // Ã°Å¸â€œÅ’ WHEN Scope CHANGES: Auto-select first task in new Scope
+  //  WHEN Scope CHANGES: Auto-select first task in new Scope
   // ========================================
   useEffect(() => {
     if (!currentScopeId || filteredTasksForScope.length === 0) {
@@ -183,7 +183,7 @@ function SprintManagementContent() {
   }, [currentScopeId, filteredTasksForScope, currentTaskId, dispatch]);
 
   const handleProgressSuccess = async () => {
-    // Ã¢Å“â€¦ Reload only subtasks for current task (don't reset project/Scope)
+    // Reload only subtasks for current task (don't reset project/Scope)
     if (currentTaskId) {
       const kanban = await dispatch(loadKanbanByTask(currentTaskId));
       if (kanban) setColumns(kanban.columns);
@@ -203,7 +203,7 @@ function SprintManagementContent() {
     setOpenTaskModal(true);
   };
 
-  // Ã°Å¸â€Â§ REFETCH scopes & TASKS AFTER MODAL CLOSES (to maintain order)
+  // REFETCH scopes & TASKS AFTER MODAL CLOSES (to maintain order)
   const handleTaskModalClose = async () => {
     setOpenTaskModal(false);
     setSelectedTaskForModal(null);
@@ -279,7 +279,7 @@ function SprintManagementContent() {
             },
           }}
         >
-          {/* Ã°Å¸â€œÅ’ PROJECT SELECTOR */}
+          {/* PROJECT SELECTOR */}
           <Paper
             sx={{
               p: { xs: 1.5, sm: 2, md: 2.5 },
@@ -290,7 +290,7 @@ function SprintManagementContent() {
             <ProjectSelector />
           </Paper>
 
-          {/* Ã°Å¸â€œÅ’ VIEW TOGGLE */}
+          {/* VIEW TOGGLE */}
           <Box
             sx={{
               display: "flex",
@@ -326,10 +326,10 @@ function SprintManagementContent() {
             </ButtonGroup>
           </Box>
 
-          {/* Ã°Å¸â€œÅ’ KANBAN VIEW */}
+          {/* KANBAN VIEW */}
           {viewMode === "kanban" && (
             <>
-              {/* Ã°Å¸â€œÅ’ S-CURVE */}
+              {/* S-CURVE */}
               <Paper
                 sx={{
                   p: { xs: 1.5, sm: 2, md: 2.5, lg: 3 },
@@ -361,7 +361,7 @@ function SprintManagementContent() {
                 </Box>
               </Paper>
 
-              {/* Ã°Å¸â€œÅ’ TOP STACKED LAYOUT: Scope + TASK HORIZONTAL SLIDER */}
+              {/* TOP STACKED LAYOUT: Scope + TASK HORIZONTAL SLIDER */}
               <Box
                 sx={{
                   display: "flex",
@@ -434,9 +434,9 @@ function SprintManagementContent() {
                   <Paper
                     elevation={0}
                     sx={{
-                      flex: 1, // Ã°Å¸â€Â¥ simplify this (no need object)
-                      width: 0, // Ã¢Å“â€¦ CRITICAL FIX
-                      minWidth: 0, // Ã¢Å“â€¦ prevents overflow pushing
+                      flex: 1, //simplify this (no need object)
+                      width: 0, //  CRITICAL FIX
+                      minWidth: 0, // prevents overflow pushing
                       maxWidth: "100%",
 
                       borderRadius: 4,
@@ -495,7 +495,7 @@ function SprintManagementContent() {
             </>
           )}
 
-          {/* Ã°Å¸â€œÅ’ GRID VIEW */}
+          {/* GRID VIEW */}
           {viewMode === "grid" && (
             <>
               <Paper sx={{ p: { xs: 2, md: 2.5, lg: 3 }, borderRadius: 3 }}>

@@ -30,7 +30,7 @@ export const validateTaskForm = (
 ): ValidationResult => {
   const errors: ValidationError[] = [];
 
-  // Ã¢Å“â€¦ Title validation
+  //  Title validation
   if (!form.title || form.title.trim() === "") {
     errors.push({
       field: "title",
@@ -48,7 +48,7 @@ export const validateTaskForm = (
     });
   }
 
-  // Ã¢Å“â€¦ Budget Allocated validation
+  //  Budget Allocated validation
   if (form.budgetAllocated === undefined || form.budgetAllocated === null) {
     errors.push({
       field: "budgetAllocated",
@@ -66,7 +66,7 @@ export const validateTaskForm = (
     });
   }
 
-  // Ã¢Å“â€¦ Budget validation against Scope budget
+  //  Budget validation against Scope budget
   if (form.budgetAllocated !== undefined && form.budgetAllocated !== null && scopeBudget > 0 && form.budgetAllocated > scopeBudget) {
     errors.push({
       field: "budgetAllocated",
@@ -74,7 +74,7 @@ export const validateTaskForm = (
     });
   }
 
-  // Ã¢Å“â€¦ Description validation (optional but has limits)
+  //  Description validation (optional but has limits)
   if (form.description && form.description.length > 500) {
     errors.push({
       field: "description",

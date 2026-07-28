@@ -5,7 +5,8 @@ export interface PagePermissionRoute {
 }
 
 export const protectedPageRoutes: PagePermissionRoute[] = [
-  { key: "personal_dashboard", name: "Personal Dashboard", path: "/personalDashboard" },
+  { key: "dashboard", name: "Dashboard", path: "/dashboard" },
+  { key: "projects", name: "Project Dashboard", path: "/projectDashboard/:projectId" },
   { key: "projects", name: "Projects", path: "/projects" },
   { key: "project_setup", name: "Project Setup", path: "/projects/:id/setup" },
   { key: "approval_review", name: "Approval Review", path: "/approvals/:projectId" },

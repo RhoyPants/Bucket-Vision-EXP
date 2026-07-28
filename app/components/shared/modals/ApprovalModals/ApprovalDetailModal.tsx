@@ -13,6 +13,7 @@ import {
   CircularProgress,
   Alert,
   Divider,
+  TextField,
 } from "@mui/material";
 import { useState } from "react";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -30,7 +31,7 @@ interface ApprovalDetailModalProps {
   project: any; // Full project data
   approval: ProjectApproval | null;
   auditLogs: ApprovalAuditLog[];
-  onApprove: () => Promise<void>;
+  onApprove: (remarks: string) => Promise<void>;
   onReject: (remarks: string) => Promise<void>;
   isSubmitting?: boolean;
   loading?: boolean;
@@ -48,12 +49,14 @@ export default function ApprovalDetailModal({
   loading = false,
 }: ApprovalDetailModalProps) {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [approvalRemarks, setApprovalRemarks] = useState("");
 
   const canApprove = approval?.status === "PENDING";
 
   const handleApprove = async () => {
     try {
-      await onApprove();
+      await onApprove(approvalRemarks);
+      setApprovalRemarks("");
       onClose();
     } catch (err: any) {
       console.error("Approval failed:", err);
@@ -176,9 +179,24 @@ export default function ApprovalDetailModal({
               {canApprove && (
                 <Alert severity="info" sx={{ mt: 2.5, backgroundColor: "#eff6ff", borderColor: "#3b82f6" }}>
                   <Typography sx={{ fontSize: 12, fontWeight: 500 }}>
-                    You can approve or reject this project below. Rejections will require detailed remarks.
+                    You can add optional approval remarks below. Rejections require detailed remarks.
                   </Typography>
                 </Alert>
+              )}
+              {canApprove && (
+                <TextField
+                  label="Approval Remarks (Optional)"
+                  placeholder="e.g. Approved — schedule and budget reviewed."
+                  value={approvalRemarks}
+                  onChange={(event) => setApprovalRemarks(event.target.value)}
+                  multiline
+                  minRows={3}
+                  fullWidth
+                  inputProps={{ maxLength: 500 }}
+                  helperText={`${approvalRemarks.length}/500 characters`}
+                  disabled={isSubmitting}
+                  sx={{ mt: 2.5 }}
+                />
               )}
             </>
           )}

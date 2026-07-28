@@ -186,14 +186,20 @@ export default function CompareVersionsTab({
   const versions = useMemo(() => {
     return allVersions.length > 0 ? allVersions : versionHistory;
   }, [allVersions, versionHistory]);
+  const sortedVersions = useMemo(
+    () => [...versions].sort((a, b) => Number(a.versionNumber || 0) - Number(b.versionNumber || 0)),
+    [versions],
+  );
 
-  // Auto-select version 1 (original/first version) when versions load
+  // Start with the earliest and latest versions so the comparison is immediately understandable.
   useEffect(() => {
-    if (versions.length > 0 && !selectedV1) {
-      const v1 = versions.find((v) => v.versionNumber === 1);
-      if (v1) setSelectedV1(v1.id);
+    if (sortedVersions.length > 0 && !selectedV1) {
+      setSelectedV1(sortedVersions[0].id);
     }
-  }, [versions, selectedV1]);
+    if (sortedVersions.length > 1 && !selectedV2) {
+      setSelectedV2(sortedVersions[sortedVersions.length - 1].id);
+    }
+  }, [selectedV1, selectedV2, sortedVersions]);
 
   const handleCompare = async () => {
     if (selectedV1 && selectedV2 && selectedV1 !== selectedV2) {
@@ -259,21 +265,30 @@ export default function CompareVersionsTab({
     <Box>
       {/*  Selector panel  */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: "bold", mb: 3 }}>
+        <Typography variant="h6" sx={{ fontWeight: "bold" }}>
           Compare Two Versions
         </Typography>
+        <Typography sx={{ color: "#64748B", fontSize: 12, mt: 0.5, mb: 3 }}>
+          The base is the earlier snapshot. “Compare with” is the version you want to evaluate against it.
+        </Typography>
+
+        {sortedVersions.length < 2 && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            At least two project versions are required before a comparison can be generated.
+          </Alert>
+        )}
 
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, sm: 5 }}>
             <FormControl fullWidth>
-              <InputLabel>Version 1 (Base)</InputLabel>
+              <InputLabel>Base version (before)</InputLabel>
               <Select
                 value={selectedV1}
-                label="Version 1 (Base)"
+                label="Base version (before)"
                 onChange={(e) => setSelectedV1(e.target.value)}
               >
-                <MenuItem value="">Select version...</MenuItem>
-                {versions.map((v) => (
+                <MenuItem value="">Choose base version</MenuItem>
+                {sortedVersions.map((v) => (
                   <MenuItem
                     key={v.id}
                     value={v.id}
@@ -299,14 +314,14 @@ export default function CompareVersionsTab({
 
           <Grid size={{ xs: 12, sm: 5 }}>
             <FormControl fullWidth>
-              <InputLabel>Version 2 (Comparison)</InputLabel>
+              <InputLabel>Compare with (after)</InputLabel>
               <Select
                 value={selectedV2}
-                label="Version 2 (Comparison)"
+                label="Compare with (after)"
                 onChange={(e) => setSelectedV2(e.target.value)}
               >
-                <MenuItem value="">Select version...</MenuItem>
-                {versions.map((v) => (
+                <MenuItem value="">Choose comparison version</MenuItem>
+                {sortedVersions.map((v) => (
                   <MenuItem
                     key={v.id}
                     value={v.id}

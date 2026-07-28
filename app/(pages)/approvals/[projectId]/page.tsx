@@ -18,6 +18,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
+  TextField,
 } from "@mui/material";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import CloseIcon from "@mui/icons-material/Close";
@@ -25,6 +26,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import BlockIcon from "@mui/icons-material/Block";
 import ViewWeekIcon from "@mui/icons-material/ViewWeek";
 import ViewAgendaIcon from "@mui/icons-material/ViewAgenda";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import DownloadIcon from "@mui/icons-material/Download";
 import LayersIcon from "@mui/icons-material/Layers";
 import HistoryIcon from "@mui/icons-material/History";
@@ -48,6 +50,7 @@ import ApprovalAuditTrail from "@/app/components/shared/modals/ApprovalModals/Ap
 import ApprovalRejectDialog from "@/app/components/shared/modals/ApprovalModals/ApprovalRejectDialog";
 import GanttGridView from "@/app/(pages)/sprintManagement/Components/GridTableView";
 import StructuredViewComponent from "./components/StructuredView";
+import DashboardCalendar from "@/app/components/shared/calendar/DashboardCalendar";
 import {
   ApiAttachment,
   getAttachmentFileName,
@@ -55,7 +58,7 @@ import {
 } from "@/app/api-service/attachmentService";
 import type { Scope } from "./components/types";
 
-type ViewMode = "structured" | "gantt";
+type ViewMode = "structured" | "gantt" | "calendar";
 
 type ApiError = {
   response?: {
@@ -92,6 +95,12 @@ type ApprovalProject = Record<string, unknown> & {
   totalBudget?: number;
   priority?: string;
   businessUnit?: string;
+  businessUnitName?: string;
+  businessUnitDetails?: {
+    id?: string;
+    code?: string;
+    name?: string;
+  } | null;
   entity?: string;
   startDate?: string;
   expectedEndDate?: string;
@@ -199,6 +208,7 @@ function ApprovalReviewPageContent() {
   const [viewMode, setViewMode] = useState<ViewMode>("structured");
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [approvalRemarks, setApprovalRemarks] = useState("");
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [successAction, setSuccessAction] = useState<"approved" | "rejected" | null>(null);
   const [selectedAuditLog, setSelectedAuditLog] = useState<ApprovalAuditLog | null>(null);
@@ -242,10 +252,11 @@ function ApprovalReviewPageContent() {
     }
   }, [projectId, dispatch]);
 
-  const handleApprove = async () => {
+  const handleApprove = async (remarks?: string) => {
     try {
       setSubmitting(true);
-      await dispatch(approveProject(projectId));
+      await dispatch(approveProject(projectId, remarks));
+      await dispatch(getApprovalAuditTrail(projectId));
 
       // Fetch fresh approvals to find the next pending step
       try {
@@ -303,7 +314,8 @@ function ApprovalReviewPageContent() {
 
   const handleApproveConfirm = async () => {
     setApproveDialogOpen(false);
-    await handleApprove();
+    await handleApprove(approvalRemarks);
+    setApprovalRemarks("");
   };
 
   const handleRejectConfirm = async (remarks: string) => {
@@ -745,7 +757,7 @@ function ApprovalReviewPageContent() {
                     color: "#374151",
                   }}
                 >
-                  {project.businessUnit || "N/A"}
+                  {project.businessUnitDetails?.name || project.businessUnitName || "N/A"}
                 </Typography>
               </Box>
               <Box>
@@ -1019,7 +1031,15 @@ function ApprovalReviewPageContent() {
                 startIcon={<ViewAgendaIcon />}
                 sx={{ fontSize: { xs: "11px", sm: "12px" } }}
               >
-                Gantt
+                Timeline
+              </Button>
+              <Button
+                onClick={() => setViewMode("calendar")}
+                variant={viewMode === "calendar" ? "contained" : "outlined"}
+                startIcon={<CalendarMonthIcon />}
+                sx={{ fontSize: { xs: "11px", sm: "12px" } }}
+              >
+                Calendar
               </Button>
             </ButtonGroup>
           </Box>
@@ -1033,12 +1053,17 @@ function ApprovalReviewPageContent() {
               minHeight: { xs: "300px", sm: "400px" },
             }}
           >
-            {viewMode === "structured" ? (
-              <StructuredView project={project} />
-            ) : (
+            {viewMode === "structured" && <StructuredView project={project} />}
+            {viewMode === "gantt" && (
               <Box sx={{ overflowX: "auto" }}>
                 <GanttGridView projectId={projectId} project={project} />
               </Box>
+            )}
+            {viewMode === "calendar" && (
+              <DashboardCalendar
+                projectId={projectId}
+                projectStartDate={project.startDate ?? null}
+              />
             )}
           </Box>
           </Card>
@@ -1132,10 +1157,26 @@ function ApprovalReviewPageContent() {
               Are you sure you want to approve this request for project{" "}
               <strong>{project.name}</strong>?
             </DialogContentText>
+            <TextField
+              label="Approval Remarks (Optional)"
+              placeholder="e.g. Approved — schedule and budget reviewed."
+              value={approvalRemarks}
+              onChange={(event) => setApprovalRemarks(event.target.value)}
+              multiline
+              minRows={3}
+              fullWidth
+              inputProps={{ maxLength: 500 }}
+              helperText={`${approvalRemarks.length}/500 characters`}
+              sx={{ mt: 2 }}
+              disabled={submitting}
+            />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button
-              onClick={() => setApproveDialogOpen(false)}
+              onClick={() => {
+                setApproveDialogOpen(false);
+                setApprovalRemarks("");
+              }}
               variant="outlined"
               disabled={submitting}
             >

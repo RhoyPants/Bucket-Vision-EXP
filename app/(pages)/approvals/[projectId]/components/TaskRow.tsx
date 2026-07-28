@@ -1,6 +1,7 @@
 import { Box, Typography, LinearProgress } from "@mui/material";
 import { Task, CompareTheme, getCompareTheme } from "./types";
 import SubtaskCard from "./SubtaskCard";
+import { formatBudget } from "@/app/utils/formatters";
 
 interface TaskRowProps {
   task: Task;
@@ -28,15 +29,15 @@ export default function TaskRow({ task, theme }: TaskRowProps) {
     >
       {/* TASK HEADER */}
       <Box sx={{ mb: 1.5 }}>
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.75 }}>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1, mb: 0.75 }}>
           <Typography fontWeight={600} fontSize={14} sx={{ color: ct ? ct.text : "#1f2937" }}>
             {task.title}
           </Typography>
-          {task.budgetAllocated !== undefined && (
-            <Typography fontSize={12} sx={{ color: "#6b7280", fontWeight: 600 }}>
-              ₱{(task.budgetAllocated || 0).toLocaleString()}
-            </Typography>
-          )}
+          <Typography fontSize={11} sx={{ color: "#64748b", fontWeight: 600 }}>
+            Budget: <Box component="span" sx={{ color: "#1f2937", fontWeight: 700 }}>{formatBudget(task.budgetAllocated, true)}</Box>
+            <Box component="span" sx={{ color: "#94a3b8", mx: 0.75 }}>•</Box>
+            Weight: <Box component="span" sx={{ color: "#1f2937", fontWeight: 700 }}>{Number(task.budgetPercent || 0).toFixed(2)}%</Box>
+          </Typography>
         </Box>
 
         {/* PROGRESS */}

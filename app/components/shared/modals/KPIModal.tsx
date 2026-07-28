@@ -16,12 +16,10 @@ import {
   Typography,
 } from "@mui/material";
 import {
-  KpiThreshold,
   PersonalDashboard,
   PersonalDashboardKpi,
   SourceOptions,
   SourcePreview,
-  ThresholdOperator,
 } from "@/app/api-service/personalDashboardService";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import {
@@ -31,33 +29,6 @@ import {
   updateKpi,
 } from "@/app/redux/controllers/personalDashboardController";
 import { usePermissions } from "@/app/lib/usePermissions";
-
-const statusColors: Record<string, { bg: string; color: string; accent: string }> = {
-  CRITICAL: { bg: "#fef2f2", color: "#b91c1c", accent: "#ef4444" },
-  ONFLOW: { bg: "#fffbeb", color: "#b45309", accent: "#f59e0b" },
-  HEALTHY: { bg: "#ecfdf5", color: "#047857", accent: "#10b981" },
-};
-
-const thresholdStatuses: KpiThreshold["status"][] = ["CRITICAL", "ONFLOW", "HEALTHY"];
-const operators: ThresholdOperator[] = ["LT", "LTE", "EQ", "GTE", "GT", "BETWEEN"];
-
-const valueOperatorLabels: Record<ThresholdOperator, string> = {
-  LT: "Less than",
-  LTE: "Less than or equal to",
-  EQ: "Equal to",
-  GTE: "Greater than or equal to",
-  GT: "Greater than",
-  BETWEEN: "Between",
-};
-
-const dateOperatorLabels: Record<ThresholdOperator, string> = {
-  LT: "Before",
-  LTE: "On or before",
-  EQ: "On this date",
-  GTE: "On or after",
-  GT: "After",
-  BETWEEN: "Between dates",
-};
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
@@ -71,21 +42,6 @@ const formatPreviewDate = (value?: string | null) => {
     month: "short",
     day: "2-digit",
   });
-};
-
-const toDateInputValue = (value?: string | null) => {
-  if (!value) return "";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
-};
-
-const toIsoDateValue = (value?: string | null) => {
-  if (!value) return undefined;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toISOString();
 };
 
 const detectSourceType = (scopeId: string, taskId: string, subtaskId: string) => {
@@ -117,43 +73,19 @@ const buildPreviewFromSourceOptions = (
   };
 };
 
-const emptyThresholds = (): KpiThreshold[] =>
-  thresholdStatuses.map((status) => ({
-    status,
-    operator: status === "ONFLOW" ? "BETWEEN" : "",
-    value1: "",
-    value2: status === "ONFLOW" ? "" : undefined,
-    dateOperator: "",
-    dateValue1: "",
-    dateValue2: "",
-  }));
-
-const cleanThresholds = (thresholds: KpiThreshold[]) =>
-  thresholds.map((threshold) => ({
-    status: threshold.status,
-    operator: threshold.operator as ThresholdOperator,
-    value1: Number(threshold.value1),
-    ...(threshold.operator === "BETWEEN" ? { value2: Number(threshold.value2) } : {}),
-    ...(threshold.dateOperator ? { dateOperator: threshold.dateOperator } : {}),
-    ...(threshold.dateOperator ? { dateValue1: toIsoDateValue(threshold.dateValue1) } : {}),
-    ...(threshold.dateOperator === "BETWEEN" ? { dateValue2: toIsoDateValue(threshold.dateValue2) } : {}),
-  }));
-
-const normalizeKpiThresholds = (thresholds?: KpiThreshold[]) => {
-  const byStatus = new Map((thresholds ?? []).map((threshold) => [threshold.status, threshold]));
-
-  return thresholdStatuses.map((status) => {
-    const threshold = byStatus.get(status);
+const getSimplifiedThresholds = (kpi?: PersonalDashboardKpi | null) => {
+  if (kpi?.thresholdConfig) {
     return {
-      status,
-      operator: threshold?.operator ?? "",
-      value1: threshold?.value1 ?? "",
-      value2: threshold?.operator === "BETWEEN" ? threshold.value2 ?? "" : undefined,
-      dateOperator: threshold?.dateOperator ?? "",
-      dateValue1: toDateInputValue(threshold?.dateValue1),
-      dateValue2: threshold?.dateOperator === "BETWEEN" ? toDateInputValue(threshold.dateValue2) : "",
+      criticalBelow: String(kpi.thresholdConfig.criticalBelow),
+      healthyAtOrAbove: String(kpi.thresholdConfig.healthyAtOrAbove),
     };
-  });
+  }
+  const critical = kpi?.thresholds?.find((threshold) => threshold.status === "CRITICAL");
+  const healthy = kpi?.thresholds?.find((threshold) => threshold.status === "HEALTHY");
+  return {
+    criticalBelow: critical?.value1 === undefined ? "30" : String(critical.value1),
+    healthyAtOrAbove: healthy?.value1 === undefined ? "70" : String(healthy.value1),
+  };
 };
 
 interface KPIModalProps {
@@ -176,8 +108,8 @@ export default function KPIModal({
   const { canCreate, canUpdate } = usePermissions();
   const isEdit = Boolean(editingKpi?.id);
   const canSaveKpi = isEdit
-    ? canUpdate("personal_dashboard")
-    : canCreate("personal_dashboard");
+    ? canUpdate("projects")
+    : canCreate("projects");
   const [preview, setPreview] = useState<SourcePreview | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -189,7 +121,8 @@ export default function KPIModal({
     taskId: "",
     subtaskId: "",
     field: "PROGRESS",
-    thresholds: emptyThresholds(),
+    criticalBelow: "30",
+    healthyAtOrAbove: "70",
   });
 
   const sourceType = useMemo(
@@ -212,19 +145,26 @@ export default function KPIModal({
     if (!dashboard?.id) return false;
     if (!form.field) return false;
 
-    return form.thresholds.every((threshold) => {
-      if (!threshold.operator || threshold.value1 === "") return false;
-      if (threshold.operator === "BETWEEN" && threshold.value2 === "") return false;
-      if (threshold.dateOperator && !threshold.dateValue1) return false;
-      if (threshold.dateOperator === "BETWEEN" && !threshold.dateValue2) return false;
-      return true;
-    });
-  }, [dashboard?.id, form.field, form.name, form.thresholds]);
+    const critical = Number(form.criticalBelow);
+    const healthy = Number(form.healthyAtOrAbove);
+    return (
+      form.criticalBelow.trim() !== "" &&
+      form.healthyAtOrAbove.trim() !== "" &&
+      Number.isFinite(critical) &&
+      Number.isFinite(healthy) &&
+      critical >= 0 &&
+      critical <= 100 &&
+      healthy >= 0 &&
+      healthy <= 100 &&
+      critical < healthy
+    );
+  }, [dashboard?.id, form.criticalBelow, form.field, form.healthyAtOrAbove, form.name]);
 
   useEffect(() => {
     if (!open || !dashboard?.id) return;
     setError("");
     setPreview(editingKpi?.preview ?? null);
+    const simplifiedThresholds = getSimplifiedThresholds(editingKpi);
     setForm({
       name: editingKpi?.name ?? "",
       unit: editingKpi?.unit ?? "%",
@@ -233,9 +173,7 @@ export default function KPIModal({
       taskId: editingKpi?.taskId ?? "",
       subtaskId: editingKpi?.subtaskId ?? "",
       field: editingKpi?.field ?? "PROGRESS",
-      thresholds: editingKpi?.thresholds?.length
-        ? normalizeKpiThresholds(editingKpi.thresholds)
-        : emptyThresholds(),
+      ...simplifiedThresholds,
     });
 
     dispatch(fetchKpiSourceOptions(dashboard.id)).catch((err: unknown) =>
@@ -279,24 +217,6 @@ export default function KPIModal({
     return () => window.clearTimeout(timeout);
   }, [dashboard?.id, dispatch, fieldOptions, form.field, form.scopeId, form.subtaskId, form.taskId, form.unit, isEdit, open, sourceOptions]);
 
-  const updateThreshold = (index: number, key: keyof KpiThreshold, value: string) => {
-    setForm((prev) => ({
-      ...prev,
-      thresholds: prev.thresholds.map((threshold, currentIndex) => {
-        if (currentIndex !== index) return threshold;
-        const next = { ...threshold, [key]: value };
-        if (key === "operator" && value !== "BETWEEN") next.value2 = undefined;
-        if (key === "operator" && value === "BETWEEN") next.value2 = next.value2 ?? "";
-        if (key === "dateOperator" && !value) {
-          next.dateValue1 = "";
-          next.dateValue2 = "";
-        }
-        if (key === "dateOperator" && value !== "BETWEEN") next.dateValue2 = "";
-        return next;
-      }),
-    }));
-  };
-
   const handleSubmit = async () => {
     if (!dashboard?.id || !isValid || !canSaveKpi) return;
     try {
@@ -305,7 +225,11 @@ export default function KPIModal({
       const payload = {
         name: form.name.trim(),
         description: form.description.trim(),
-        thresholds: cleanThresholds(form.thresholds),
+        scopeId: form.scopeId || null,
+        taskId: form.taskId || null,
+        subtaskId: form.subtaskId || null,
+        criticalBelow: Number(form.criticalBelow),
+        healthyAtOrAbove: Number(form.healthyAtOrAbove),
       };
 
       if (isEdit && editingKpi?.id) {
@@ -445,92 +369,52 @@ export default function KPIModal({
                 </Box>
               </Box>
 
-              <Box>
-                <Typography fontWeight={800} sx={{ mb: 1.5 }}>
-                  Threshold Rules
+              <Box sx={{ border: "1px solid #DBEAFE", borderRadius: 2, p: 2, bgcolor: "#F8FAFC" }}>
+                <Typography fontWeight={800}>Progress Thresholds</Typography>
+                <Typography sx={{ color: "#64748B", fontSize: 12, mt: 0.4, mb: 2 }}>
+                  Enter two values. Critical, In Flow, and Healthy rules are generated automatically.
                 </Typography>
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "repeat(3, 1fr)" }, gap: 2 }}>
-                  {form.thresholds.map((threshold, index) => {
-                    const colors = statusColors[threshold.status];
-                    return (
-                      <Box key={threshold.status} sx={{ border: `1px solid ${colors.accent}`, borderRadius: 2, p: 2, backgroundColor: colors.bg }}>
-                        <Typography fontWeight={900} sx={{ color: colors.color, mb: 1.5 }}>
-                          {threshold.status}
-                        </Typography>
-                        <Stack spacing={1.5}>
-                          <TextField
-                            select
-                            label="Value Operator"
-                            required
-                            size="small"
-                            value={threshold.operator}
-                            onChange={(event) => updateThreshold(index, "operator", event.target.value)}
-                          >
-                            {operators.map((operator) => (
-                              <MenuItem key={operator} value={operator}>
-                                {valueOperatorLabels[operator]}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                          <TextField
-                            label="Value 1"
-                            required
-                            type="number"
-                            size="small"
-                            value={threshold.value1}
-                            onChange={(event) => updateThreshold(index, "value1", event.target.value)}
-                          />
-                          {threshold.operator === "BETWEEN" && (
-                            <TextField
-                              label="Value 2"
-                              required
-                              type="number"
-                              size="small"
-                              value={threshold.value2 ?? ""}
-                              onChange={(event) => updateThreshold(index, "value2", event.target.value)}
-                            />
-                          )}
-                          <TextField
-                            select
-                            label="Date Operator"
-                            size="small"
-                            value={threshold.dateOperator ?? ""}
-                            onChange={(event) => updateThreshold(index, "dateOperator", event.target.value)}
-                          >
-                            <MenuItem value="">None</MenuItem>
-                            {operators.map((operator) => (
-                              <MenuItem key={operator} value={operator}>
-                                {dateOperatorLabels[operator]}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                          {threshold.dateOperator && (
-                            <TextField
-                              label="Date 1"
-                              required
-                              type="date"
-                              size="small"
-                              value={threshold.dateValue1 ?? ""}
-                              InputLabelProps={{ shrink: true }}
-                              onChange={(event) => updateThreshold(index, "dateValue1", event.target.value)}
-                            />
-                          )}
-                          {threshold.dateOperator === "BETWEEN" && (
-                            <TextField
-                              label="Date 2"
-                              required
-                              type="date"
-                              size="small"
-                              value={threshold.dateValue2 ?? ""}
-                              InputLabelProps={{ shrink: true }}
-                              onChange={(event) => updateThreshold(index, "dateValue2", event.target.value)}
-                            />
-                          )}
-                        </Stack>
-                      </Box>
-                    );
-                  })}
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
+                  <TextField
+                    required
+                    type="number"
+                    label="Critical Below"
+                    value={form.criticalBelow}
+                    inputProps={{ min: 0, max: 100, step: "any" }}
+                    onChange={(event) => setForm((prev) => ({ ...prev, criticalBelow: event.target.value }))}
+                    helperText="Progress below this percentage is Critical"
+                  />
+                  <TextField
+                    required
+                    type="number"
+                    label="Healthy At or Above"
+                    value={form.healthyAtOrAbove}
+                    inputProps={{ min: 0, max: 100, step: "any" }}
+                    onChange={(event) => setForm((prev) => ({ ...prev, healthyAtOrAbove: event.target.value }))}
+                    helperText="Progress at or above this percentage is Healthy"
+                  />
                 </Box>
+                {form.criticalBelow.trim() !== "" && form.healthyAtOrAbove.trim() !== "" && (
+                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" }, gap: 1, mt: 2 }}>
+                    <Box sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "#FEF2F2", border: "1px solid #FECACA" }}>
+                      <Typography sx={{ color: "#B91C1C", fontSize: 11, fontWeight: 800 }}>CRITICAL</Typography>
+                      <Typography sx={{ color: "#7F1D1D", fontSize: 12 }}>Progress &lt; {form.criticalBelow}%</Typography>
+                    </Box>
+                    <Box sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "#FFFBEB", border: "1px solid #FDE68A" }}>
+                      <Typography sx={{ color: "#B45309", fontSize: 11, fontWeight: 800 }}>IN FLOW</Typography>
+                      <Typography sx={{ color: "#78350F", fontSize: 12 }}>From {form.criticalBelow}% to below {form.healthyAtOrAbove}%</Typography>
+                    </Box>
+                    <Box sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "#ECFDF5", border: "1px solid #BBF7D0" }}>
+                      <Typography sx={{ color: "#047857", fontSize: 11, fontWeight: 800 }}>HEALTHY</Typography>
+                      <Typography sx={{ color: "#065F46", fontSize: 12 }}>Progress ≥ {form.healthyAtOrAbove}%</Typography>
+                    </Box>
+                  </Box>
+                )}
+                {!isValid && form.name.trim().length >= 2 && (
+                  <Alert severity="warning" sx={{ mt: 2 }}>
+                    Thresholds must be between 0 and 100, and Critical Below must be lower than Healthy At or Above.
+                  </Alert>
+                )}
               </Box>
             </>
           )}

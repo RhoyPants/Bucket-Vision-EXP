@@ -36,7 +36,6 @@ export default function MemberCard({
   projectId,
   memberId,
   name,
-  email,
   assigned,
   completed,
   inProgress,
@@ -148,19 +147,20 @@ export default function MemberCard({
             <AccountCircleIcon sx={{ fontSize: 60, color: "grey.600" }} />
           </Box>
 
-          <Box sx={{ flex: 1 }}>
-            <Typography sx={{ fontWeight: 800, fontSize: 14 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              noWrap
+              title={name}
+              sx={{
+                maxWidth: "100%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                fontWeight: 800,
+                fontSize: 14,
+              }}
+            >
               {name}
             </Typography>
-            {email && (
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: "block", fontSize: 11 }}
-              >
-                {email}
-              </Typography>
-            )}
           </Box>
         </Box>
 
@@ -205,14 +205,9 @@ export default function MemberCard({
           }}
         >
           <Box>
-            <Typography variant="caption" color="text.secondary">
-              Assigned
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700, color: "#4B2E83" }}>
-              {assigned}
-            </Typography>
+            <Typography variant="caption" color="text.secondary">Assigned</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: "#4B2E83" }}>{assigned}</Typography>
           </Box>
-
           <Box>
             <Typography variant="caption" color="text.secondary">
               Completed
@@ -277,10 +272,7 @@ export default function MemberCard({
       >
         <Box sx={{ p: 3 }}>
           <Typography sx={{ fontWeight: 800, fontSize: 18, mb: 0.5 }}>
-            {name}'s Tasks
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {email}
+            {name}&apos;s Tasks
           </Typography>
 
           {fullProject?.name && (
@@ -297,7 +289,7 @@ export default function MemberCard({
                 variant="body2"
                 sx={{ fontWeight: 600, color: "#4B2E83" }}
               >
-                Ã°Å¸â€œâ€¹ Project: {fullProject.name}
+                Project: {fullProject.name}
               </Typography>
             </Box>
           )}

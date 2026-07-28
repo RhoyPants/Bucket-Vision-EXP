@@ -73,7 +73,7 @@ export default function ProjectsPage() {
   const [viewType, setViewType] = useState<ViewType>("card");
   const [searchQuery, setSearchQuery] = useState("");
   const [businessUnitFilter, setBusinessUnitFilter] = useState("ALL");
-  const [statusFilter, setStatusFilter] = useState("ACTIVE");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [projectModalMode, setProjectModalMode] = useState<"create" | "edit">("create");
@@ -190,7 +190,7 @@ export default function ProjectsPage() {
   const businessUnitOptions = useMemo(() => {
     const buSet = new Set<string>();
     visibleProjects.forEach((p: any) => {
-      const buName = p?.businessUnitDetails?.name;
+      const buName = p?.businessUnitDetails?.name || p?.businessUnitName;
       if (buName) buSet.add(buName);
     });
     return Array.from(buSet).sort((a, b) => a.localeCompare(b));
@@ -203,7 +203,7 @@ export default function ProjectsPage() {
         String(p?.name || "").toLowerCase().includes(searchQuery.toLowerCase());
       const matchesBusinessUnit =
         businessUnitFilter === "ALL" ||
-        (p?.businessUnitDetails?.name || "") === businessUnitFilter;
+        (p?.businessUnitDetails?.name || p?.businessUnitName || "") === businessUnitFilter;
       const matchesStatus =
         !canViewAllProjectStatuses || statusFilter === "ALL" || p?.status === statusFilter;
       return matchesSearch && matchesBusinessUnit && matchesStatus;
@@ -230,6 +230,7 @@ export default function ProjectsPage() {
       ];
 
   const actions: ProjectCardActions = {
+    onOpenDashboard: (projectId) => router.push(`/projectDashboard/${projectId}`),
     onEdit: (project) => {
       if (!canUpdateProject) return;
       setProjectModalMode("edit");
@@ -247,8 +248,9 @@ export default function ProjectsPage() {
         await openNeedsRevisionModal(project);
         return;
       }
-      setSelectedProjectForApproval(project);
-      setApprovalDetailOpen(true);
+      // setSelectedProjectForApproval(project);
+      // setApprovalDetailOpen(true);
+      router.push(`/approvals/${project.id}`);
 
       try {
         await Promise.all([
@@ -359,21 +361,21 @@ export default function ProjectsPage() {
           actions={actions}
           viewType={viewType}
           onViewTypeChange={setViewType}
-          headerAction={
-            canCreateProject ? (
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={actions.onCreateProject}
-                sx={{
-                  bgcolor: "#210e64",
-                  "&:hover": { bgcolor: "#1a0b4f" },
-                }}
-              >
-                Create Project
-              </Button>
-            ) : null
-          }
+          // headerAction={
+          //   canCreateProject ? (
+          //     <Button
+          //       variant="contained"
+          //       startIcon={<AddIcon />}
+          //       onClick={actions.onCreateProject}
+          //       sx={{
+          //         bgcolor: "#210e64",
+          //         "&:hover": { bgcolor: "#1a0b4f" },
+          //       }}
+          //     >
+          //       Create Project
+          //     </Button>
+          //   ) : null
+          // }
           emptyMessage={canViewAllProjectStatuses ? "No projects found" : "No active projects"}
           emptySubtext={
             canViewAllProjectStatuses
@@ -414,10 +416,11 @@ export default function ProjectsPage() {
             null
           }
           auditLogs={auditTrail[selectedProjectForApproval?.id] || []}
-          onApprove={async () => {
+          onApprove={async (remarks: string) => {
             if (!selectedProjectForApproval?.id) return;
             try {
-              await dispatch(approveProject(selectedProjectForApproval.id));
+              await dispatch(approveProject(selectedProjectForApproval.id, remarks));
+              await dispatch(getApprovalAuditTrail(selectedProjectForApproval.id));
               setApprovalDetailOpen(false);
               dispatch(getProjects());
             } catch (err) {

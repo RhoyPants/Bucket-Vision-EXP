@@ -27,6 +27,8 @@ export interface Subtask {
   title: string;
   priority?: Priority;
   progress: number;
+  budgetAllocated?: number;
+  budgetPercent?: number;
   changeStatus?: ChangeStatus;
   projectedStartDate?: string;
   projectedEndDate?: string;
@@ -38,6 +40,7 @@ export interface Task {
   id: string;
   title: string;
   budgetAllocated?: number;
+  budgetPercent?: number;
   progress: number;
   changeStatus?: ChangeStatus;
   subtasks: Subtask[];
@@ -47,6 +50,7 @@ export interface Scope {
   id: string;
   name: string;
   budgetAllocated?: number;
+  budgetPercent?: number;
   description?: string;
   progress: number;
   changeStatus?: ChangeStatus;

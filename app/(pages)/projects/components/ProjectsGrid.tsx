@@ -68,10 +68,10 @@ type ProjectGridItem = {
   name?: string;
   description?: string;
   status?: string;
-  priority?: string;
   startDate?: string;
   expectedEndDate?: string;
   businessUnit?: string;
+  businessUnitName?: string;
   businessUnitDetails?: {
     id?: string;
     code?: string;
@@ -161,7 +161,7 @@ export default function ProjectsGrid({
 
   const statusStyle = (status?: string) => {
     if (status === "ACTIVE" || status === "APPROVED") {
-      return { label: "Approved", bg: "#ECFDF5", color: "#047857", border: "#BBF7D0" };
+      return { label: "Active", bg: "#ECFDF5", color: "#047857", border: "#BBF7D0" };
     }
     if (status === "FOR_REVIEW") {
       return { label: "For Review", bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" };
@@ -181,8 +181,8 @@ export default function ProjectsGrid({
     return { label: "Draft", bg: "#F8FAFC", color: "#475569", border: "#E2E8F0" };
   };
 
-  const businessUnitCode = (project: ProjectGridItem) => {
-    return project.businessUnitDetails?.code || "-";
+  const businessUnitName = (project: ProjectGridItem) => {
+    return project.businessUnitDetails?.name || project.businessUnitName || "-";
   };
 
   const tableHeadCellSx = {
@@ -219,19 +219,21 @@ export default function ProjectsGrid({
     ? Math.min(pagination.page * pagination.limit, pagination.total)
     : 0;
 
-  const priorityLegend = (
+  const statusLegend = (
     <Stack
       direction={{ xs: "column", sm: "row" }}
       spacing={{ xs: 0.75, sm: 2 }}
       alignItems={{ xs: "flex-start", sm: "center" }}
     >
       <Typography sx={{ fontSize: 12, fontWeight: 700, color: "#475569", letterSpacing: 0.2 }}>
-        Priority Legend
+        Status Legend
       </Typography>
       {[
-        { label: "Low", color: "#73FED5" },
-        { label: "Medium", color: "#9DC9FE" },
-        { label: "High", color: "#FDD6AD" },
+        { label: "Draft", color: "#C9B6FF" },
+        { label: "For Review", color: "#FDD6AD" },
+        { label: "For Approval", color: "#9DC9FE" },
+        { label: "Needs Revision", color: "#F4989E" },
+        { label: "Active", color: "#73FED5" },
       ].map((item) => (
         <Stack key={item.label} direction="row" spacing={0.75} alignItems="center">
           <Box
@@ -240,7 +242,7 @@ export default function ProjectsGrid({
               height: 12,
               borderRadius: "50%",
               backgroundColor: item.color,
-              border: "1px solid #CBD5E1",
+              border: "1px solid rgba(15, 23, 42, 0.12)",
             }}
           />
           <Typography sx={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>
@@ -251,7 +253,7 @@ export default function ProjectsGrid({
     </Stack>
   );
 
-  const legendWithViewToggle = (
+  const headerWithViewToggle = (
     <Stack
       direction={{ xs: "column", sm: "row" }}
       justifyContent="space-between"
@@ -259,7 +261,7 @@ export default function ProjectsGrid({
       spacing={1}
       sx={{ mb: 2 }}
     >
-      {priorityLegend}
+      {statusLegend}
       <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
         {onViewTypeChange && (
           <ToggleButtonGroup
@@ -314,7 +316,7 @@ export default function ProjectsGrid({
   if (viewType === "list") {
     return (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-        {legendWithViewToggle}
+        {headerWithViewToggle}
         <Box
           sx={{
             display: "flex",
@@ -371,9 +373,6 @@ export default function ProjectsGrid({
                 <TableCell sx={{ ...tableHeadCellSx, width: 130, bgcolor: "#F8FAFC" }}>
                   Business Unit
                 </TableCell>
-                <TableCell sx={{ ...tableHeadCellSx, width: 104, bgcolor: "#F8FAFC" }}>
-                  Priority
-                </TableCell>
                 <TableCell
                   align="center"
                   className="project-action-cell"
@@ -392,7 +391,12 @@ export default function ProjectsGrid({
               {projects.map((project) => {
                 const status = statusStyle(project.status);
                 return (
-                  <TableRow key={project.id} hover sx={{ bgcolor: "#FFFFFF" }}>
+                  <TableRow
+                    key={project.id}
+                    hover
+                    onClick={() => actions.onOpenDashboard?.(project.id)}
+                    sx={{ bgcolor: "#FFFFFF", cursor: "pointer" }}
+                  >
                     <TableCell sx={tableBodyCellSx}>
                       <Typography
                         noWrap
@@ -450,12 +454,7 @@ export default function ProjectsGrid({
                     </TableCell>
                     <TableCell sx={tableBodyCellSx}>
                       <Typography sx={{ fontSize: 13, color: "#334155", fontWeight: 400 }}>
-                        {businessUnitCode(project)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={tableBodyCellSx}>
-                      <Typography noWrap sx={{ fontSize: 13, color: "#334155", fontWeight: 500 }}>
-                        {project.priority || "-"}
+                        {businessUnitName(project)}
                       </Typography>
                     </TableCell>
                     <TableCell
@@ -467,7 +466,10 @@ export default function ProjectsGrid({
                         <Tooltip title="View">
                           <IconButton
                             size="small"
-                            onClick={() => actions.onViewApproval(project)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              actions.onViewApproval(project);
+                            }}
                             sx={{
                               color: "#1D4ED8",
                               border: "1px solid #BFDBFE",
@@ -628,7 +630,7 @@ export default function ProjectsGrid({
 
   return (
     <Box>
-      {legendWithViewToggle}
+      {headerWithViewToggle}
       <Grid container spacing={3}>
         {projects.map((project) => (
           <Grid size={{ xs: 12, sm: 6, lg: 4, xl: 3 }} key={project.id}>

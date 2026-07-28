@@ -41,10 +41,10 @@ type ProjectCardProject = {
   completionRate?: number;
   completionPercentage?: number;
   status?: string;
-  priority?: string;
   startDate?: string;
   expectedEndDate?: string;
   businessUnit?: string;
+  businessUnitName?: string;
   businessUnitDetails?: {
     id?: string;
     code?: string;
@@ -123,34 +123,17 @@ export const getProjectVersionLabel = (project: ProjectCardProject): string => {
   return `Version ${label}`;
 };
 
-const priorityTone = (priority?: string) => {
-  const normalized = String(priority || "").toUpperCase();
-  if (normalized === "CRITICAL") return { bg: "#FEF2F2", color: "#991B1B", border: "#FECACA", label: "Critical" };
-  if (normalized === "HIGH") return { bg: "#FFF1F2", color: "#BE123C", border: "#FDA4AF", label: "High" };
-  if (normalized === "MEDIUM") return { bg: "#FFFBEB", color: "#B45309", border: "#FDE68A", label: "Medium" };
-  if (normalized === "LOW") return { bg: "#ECFDF5", color: "#047857", border: "#BBF7D0", label: "Low" };
-  return { bg: "#F8FAFC", color: "#475569", border: "#E2E8F0" };
+const statusCardTone = (status?: string) => {
+  const normalized = String(status || "").toUpperCase();
+  if (normalized === "DRAFT") return "#C9B6FF";
+  if (normalized === "FOR_REVIEW") return "#FDD6AD";
+  if (normalized === "FOR_APPROVAL") return "#9DC9FE";
+  if (normalized === "NEEDS_REVISION") return "#F4989E";
+  if (normalized === "ACTIVE" || normalized === "APPROVED") return "#85d896";
+  return "#C9B6FF";
 };
 
-const priorityCardTone = (priority?: string) => {
-  const normalized = String(priority || "").toUpperCase();
-  if (normalized === "HIGH") return "#FDD6AD";
-  if (normalized === "MEDIUM") return "#9DC9FE";
-  if (normalized === "LOW") return "#73FED5";
-  if (normalized === "CRITICAL") return "#F4989E";
-  return "#8282B1";
-};
-
-const getHeaderTone = (priority?: string) => {
-  if (!priority) {
-    return {
-      title: "#FEFEFE",
-      subtitle: "#E9EDF5",
-      icon: "#FEFEFE",
-      border: "#E9EDF5",
-    };
-  }
-
+const getHeaderTone = () => {
   return {
     title: "#555B66",
     subtitle: "#555B66",
@@ -160,7 +143,7 @@ const getHeaderTone = (priority?: string) => {
 };
 
 const statusChipColor = (status?: string) => {
-  if (status === "ACTIVE" || status === "APPROVED") return { bg: "#ECFDF5", color: "#047857", border: "#BBF7D0", label: "Approved" };
+  if (status === "ACTIVE" || status === "APPROVED") return { bg: "#ECFDF5", color: "#047857", border: "#BBF7D0", label: "Active" };
   if (status === "FOR_REVIEW") return { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", label: "For Review" };
   if (status === "FOR_APPROVAL") return { bg: "#EEF2FF", color: "#4338CA", border: "#C7D2FE", label: "For Approval" };
   if (status === "NEEDS_REVISION") return { bg: "#FFF7ED", color: "#9A3412", border: "#FDBA74", label: "Needs Revision" };
@@ -381,9 +364,8 @@ export default function ProjectCard({
     project.status === "NEEDS_REVISION";
   const isRejected = project.status === "NEEDS_REVISION" || project.status === "REJECTED";
   const chipStyle = statusChipColor(project.status);
-  const priorityStyle = priorityTone(project.priority);
-  const cardBackground = priorityCardTone(project.priority);
-  const businessUnitName = project.businessUnitDetails?.name || project.businessUnit || "No BU";
+  const cardBackground = statusCardTone(project.status);
+  const businessUnitName = project.businessUnitDetails?.name || project.businessUnitName || "No BU";
   const versionLabel = getProjectVersionLabel(project);
   const approvalOnly = actionMode === "approval";
   const progressPercent = getProjectProgress(project);
@@ -391,7 +373,7 @@ export default function ProjectCard({
   const progressDegree = Math.round((progressPercent / 100) * 360);
   const [progressStartColor, progressEndColor] = getProgressGradientStops(progressPercent);
   const headerBackground = cardBackground;
-  const headerTone = getHeaderTone(project.priority);
+  const headerTone = getHeaderTone();
   const headerBorder = headerTone.border;
 
   const openMenu = (e: React.MouseEvent<HTMLElement>) => {
@@ -482,6 +464,12 @@ export default function ProjectCard({
   if (viewType === "list") {
     return (
       <Box
+        onClick={() => actions.onOpenDashboard?.(project.id)}
+        role="link"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") actions.onOpenDashboard?.(project.id);
+        }}
         sx={{
           display: "grid",
           gridTemplateColumns: gridTemplate,
@@ -552,22 +540,6 @@ export default function ProjectCard({
           />
         </Box>
 
-        <Box sx={{ display: { xs: "none", sm: "flex" }, alignItems: "center" }}>
-          {project.priority && (
-            <Chip
-              size="small"
-              label={project.priority}
-              sx={{
-                fontSize: 10,
-                fontWeight: 800,
-                bgcolor: priorityStyle.bg,
-                color: priorityStyle.color,
-                border: `1px solid ${priorityStyle.border}`,
-              }}
-            />
-          )}
-        </Box>
-
         <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
           {approvalOnly || project.status === "NEEDS_REVISION" ? (
             <Button
@@ -607,6 +579,12 @@ export default function ProjectCard({
 
   return (
     <Card
+      onClick={() => actions.onOpenDashboard?.(project.id)}
+      role="link"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") actions.onOpenDashboard?.(project.id);
+      }}
       sx={{
         borderRadius: "16px",
         height: "100%",
@@ -617,6 +595,7 @@ export default function ProjectCard({
         border: "1px solid #E5E7EB",
         backgroundColor: "#FFFFFF",
         opacity: isArchived ? 0.75 : 1,
+        cursor: "pointer",
         "&:hover": {
           boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
           borderColor: "#CBD5E1",

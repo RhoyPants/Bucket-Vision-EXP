@@ -12,7 +12,7 @@ export interface ChecklistItem {
 
 export interface DashboardNote {
   id: string;
-  dashboardId: string;
+  userId?: string;
   title: string;
   content: string;
   sortOrder: number;
@@ -50,36 +50,36 @@ export interface UpdateChecklistItemPayload {
   sortOrder?: number;
 }
 
-const BASE_URL = "/personal-dashboards";
+const BASE_URL = "/project-dashboards/notes";
 
 export const personalNotesService = {
   // Get all notes for a dashboard
-  async getNotes(dashboardId: string) {
-    const response = await axios.get(`${BASE_URL}/${dashboardId}/notes`);
+  async getNotes(_projectId: string) {
+    const response = await axios.get(BASE_URL);
     return response.data;
   },
 
   // Create a new note
-  async createNote(dashboardId: string, payload: CreateNotePayload) {
-    const response = await axios.post(`${BASE_URL}/${dashboardId}/notes`, payload);
+  async createNote(_projectId: string, payload: CreateNotePayload) {
+    const response = await axios.post(BASE_URL, payload);
     return response.data;
   },
 
   // Update a note
   async updateNote(dashboardId: string, noteId: string, payload: UpdateNotePayload) {
-    const response = await axios.put(`${BASE_URL}/${dashboardId}/notes/${noteId}`, payload);
+    const response = await axios.put(`${BASE_URL}/${noteId}`, payload);
     return response.data;
   },
 
   // Delete a note
   async deleteNote(dashboardId: string, noteId: string) {
-    const response = await axios.delete(`${BASE_URL}/${dashboardId}/notes/${noteId}`);
+    const response = await axios.delete(`${BASE_URL}/${noteId}`);
     return response.data;
   },
 
   // Add a checklist item to a note
   async createChecklistItem(dashboardId: string, noteId: string, payload: CreateChecklistItemPayload) {
-    const response = await axios.post(`${BASE_URL}/${dashboardId}/notes/${noteId}/items`, payload);
+    const response = await axios.post(`${BASE_URL}/${noteId}/items`, payload);
     return response.data;
   },
 
@@ -91,7 +91,7 @@ export const personalNotesService = {
     payload: UpdateChecklistItemPayload
   ) {
     const response = await axios.put(
-      `${BASE_URL}/${dashboardId}/notes/${noteId}/items/${itemId}`,
+      `${BASE_URL}/${noteId}/items/${itemId}`,
       payload
     );
     return response.data;
@@ -100,7 +100,7 @@ export const personalNotesService = {
   // Delete a checklist item
   async deleteChecklistItem(dashboardId: string, noteId: string, itemId: string) {
     const response = await axios.delete(
-      `${BASE_URL}/${dashboardId}/notes/${noteId}/items/${itemId}`
+      `${BASE_URL}/${noteId}/items/${itemId}`
     );
     return response.data;
   },

@@ -28,6 +28,7 @@ type MyRequestProject = {
   id: string;
   name?: string;
   status?: string;
+  businessUnitName?: string;
   businessUnitDetails?: {
     id?: string;
     name?: string;
@@ -119,7 +120,7 @@ export default function MyRequestsPage() {
     const buMap = new Map<string, string>();
     myRequests.forEach((project) => {
       const buId = project?.businessUnitDetails?.id;
-      const buName = project?.businessUnitDetails?.name;
+      const buName = project?.businessUnitDetails?.name || project?.businessUnitName;
       if (buId && buName) buMap.set(buId, buName);
     });
     return Array.from(buMap.entries())

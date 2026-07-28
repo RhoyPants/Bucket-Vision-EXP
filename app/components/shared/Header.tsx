@@ -5,12 +5,13 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { logout } from "@/app/redux/slices/authSlice";
 
 // Map exact routes to display titles
 const routeTitleMap: Record<string, string> = {
+  "/dashboard": "Dashboard",
   "/sprintManagement": "Sprint Management",
   "/taskboard": "Task Board",
   "/teamOverview": "Team Overview",
@@ -29,6 +30,7 @@ const routeTitleMap: Record<string, string> = {
 
 // Map routes to descriptions
 const routeDescriptionMap: Record<string, string> = {
+  "/dashboard": "Your central workspace and project overview",
   "/sprintManagement": "Plan and manage sprint cycles",
   "/taskboard": "Manage and track all assigned tasks and subtasks",
   "/teamOverview": "Overview of team members and their assignments",
@@ -44,6 +46,14 @@ const routeDescriptionMap: Record<string, string> = {
   "/versioning": "Manage project versions and track changes",
   "/approvals": "Review and manage project approval workflows",
 };
+
+const subscribeToHydration = (onStoreChange: () => void) => {
+  const timer = window.setTimeout(onStoreChange, 0);
+  return () => window.clearTimeout(timer);
+};
+
+const getHydratedSnapshot = () => true;
+const getServerHydratedSnapshot = () => false;
 
 function getPageTitle(pathname: string): string {
   // Handle dynamic/detail pages first
@@ -73,12 +83,11 @@ export default function Header() {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  // Ensure hydration is complete before rendering user data
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  const isHydrated = useSyncExternalStore(
+    subscribeToHydration,
+    getHydratedSnapshot,
+    getServerHydratedSnapshot,
+  );
 
   // Get page title from route
   const pageTitle = getPageTitle(pathname);

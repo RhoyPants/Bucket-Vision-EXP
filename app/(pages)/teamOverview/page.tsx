@@ -19,6 +19,7 @@ import OverviewStats from "./components/OverviewStats";
 import TeamMembers from "./components/TeamMembers";
 import TaskStatus from "./components/TaskStatus";
 import TeamRoles from "./components/TeamRoles";
+import TeamProgress from "./components/TeamProgress";
 import Layout from "@/app/components/shared/Layout";
 
 export default function TeamOverviewPage() {
@@ -174,7 +175,7 @@ export default function TeamOverviewPage() {
                   projectId === "all-projects" ? allProjectsData : null
                 }
               />
-              <TeamRoles
+              <TeamProgress
                 projectId={projectId}
                 allProjectsData={
                   projectId === "all-projects" ? allProjectsData : null

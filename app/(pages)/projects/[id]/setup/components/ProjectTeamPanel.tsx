@@ -26,7 +26,6 @@ import {
   updateProjectMemberRole,
 } from "@/app/redux/controllers/projectMemberController";
 import { getUsers } from "@/app/redux/controllers/userController";
-import { getProjectById } from "@/app/redux/controllers/projectController";
 
 import AssignSubOwnerSelect from "@/app/components/shared/selectors/AssignSubOwnerSelect";
 import AssignMemberSelect from "@/app/components/shared/selectors/AssignMemberSelect";
@@ -36,10 +35,12 @@ import { useEffect, useMemo, useState } from "react";
 
 interface ProjectTeamPanelProps {
   projectId: string;
+  onTeamChanged?: () => void;
 }
 
 export default function ProjectTeamPanel({
   projectId,
+  onTeamChanged,
 }: ProjectTeamPanelProps) {
   const dispatch = useAppDispatch();
   const { canView, canCreate, canUpdate, canDelete } = usePermissions();
@@ -55,8 +56,6 @@ export default function ProjectTeamPanel({
   const { users = [], loading: usersLoading } = useAppSelector(
     (state) => state.user
   );
-
-  const { fullProject } = useAppSelector((state) => state.project);
 
   const [removing, setRemoving] = useState<string | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
@@ -76,7 +75,6 @@ export default function ProjectTeamPanel({
   useEffect(() => {
     if (projectId && canViewTeamMember) {
       dispatch(getProjectMembers(projectId) as any);
-      dispatch(getProjectById(projectId) as any);
     }
   }, [projectId, canViewTeamMember, dispatch]);
 
@@ -104,11 +102,6 @@ export default function ProjectTeamPanel({
   // =========================
   // 🔥 GET OWNER USER DETAILS
   // =========================
-  const ownerUser = useMemo(() => {
-    if (!fullProject?.ownerId || !users.length) return null;
-    return users.find((u: any) => u.id === fullProject.ownerId);
-  }, [fullProject?.ownerId, users]);
-
   // =========================
   // HANDLERS
   // =========================
@@ -145,6 +138,7 @@ export default function ProjectTeamPanel({
 
       // Refresh
       dispatch(getProjectMembers(projectId) as any);
+      onTeamChanged?.();
 
       setTimeout(() => setAssignSuccess(null), 2000);
     } catch (err) {
@@ -184,6 +178,7 @@ export default function ProjectTeamPanel({
 
       // Refresh
       dispatch(getProjectMembers(projectId) as any);
+      onTeamChanged?.();
 
       setTimeout(() => setAssignSuccess(null), 2000);
     } catch (err) {
@@ -216,6 +211,7 @@ export default function ProjectTeamPanel({
 
       // Refresh
       dispatch(getProjectMembers(projectId) as any);
+      onTeamChanged?.();
 
       setTimeout(() => setAssignSuccess(null), 2000);
     } catch (err) {
@@ -247,6 +243,7 @@ export default function ProjectTeamPanel({
     icon?: any;
   }) => {
     if (!members || members.length === 0) return null;
+    const canRemoveSection = canDeleteTeamMember && title !== "Owners";
 
     const getUserId = (m: any) => m.userId || m.user?.id || m.id;
     const getName = (m: any) => m.name || m.user?.name || "Unnamed";
@@ -361,7 +358,7 @@ export default function ProjectTeamPanel({
                 }}
               >
                 {/* CHECKBOX */}
-                {canDeleteTeamMember ? (
+                {canRemoveSection ? (
                   <Checkbox
                     size="small"
                     checked={isSelected}
@@ -388,10 +385,10 @@ export default function ProjectTeamPanel({
                   </Avatar>
 
                   <Box flex={1}>
-                    <Typography fontSize={14} fontWeight={500}>
+                    <Typography fontSize={12.5} fontWeight={600}>
                       {name}
                     </Typography>
-                    <Typography fontSize={12} color="textSecondary">
+                    <Typography fontSize={11} color="textSecondary">
                       {getRole(member)}
                     </Typography>
                   </Box>
@@ -451,7 +448,7 @@ export default function ProjectTeamPanel({
                 )}
 
                 {/* QUICK DELETE BUTTON */}
-                {canDeleteTeamMember ? (
+                {canRemoveSection ? (
                   <Tooltip title="Remove member">
                     <IconButton
                       size="small"
@@ -476,7 +473,7 @@ export default function ProjectTeamPanel({
         </Box>
 
         {/* BATCH DELETE SECTION */}
-        {canDeleteTeamMember && selectedInSection.length > 0 && (
+        {canRemoveSection && selectedInSection.length > 0 && (
           <Box
             sx={{
               bgcolor: "rgba(239, 68, 68, 0.05)",
@@ -558,12 +555,12 @@ export default function ProjectTeamPanel({
   return (
     <Box>
       {/* HEADER */}
-      <Box display="flex" alignItems="center" gap={1.5} mb={3}>
+      <Box display="flex" alignItems="center" gap={1.25} mb={2}>
         <GroupOutlinedIcon sx={{ fontSize: 28, color: "#667eea" }} />
-        <Typography fontWeight={700} fontSize={20}>
+        <Typography fontWeight={800} fontSize={16}>
           Project Team
         </Typography>
-        <Typography color="textSecondary" fontSize={14}>
+        <Typography color="textSecondary" fontSize={12}>
           ({(displayMembers?.owner?.length || 0) + (displayMembers?.subOwners?.length || 0) + (displayMembers?.members?.length || 0)} members)
         </Typography>
       </Box>
@@ -580,19 +577,24 @@ export default function ProjectTeamPanel({
         </Alert>
       )}
 
+      {/* PROJECT OWNER */}
+      {!loading && displayMembers.owner && displayMembers.owner.length > 0 && (
+        <MemberRow members={displayMembers.owner} title="Owners" icon={GroupOutlinedIcon} />
+      )}
+
       {/* ADD MEMBER SECTION */}
       {canCreateTeamMember ? (
         <Paper
           sx={{
-            p: 3,
-            mb: 4,
+            p: { xs: 1.5, sm: 2 },
+            mb: 2.5,
             borderRadius: 2,
             background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
             border: "1px solid rgba(102, 126, 234, 0.1)",
             boxShadow: "0 4px 15px rgba(102, 126, 234, 0.1)",
           }}
         >
-          <Box display="flex" alignItems="center" gap={1.5} mb={2.5}>
+          <Box display="flex" alignItems="center" gap={1.25} mb={1.5}>
             <PersonAddOutlinedIcon sx={{ fontSize: 22, color: "#667eea" }} />
             <Typography fontSize={16} fontWeight={600}>
               Add Team Members
@@ -607,8 +609,8 @@ export default function ProjectTeamPanel({
           ) : (
             <Box
               display="grid"
-              gridTemplateColumns={{ xs: "1fr", md: "1fr 1fr" }}
-              gap={2}
+              gridTemplateColumns={{ xs: "minmax(0, 1fr)", md: "repeat(2, minmax(0, 1fr))" }}
+              gap={1.5}
             >
               <AssignSubOwnerSelect
                 members={users}
@@ -649,112 +651,30 @@ export default function ProjectTeamPanel({
         </Box>
       ) : (
         <>
-          {/* PROJECT CREATOR/OWNER */}
-          {ownerUser ? (
-            <Paper
-              sx={{
-                mb: 2,
-                borderRadius: 2,
-                overflow: "hidden",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-                transition: "all 0.2s ease",
-                "&:hover": {
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                },
-              }}
-            >
-              {/* HEADER */}
-              <Box
-                display="flex"
-                alignItems="center"
-                px={2.5}
-                py={1.5}
-                sx={{
-                  bgcolor: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)",
-                  color: "white",
-                }}
-              >
-                <GroupOutlinedIcon sx={{ mr: 1.5, fontSize: 20 }} />
-                <Typography fontWeight={600} flex={1}>
-                  Project Creator
-                </Typography>
-                <Chip
-                  label="Owner"
-                  size="small"
-                  sx={{
-                    bgcolor: "rgba(255,255,255,0.3)",
-                    color: "white",
-                    fontWeight: 600,
-                  }}
-                />
-              </Box>
-
-              {/* CREATOR INFO */}
-              <Box
-                display="flex"
-                alignItems="center"
-                px={2.5}
-                py={1.5}
-                sx={{
-                  "&:hover": {
-                    bgcolor: "#fafbfc",
-                  },
-                }}
-              >
-                <Box flex={1} display="flex" alignItems="center" gap={1.5}>
-                  <Avatar
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      fontSize: 16,
-                      fontWeight: 600,
-                      background: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)",
-                    }}
-                  >
-                    {ownerUser?.name?.[0]?.toUpperCase()}
-                  </Avatar>
-
-                  <Box flex={1}>
-                    <Typography fontSize={14} fontWeight={500}>
-                      {ownerUser?.name || "Unknown"}
-                    </Typography>
-                    <Typography fontSize={12} color="textSecondary">
-                      {ownerUser?.email || "No email"}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                {/* ROLE BADGE */}
-                <Chip
-                  label="Creator"
-                  size="small"
-                  sx={{
-                    bgcolor: "#fef3c7",
-                    color: "#d97706",
-                    fontWeight: 600,
-                  }}
-                />
-              </Box>
-            </Paper>
-          ) : null}
-
-          {displayMembers.owner && displayMembers.owner.length > 0 && (
-            <MemberRow members={displayMembers.owner} title="Owners" icon={GroupOutlinedIcon} />
-          )}
-          {displayMembers.subOwners && displayMembers.subOwners.length > 0 && (
-            <MemberRow
-              members={displayMembers.subOwners}
-              title="Sub Owners"
-              icon={GroupOutlinedIcon}
-            />
-          )}
-          {displayMembers.members && displayMembers.members.length > 0 && (
-            <MemberRow
-              members={displayMembers.members}
-              title="Members"
-              icon={GroupOutlinedIcon}
-            />
-          )}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "repeat(2, minmax(0, 1fr))" },
+              gap: 2,
+              alignItems: "start",
+              "& > .MuiPaper-root": { mb: 0 },
+            }}
+          >
+            {displayMembers.subOwners && displayMembers.subOwners.length > 0 && (
+              <MemberRow
+                members={displayMembers.subOwners}
+                title="Sub Owners"
+                icon={GroupOutlinedIcon}
+              />
+            )}
+            {displayMembers.members && displayMembers.members.length > 0 && (
+              <MemberRow
+                members={displayMembers.members}
+                title="Members"
+                icon={GroupOutlinedIcon}
+              />
+            )}
+          </Box>
 
           {!displayMembers.owner &&
             !displayMembers.subOwners &&

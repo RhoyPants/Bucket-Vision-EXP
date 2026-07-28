@@ -148,9 +148,12 @@ export default function VersionHistoryTab({
 
   if (!versions || versions.length === 0) {
     return (
-      <Box sx={{ textAlign: "center", py: 4 }}>
-        <Typography variant="body1" color="textSecondary">
-          No versions found. Create a new version to get started!
+      <Box sx={{ maxWidth: 520, mx: "auto", textAlign: "center", py: 6, px: 2, border: "1px dashed #CBD5E1", borderRadius: 2, bgcolor: "#F8FAFC" }}>
+        <Typography sx={{ color: "#0F172A", fontSize: 15, fontWeight: 900 }}>
+          No saved versions yet
+        </Typography>
+        <Typography sx={{ mt: 0.75, color: "#64748B", fontSize: 12 }}>
+          Create a version when you need to preserve the current project plan before making approved changes.
         </Typography>
       </Box>
     );
@@ -166,8 +169,11 @@ export default function VersionHistoryTab({
   return (
     <Box>
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h6" sx={{ fontWeight: "bold", mb: 3 }}>
-          Version Timeline
+        <Typography variant="h6" sx={{ fontWeight: "bold", mb: 0.5 }}>
+          Version History
+        </Typography>
+        <Typography sx={{ color: "#64748B", fontSize: 12, mb: 3 }}>
+          Newest versions appear first. The highlighted card is the project&apos;s current version.
         </Typography>
 
         {/* Custom Timeline */}

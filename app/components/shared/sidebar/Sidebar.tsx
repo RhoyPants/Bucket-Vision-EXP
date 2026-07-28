@@ -4,7 +4,6 @@ import { Box, Drawer, IconButton, Typography } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
 import ViewKanbanOutlinedIcon from "@mui/icons-material/ViewKanbanOutlined";
 import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
@@ -15,6 +14,7 @@ import DraftsOutlinedIcon from "@mui/icons-material/DraftsOutlined";
 import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
+import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 
 import SidebarItem from "./SidebarItem";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -39,7 +39,7 @@ const settingsTabs = [
 ] as const;
 
 const mainNavItems = [
-  { label: "Personal Dashboard", href: "/personalDashboard", permissionKey: "personal_dashboard", icon: <SpaceDashboardOutlinedIcon /> },
+  { label: "Dashboard", href: "/dashboard", permissionKey: "dashboard", icon: <DashboardOutlinedIcon /> },
   { label: "Projects", href: "/projects", permissionKey: "projects", icon: <FolderOpenOutlinedIcon /> },
   { label: "My Requests", href: "/myRequests", permissionKey: "my_requests", icon: <SendOutlinedIcon /> },
   { label: "My Approvals", href: "/myApprovals", permissionKey: "my_approvals", icon: <FactCheckOutlinedIcon /> },
@@ -238,10 +238,10 @@ export default function Sidebar() {
         }}
       >
         {mainNavItems
-          .filter((item) => hydrated && canView(item.permissionKey))
+          .filter((item) => hydrated && (!item.permissionKey || canView(item.permissionKey)))
           .map((item) => (
             <SidebarItem
-              key={item.permissionKey}
+              key={item.href}
               label={item.label}
               href={item.href}
               icon={item.icon}

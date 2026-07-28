@@ -172,10 +172,12 @@ export const submitProjectForApproval = (projectId: string) => async (dispatch: 
 /**
  * Approve project at current approval level
  */
-export const approveProject = (projectId: string) => async (dispatch: AppDispatch) => {
+export const approveProject = (projectId: string, remarks?: string) => async (dispatch: AppDispatch) => {
   dispatch(approveProjectStart());
   try {
-    const response = await axios.post(`/approvals/${projectId}/approve`);
+    const response = await axios.post(`/approvals/${projectId}/approve`, {
+      remarks: remarks?.trim() || "",
+    });
 
     const updatedApproval = response.data.data?.approval || {};
     dispatch(

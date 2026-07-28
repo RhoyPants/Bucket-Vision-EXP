@@ -1552,7 +1552,7 @@ export default function ProjectSetupWizard({
                         <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase" }}>
                           Business Unit
                         </Typography>
-                        <Typography>{projectForm.businessUnit || project?.businessUnit || "—"}</Typography>
+                        <Typography>{project?.businessUnitDetails?.name || project?.businessUnitName || "—"}</Typography>
                       </Box>
 
                       <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>

@@ -12,6 +12,25 @@ export interface DashboardSummary {
   onflowKpis: number;
   healthyKpis: number;
   unclassifiedKpis: number;
+  total?: number;
+  critical?: number;
+  onflow?: number;
+  healthy?: number;
+  unclassified?: number;
+  subtasks?: {
+    total: number;
+    critical: number;
+    onflow: number;
+    healthy: number;
+    unclassified: number;
+  };
+  configuredKpis?: {
+    total: number;
+    critical: number;
+    onflow: number;
+    healthy: number;
+    unclassified: number;
+  };
 }
 
 export interface PersonalDashboard {
@@ -23,6 +42,10 @@ export interface PersonalDashboard {
     id: string;
     name: string;
     progress?: number;
+    description?: string;
+    status?: string;
+    startDate?: string | null;
+    expectedEndDate?: string | null;
   };
   summary?: DashboardSummary;
   kpis?: PersonalDashboardKpi[];
@@ -51,6 +74,14 @@ export interface PersonalDashboardKpi {
   preview?: SourcePreview | null;
   status?: KpiStatus;
   thresholds?: KpiThreshold[];
+  thresholdConfig?: {
+    criticalBelow: number;
+    healthyAtOrAbove: number;
+    onflow?: {
+      minimumInclusive: number;
+      maximumExclusive: number;
+    };
+  };
   sourceDetails?: {
     title?: string;
     expectedStartDate?: string | null;
@@ -223,8 +254,15 @@ export async function createPersonalDashboard(data: {
 }
 
 export async function getPersonalDashboardDetail(id: string) {
-  const response = await axiosApi.get(`/personal-dashboards/${id}`);
-  return unwrapData<PersonalDashboard>(response);
+  const response = await axiosApi.get(`/project-dashboards/${id}`);
+  const data = unwrapData<Omit<PersonalDashboard, "id" | "name">>(response);
+  return {
+    ...data,
+    id,
+    projectId: id,
+    name: data.project?.name ?? "Project Dashboard",
+    description: data.project?.description,
+  } as PersonalDashboard;
 }
 
 export async function updatePersonalDashboard(
@@ -241,7 +279,7 @@ export async function deletePersonalDashboard(id: string) {
 }
 
 export async function getKpiSourceOptions(id: string) {
-  const response = await axiosApi.get(`/personal-dashboards/${id}/source-options`);
+  const response = await axiosApi.get(`/project-dashboards/${id}/source-options`);
   return unwrapData<SourceOptions>(response);
 }
 
@@ -249,7 +287,7 @@ export async function previewKpiSource(
   id: string,
   params: { scopeId?: string; taskId?: string; subtaskId?: string }
 ) {
-  const response = await axiosApi.get(`/personal-dashboards/${id}/source-preview`, {
+  const response = await axiosApi.get(`/project-dashboards/${id}/source-preview`, {
     params,
   });
   return unwrapData<SourcePreview>(response);
@@ -263,10 +301,11 @@ export async function createDashboardKpi(
     scopeId?: string;
     taskId?: string;
     subtaskId?: string;
-    thresholds: KpiThreshold[];
+    criticalBelow: number;
+    healthyAtOrAbove: number;
   }
 ) {
-  const response = await axiosApi.post(`/personal-dashboards/${id}/kpis`, data);
+  const response = await axiosApi.post(`/project-dashboards/${id}/kpis`, data);
   return unwrapData<PersonalDashboardKpi>(response);
 }
 
@@ -274,17 +313,21 @@ export async function updateDashboardKpi(
   id: string,
   kpiId: string,
   data: {
-    name: string;
-    description?: string;
-    thresholds: KpiThreshold[];
+    name?: string;
+    description?: string | null;
+    scopeId?: string | null;
+    taskId?: string | null;
+    subtaskId?: string | null;
+    criticalBelow?: number;
+    healthyAtOrAbove?: number;
   }
 ) {
-  const response = await axiosApi.put(`/personal-dashboards/${id}/kpis/${kpiId}`, data);
+  const response = await axiosApi.put(`/project-dashboards/${id}/kpis/${kpiId}`, data);
   return unwrapData<PersonalDashboardKpi>(response);
 }
 
 export async function deleteDashboardKpi(id: string, kpiId: string) {
-  const response = await axiosApi.delete(`/personal-dashboards/${id}/kpis/${kpiId}`);
+  const response = await axiosApi.delete(`/project-dashboards/${id}/kpis/${kpiId}`);
   return unwrapData<{ id: string }>(response);
 }
 
@@ -294,11 +337,11 @@ export async function updateDashboardCharts(id: string, charts: DashboardChartCo
 }
 
 export async function getDashboardChartData(id: string) {
-  const response = await axiosApi.get(`/personal-dashboards/${id}/charts/data`);
+  const response = await axiosApi.get(`/project-dashboards/${id}/charts/data`);
   return unwrapData<ChartData>(response);
 }
 
 export async function getDashboardReportTable(id: string) {
-  const response = await axiosApi.get(`/personal-dashboards/${id}/report-table`);
+  const response = await axiosApi.get(`/project-dashboards/${id}/report-table`);
   return unwrapData<DashboardReportTable>(response);
 }

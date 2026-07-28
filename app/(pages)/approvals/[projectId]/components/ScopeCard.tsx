@@ -1,6 +1,7 @@
 import { Card, Box, Typography, LinearProgress, Stack, Divider } from "@mui/material";
 import { Scope, CompareTheme, getCompareTheme } from "./types";
 import TaskRow from "./TaskRow";
+import { formatBudget } from "@/app/utils/formatters";
 
 interface ScopeCardProps {
   scope: Scope;
@@ -44,10 +45,18 @@ export default function ScopeCard({ scope, theme }: ScopeCardProps) {
                 Budget
               </Typography>
               <Typography fontWeight={700} fontSize={14} sx={{ color: "#1f2937" }}>
-                ₱{(scope.budgetAllocated || 0).toLocaleString()}
+                {formatBudget(scope.budgetAllocated, true)}
               </Typography>
             </Box>
           )}
+          <Box sx={{ textAlign: "right", flexShrink: 0, ml: 2 }}>
+            <Typography variant="caption" sx={{ color: "#6b7280", fontWeight: 600, display: "block", mb: 0.25 }}>
+              Weight
+            </Typography>
+            <Typography fontWeight={700} fontSize={14} sx={{ color: "#1f2937" }}>
+              {Number(scope.budgetPercent || 0).toFixed(2)}%
+            </Typography>
+          </Box>
         </Box>
 
         {/* PROGRESS */}

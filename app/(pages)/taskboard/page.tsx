@@ -40,7 +40,7 @@ interface FilterState {
 
 export default function TaskBoardPage() {
   // ========================================
-  // Ã°Å¸â€Â¥ REDUX HOOKS
+  //  REDUX HOOKS
   // ========================================
   const dispatch = useAppDispatch();
   const { canView } = usePermissions();
@@ -52,13 +52,13 @@ export default function TaskBoardPage() {
   });
   const boardFilters = useAppSelector((state) => state.kanban.boardFilters);
   
-  // Ã¢Å“â€¦ Ensure arrays are always defined
+  //  Ensure arrays are always defined
   const projects = (boardFilters?.projects || []) as any[];
   const scopes = (boardFilters?.scopes || []) as any[];
   const tasks = (boardFilters?.tasks || []) as any[];
 
   // ========================================
-  // Ã°Å¸â€Â¥ LOCAL STATE
+  //  LOCAL STATE
   // ========================================
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -82,7 +82,7 @@ export default function TaskBoardPage() {
   const [selectedSubtask, setSelectedSubtask] = useState<SubtaskCardData | null>(null);
 
   // ========================================
-  // Ã°Å¸â€Â¥ INITIAL LOAD - Fetch filters dropdown data
+  //  INITIAL LOAD - Fetch filters dropdown data
   // ========================================
   useEffect(() => {
     const loadInitialData = async () => {
@@ -90,9 +90,9 @@ export default function TaskBoardPage() {
       setError("");
 
       try {
-        // Ã¢Å“â€¦ Load filter dropdown data (projects, scopes, tasks)
+        //  Load filter dropdown data (projects, scopes, tasks)
         await dispatch(loadBoardFilterData());
-        // Ã¢Å“â€¦ Load initial subtasks (no filters yet)
+        //  Load initial subtasks (no filters yet)
         const boardResponse = await dispatch(
           loadMyBoard({
             page: 1,
@@ -119,7 +119,7 @@ export default function TaskBoardPage() {
   }, [dispatch, pagination.limit]);
 
   // ========================================
-  // Ã°Å¸â€Â¥ WHEN FILTERS CHANGE - RELOAD SUBTASKS FROM BACKEND
+  //  WHEN FILTERS CHANGE - RELOAD SUBTASKS FROM BACKEND
   // ========================================
   useEffect(() => {
     if (loading) return; // Skip if still loading initial data
@@ -152,7 +152,7 @@ export default function TaskBoardPage() {
   }, [filters.projectId, filters.scopeId, filters.taskId, filters.searchQuery, pagination.page, pagination.limit, dispatch, loading]);
 
   // ========================================
-  // Ã°Å¸â€Â¥ LOAD scopes WHEN PROJECT CHANGES
+  //  LOAD scopes WHEN PROJECT CHANGES
   // ========================================
   useEffect(() => {
     if (!filters.projectId) {
@@ -177,7 +177,7 @@ export default function TaskBoardPage() {
   }, [filters.projectId, dispatch]);
 
   // ========================================
-  // Ã°Å¸â€Â¥ LOAD TASKS WHEN Scope CHANGES
+  //  LOAD TASKS WHEN Scope CHANGES
   // ========================================
   useEffect(() => {
     if (!filters.scopeId) {
@@ -201,7 +201,7 @@ export default function TaskBoardPage() {
   }, [filters.scopeId, dispatch]);
 
   // ========================================
-  // Ã°Å¸â€Â¥ HANDLE PROJECT CHANGE - Clear subcategories
+  //  HANDLE PROJECT CHANGE - Clear subcategories
   // ========================================
   const handleFilterChange = useCallback((newFilters: FilterState) => {
     // If project changed, clear Scope and task
@@ -219,11 +219,11 @@ export default function TaskBoardPage() {
   }, [filters]);
 
   // ========================================
-  // Ã°Å¸â€Â¥ FILTERED SUBTASKS (Backend filtered already)
+  //  FILTERED SUBTASKS (Backend filtered already)
   // ========================================
   const filteredSubtasks = useMemo(
     () => {
-      // Ã¢Å“â€¦ Subtasks are already filtered by backend
+      //  Subtasks are already filtered by backend
       // Just ensure they're in the correct format
       return subtasks && Array.isArray(subtasks) ? subtasks : [];
     },
@@ -231,7 +231,7 @@ export default function TaskBoardPage() {
   );
 
   // ========================================
-  // Ã°Å¸â€Â¥ KANBAN COLUMNS COMPUTATION
+  //  KANBAN COLUMNS COMPUTATION
   // ========================================
   const kanbanColumns = useMemo(
     () => [
@@ -243,7 +243,7 @@ export default function TaskBoardPage() {
   );
 
   // ========================================
-  // Ã°Å¸â€Â¥ TYPE GUARD FOR FILTERED SUBTASKS
+  //  TYPE GUARD FOR FILTERED SUBTASKS
   // ========================================
   const safeFilteredSubtasks = useMemo(
     () =>
@@ -252,7 +252,7 @@ export default function TaskBoardPage() {
   );
 
   // ========================================
-  // Ã°Å¸â€Â¥ HANDLERS
+  //  HANDLERS
   // ========================================
   const handleUpdateProgress = useCallback(async (subtask: SubtaskCardData) => {
     if (!canViewProgress) {
@@ -280,11 +280,11 @@ export default function TaskBoardPage() {
   };
 
   const handleProgressSuccess = useCallback(() => {
-    // Ã¢Å“â€¦ Reload the board WITHOUT filters to get a fresh complete list
+    //  Reload the board WITHOUT filters to get a fresh complete list
     // AND refresh filter dropdowns to ensure consistency
     const reloadBoard = async () => {
       try {
-        // Ã°Å¸â€Â¥ CRITICAL: Reload subtasks AND filter data for consistency
+        //  CRITICAL: Reload subtasks AND filter data for consistency
         const boardResponse = await dispatch(
           loadMyBoard({
             projectId: filters.projectId || undefined,
@@ -315,7 +315,7 @@ export default function TaskBoardPage() {
   }, []);
 
   // ========================================
-  // Ã°Å¸â€Â¥ RENDER
+  //  RENDER
   // ========================================
   return (
     <Layout>
