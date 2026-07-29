@@ -117,10 +117,17 @@ const authSlice = createSlice({
 
       if (typeof window !== "undefined") {
         localStorage.removeItem("token");
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("session_token");
         localStorage.removeItem("user");
         localStorage.removeItem("permissions");
         localStorage.removeItem("pagePermissions");
         localStorage.removeItem("permissionRole");
+
+        Object.keys(sessionStorage)
+          .filter((key) => key.startsWith("msal.") || key.startsWith("sso_"))
+          .forEach((key) => sessionStorage.removeItem(key));
       }
     },
 

@@ -51,7 +51,7 @@ export default function ProjectDashboardSidebar({ projectId }: { projectId: stri
     { label: "Project Versioning", href: `/projectDashboard/${projectId}?view=project-versioning`, icon: <HistoryOutlinedIcon /> },
     { label: "Project Reports", href: `/reports?projectId=${projectId}`, icon: <AssessmentOutlinedIcon /> },
     { label: "Project Team Overview", href: `/projectDashboard/${projectId}?view=team-overview`, icon: <GroupsOutlinedIcon /> },
-    { label: "Project Info", href: `/projects/${projectId}/setup?section=project-info`, icon: <InfoOutlinedIcon /> },
+    { label: "Project Info and Config", href: `/projectDashboard/${projectId}?view=project-info`, icon: <InfoOutlinedIcon /> },
     { label: "Incident Report", href: `/projectDashboard/${projectId}?view=incident-reports`, icon: <ReportProblemOutlinedIcon /> },
   ];
 

@@ -19,7 +19,10 @@ import {
   InputLabel,
   CircularProgress,
   Alert,
+  FormLabel,
   FormHelperText,
+  Radio,
+  RadioGroup,
   Divider,
   Card,
   CardContent,
@@ -34,6 +37,9 @@ import {
   Add as AddIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  ArrowForward as ArrowForwardIcon,
+  PersonOutline as PersonIcon,
+  CheckCircleOutline as ActiveIcon,
 } from "@mui/icons-material";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "@/app/redux/store";
@@ -43,7 +49,11 @@ import {
   getFlowById,
 } from "@/app/redux/controllers/approvalFlowController";
 import { setSelectedFlow } from "@/app/redux/slices/approvalFlowSlice";
-import { ApprovalStep } from "@/app/api-service/approvalFlowService";
+import {
+  ApprovalStep,
+  ApproverSource,
+  SelfApprovalMode,
+} from "@/app/api-service/approvalFlowService";
 import { getRoles } from "@/app/lib/role.api";
 import { getUsersByRole } from "@/app/api-service/approvalStepUserService";
 import { usePermissions } from "@/app/lib/usePermissions";
@@ -62,10 +72,7 @@ interface RoleUserOption {
   id: string;
   name?: string;
   email?: string;
-  role?: {
-    id?: string;
-    name?: string;
-  };
+  role?: { id?: string; name?: string };
 }
 
 interface AssignedUserSource extends Partial<RoleUserOption> {
@@ -88,27 +95,210 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   return error instanceof Error ? error.message : fallback;
 };
 
-const normalizeAssignedUsers = (assignedUsers: AssignedUserSource[] = []): RoleUserOption[] => {
-  return assignedUsers
-    .map((assignedUser) => {
-      if (assignedUser?.user?.id) {
-        return {
-          id: assignedUser.user.id,
-          name: assignedUser.user.name,
-          email: assignedUser.user.email,
-          role: assignedUser.user.role,
-        };
+const normalizeAssignedUsers = (assignedUsers: unknown[] = []): RoleUserOption[] =>
+  (assignedUsers as AssignedUserSource[]).reduce<RoleUserOption[]>(
+    (users, assignedUser) => {
+      const user = assignedUser.user || assignedUser;
+      const id = user.id || assignedUser.userId;
+      if (id) {
+        users.push({
+          id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        });
       }
+      return users;
+    },
+    []
+  );
 
-      return {
-        id: assignedUser?.id || assignedUser?.userId,
-        name: assignedUser?.name,
-        email: assignedUser?.email,
-        role: assignedUser?.role,
-      };
-    })
-    .filter((user) => Boolean(user?.id)) as RoleUserOption[];
+const approverSourceOptions: Array<{
+  label: string;
+  value: Exclude<ApproverSource, "SPECIFIC_USERS">;
+  description: string;
+}> = [
+  {
+    label: "Project Business Unit Head",
+    value: "PROJECT_BU_HEAD",
+    description: "Automatically assigns the Head linked to the project's Business Unit.",
+  },
+  {
+    label: "Requester’s Business Unit Head",
+    value: "REQUESTER_BU_HEAD",
+    description:
+      "Automatically assigns the active Head linked to the project requester's Business Unit.",
+  },
+  {
+    label: "Selected Role",
+    value: "ROLE",
+    description: "Assigns active users belonging to the selected role.",
+  },
+];
+
+const selfApprovalOptions: Array<{
+  label: string;
+  value: SelfApprovalMode;
+  description: string;
+}> = [
+  {
+    label: "Approve through highest step",
+    value: "THROUGH_HIGHEST_STEP",
+    description: "Automatically approves the requester's step and all preceding steps.",
+  },
+  {
+    label: "Approve own step only",
+    value: "OWN_STEP",
+    description: "Only the step assigned to the requester is automatically approved.",
+  },
+];
+
+const getStepPreview = (step: ApprovalStep) => {
+  if (step.approverSource === "PROJECT_BU_HEAD") {
+    return {
+      title: "Project BU Head",
+      detail: "Reviews the request",
+    };
+  }
+  if (step.approverSource === "REQUESTER_BU_HEAD") {
+    return {
+      title: "Requester’s BU Head",
+      detail: "Reviews the request",
+    };
+  }
+  if (step.approverSource === "SPECIFIC_USERS") {
+    const users = (step.assignedUsers || []) as RoleUserOption[];
+    return {
+      title: step.role || "Selected Role",
+      detail:
+        users.length > 0
+          ? users.map((user) => user.name || user.email).join(", ")
+          : "Select specific approvers",
+    };
+  }
+  return {
+    title: step.role || "Selected Role",
+    detail: step.role ? "Role members approve" : "Select an approver role",
+  };
 };
+
+function ApprovalFlowPreview({ steps }: { steps: ApprovalStep[] }) {
+  const nodes = [
+    {
+      key: "requester",
+      eyebrow: "START",
+      title: "Requester",
+      detail: "Creates and submits the project",
+      color: "#4B2E83",
+      background: "#F5F0FF",
+      icon: <PersonIcon fontSize="small" />,
+    },
+    ...steps.map((step) => {
+      const preview = getStepPreview(step);
+      return {
+        key: `step-${step.order}`,
+        eyebrow: `STEP ${step.order}`,
+        title: preview.title,
+        detail: preview.detail,
+        color: "#1D4ED8",
+        background: "#EFF6FF",
+        icon: <PersonIcon fontSize="small" />,
+      };
+    }),
+    {
+      key: "active",
+      eyebrow: "COMPLETE",
+      title: "Project Active",
+      detail: "All required approvals completed",
+      color: "#047857",
+      background: "#ECFDF5",
+      icon: <ActiveIcon fontSize="small" />,
+    },
+  ];
+
+  return (
+    <Box
+      sx={{
+        p: 2,
+        border: "1px solid #E2E8F0",
+        borderRadius: 2,
+        backgroundColor: "#F8FAFC",
+      }}
+    >
+      <Typography variant="subtitle1" fontWeight={700}>
+        Approval Flow Preview
+      </Typography>
+      <Typography variant="caption" color="text.secondary">
+        A simplified presentation of how this project request moves through approval.
+      </Typography>
+
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
+          alignItems: "stretch",
+          gap: { xs: 0.75, md: 1 },
+          mt: 2,
+          overflowX: { md: "auto" },
+          pb: { md: 0.5 },
+        }}
+      >
+        {nodes.map((node, index) => (
+          <React.Fragment key={node.key}>
+            <Box
+              sx={{
+                minWidth: { md: 150 },
+                flex: { md: 1 },
+                p: 1.5,
+                borderRadius: 1.5,
+                border: `1px solid ${node.color}33`,
+                backgroundColor: node.background,
+              }}
+            >
+              <Stack direction="row" spacing={1} alignItems="flex-start">
+                <Box sx={{ color: node.color, display: "flex", pt: 0.25 }}>
+                  {node.icon}
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography
+                    sx={{ fontSize: 9, fontWeight: 800, color: node.color, letterSpacing: 0.7 }}
+                  >
+                    {node.eyebrow}
+                  </Typography>
+                  <Typography sx={{ fontSize: 13, fontWeight: 800, color: "#0F172A" }}>
+                    {node.title}
+                  </Typography>
+                  <Typography sx={{ fontSize: 10.5, color: "#475569", mt: 0.25 }}>
+                    {node.detail}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Box>
+            {index < nodes.length - 1 && (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#94A3B8",
+                  minWidth: { md: 20 },
+                  height: { xs: 20, md: "auto" },
+                }}
+              >
+                <ArrowForwardIcon
+                  sx={{
+                    fontSize: 20,
+                    transform: { xs: "rotate(90deg)", md: "none" },
+                  }}
+                />
+              </Box>
+            )}
+          </React.Fragment>
+        ))}
+      </Box>
+    </Box>
+  );
+}
 
 export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormProps) {
   const dispatch = useDispatch<AppDispatch>();
@@ -125,6 +315,7 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
     name: "",
     description: "",
     isDefault: false,
+    selfApprovalMode: "THROUGH_HIGHEST_STEP" as SelfApprovalMode,
     steps: [] as ApprovalStep[],
   }), []);
 
@@ -141,9 +332,9 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
 
   const roleIdByName = React.useMemo(
     () =>
-      roles.reduce((acc, role) => {
-        acc[role.name] = role.id;
-        return acc;
+      roles.reduce((result, role) => {
+        result[role.name] = role.id;
+        return result;
       }, {} as Record<string, string>),
     [roles]
   );
@@ -208,24 +399,29 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
     if (flowId && selectedFlow) {
       const normalizedSteps = selectedFlow.steps.map((step) => ({
         ...step,
+        approverSource: step.approverSource || "ROLE",
         stepExecutionMode: step.stepExecutionMode || "SEQUENTIAL",
-        assignedUsers: normalizeAssignedUsers(step.assignedUsers || []),
+        useSpecificUsers:
+          step.approverSource === "SPECIFIC_USERS" || step.useSpecificUsers,
+        assignedUsers: normalizeAssignedUsers(step.assignedUsers),
       }));
 
       setFormData({
         name: selectedFlow.name,
         description: selectedFlow.description || "",
         isDefault: selectedFlow.isDefault,
+        selfApprovalMode:
+          selectedFlow.selfApprovalMode || "THROUGH_HIGHEST_STEP",
         steps: normalizedSteps,
       });
 
-      const preloadedUsersByStepIndex: Record<number, RoleUserOption[]> = {};
-      normalizedSteps.forEach((step, stepIndex) => {
-        if (step.useSpecificUsers && (step.assignedUsers || []).length > 0) {
-          preloadedUsersByStepIndex[stepIndex] = step.assignedUsers as RoleUserOption[];
+      const preloadedUsers: Record<number, RoleUserOption[]> = {};
+      normalizedSteps.forEach((step, index) => {
+        if (step.useSpecificUsers && step.assignedUsers.length > 0) {
+          preloadedUsers[index] = step.assignedUsers;
         }
       });
-      setUsersByStepIndex((prev) => ({ ...prev, ...preloadedUsersByStepIndex }));
+      setUsersByStepIndex(preloadedUsers);
     }
   }, [flowId, selectedFlow]);
 
@@ -240,8 +436,32 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
       newErrors.steps = "At least one step is required";
     }
 
-    if (formData.steps.some((step) => !step.role)) {
-      newErrors.steps = "Each step must have a role";
+    if (!formData.selfApprovalMode) {
+      newErrors.selfApprovalMode = "Select how self-approval should be handled";
+    }
+
+    if (formData.steps.some((step) => !step.approverSource)) {
+      newErrors.steps = "Select an approver assignment method for every step";
+    } else if (
+      formData.steps.some(
+        (step) =>
+          ["ROLE", "SPECIFIC_USERS"].includes(step.approverSource) && !step.role
+      )
+    ) {
+      newErrors.steps = "Select an approver role for every Selected Role step";
+    } else if (
+      formData.steps.some(
+        (step) =>
+          step.approverSource === "SPECIFIC_USERS" &&
+          (!step.assignedUsers || step.assignedUsers.length === 0)
+      )
+    ) {
+      newErrors.steps = "Select at least one specific approver";
+    } else if (
+      new Set(formData.steps.map((step) => step.order)).size !==
+      formData.steps.length
+    ) {
+      newErrors.steps = "Step orders must be unique";
     }
 
     setErrors(newErrors);
@@ -249,19 +469,11 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
   };
 
   const handleAddStep = () => {
-    const firstRole = roles[0]?.name;
-    if (!firstRole) {
-      setErrors((prev) => ({
-        ...prev,
-        steps: "Load or create roles before adding approval steps",
-      }));
-      return;
-    }
-
     const newStep: ApprovalStep = {
       order: formData.steps.length + 1,
-      role: firstRole,
-      stepExecutionMode: "SEQUENTIAL",
+      approverSource: "PROJECT_BU_HEAD",
+      role: "BU_HEAD",
+      stepExecutionMode: "PARALLEL",
       requiresAll: 0,
       canReject: true,
     };
@@ -299,24 +511,25 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
     setFormData({ ...formData, steps: updatedSteps });
   };
 
-  const fetchUsersForStepRole = async (stepIndex: number, roleName: string) => {
-    const roleId = roleIdByName[roleName];
+  const fetchUsersForStepRole = async (stepIndex: number, roleName?: string) => {
+    const roleId = roleName ? roleIdByName[roleName] : undefined;
     if (!roleId) {
-      setUsersByStepIndex((prev) => ({ ...prev, [stepIndex]: [] }));
+      setUsersByStepIndex((previous) => ({ ...previous, [stepIndex]: [] }));
       return;
     }
 
-    setLoadingUsersByStepIndex((prev) => ({ ...prev, [stepIndex]: true }));
-
+    setLoadingUsersByStepIndex((previous) => ({ ...previous, [stepIndex]: true }));
     try {
       const response = await getUsersByRole(roleId);
-      const users = Array.isArray(response?.data) ? response.data : [];
-      setUsersByStepIndex((prev) => ({ ...prev, [stepIndex]: users }));
+      setUsersByStepIndex((previous) => ({
+        ...previous,
+        [stepIndex]: Array.isArray(response?.data) ? response.data : [],
+      }));
     } catch (error) {
       console.error("Failed to load users by role:", error);
-      setUsersByStepIndex((prev) => ({ ...prev, [stepIndex]: [] }));
+      setUsersByStepIndex((previous) => ({ ...previous, [stepIndex]: [] }));
     } finally {
-      setLoadingUsersByStepIndex((prev) => ({ ...prev, [stepIndex]: false }));
+      setLoadingUsersByStepIndex((previous) => ({ ...previous, [stepIndex]: false }));
     }
   };
 
@@ -334,6 +547,7 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
             name: formData.name,
             description: formData.description,
             isDefault: formData.isDefault,
+            selfApprovalMode: formData.selfApprovalMode,
             steps: formData.steps,
           })
         );
@@ -343,6 +557,7 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
             name: formData.name,
             description: formData.description,
             isDefault: formData.isDefault,
+            selfApprovalMode: formData.selfApprovalMode,
             steps: formData.steps,
           })
         );
@@ -408,6 +623,47 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
               label="Set as default approval flow"
             />
 
+            <FormControl error={!!errors.selfApprovalMode}>
+              <FormLabel sx={{ fontWeight: 700, color: "text.primary", mb: 0.75 }}>
+                When the requester is also an approver
+              </FormLabel>
+              <RadioGroup
+                value={formData.selfApprovalMode}
+                onChange={(event) =>
+                  setFormData({
+                    ...formData,
+                    selfApprovalMode: event.target.value as SelfApprovalMode,
+                  })
+                }
+              >
+                {selfApprovalOptions.map((option) => (
+                  <FormControlLabel
+                    key={option.value}
+                    value={option.value}
+                    control={<Radio />}
+                    label={
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {option.label}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.description}
+                        </Typography>
+                      </Box>
+                    }
+                    sx={{ alignItems: "flex-start", mb: 0.5 }}
+                  />
+                ))}
+              </RadioGroup>
+              {errors.selfApprovalMode && (
+                <Typography variant="caption" color="error">
+                  {errors.selfApprovalMode}
+                </Typography>
+              )}
+            </FormControl>
+
+            <ApprovalFlowPreview steps={formData.steps} />
+
             <Divider />
 
             <Box>
@@ -420,7 +676,6 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
                   size="small"
                   startIcon={<AddIcon />}
                   onClick={handleAddStep}
-                  disabled={roles.length === 0}
                 >
                   Add Step
                 </Button>
@@ -452,38 +707,9 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
                             >
                               {step.order}
                             </Box>
-                            <Box sx={{ flex: 1 }}>
-                              <FormControl fullWidth>
-                                <InputLabel>Role</InputLabel>
-                                <Select
-                                  value={step.role}
-                                  onChange={(e) => {
-                                    const nextRole = e.target.value;
-                                    const roleChanged = nextRole !== step.role;
-
-                                    handleUpdateStep(index, {
-                                      role: nextRole,
-                                      assignedUsers: roleChanged ? [] : step.assignedUsers,
-                                    });
-
-                                    if (step.useSpecificUsers) {
-                                      fetchUsersForStepRole(index, nextRole);
-                                    }
-                                  }}
-                                  label="Role"
-                                >
-                                  {roles.length === 0 ? (
-                                    <MenuItem disabled>No roles available</MenuItem>
-                                  ) : (
-                                    getRoleOptionsForStep(step.role).map((role) => (
-                                      <MenuItem key={role.id} value={role.name}>
-                                        {role.name}
-                                      </MenuItem>
-                                    ))
-                                  )}
-                                </Select>
-                              </FormControl>
-                            </Box>
+                            <Typography sx={{ flex: 1, fontWeight: 700 }}>
+                              Step {step.order}
+                            </Typography>
 
                             <IconButton
                               size="small"
@@ -507,6 +733,218 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
                             >
                               <DeleteIcon fontSize="small" />
                             </IconButton>
+                          </Box>
+
+                          <Box sx={{ pl: 5 }}>
+                            <FormControl fullWidth>
+                              <FormLabel sx={{ fontWeight: 700, color: "text.primary", mb: 0.75 }}>
+                                Approver Assignment
+                              </FormLabel>
+                              <RadioGroup
+                                value={
+                                  step.approverSource === "SPECIFIC_USERS"
+                                    ? "ROLE"
+                                    : step.approverSource
+                                }
+                                onChange={(event) => {
+                                  const source = event.target.value as Exclude<
+                                    ApproverSource,
+                                    "SPECIFIC_USERS"
+                                  >;
+                                  handleUpdateStep(index, {
+                                    approverSource: source,
+                                    role:
+                                      source === "PROJECT_BU_HEAD"
+                                        ? "BU_HEAD"
+                                        : source === "ROLE"
+                                          ? step.role === "BU_HEAD"
+                                            ? undefined
+                                            : step.role
+                                          : undefined,
+                                    useSpecificUsers: false,
+                                    assignedUsers: [],
+                                  });
+                                }}
+                              >
+                                {approverSourceOptions.map((option) => (
+                                  <FormControlLabel
+                                    key={option.value}
+                                    value={option.value}
+                                    control={<Radio />}
+                                    label={
+                                      <Box>
+                                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                          {option.label}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                          {option.description}
+                                        </Typography>
+                                      </Box>
+                                    }
+                                    sx={{ alignItems: "flex-start" }}
+                                  />
+                                ))}
+                              </RadioGroup>
+                            </FormControl>
+
+                            {step.approverSource === "PROJECT_BU_HEAD" && (
+                              <Alert severity="info" sx={{ mt: 1 }}>
+                                The approver will be determined when the project is submitted.
+                              </Alert>
+                            )}
+
+                            {step.approverSource === "REQUESTER_BU_HEAD" && (
+                              <Alert severity="info" sx={{ mt: 1 }}>
+                                The approver will be determined from the project requester&apos;s Business Unit when the project is submitted.
+                              </Alert>
+                            )}
+
+                            {["ROLE", "SPECIFIC_USERS"].includes(step.approverSource) && (
+                              <Stack spacing={1.5} sx={{ mt: 1.5 }}>
+                                <FormControl fullWidth>
+                                  <InputLabel>Role</InputLabel>
+                                  <Select
+                                    value={step.role || ""}
+                                    onChange={(event) => {
+                                      handleUpdateStep(index, {
+                                        role: event.target.value,
+                                        assignedUsers: [],
+                                      });
+                                      if (step.approverSource === "SPECIFIC_USERS") {
+                                        fetchUsersForStepRole(index, event.target.value);
+                                      }
+                                    }}
+                                    label="Role"
+                                  >
+                                    {roles.length === 0 ? (
+                                      <MenuItem disabled>No roles available</MenuItem>
+                                    ) : (
+                                      getRoleOptionsForStep(step.role || "").map((role) => (
+                                        <MenuItem key={role.id} value={role.name}>
+                                          {role.name}
+                                        </MenuItem>
+                                      ))
+                                    )}
+                                  </Select>
+                                </FormControl>
+
+                                <FormControlLabel
+                                  control={
+                                    <Checkbox
+                                      checked={step.approverSource === "SPECIFIC_USERS"}
+                                      onChange={(event) => {
+                                        const specific = event.target.checked;
+                                        handleUpdateStep(index, {
+                                          approverSource: specific ? "SPECIFIC_USERS" : "ROLE",
+                                          useSpecificUsers: specific,
+                                          assignedUsers: [],
+                                        });
+                                        if (specific) {
+                                          fetchUsersForStepRole(index, step.role);
+                                        }
+                                      }}
+                                    />
+                                  }
+                                  label="Select specific approvers from this role"
+                                />
+
+                                {step.approverSource === "SPECIFIC_USERS" && (
+                                  <FormControl fullWidth size="small">
+                                    <InputLabel id={`step-users-label-${index}`}>
+                                      Specific Approvers
+                                    </InputLabel>
+                                    <Select
+                                      labelId={`step-users-label-${index}`}
+                                      multiple
+                                      label="Specific Approvers"
+                                      value={(step.assignedUsers || []).map(
+                                        (user) => (user as RoleUserOption).id
+                                      )}
+                                      onOpen={() => fetchUsersForStepRole(index, step.role)}
+                                      onChange={(event) => {
+                                        const ids = event.target.value as string[];
+                                        const availableUsers = usersByStepIndex[index] || [];
+                                        handleUpdateStep(index, {
+                                          assignedUsers: ids
+                                            .map((id) =>
+                                              availableUsers.find((user) => user.id === id)
+                                            )
+                                            .filter(Boolean) as RoleUserOption[],
+                                        });
+                                      }}
+                                      renderValue={(selected) =>
+                                        (selected as string[])
+                                          .map((id) => {
+                                            const selectedUsers =
+                                              (step.assignedUsers || []) as RoleUserOption[];
+                                            const user =
+                                              (usersByStepIndex[index] || []).find(
+                                                (candidate) => candidate.id === id
+                                              ) ||
+                                              selectedUsers.find(
+                                                (candidate) => candidate.id === id
+                                              );
+                                            return user?.name || user?.email || id;
+                                          })
+                                          .join(", ")
+                                      }
+                                    >
+                                      {loadingUsersByStepIndex[index] ? (
+                                        <MenuItem disabled>
+                                          <CircularProgress size={16} sx={{ mr: 1 }} />
+                                          Loading users...
+                                        </MenuItem>
+                                      ) : (usersByStepIndex[index] || []).length === 0 ? (
+                                        <MenuItem disabled>
+                                          No active users found for this role
+                                        </MenuItem>
+                                      ) : (
+                                        (usersByStepIndex[index] || []).map((user) => (
+                                          <MenuItem key={user.id} value={user.id}>
+                                            <MuiCheckbox
+                                              checked={(
+                                                (step.assignedUsers || []) as RoleUserOption[]
+                                              ).some((selectedUser) => selectedUser.id === user.id)}
+                                            />
+                                            <Box>
+                                              <Typography variant="body2" fontWeight={600}>
+                                                {user.name || "Unnamed user"}
+                                              </Typography>
+                                              <Typography variant="caption" color="text.secondary">
+                                                {user.email || "No email"}
+                                              </Typography>
+                                            </Box>
+                                          </MenuItem>
+                                        ))
+                                      )}
+                                    </Select>
+                                    <FormHelperText>
+                                      Only selected active users from {step.role || "this role"} will approve.
+                                    </FormHelperText>
+                                  </FormControl>
+                                )}
+
+                                {step.approverSource === "SPECIFIC_USERS" &&
+                                  ((step.assignedUsers || []) as RoleUserOption[]).length > 0 && (
+                                    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                                      {((step.assignedUsers || []) as RoleUserOption[]).map((user) => (
+                                        <Chip
+                                          key={user.id}
+                                          label={user.name || user.email || user.id}
+                                          size="small"
+                                          onDelete={() =>
+                                            handleUpdateStep(index, {
+                                              assignedUsers: (
+                                                (step.assignedUsers || []) as RoleUserOption[]
+                                              ).filter((selectedUser) => selectedUser.id !== user.id),
+                                            })
+                                          }
+                                        />
+                                      ))}
+                                    </Box>
+                                  )}
+                              </Stack>
+                            )}
                           </Box>
 
                           <Box sx={{ pl: 5 }}>
@@ -551,116 +989,6 @@ export default function ApprovalFlowForm({ flowId, onClose }: ApprovalFlowFormPr
                             </FormControl>
                           </Box>
 
-                          {/* Specific User Assignment */}
-                          <Box sx={{ pl: 5, pt: 1 }}>
-                            <FormControlLabel
-                              control={
-                                <Checkbox
-                                  checked={step.useSpecificUsers || false}
-                                  onChange={(e) => {
-                                    const isChecked = e.target.checked;
-
-                                    handleUpdateStep(index, {
-                                      useSpecificUsers: isChecked,
-                                      assignedUsers: isChecked ? step.assignedUsers : [],
-                                    });
-
-                                    if (isChecked) {
-                                      fetchUsersForStepRole(index, step.role);
-                                    }
-                                  }}
-                                />
-                              }
-                              label="Assign to specific users only (instead of all with this role)"
-                            />
-                          </Box>
-
-                          {step.useSpecificUsers && (
-                            <Box sx={{ pl: 5, pt: 1 }}>
-                              <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 1 }}>
-                                Select Users ({step.role || "No role selected"})
-                              </Typography>
-                              <FormControl fullWidth size="small">
-                                <InputLabel id={`step-users-label-${index}`}>Users</InputLabel>
-                                <Select
-                                  labelId={`step-users-label-${index}`}
-                                  multiple
-                                  label="Users"
-                                  value={(step.assignedUsers || []).map((user) => user.id)}
-                                  onOpen={() => fetchUsersForStepRole(index, step.role)}
-                                  onChange={(e) => {
-                                    const selectedUserIds = e.target.value as string[];
-                                    const stepUsers = usersByStepIndex[index] || [];
-                                    const selectedUsers = selectedUserIds
-                                      .map((userId) => stepUsers.find((u) => u.id === userId))
-                                      .filter(Boolean) as RoleUserOption[];
-
-                                    handleUpdateStep(index, { assignedUsers: selectedUsers });
-                                  }}
-                                  renderValue={(selected) => {
-                                    const selectedIds = selected as string[];
-                                    const stepUsers = usersByStepIndex[index] || [];
-                                    const selectedUsers = (step.assignedUsers || []) as RoleUserOption[];
-                                    if (selectedIds.length === 0) return "No users selected";
-
-                                    return selectedIds
-                                      .map((id) => {
-                                        const user =
-                                          stepUsers.find((u) => u.id === id) ||
-                                          selectedUsers.find((u) => u.id === id);
-                                        return user?.name || user?.email || id;
-                                      })
-                                      .join(", ");
-                                  }}
-                                >
-                                  {loadingUsersByStepIndex[index] ? (
-                                    <MenuItem disabled>
-                                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                        <CircularProgress size={16} />
-                                        Loading users...
-                                      </Box>
-                                    </MenuItem>
-                                  ) : (usersByStepIndex[index] || []).length === 0 ? (
-                                    <MenuItem disabled>No active users found for this role</MenuItem>
-                                  ) : (
-                                    (usersByStepIndex[index] || []).map((user) => (
-                                      <MenuItem key={user.id} value={user.id}>
-                                        <MuiCheckbox
-                                          checked={(step.assignedUsers || []).some((u) => u.id === user.id)}
-                                        />
-                                        <Box>
-                                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                            {user.name || "Unnamed user"}
-                                          </Typography>
-                                          <Typography variant="caption" color="text.secondary">
-                                            {user.email || "No email"}
-                                          </Typography>
-                                        </Box>
-                                      </MenuItem>
-                                    ))
-                                  )}
-                                </Select>
-                                <FormHelperText>
-                                  Users are loaded from the selected role via backend endpoint.
-                                </FormHelperText>
-                              </FormControl>
-                              {step.assignedUsers && step.assignedUsers.length > 0 && (
-                                <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 1 }}>
-                                  {step.assignedUsers.map((user) => (
-                                    <Chip
-                                      key={user.id}
-                                      label={user.name || user.email || user.id}
-                                      onDelete={() => {
-                                        const filtered = step.assignedUsers!.filter((u) => u.id !== user.id);
-                                        handleUpdateStep(index, { assignedUsers: filtered });
-                                      }}
-                                      size="small"
-                                    />
-                                  ))}
-                                </Box>
-                              )}
-                            </Box>
-                          )}
                         </Stack>
                       </CardContent>
                     </Card>

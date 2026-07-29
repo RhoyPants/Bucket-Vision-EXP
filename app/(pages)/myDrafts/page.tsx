@@ -3,10 +3,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
-  Typography,
   Button,
-  Grid,
-  Card,
+  Tab,
+  Tabs,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import { useRouter } from "next/navigation";
@@ -16,7 +15,10 @@ import Guard from "@/app/components/shared/Guard";
 import ProjectsGrid from "@/app/(pages)/projects/components/ProjectsGrid";
 import { ProjectCardActions, ViewType } from "@/app/(pages)/projects/components/types";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
-import { getMyDraftsProjects } from "@/app/redux/controllers/projectController";
+import {
+  getMyDraftsProjects,
+  getMyRequestsProjects,
+} from "@/app/redux/controllers/projectController";
 import { usePermissions } from "@/app/lib/usePermissions";
 
 export default function MyDraftsPage() {
@@ -28,6 +30,7 @@ export default function MyDraftsPage() {
   const { projects, pagination } = useAppSelector((state) => state.project);
 
   const [viewType, setViewType] = useState<ViewType>("list");
+  const [archiveTab, setArchiveTab] = useState<"draft" | "cancelled">("draft");
   const [page, setPage] = useState(1);
   const pageLimit = 10;
   const query = useMemo(
@@ -36,19 +39,26 @@ export default function MyDraftsPage() {
       limit: pageLimit,
       sortBy: "createdAt",
       sortOrder: "desc" as const,
+      ...(archiveTab === "cancelled" ? { status: "CANCELLED" } : {}),
     }),
-    [page]
+    [archiveTab, page]
   );
 
   useEffect(() => {
-    dispatch(getMyDraftsProjects(query));
-  }, [dispatch, query]);
+    if (archiveTab === "cancelled") {
+      dispatch(getMyRequestsProjects(query));
+    } else {
+      dispatch(getMyDraftsProjects(query));
+    }
+  }, [archiveTab, dispatch, query]);
 
-  const myDrafts = useMemo(() => {
+  const archivedProjects = useMemo(() => {
     return projects || [];
   }, [projects]);
 
   const actions: ProjectCardActions = {
+    onOpenDashboard: (projectId) =>
+      router.push(`/projectDashboard/${projectId}`),
     onEdit: (project) => router.push(`/projects/${project.id}/setup`),
     onDelete: () => undefined,
     onSetup: (projectId) => router.push(`/projects/${projectId}/setup`),
@@ -67,28 +77,32 @@ export default function MyDraftsPage() {
     <Layout>
       <Guard module="PROJECTS" action="READ">
         <Box sx={{ p: { xs: 2, md: 4 } }}>
-          <Grid container spacing={1.5} sx={{ mb: 3 }}>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <Card
-                sx={{
-                  px: 1.5,
-                  py: 1.25,
-                  border: "1px solid #e5e7eb",
-                  backgroundColor: "#f8fafc",
-                }}
-              >
-                <Typography sx={{ fontSize: 12, color: "#6b7280", fontWeight: 600 }}>
-                  Drafts
-                </Typography>
-                <Typography sx={{ fontSize: 24, lineHeight: 1.2, fontWeight: 800, color: "#334155" }}>
-                  {myDrafts.length}
-                </Typography>
-              </Card>
-            </Grid>
-          </Grid>
+          <Box sx={{ mb: 2, borderBottom: "1px solid #E2E8F0" }}>
+            <Tabs
+              value={archiveTab}
+              onChange={(_, value: "draft" | "cancelled") => {
+                setArchiveTab(value);
+                setPage(1);
+              }}
+              aria-label="My archive project status"
+              sx={{
+                minHeight: 42,
+                "& .MuiTab-root": {
+                  minHeight: 42,
+                  textTransform: "none",
+                  fontWeight: 500,
+                },
+                "& .Mui-selected": { color: "#4B2E83 !important" },
+                "& .MuiTabs-indicator": { bgcolor: "#4B2E83" },
+              }}
+            >
+              <Tab value="draft" label="Draft" />
+              <Tab value="cancelled" label="Cancelled" />
+            </Tabs>
+          </Box>
 
           <ProjectsGrid
-            projects={myDrafts}
+            projects={archivedProjects}
             actions={actions}
             viewType={viewType}
             onViewTypeChange={setViewType}
@@ -105,9 +119,17 @@ export default function MyDraftsPage() {
                 New Project
               </Button>
             ) : null}
-            emptyMessage="No draft projects"
-            emptySubtext="Start a new project or save a setup as draft to see it here"
-            showCreateButton={canCreateProject}
+            emptyMessage={
+              archiveTab === "draft"
+                ? "No draft projects"
+                : "No cancelled project requests"
+            }
+            emptySubtext={
+              archiveTab === "draft"
+                ? "Start a new project or save a setup as draft to see it here"
+                : "Cancelled requests will appear here and can be resumed later"
+            }
+            showCreateButton={archiveTab === "draft" && canCreateProject}
             pagination={pagination}
             onPageChange={(nextPage) => setPage((current) => current === nextPage ? current : nextPage)}
           />

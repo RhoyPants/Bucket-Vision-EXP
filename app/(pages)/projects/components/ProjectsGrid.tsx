@@ -178,6 +178,7 @@ export default function ProjectsGrid({
     if (status === "ARCHIVED") {
       return { label: "Archived", bg: "#F3F4F6", color: "#4B5563", border: "#D1D5DB" };
     }
+    if (status === "CANCELLED") return { label: "Cancelled", bg: "#FEF2F2", color: "#B91C1C", border: "#FECACA" };
     return { label: "Draft", bg: "#F8FAFC", color: "#475569", border: "#E2E8F0" };
   };
 

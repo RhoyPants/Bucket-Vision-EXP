@@ -10,7 +10,7 @@ import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import FolderOpenOutlinedIcon from "@mui/icons-material/FolderOpenOutlined";
 import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
-import DraftsOutlinedIcon from "@mui/icons-material/DraftsOutlined";
+import ArchiveOutlinedIcon from "@mui/icons-material/ArchiveOutlined";
 import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
@@ -46,7 +46,7 @@ const mainNavItems = [
   { label: "Sprint Management", href: "/sprintManagement", permissionKey: "sprint_management", icon: <AssignmentTurnedInOutlinedIcon /> },
   { label: "Task Board", href: "/taskboard", permissionKey: "task_board", icon: <ViewKanbanOutlinedIcon /> },
   { label: "Team Overview", href: "/teamOverview", permissionKey: "team_overview", icon: <GroupsOutlinedIcon /> },
-  { label: "My Drafts", href: "/myDrafts", permissionKey: "my_drafts", icon: <DraftsOutlinedIcon /> },
+  { label: "My Archive", href: "/myDrafts", permissionKey: "my_drafts", icon: <ArchiveOutlinedIcon /> },
   { label: "Reports", href: "/reports", permissionKey: "reports", icon: <AssessmentOutlinedIcon /> },
 ] as const;
 

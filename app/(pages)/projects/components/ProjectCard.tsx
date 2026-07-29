@@ -149,6 +149,7 @@ const statusChipColor = (status?: string) => {
   if (status === "NEEDS_REVISION") return { bg: "#FFF7ED", color: "#9A3412", border: "#FDBA74", label: "Needs Revision" };
   if (status === "REJECTED") return { bg: "#FEF2F2", color: "#B91C1C", border: "#FECACA", label: "Rejected" };
   if (status === "ARCHIVED") return { bg: "#F3F4F6", color: "#4B5563", border: "#D1D5DB", label: "Archived" };
+  if (status === "CANCELLED") return { bg: "#FEF2F2", color: "#B91C1C", border: "#FECACA", label: "Cancelled" };
   return { bg: "#F8FAFC", color: "#475569", border: "#E2E8F0", label: "Draft" };
 };
 

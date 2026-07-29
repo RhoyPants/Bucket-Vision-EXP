@@ -148,6 +148,11 @@ export async function loginRequest(email: string, password: string) {
   return response.data;
 }
 
+export async function logoutRequest() {
+  const response = await api.post("/auth/logout");
+  return response.data;
+}
+
 export interface PermissionBootstrapResponse {
   success: boolean;
   data: {

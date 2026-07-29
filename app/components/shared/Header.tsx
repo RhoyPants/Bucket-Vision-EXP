@@ -8,6 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { logout } from "@/app/redux/slices/authSlice";
+import { logoutRequest } from "@/app/api-service/authService";
 
 // Map exact routes to display titles
 const routeTitleMap: Record<string, string> = {
@@ -20,7 +21,7 @@ const routeTitleMap: Record<string, string> = {
   "/settings": "Settings",
   "/myApprovals": "My Approvals",
   "/myRequests": "My Requests",
-  "/myDrafts": "My Drafts",
+  "/myDrafts": "My Archive",
   "/projectCalendar": "Project Calendar",
   "/projectTimeline": "Project Timeline",
   "/personalDashboard": "Personal Dashboard",
@@ -39,7 +40,7 @@ const routeDescriptionMap: Record<string, string> = {
   "/settings": "Configure system settings and user permissions",
   "/myApprovals": "Requests that need your review or approval decision",
   "/myRequests": "Track all project requests you've submitted and their approval status",
-  "/myDrafts": "Draft projects saved by you and ready to continue",
+  "/myDrafts": "Review your draft and cancelled project requests",
   "/projectCalendar": "View and manage project timelines and task schedules",
   "/projectTimeline": "Visualize project timelines and dependencies",
   "/personalDashboard": "Customize and view your personal dashboard",
@@ -106,8 +107,15 @@ export default function Header() {
 
   const handleLogout = async () => {
     handleMenuClose();
-    dispatch(logout());
-    router.push("/");
+
+    try {
+      await logoutRequest();
+    } catch (error) {
+      console.error("Backend logout failed:", error);
+    } finally {
+      dispatch(logout());
+      router.push("/");
+    }
   };
 
   const handleProfile = () => {

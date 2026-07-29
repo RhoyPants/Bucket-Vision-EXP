@@ -9,7 +9,6 @@ import {
   getDefaultFlow as getDefaultFlowAPI,
   configureProjectApproval,
   getProjectApprovalConfig,
-  ApprovalFlow,
   ApprovalStep,
 } from "@/app/api-service/approvalFlowService";
 import {
@@ -23,6 +22,20 @@ import {
   setLoading,
   setError,
 } from "../slices/approvalFlowSlice";
+
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  const value = error as {
+    message?: string;
+    response?: { data?: { error?: { message?: string } | string; message?: string } };
+  };
+  const apiError = value?.response?.data?.error;
+  return (
+    value?.response?.data?.message ||
+    (typeof apiError === "string" ? apiError : apiError?.message) ||
+    value?.message ||
+    fallback
+  );
+};
 
 export const getApprovalFlows = (onlyActive?: boolean) => {
   return async (dispatch: AppDispatch) => {
@@ -38,8 +51,8 @@ export const getApprovalFlows = (onlyActive?: boolean) => {
       } else {
         throw new Error(response.error?.message || "Failed to fetch flows");
       }
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.error?.message || err.message || "Error fetching approval flows";
+    } catch (err: unknown) {
+      const errorMsg = getApiErrorMessage(err, "Error fetching approval flows");
       dispatch(setError(errorMsg));
       console.error("❌ Error fetching flows:", err);
       throw err;
@@ -63,8 +76,8 @@ export const getFlowById = (flowId: string) => {
       } else {
         throw new Error(response.error?.message || "Failed to fetch flow");
       }
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.error?.message || err.message || "Error fetching flow";
+    } catch (err: unknown) {
+      const errorMsg = getApiErrorMessage(err, "Error fetching flow");
       dispatch(setError(errorMsg));
       console.error("❌ Error fetching flow:", err);
       throw err;
@@ -78,6 +91,7 @@ export const createFlow = (data: {
   name: string;
   description?: string;
   isDefault?: boolean;
+  selfApprovalMode: "THROUGH_HIGHEST_STEP" | "OWN_STEP";
   steps: ApprovalStep[];
 }) => {
   return async (dispatch: AppDispatch) => {
@@ -93,8 +107,8 @@ export const createFlow = (data: {
       } else {
         throw new Error(response.error?.message || "Failed to create flow");
       }
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.error?.message || err.message || "Error creating approval flow";
+    } catch (err: unknown) {
+      const errorMsg = getApiErrorMessage(err, "Error creating approval flow");
       dispatch(setError(errorMsg));
       console.error("❌ Error creating flow:", err);
       throw err;
@@ -111,6 +125,7 @@ export const updateFlow = (
     description: string;
     isDefault: boolean;
     isActive: boolean;
+    selfApprovalMode: "THROUGH_HIGHEST_STEP" | "OWN_STEP";
     steps: ApprovalStep[];
   }>
 ) => {
@@ -127,8 +142,8 @@ export const updateFlow = (
       } else {
         throw new Error(response.error?.message || "Failed to update flow");
       }
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.error?.message || err.message || "Error updating approval flow";
+    } catch (err: unknown) {
+      const errorMsg = getApiErrorMessage(err, "Error updating approval flow");
       dispatch(setError(errorMsg));
       console.error("❌ Error updating flow:", err);
       throw err;
@@ -152,8 +167,8 @@ export const deleteFlow = (flowId: string) => {
       } else {
         throw new Error(response.error?.message || "Failed to delete flow");
       }
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.error?.message || err.message || "Error deleting approval flow";
+    } catch (err: unknown) {
+      const errorMsg = getApiErrorMessage(err, "Error deleting approval flow");
       dispatch(setError(errorMsg));
       console.error("❌ Error deleting flow:", err);
       throw err;
@@ -177,8 +192,8 @@ export const setFlowAsDefault = (flowId: string) => {
       } else {
         throw new Error(response.error?.message || "Failed to set default flow");
       }
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.error?.message || err.message || "Error setting default flow";
+    } catch (err: unknown) {
+      const errorMsg = getApiErrorMessage(err, "Error setting default flow");
       dispatch(setError(errorMsg));
       console.error("❌ Error setting default flow:", err);
       throw err;
@@ -202,8 +217,8 @@ export const getDefaultApprovalFlow = () => {
       } else {
         throw new Error(response.error?.message || "Failed to fetch default flow");
       }
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.error?.message || err.message || "Error fetching default flow";
+    } catch (err: unknown) {
+      const errorMsg = getApiErrorMessage(err, "Error fetching default flow");
       dispatch(setError(errorMsg));
       console.error("❌ Error fetching default flow:", err);
       throw err;
@@ -230,8 +245,8 @@ export const setProjectApprovalFlow = (
       } else {
         throw new Error(response.error?.message || "Failed to configure project approval");
       }
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.error?.message || err.message || "Error configuring project approval";
+    } catch (err: unknown) {
+      const errorMsg = getApiErrorMessage(err, "Error configuring project approval");
       dispatch(setError(errorMsg));
       console.error("❌ Error configuring project approval:", err);
       throw err;
@@ -255,8 +270,8 @@ export const fetchProjectApprovalConfig = (projectId: string) => {
       } else {
         throw new Error(response.error?.message || "Failed to fetch project approval config");
       }
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.error?.message || err.message || "Error fetching project approval config";
+    } catch (err: unknown) {
+      const errorMsg = getApiErrorMessage(err, "Error fetching project approval config");
       dispatch(setError(errorMsg));
       console.error("❌ Error fetching project approval config:", err);
       throw err;

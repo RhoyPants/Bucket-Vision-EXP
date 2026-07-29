@@ -20,8 +20,6 @@ import { useState, useEffect } from "react";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
 import InfoIcon from "@mui/icons-material/Info";
-import GroupIcon from "@mui/icons-material/Group";
-import AssignmentIcon from "@mui/icons-material/Assignment";
 
 interface ApprovalSubmitModalProps {
   open: boolean;
@@ -34,6 +32,30 @@ interface ApprovalSubmitModalProps {
   requiresApproval: boolean;
   isSubmitting?: boolean;
 }
+
+const getSubmissionError = (error: unknown): string => {
+  if (typeof error !== "object" || error === null) {
+    return "Failed to submit project for approval";
+  }
+
+  const value = error as {
+    message?: string;
+    response?: {
+      data?: {
+        message?: string;
+        error?: string | { message?: string };
+      };
+    };
+  };
+  const apiError = value.response?.data?.error;
+
+  return (
+    value.response?.data?.message ||
+    (typeof apiError === "string" ? apiError : apiError?.message) ||
+    value.message ||
+    "Failed to submit project for approval"
+  );
+};
 
 export default function ApprovalSubmitModal({
   open,
@@ -60,8 +82,8 @@ export default function ApprovalSubmitModal({
       setError("");
       setLoading(true);
       await onConfirm();
-    } catch (err: any) {
-      setError(err.message || "Failed to submit project for approval");
+    } catch (err: unknown) {
+      setError(getSubmissionError(err));
     } finally {
       setLoading(false);
     }
@@ -83,7 +105,10 @@ export default function ApprovalSubmitModal({
       <DialogContent sx={{ pt: 3 }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2.5 }}>
-            {error}
+            <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+              Unable to submit project
+            </Typography>
+            <Typography variant="body2">{error}</Typography>
           </Alert>
         )}
 

@@ -4,6 +4,7 @@ import {
   Box,
   Typography,
   Card,
+  Chip,
   CircularProgress,
   Alert,
   Stack,
@@ -98,6 +99,9 @@ export default function ApprovalAuditTrail({
       <Box>
         {auditLogs.map((log, index) => {
           const config = actionConfig[log.action] || actionConfig.SUBMITTED;
+          const isAutoApproved =
+            log.action === "APPROVED" &&
+            log.remarks?.toLowerCase().startsWith("auto-approved:");
           const Icon = config.icon;
           const isLast = index === auditLogs.length - 1;
 
@@ -125,7 +129,7 @@ export default function ApprovalAuditTrail({
                   noWrap
                   sx={{ fontSize: 10.5, fontWeight: 900, color: "#16a34a", lineHeight: 1.25 }}
                 >
-                  {config.label}
+                  {isAutoApproved ? "Auto-approved" : config.label}
                 </Typography>
                 <Typography
                   noWrap
@@ -166,7 +170,9 @@ export default function ApprovalAuditTrail({
                     title={log.remarks}
                     sx={{ fontSize: 9.5, color: "#334155", fontWeight: 700 }}
                   >
-                    {log.remarks}
+                    {isAutoApproved
+                      ? log.remarks?.replace(/^Auto-approved:\s*/i, "")
+                      : log.remarks}
                   </Typography>
                 </Box>
               )}
@@ -188,6 +194,9 @@ export default function ApprovalAuditTrail({
       <Stack spacing={3}>
         {auditLogs.map((log, index) => {
           const config = actionConfig[log.action] || actionConfig.SUBMITTED;
+          const isAutoApproved =
+            log.action === "APPROVED" &&
+            log.remarks?.toLowerCase().startsWith("auto-approved:");
           const Icon = config.icon;
 
           return (
@@ -255,8 +264,18 @@ export default function ApprovalAuditTrail({
                           mb: 0.5,
                         }}
                       >
-                        {config.label}
+                        {isAutoApproved ? "Auto-approved" : config.label}
                       </Typography>
+                      {isAutoApproved && (
+                        <Chip
+                          icon={<CheckCircleIcon />}
+                          label="Auto-approved"
+                          size="small"
+                          color="success"
+                          variant="outlined"
+                          sx={{ mb: 1, fontWeight: 700 }}
+                        />
+                      )}
                       <Typography
                         sx={{
                           fontSize: 11,
@@ -317,7 +336,10 @@ export default function ApprovalAuditTrail({
                           }}
                         >
                           <Typography sx={{ fontSize: 12, color: "#374151" }}>
-                            <strong>Remarks:</strong> {log.remarks}
+                            <strong>{isAutoApproved ? "Reason:" : "Remarks:"}</strong>{" "}
+                            {isAutoApproved
+                              ? log.remarks.replace(/^Auto-approved:\s*/i, "")
+                              : log.remarks}
                           </Typography>
                         </Box>
                       )}

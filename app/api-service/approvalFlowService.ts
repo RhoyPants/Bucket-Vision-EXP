@@ -1,16 +1,25 @@
 import axiosApi from "@/app/lib/axios";
 
 // ============ TYPES ============
+export type ApproverSource =
+  | "PROJECT_BU_HEAD"
+  | "REQUESTER_BU_HEAD"
+  | "ROLE"
+  | "SPECIFIC_USERS";
+
+export type SelfApprovalMode = "THROUGH_HIGHEST_STEP" | "OWN_STEP";
+
 export interface ApprovalStep {
   id?: string;
   order: number;
-  role: string;
+  approverSource: ApproverSource;
+  role?: string;
   stepExecutionMode: "SEQUENTIAL" | "PARALLEL";
   requiresAll: 0 | 1;
   canReject: boolean;
   specificUserId?: string; // Optional: assign to specific user instead of all with role
   useSpecificUsers?: boolean; // Whether this step uses specific user assignments
-  assignedUsers?: any[]; // Display list of assigned users
+  assignedUsers?: unknown[]; // Legacy display list for SPECIFIC_USERS records
 }
 
 export interface ApprovalFlow {
@@ -19,6 +28,7 @@ export interface ApprovalFlow {
   description?: string;
   isDefault: boolean;
   isActive: boolean;
+  selfApprovalMode: SelfApprovalMode;
   steps: ApprovalStep[];
   createdAt: string;
   updatedAt: string;
@@ -38,6 +48,7 @@ export async function createApprovalFlow(data: {
   name: string;
   description?: string;
   isDefault?: boolean;
+  selfApprovalMode: SelfApprovalMode;
   steps: ApprovalStep[];
 }) {
   const response = await axiosApi.post("/admin/approval-flows", data);
@@ -62,6 +73,7 @@ export async function updateApprovalFlow(
     description: string;
     isDefault: boolean;
     isActive: boolean;
+    selfApprovalMode: SelfApprovalMode;
     steps: ApprovalStep[];
   }>
 ) {
