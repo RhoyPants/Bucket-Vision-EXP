@@ -101,7 +101,9 @@ export default function SubtaskList({
 
       <SubtaskForm
         taskId={task.id}
+        taskMaintenanceId={task.taskMaintenanceId}
         taskBudget={task.budgetAllocated || 0}
+        existingSubtasks={task.subtasks || []}
         subtaskInputs={subtaskInputs}
         setSubtaskInputs={setSubtaskInputs}
         members={members}

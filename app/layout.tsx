@@ -5,6 +5,7 @@ import "./globals.css";
 import ThemeRegistry from "./ThemeRegistry";
 import theme from "./lib/theme";
 import { Providers } from "./provider";
+import FocusVisibleCompatibility from "./components/shared/FocusVisibleCompatibility";
 
 // import ReduxProvider from "./providers/ReduxProvider";
 // import MsalProviders from "./providers/msalProvider";
@@ -98,6 +99,7 @@ export default function RootLayout({
           backgroundAttachment: "fixed",
         }}
       >
+        <FocusVisibleCompatibility />
         <ThemeRegistry>
           <Providers>
             {children}

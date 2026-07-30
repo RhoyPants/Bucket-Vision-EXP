@@ -158,7 +158,19 @@ function TaskCard({
 
         {isEditing ? (
           // EDIT MODE
-          <Box display="flex" gap={1} alignItems="flex-start" flexWrap="wrap">
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: {
+                xs: "minmax(0, 1fr)",
+                sm: "minmax(240px, 300px) minmax(160px, 200px) auto",
+              },
+              gap: 1,
+              alignItems: "start",
+              justifyContent: "start",
+              width: "100%",
+            }}
+          >
             <Tooltip title={titleError || ""} open={!!titleError}>
               <TextField
                 size="small"
@@ -167,7 +179,7 @@ function TaskCard({
                 onChange={(e) => handleEditChange("title", e.target.value)}
                 onBlur={() => handleEditBlur("title")}
                 error={!!titleError}
-                sx={{ flex: "0 1 140px" }}
+                sx={{ width: "100%" }}
                 disabled={saving}
               />
             </Tooltip>
@@ -187,12 +199,12 @@ function TaskCard({
                 }
                 onBlur={() => handleEditBlur("budgetAllocated")}
                 error={!!budgetError}
-                sx={{ flex: "0 1 90px" }}
+                sx={{ width: "100%" }}
                 disabled={saving}
               />
             </Tooltip>
 
-            <Box display="flex" gap={0.5}>
+            <Box display="flex" gap={0.5} height={40} alignItems="center">
               <IconButton
                 size="small"
                 onClick={handleEditSubmit}

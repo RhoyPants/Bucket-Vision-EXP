@@ -195,11 +195,12 @@ function ScopeCard({
         {/* TASK INPUT */}
         <TaskForm
           scopeId={scope.id}
+          scopeMaintenanceId={scope.scopeMaintenanceId}
           scopeBudget={Number(scope.budgetAllocated) || 0}
+          existingTasks={scope.tasks || []}
           taskInputs={taskInputs}
           setTaskInputs={setTaskInputs}
           onAddTask={onAddTask}
-          existingTasks={scope.tasks || []}
         />
 
         {/* TASK LIST */}

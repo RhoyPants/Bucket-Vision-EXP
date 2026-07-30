@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -10,6 +10,7 @@ import {
   Typography,
   Backdrop,
   Stack,
+  MenuItem,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import { formatBudget } from "@/app/utils/formatters";
@@ -20,29 +21,82 @@ import {
   hasFieldError,
   ValidationError,
 } from "@/app/utils/taskValidation";
+import {
+  getTasksForScope,
+  MaintenanceRecord,
+} from "@/app/api-service/workBreakdownMaintenanceService";
 
 interface TaskFormProps {
   scopeId: string;
+  scopeMaintenanceId?: string;
   scopeBudget: number;
+  existingTasks?: any[];
   taskInputs: Record<string, any>;
   setTaskInputs: (inputs: any) => void;
   onAddTask: (scopeId: string) => void;
-  existingTasks?: Array<{ budgetAllocated: number }>;
 }
 
 export default function TaskForm({
   scopeId,
+  scopeMaintenanceId,
   scopeBudget,
+  existingTasks = [],
   taskInputs,
   setTaskInputs,
   onAddTask,
-  existingTasks = [],
 }: TaskFormProps) {
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
+  const [maintenanceTasks, setMaintenanceTasks] = useState<MaintenanceRecord[]>([]);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+  const [taskMenuOpen, setTaskMenuOpen] = useState(false);
 
   const form = taskInputs[scopeId] || {};
+  const selectedTaskMaintenanceIds = new Set(
+    existingTasks.map((task) => task.taskMaintenanceId).filter(Boolean),
+  );
+  const availableMaintenanceTasks = maintenanceTasks.filter(
+    (task) => !selectedTaskMaintenanceIds.has(task.id),
+  );
+
+  useEffect(() => {
+    if (!scopeMaintenanceId) {
+      setMaintenanceTasks([]);
+      return;
+    }
+
+    let active = true;
+    setMaintenanceLoading(true);
+    getTasksForScope(scopeMaintenanceId)
+      .then((items) => {
+        if (active) {
+          setMaintenanceTasks(items.filter((item) => item.isActive !== false));
+        }
+      })
+      .finally(() => {
+        if (active) setMaintenanceLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [scopeMaintenanceId]);
+
+  useEffect(() => {
+    if (!taskMenuOpen) return;
+    const closeMenuOnScroll = (event: Event) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(".MuiMenu-paper, [role='listbox']")
+      ) {
+        return;
+      }
+      setTaskMenuOpen(false);
+    };
+    window.addEventListener("scroll", closeMenuOnScroll, true);
+    return () => window.removeEventListener("scroll", closeMenuOnScroll, true);
+  }, [taskMenuOpen]);
 
   const handleChange = (field: string, value: any) => {
     setTaskInputs((prev: any) => ({
@@ -93,24 +147,75 @@ export default function TaskForm({
   return (
     <Box
       mt={1}
-      display="flex"
-      gap={1}
-      alignItems="center"
-      flexWrap="wrap"
-      sx={{ justifyContent: "flex-start" }}
+      sx={{
+        display: "grid",
+        gridTemplateColumns: {
+          xs: "minmax(0, 1fr)",
+          sm: "minmax(240px, 300px) minmax(160px, 200px) auto auto",
+        },
+        gap: 1,
+        alignItems: "start",
+        justifyContent: "start",
+      }}
     >
       <Tooltip title={titleError || ""} open={!!titleError}>
-        <TextField
-          size="small"
-          label="Task"
-          placeholder="Task name"
-          value={form.title || ""}
-          onChange={(e) => handleChange("title", e.target.value)}
-          onBlur={() => handleBlur("title")}
-          error={!!titleError}
-          sx={{ flex: "0 1 300px", minWidth: 110 }}
-          disabled={saving}
-        />
+        {scopeMaintenanceId ? (
+          <TextField
+            select
+            size="small"
+            label="Task"
+            value={form.taskMaintenanceId || ""}
+            onChange={(e) => {
+              const value = e.target.value;
+              const selected = maintenanceTasks.find(
+                (item) => item.id === value,
+              );
+              handleChange("sourceType", "MAINTENANCE");
+              handleChange("taskMaintenanceId", value);
+              handleChange("title", selected?.name || "");
+            }}
+            onBlur={() => handleBlur("title")}
+            error={!!titleError}
+            sx={{ flex: "0 1 300px", minWidth: 110 }}
+            disabled={saving || maintenanceLoading}
+            SelectProps={{
+              open: taskMenuOpen,
+              onOpen: () => setTaskMenuOpen(true),
+              onClose: () => setTaskMenuOpen(false),
+              MenuProps: {
+                disablePortal: true,
+                PaperProps: { sx: { maxHeight: 280 } },
+              },
+            }}
+            helperText="Select a task allowed under this scope."
+          >
+            <MenuItem value="" disabled>
+              Select task
+            </MenuItem>
+            {availableMaintenanceTasks.map((task) => (
+              <MenuItem key={task.id} value={task.id}>
+                {task.name} ({task.code})
+              </MenuItem>
+            ))}
+          </TextField>
+        ) : (
+          <TextField
+            size="small"
+            label="Task"
+            placeholder="Task name"
+            value={form.title || ""}
+            onChange={(e) => {
+              handleChange("sourceType", "CUSTOM");
+              handleChange("taskMaintenanceId", "");
+              handleChange("title", e.target.value);
+            }}
+            onBlur={() => handleBlur("title")}
+            error={!!titleError}
+            sx={{ flex: "0 1 300px", minWidth: 110 }}
+            disabled={saving}
+            helperText="Legacy custom scope"
+          />
+        )}
       </Tooltip>
 
       <Tooltip title={budgetError || ""} open={!!budgetError}>
@@ -139,6 +244,11 @@ export default function TaskForm({
           fontWeight: 600,
           whiteSpace: "nowrap",
           minWidth: "45px",
+          height: 40,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxSizing: "border-box",
           textAlign: "center",
         }}
       >
@@ -159,7 +269,9 @@ export default function TaskForm({
           fontWeight: 600,
           borderRadius: 1,
           fontSize: "0.85rem",
+          height: 40,
           padding: "6px 12px",
+          whiteSpace: "nowrap",
         }}
       >
         {saving ? "Adding..." : "Task"}

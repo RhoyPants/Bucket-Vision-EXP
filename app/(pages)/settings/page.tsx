@@ -18,6 +18,7 @@ import ProjectApprovalManagement from "./components/ProjectApprovalManagement";
 import Modules from "./components/Modules";
 import BusinessUnits from "./components/BusinessUnits";
 import UserRequests from "@/app/(pages)/settings/components/UserRequestsPanel";
+import ProjectMaintenance from "./components/ProjectMaintenance";
 import Guard from "@/app/components/shared/Guard";
 import { usePermissions } from "@/app/lib/usePermissions";
 
@@ -30,12 +31,14 @@ type TabType =
   | "projectApprovals"
   | "modules"
   | "businessUnits"
+  | "projectMaintenance"
   | "userRequests";
 
 interface NavItem {
   id: TabType;
   label: string;
   permissionKey: string;
+  fallbackPermissionKey?: string;
   requiredAction?: "view" | "update";
 }
 
@@ -89,6 +92,13 @@ const NAV_ITEMS: NavItem[] = [
     permissionKey: "settings_business_units",
     requiredAction: "view",
   },
+  {
+    id: "projectMaintenance",
+    label: "Project Maintenance",
+    permissionKey: "settings_project_maintenance",
+    fallbackPermissionKey: "settings_business_units",
+    requiredAction: "view",
+  },
 ];
 
 function SettingsPageContent() {
@@ -97,7 +107,14 @@ function SettingsPageContent() {
 
   const allowedTabs = useMemo(
     () =>
-      NAV_ITEMS.filter((item) => canView(item.permissionKey)).map((item) => item.id),
+      NAV_ITEMS.filter(
+        (item) =>
+          canView(item.permissionKey) ||
+          Boolean(
+            item.fallbackPermissionKey &&
+              canView(item.fallbackPermissionKey),
+          ),
+      ).map((item) => item.id),
     [canView]
   );
   const tabParam = searchParams.get("tab") as TabType | null;
@@ -205,6 +222,8 @@ function SettingsPageContent() {
             <BusinessUnits />
           </Guard>
         );
+      case "projectMaintenance":
+        return <ProjectMaintenance />;
       case "userRequests":
         return (
           <Guard

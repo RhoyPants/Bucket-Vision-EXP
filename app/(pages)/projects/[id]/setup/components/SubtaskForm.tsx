@@ -4,11 +4,8 @@ import {
   Button,
   TextField,
   Typography,
-  Select,
   MenuItem,
   CircularProgress,
-  FormHelperText,
-  FormControl,
   Backdrop,
   Stack,
 } from "@mui/material";
@@ -25,10 +22,16 @@ import {
   ValidationError,
 } from "@/app/utils/subtaskValidation";
 import { formatBudget } from "@/app/utils/formatters";
+import {
+  getSubtasksForTask,
+  MaintenanceRecord,
+} from "@/app/api-service/workBreakdownMaintenanceService";
 
 interface SubtaskFormProps {
   taskId: string;
+  taskMaintenanceId?: string;
   taskBudget: number;
+  existingSubtasks?: any[];
   projectId?: string;
   subtaskInputs: Record<string, any>;
   setSubtaskInputs: (inputs: any) => void;
@@ -38,7 +41,9 @@ interface SubtaskFormProps {
 
 export default function SubtaskForm({
   taskId,
+  taskMaintenanceId,
   taskBudget,
+  existingSubtasks = [],
   projectId,
   subtaskInputs,
   setSubtaskInputs,
@@ -52,9 +57,63 @@ export default function SubtaskForm({
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
+  const [maintenanceSubtasks, setMaintenanceSubtasks] = useState<
+    MaintenanceRecord[]
+  >([]);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+  const [subtaskMenuOpen, setSubtaskMenuOpen] = useState(false);
 
   const isOpen = subtaskInputs[taskId]?.open;
   const form = subtaskInputs[taskId] || {};
+  const selectedSubtaskMaintenanceIds = new Set(
+    existingSubtasks
+      .map((subtask) => subtask.subtaskMaintenanceId)
+      .filter(Boolean),
+  );
+  const availableMaintenanceSubtasks = maintenanceSubtasks.filter(
+    (subtask) => !selectedSubtaskMaintenanceIds.has(subtask.id),
+  );
+
+  useEffect(() => {
+    if (!taskMaintenanceId) {
+      setMaintenanceSubtasks([]);
+      return;
+    }
+
+    let active = true;
+    setMaintenanceLoading(true);
+    getSubtasksForTask(taskMaintenanceId)
+      .then((items) => {
+        if (active) {
+          setMaintenanceSubtasks(
+            items.filter((item) => item.isActive !== false),
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setMaintenanceLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [taskMaintenanceId]);
+
+  useEffect(() => {
+    if (!subtaskMenuOpen) return;
+    const closeMenuOnScroll = (event: Event) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(".MuiMenu-paper, [role='listbox']")
+      ) {
+        return;
+      }
+      setSubtaskMenuOpen(false);
+    };
+    window.addEventListener("scroll", closeMenuOnScroll, true);
+    return () =>
+      window.removeEventListener("scroll", closeMenuOnScroll, true);
+  }, [subtaskMenuOpen]);
 
   // Include owner with engaged users
   const assignableUsers = useMemo(() => {
@@ -190,37 +249,83 @@ export default function SubtaskForm({
       </Typography>
 
       {/* Title */}
-      <TextField
-        size="small"
-        label="Title"
-        placeholder="Subtask name"
-        value={form.title || ""}
-        onChange={(e) => handleChange("title", e.target.value)}
-        onBlur={() => handleBlur("title")}
-        error={hasFieldError("title", errors)}
-        helperText={getFieldError("title", errors) || ""}
-        disabled={saving}
-      />
+      {taskMaintenanceId ? (
+        <TextField
+          select
+          size="small"
+          label="Title"
+          value={form.subtaskMaintenanceId || ""}
+          onChange={(e) => {
+            const value = e.target.value;
+            const selected = maintenanceSubtasks.find(
+              (item) => item.id === value,
+            );
+            handleChange("sourceType", "MAINTENANCE");
+            handleChange("subtaskMaintenanceId", value);
+            handleChange("title", selected?.name || "");
+          }}
+          onBlur={() => handleBlur("title")}
+          error={hasFieldError("title", errors)}
+          helperText={
+            getFieldError("title", errors) ||
+            "Select a subtask allowed under this task."
+          }
+          disabled={saving || maintenanceLoading}
+          SelectProps={{
+            open: subtaskMenuOpen,
+            onOpen: () => setSubtaskMenuOpen(true),
+            onClose: () => setSubtaskMenuOpen(false),
+            MenuProps: {
+              disablePortal: true,
+              PaperProps: { sx: { maxHeight: 280 } },
+            },
+          }}
+        >
+          <MenuItem value="" disabled>
+            Select subtask
+          </MenuItem>
+          {availableMaintenanceSubtasks.map((subtask) => (
+            <MenuItem key={subtask.id} value={subtask.id}>
+              {subtask.name} ({subtask.code})
+            </MenuItem>
+          ))}
+        </TextField>
+      ) : (
+        <TextField
+          size="small"
+          label="Title"
+          placeholder="Subtask name"
+          value={form.title || ""}
+          onChange={(e) => {
+            handleChange("sourceType", "CUSTOM");
+            handleChange("subtaskMaintenanceId", "");
+            handleChange("title", e.target.value);
+          }}
+          onBlur={() => handleBlur("title")}
+          error={hasFieldError("title", errors)}
+          helperText={getFieldError("title", errors) || "Legacy custom task"}
+          disabled={saving}
+        />
+      )}
 
       {/* Priority & Budget in row */}
-      <Box display="flex" gap={1}>
-        <FormControl size="small" sx={{ flex: 1 }} error={hasFieldError("priority", errors)}>
-          <Select
-            label="Priority"
-            value={form.priority || ""}
-            onChange={(e) => handleChange("priority", e.target.value)}
-            onBlur={() => handleBlur("priority")}
-            disabled={saving}
-          >
-            <MenuItem value="">Select Priority</MenuItem>
-            <MenuItem value="HIGH">HIGH</MenuItem>
-            <MenuItem value="MEDIUM">MEDIUM</MenuItem>
-            <MenuItem value="LOW">LOW</MenuItem>
-          </Select>
-          {hasFieldError("priority", errors) && (
-            <FormHelperText>{getFieldError("priority", errors)}</FormHelperText>
-          )}
-        </FormControl>
+      <Box display="grid" gridTemplateColumns="minmax(0, 1fr) minmax(0, 1fr)" gap={1} alignItems="start">
+        <TextField
+          select
+          size="small"
+          label="Priority"
+          value={form.priority || ""}
+          onChange={(e) => handleChange("priority", e.target.value)}
+          onBlur={() => handleBlur("priority")}
+          error={hasFieldError("priority", errors)}
+          helperText={getFieldError("priority", errors) || " "}
+          disabled={saving}
+        >
+          <MenuItem value="">Select Priority</MenuItem>
+          <MenuItem value="HIGH">HIGH</MenuItem>
+          <MenuItem value="MEDIUM">MEDIUM</MenuItem>
+          <MenuItem value="LOW">LOW</MenuItem>
+        </TextField>
 
         <TextField
           size="small"
@@ -231,8 +336,7 @@ export default function SubtaskForm({
           onChange={(e) => handleChange("budgetAllocated", parseFloat(e.target.value.replace(/,/g, "")) || 0)}
           onBlur={() => handleBlur("budgetAllocated")}
           error={hasFieldError("budgetAllocated", errors)}
-          helperText={getFieldError("budgetAllocated", errors) || ""}
-          sx={{ flex: "0 1 100px" }}
+          helperText={getFieldError("budgetAllocated", errors) || " "}
           disabled={saving}
         />
       </Box>

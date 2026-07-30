@@ -175,7 +175,12 @@ export default function ProjectSetupWizard({
   });
 
   // SCOPE STATE
-  const [scopeForm, setScopeForm] = useState({ name: "", budgetAllocated: "" });
+  const [scopeForm, setScopeForm] = useState({
+    name: "",
+    budgetAllocated: "",
+    sourceType: "" as "" | "MAINTENANCE",
+    scopeMaintenanceId: "",
+  });
   const [scopeEdit, setScopeEdit] = useState<any>(null);
 
   // TASK STATE
@@ -485,8 +490,8 @@ export default function ProjectSetupWizard({
   // SCOPE HANDLERS
   // ===========================
   const handleAddScope = useCallback(async () => {
-    if (!scopeForm.name.trim()) {
-      alert("Scope name is required");
+    if (!scopeForm.scopeMaintenanceId) {
+      alert("Please select a scope from Project Maintenance");
       return;
     }
 
@@ -503,15 +508,21 @@ export default function ProjectSetupWizard({
 
       await dispatch(
         createScope({
-          name: scopeForm.name,
           projectId: currentProjectId,
+          sourceType: "MAINTENANCE",
+          scopeMaintenanceId: scopeForm.scopeMaintenanceId,
           budgetAllocated: budget,
           budgetPercent: percent,
           order: project.scopes?.length || 0,
         })
       );
 
-      setScopeForm({ name: "", budgetAllocated: "" });
+      setScopeForm({
+        name: "",
+        budgetAllocated: "",
+        sourceType: "",
+        scopeMaintenanceId: "",
+      });
       await refreshProject();
     } catch (error) {
       console.error("Error creating scope:", error);
@@ -565,8 +576,8 @@ export default function ProjectSetupWizard({
   // ===========================
   const handleAddTask = useCallback(async (scopeId: string) => {
     const data = taskInputs[scopeId];
-    if (!data?.title) {
-      alert("Task title is required");
+    if (!data?.taskMaintenanceId && !data?.title?.trim()) {
+      alert("Please select or enter a task");
       return;
     }
 
@@ -582,7 +593,10 @@ export default function ProjectSetupWizard({
 
       await dispatch(
         createTask({
-          title: data.title,
+          sourceType: data.taskMaintenanceId ? "MAINTENANCE" : "CUSTOM",
+          ...(data.taskMaintenanceId
+            ? { taskMaintenanceId: data.taskMaintenanceId }
+            : { title: data.title }),
           description: data.description || "",
           scopeId,
           budgetAllocated: Number(data.budgetAllocated) || 0,
@@ -649,8 +663,8 @@ export default function ProjectSetupWizard({
   // ===========================
   const handleAddSubtask = useCallback(async (taskId: string) => {
     const data = subtaskInputs[taskId];
-    if (!data?.title) {
-      alert("Subtask title is required");
+    if (!data?.subtaskMaintenanceId && !data?.title?.trim()) {
+      alert("Please select or enter a subtask");
       return;
     }
 
@@ -670,7 +684,10 @@ export default function ProjectSetupWizard({
       await dispatch(
         createSubtask(
           {
-            title: data.title,
+            sourceType: data.subtaskMaintenanceId ? "MAINTENANCE" : "CUSTOM",
+            ...(data.subtaskMaintenanceId
+              ? { subtaskMaintenanceId: data.subtaskMaintenanceId }
+              : { title: data.title }),
             description: data.description || "",
             priority: data.priority || "Medium",
             taskId,

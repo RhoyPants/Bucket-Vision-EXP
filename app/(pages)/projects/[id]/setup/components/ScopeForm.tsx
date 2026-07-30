@@ -1,5 +1,5 @@
-import { Box, Button, TextField, Alert, Typography, Chip, Backdrop, CircularProgress, Stack } from "@mui/material";
-import { useState } from "react";
+import { Box, Button, TextField, Alert, Typography, Chip, Backdrop, CircularProgress, Stack, MenuItem } from "@mui/material";
+import { useEffect, useState } from "react";
 import WarningIcon from "@mui/icons-material/Warning";
 import { formatBudget } from "@/app/utils/formatters";
 import {
@@ -9,9 +9,18 @@ import {
   calculateBudgetPercent,
   ValidationError,
 } from "@/app/utils/scopeValidation";
+import {
+  getMaintenanceRecords,
+  MaintenanceRecord,
+} from "@/app/api-service/workBreakdownMaintenanceService";
 
 interface ScopeFormProps {
-  scopeForm: { name: string; budgetAllocated: string; description?: string };
+  scopeForm: {
+    name: string;
+    budgetAllocated: string;
+    sourceType?: "MAINTENANCE" | "";
+    scopeMaintenanceId?: string;
+  };
   setScopeForm: (form: any) => void;
   onAddScope: () => void;
   projectBudget?: number;
@@ -28,12 +37,46 @@ export default function ScopeForm({
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
+  const [maintenanceScopes, setMaintenanceScopes] = useState<MaintenanceRecord[]>([]);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(true);
+  const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
+  const selectedScopeMaintenanceIds = new Set(
+    (existingScopes || [])
+      .map((scope) => scope.scopeMaintenanceId)
+      .filter(Boolean),
+  );
+  const availableMaintenanceScopes = maintenanceScopes.filter(
+    (scope) => !selectedScopeMaintenanceIds.has(scope.id),
+  );
+
+  useEffect(() => {
+    getMaintenanceRecords("scope")
+      .then((items) =>
+        setMaintenanceScopes(items.filter((item) => item.isActive !== false)),
+      )
+      .finally(() => setMaintenanceLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!scopeMenuOpen) return;
+    const closeMenuOnScroll = (event: Event) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(".MuiMenu-paper, [role='listbox']")
+      ) {
+        return;
+      }
+      setScopeMenuOpen(false);
+    };
+    window.addEventListener("scroll", closeMenuOnScroll, true);
+    return () => window.removeEventListener("scroll", closeMenuOnScroll, true);
+  }, [scopeMenuOpen]);
 
   const handleSubmit = async () => {
     const validation = validateScopeForm(
       {
         name: scopeForm.name,
-        description: scopeForm.description,
         projectId: "",
         budgetAllocated: Number(scopeForm.budgetAllocated) || 0,
       },
@@ -54,7 +97,12 @@ export default function ScopeForm({
       setSaving(true);
       setErrors([]);
       await onAddScope();
-      setScopeForm({ name: "", budgetAllocated: "", description: "" });
+      setScopeForm({
+        name: "",
+        budgetAllocated: "",
+        sourceType: "",
+        scopeMaintenanceId: "",
+      });
       setTouched({});
     } catch (err: any) {
       setErrors([
@@ -124,25 +172,56 @@ export default function ScopeForm({
             <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
           </Box>
           <TextField
+            select
             fullWidth
-            placeholder="e.g., Frontend Development, Design, Testing"
-            value={scopeForm.name}
-            onChange={(e) =>
-              setScopeForm({ ...scopeForm, name: e.target.value })
-            }
+            label="Scope Name"
+            value={scopeForm.scopeMaintenanceId || ""}
+            onChange={(e) => {
+              const value = e.target.value;
+              const selected = maintenanceScopes.find(
+                (item) => item.id === value,
+              );
+              setScopeForm({
+                ...scopeForm,
+                sourceType: "MAINTENANCE",
+                scopeMaintenanceId: value,
+                name: selected?.name || "",
+              });
+            }}
             onBlur={() => handleFieldBlur("name")}
             error={touched.name && hasFieldError("name", errors)}
-            helperText={touched.name && getFieldError("name", errors)}
+            helperText={
+              (touched.name && getFieldError("name", errors)) ||
+              "Select a scope from Project Maintenance."
+            }
             variant="outlined"
             size="small"
-            inputProps={{ maxLength: 100 }}
+            disabled={saving || maintenanceLoading}
+            SelectProps={{
+              open: scopeMenuOpen,
+              onOpen: () => setScopeMenuOpen(true),
+              onClose: () => setScopeMenuOpen(false),
+              MenuProps: {
+                disablePortal: true,
+                PaperProps: { sx: { maxHeight: 280 } },
+              },
+            }}
             sx={{
               "& .MuiOutlinedInput-root": {
                 borderRadius: 1.5,
                 backgroundColor: "white",
               },
             }}
-          />
+          >
+            <MenuItem value="" disabled>
+              Select scope
+            </MenuItem>
+            {availableMaintenanceScopes.map((scope) => (
+              <MenuItem key={scope.id} value={scope.id}>
+                {scope.name} ({scope.code})
+              </MenuItem>
+            ))}
+          </TextField>
         </Box>
 
         {/* BUDGET ALLOCATED */}
@@ -184,35 +263,6 @@ export default function ScopeForm({
               {budgetPercent.toFixed(2)}% of project budget
             </Typography>
           )}
-        </Box>
-
-        {/* DESCRIPTION (OPTIONAL) */}
-        <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-            <Typography variant="caption" fontWeight={600}>
-              Description
-            </Typography>
-            <Chip label="Optional" size="small" variant="filled" sx={{ height: 20, fontSize: "0.7rem" }} />
-          </Box>
-          <TextField
-            fullWidth
-            placeholder="Describe this scope..."
-            value={scopeForm.description || ""}
-            onChange={(e) =>
-              setScopeForm({ ...scopeForm, description: e.target.value })
-            }
-            variant="outlined"
-            size="small"
-            multiline
-            rows={2}
-            inputProps={{ maxLength: 500 }}
-            sx={{
-              "& .MuiOutlinedInput-root": {
-                borderRadius: 1.5,
-                backgroundColor: "white",
-              },
-            }}
-          />
         </Box>
       </Box>
 
