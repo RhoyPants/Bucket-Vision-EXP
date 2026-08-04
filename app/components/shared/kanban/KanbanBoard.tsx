@@ -143,10 +143,10 @@ export default function KanbanBoard({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          mb: compact ? 1 : 2,
+          mb: compact ? 1 : 1.25,
         }}
       >
-        <Typography fontWeight={700} sx={{ fontSize: compact ? 13 : undefined }}>SUBTASK</Typography>
+        <Typography fontWeight={800} sx={{ fontSize: compact ? 13 : 14, color: "#210E64" }}>Assigned tasks</Typography>
 
         {/* 🔥 Hide "Add Subtask" button on task board (when parentTaskId is null) */}
         {parentTaskId && allowCreateSubtask && (
@@ -166,9 +166,9 @@ export default function KanbanBoard({
       </Box>
 
       {isTaskBoard ? (
-        <Box sx={{ display: "flex", gap: compact ? 1 : 2, overflowX: "auto" }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" }, gap: 2, alignItems: "start" }}>
           {columns.map((col) => (
-            <Box key={col.id} sx={{ minWidth: compact ? 210 : 300, flex: compact ? "1 1 0" : "0 0 auto" }}>
+            <Box key={col.id} sx={{ minWidth: 0 }}>
               <KanbanColumn
                 id={String(col.id)}
                 title={col.title}

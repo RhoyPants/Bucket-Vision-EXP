@@ -13,7 +13,7 @@ export const protectedPageRoutes: PagePermissionRoute[] = [
   { key: "my_requests", name: "My Requests", path: "/myRequests" },
   { key: "my_approvals", name: "My Approvals", path: "/myApprovals" },
   { key: "my_drafts", name: "My Drafts", path: "/myDrafts" },
-  { key: "sprint_management", name: "Sprint Management", path: "/sprintManagement" },
+  { key: "my_drafts", name: "Cancelled Requests", path: "/cancelledRequests" },
   { key: "task_board", name: "Task Board", path: "/taskboard" },
   { key: "team_overview", name: "Team Overview", path: "/teamOverview" },
   { key: "reports", name: "Reports", path: "/reports" },

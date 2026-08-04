@@ -266,7 +266,7 @@ export default function GlobalDashboardContent() {
                           transition: "all .15s ease",
                         }}
                       >
-                        <Box sx={{ minHeight: 30, px: 1.1, py: 1, bgcolor: "#210E64" }}>
+                        <Box sx={{ minHeight: 30, px: 1.1, py: 1, background: "linear-gradient(23deg, #210E64 35%, #1B169D 100%)", }}>
                           <Typography noWrap title={project.name} sx={{ color: "#FFFFFF", fontSize: 11.5, fontWeight: 900 }}>{project.name}</Typography>
                         </Box>
 

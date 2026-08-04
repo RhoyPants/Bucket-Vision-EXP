@@ -14,6 +14,7 @@ import {
 import type { ReactNode } from "react";
 import { formatBudget } from "@/app/utils/formatters";
 import { hasFieldError, getFieldError } from "@/app/utils/projectValidation";
+import { brandColors } from "@/app/lib/theme";
 
 interface CreateProjectProps {
   form: any;
@@ -51,6 +52,15 @@ const DAYS = [
   { key: "sunday", label: "Sunday" },
 ];
 
+const getFollowingDate = (value?: string) => {
+  if (!value) return undefined;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return undefined;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+};
+
 export default function CreateProject({
   form,
   setForm,
@@ -68,15 +78,53 @@ export default function CreateProject({
   attachmentsSection,
 }: CreateProjectProps) {
   return (
-    <Box>
+    <Box
+      sx={{
+        "& .MuiOutlinedInput-root": { bgcolor: "#FFFFFF" },
+        "& .MuiOutlinedInput-root.Mui-error.Mui-disabled .MuiOutlinedInput-notchedOutline": {
+          borderColor: "#EF5350 !important",
+          borderWidth: "1px !important",
+        },
+        "& .MuiOutlinedInput-root.Mui-error.Mui-disabled": {
+          bgcolor: "#FFFDFD",
+        },
+        "& .MuiInputBase-input": { fontSize: 13.5 },
+        "& .MuiFormHelperText-root": { mx: 0.25 },
+        "& .MuiChip-outlined": {
+          minWidth: 0,
+          width: "auto",
+          height: "auto",
+          border: 0,
+          borderRadius: 0,
+          bgcolor: "transparent",
+          color: "#DC2626",
+          fontSize: 14,
+          fontWeight: 800,
+          lineHeight: 1,
+          "& .MuiChip-label": { px: 0, py: 0 },
+        },
+      }}
+    >
       {/* PROJECT DETAILS */}
-      <Typography variant="h6" fontWeight={700} sx={{ mb: 3 }}>
-        Project Details
-      </Typography>
+      <Box sx={{ mb: 2 }}>
+        <Typography sx={{ color: brandColors.deepTwilight, fontSize: 17, fontWeight: 750 }}>Project information</Typography>
+        <Typography sx={{ color: "#777386", fontSize: 12.5, mt: 0.25 }}>Enter the project identity, organization, location, and planned timeline.</Typography>
+      </Box>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={2} alignItems="stretch">
         {/* LEFT COLUMN */}
-        <Grid size={{ xs: 12, lg: 6 }}>
+        <Grid
+          size={{ xs: 12, lg: 6 }}
+          sx={{
+            p: { xs: 1.75, md: 2 },
+            border: `1px solid ${brandColors.lavender}`,
+            borderRadius: 2.5,
+            bgcolor: "#FCFBFE",
+            "& > .MuiBox-root": { mb: "14px !important" },
+            "& > .MuiBox-root:last-child": { mb: "0 !important" },
+          }}
+        >
+          <Typography sx={{ color: brandColors.deepTwilightLight, fontSize: 12, fontWeight: 750, textTransform: "uppercase", letterSpacing: ".04em", mb: 1.5 }}>Project basics</Typography>
           {/* PROJECT NAME */}
           <Box sx={{ mb: 2.5 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
@@ -244,7 +292,17 @@ export default function CreateProject({
         </Grid>
 
         {/* RIGHT COLUMN */}
-        <Grid size={{ xs: 12, lg: 6 }}>
+        <Grid
+          size={{ xs: 12, lg: 6 }}
+          sx={{
+            p: { xs: 1.75, md: 2 },
+            border: `1px solid ${brandColors.lavender}`,
+            borderRadius: 2.5,
+            bgcolor: "#FCFBFE",
+            "& > .MuiBox-root": { mb: "14px !important" },
+            "& > .MuiBox-root:last-child": { mb: "0 !important" },
+          }}
+        >
           {/* LOCATION */}
           <Box sx={{ mb: 2.5 }}>
             <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
@@ -425,13 +483,22 @@ export default function CreateProject({
                 fullWidth
                 InputLabelProps={{ shrink: true }}
                 value={form.startDate}
-                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                onChange={(e) => {
+                  const startDate = e.target.value;
+                  setForm({
+                    ...form,
+                    startDate,
+                    expectedEndDate:
+                      form.expectedEndDate && form.expectedEndDate <= startDate
+                        ? ""
+                        : form.expectedEndDate,
+                  });
+                }}
                 onBlur={() => onFieldBlur("startDate")}
                 error={touched.startDate && hasFieldError("startDate", errors)}
                 helperText={touched.startDate && getFieldError("startDate", errors)}
                 variant="outlined"
                 size="small"
-                inputProps={{ min: new Date().toISOString().split("T")[0] }}
                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: 1.5 } }}
               />
             </Box>
@@ -441,6 +508,7 @@ export default function CreateProject({
               <TextField
                 type="date"
                 fullWidth
+                disabled={!form.startDate}
                 InputLabelProps={{ shrink: true }}
                 value={form.expectedEndDate}
                 onChange={(e) => setForm({ ...form, expectedEndDate: e.target.value })}
@@ -449,6 +517,7 @@ export default function CreateProject({
                 helperText={touched.expectedEndDate && getFieldError("expectedEndDate", errors)}
                 variant="outlined"
                 size="small"
+                inputProps={{ min: getFollowingDate(form.startDate) }}
                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: 1.5 } }}
               />
             </Box>
@@ -457,7 +526,7 @@ export default function CreateProject({
 
         {/* DESCRIPTION - FULL WIDTH */}
         <Grid size={{ xs: 12 }}>
-          <Box>
+          <Box sx={{ p: { xs: 1.75, md: 2 }, border: `1px solid ${brandColors.lavender}`, borderRadius: 2.5, bgcolor: "#FCFBFE" }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
               <Typography variant="subtitle2" fontWeight={600}>Description</Typography>
               <Chip label="Optional" size="small" variant="filled" sx={{ height: 20, fontSize: "0.7rem" }} />
@@ -465,7 +534,7 @@ export default function CreateProject({
             <TextField
               fullWidth
               multiline
-              rows={4}
+              rows={3}
               placeholder="Describe the project's objectives, scope, and deliverables..."
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -478,25 +547,25 @@ export default function CreateProject({
         </Grid>
       </Grid>
 
-      {attachmentsSection && <Box sx={{ mt: 4 }}>{attachmentsSection}</Box>}
+      {attachmentsSection && <Box sx={{ mt: 2 }}>{attachmentsSection}</Box>}
 
       {/* WORK SCHEDULE */}
-      <Box sx={{ mt: 4 }}>
-        <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
+      <Box sx={{ mt: 2, p: { xs: 1.75, md: 2 }, border: `1px solid ${brandColors.lavender}`, borderRadius: 2.5, bgcolor: "#FFFFFF" }}>
+        <Typography sx={{ color: brandColors.deepTwilight, fontSize: 16, fontWeight: 750, mb: 0.25 }}>
           Work Schedule
         </Typography>
-        <Typography sx={{ fontSize: 13, color: "#666", mb: 3 }}>
+        <Typography sx={{ fontSize: 12.5, color: "#777386", mb: 1.5 }}>
           Configure your project's working days. This determines how project duration is calculated.
         </Typography>
 
         {/* DAY CHECKBOXES */}
-        <Box sx={{ mb: 3, p: 2, backgroundColor: "#f8faff", borderRadius: 1.5, border: "1px solid #e0e7ff" }}>
-          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2, color: "#4f46e5" }}>
+        <Box sx={{ mb: 1.25, p: 1.5, backgroundColor: brandColors.lavenderMist, borderRadius: 2, border: `1px solid ${brandColors.lavender}` }}>
+          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1, color: brandColors.vividRoyal }}>
             Working Days
           </Typography>
           <Grid container spacing={1}>
             {DAYS.map((day) => (
-              <Grid size={{ xs: 6, sm: 4, md: 3 }} key={day.key}>
+              <Grid size={{ xs: 6, sm: 4, md: 3, lg: 12 / 7 }} key={day.key}>
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -512,7 +581,7 @@ export default function CreateProject({
         </Box>
 
         {/* GLOBAL HOLIDAYS TOGGLE */}
-        <Box sx={{ p: 2, backgroundColor: "#fef3c7", borderRadius: 1.5, border: "1px solid #fcd34d" }}>
+        <Box sx={{ p: 1.25, backgroundColor: brandColors.aliceBlue, borderRadius: 2, border: "1px solid #CFE2FA" }}>
           <FormControlLabel
             control={
               <Checkbox
@@ -523,7 +592,7 @@ export default function CreateProject({
             label={
               <Box>
                 <Typography fontWeight={600}>Include Global Holidays</Typography>
-                <Typography sx={{ fontSize: "0.85rem", color: "#78350f" }}>
+                <Typography sx={{ fontSize: "0.8rem", color: "#526174" }}>
                   Excludes globally configured holidays from project duration calculations
                 </Typography>
               </Box>

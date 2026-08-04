@@ -5,6 +5,8 @@ export interface ProjectFormData {
   name: string;
   description?: string;
   location?: {
+    regionCode: string;
+    regionName: string;
     provinceCode: string;
     provinceName: string;
     cityCode: string;
@@ -116,6 +118,13 @@ export const validateProjectForm = (form: Partial<ProjectFormData>): ValidationR
   }
 
   // ✅ Location validation
+  if (!form.location?.regionCode || form.location.regionCode === "") {
+    errors.push({
+      field: "location.region",
+      message: "Region is required",
+    });
+  }
+
   if (!form.location?.provinceCode || form.location.provinceCode === "") {
     errors.push({
       field: "location.province",

@@ -1,17 +1,16 @@
 "use client";
 
-import { Box, Drawer, IconButton, Typography } from "@mui/material";
-import MenuIcon from "@mui/icons-material/Menu";
+import { Box, Drawer, IconButton, Tooltip, Typography } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ViewKanbanOutlinedIcon from "@mui/icons-material/ViewKanbanOutlined";
-import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
-import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
+// import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import FolderOpenOutlinedIcon from "@mui/icons-material/FolderOpenOutlined";
 import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
-import ArchiveOutlinedIcon from "@mui/icons-material/ArchiveOutlined";
-import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
+import DraftsOutlinedIcon from "@mui/icons-material/DraftsOutlined";
+import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
+// import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
@@ -44,11 +43,13 @@ const mainNavItems = [
   { label: "Projects", href: "/projects", permissionKey: "projects", icon: <FolderOpenOutlinedIcon /> },
   { label: "My Requests", href: "/myRequests", permissionKey: "my_requests", icon: <SendOutlinedIcon /> },
   { label: "My Approvals", href: "/myApprovals", permissionKey: "my_approvals", icon: <FactCheckOutlinedIcon /> },
-  { label: "Sprint Management", href: "/sprintManagement", permissionKey: "sprint_management", icon: <AssignmentTurnedInOutlinedIcon /> },
   { label: "Task Board", href: "/taskboard", permissionKey: "task_board", icon: <ViewKanbanOutlinedIcon /> },
-  { label: "Team Overview", href: "/teamOverview", permissionKey: "team_overview", icon: <GroupsOutlinedIcon /> },
-  { label: "My Archive", href: "/myDrafts", permissionKey: "my_drafts", icon: <ArchiveOutlinedIcon /> },
-  { label: "Reports", href: "/reports", permissionKey: "reports", icon: <AssessmentOutlinedIcon /> },
+  // Temporarily hidden while the module direction is being finalized.
+  // { label: "Team Overview", href: "/teamOverview", permissionKey: "team_overview", icon: <GroupsOutlinedIcon /> },
+  { label: "My Drafts", href: "/myDrafts", permissionKey: "my_drafts", icon: <DraftsOutlinedIcon /> },
+  { label: "Cancelled Requests", href: "/cancelledRequests", permissionKey: "my_drafts", icon: <CancelOutlinedIcon /> },
+  // Temporarily hidden while the module direction is being finalized.
+  // { label: "Reports", href: "/reports", permissionKey: "reports", icon: <AssessmentOutlinedIcon /> },
 ] as const;
 
 const subscribeToHydration = (onStoreChange: () => void) => {
@@ -106,6 +107,7 @@ export default function Sidebar() {
   const canViewApprovals = hydrated && canView("my_approvals");
   const canViewRequests = hydrated && canView("my_requests");
   const handleToggle = () => setMobileOpen((prev) => !prev);
+  const handleMobileClose = () => setMobileOpen(false);
   const handleCollapseToggle = () => {
     setCollapsed((prev) => {
       const next = !prev;
@@ -123,6 +125,10 @@ export default function Sidebar() {
 
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -168,7 +174,7 @@ export default function Sidebar() {
     <Box
       sx={{
         width: currentWidth,
-        background: "linear-gradient(180deg, #0F123D 0%, #090C2C 100%)",
+        background: "#110947",
         height: "100vh",
         overflow: "hidden",
         pt: 3,
@@ -180,19 +186,37 @@ export default function Sidebar() {
     >
       {/* Logo Section */}
       <Box sx={{ height: 30, display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "flex-start", px: 1.5, mb: 5 }}>
-        <Image
-          src="/images/GVI_LOGO_DARK.png"
-          width={130}
-          height={42}
-          priority
-          alt="GVI Logo"
-          style={{
-            display: "block",
-            width: collapsed ? 42 : 130,
-            height: "auto",
-            filter: "brightness(0) invert(1)",
-          }}
-        />
+        {collapsed ? (
+          <Box
+            sx={{
+              width: 44,
+              height: 44,
+              minWidth: 44,
+              maxWidth: 44,
+              flex: "0 0 44px",
+              aspectRatio: "1 / 1",
+              boxSizing: "border-box",
+              display: "grid",
+              placeItems: "center",
+              bgcolor: "#FFFFFF",
+              borderRadius: "999px",
+              overflow: "hidden",
+              border: "1px solid rgba(255,255,255,0.75)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+            }}
+          >
+            <Box component="img" src="/favicon.ico" alt="Global Visions Holdings" sx={{ display: "block", width: 34, height: 34, objectFit: "contain" }} />
+          </Box>
+        ) : (
+          <Image
+            src="/images/GVI_LOGO_DARK.png"
+            width={130}
+            height={42}
+            priority
+            alt="GVI Logo"
+            style={{ display: "block", width: 130, height: "auto", filter: "brightness(0) invert(1)" }}
+          />
+        )}
       </Box>
 
       {/* Menu */}
@@ -404,24 +428,35 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* MOBILE HAMBURGER BUTTON */}
-      <IconButton
-        onClick={handleToggle}
-        sx={{
-          display: { xs: "block", md: "none" },
-          position: "fixed",
-          top: 15,
-          left: 15,
-          zIndex: 1301,
-        }}
-      >
-        <MenuIcon />
-      </IconButton>
+      {/* MOBILE COMPANY MARK / NAVIGATION BUTTON */}
+      <Tooltip title="Show navigation" placement="right">
+        <IconButton
+          onClick={handleToggle}
+          aria-label="Show main navigation"
+          aria-expanded={mobileOpen}
+          sx={{
+            display: mobileOpen ? "none" : { xs: "inline-flex", md: "none" },
+            position: "fixed",
+            top: 10,
+            left: 12,
+            zIndex: 1301,
+            width: 40,
+            height: 40,
+            p: 0.5,
+            bgcolor: "#FFFFFF",
+            border: "1px solid #D8D4E2",
+            boxShadow: "0 2px 8px rgba(17, 9, 71, 0.14)",
+            "&:hover": { bgcolor: "#F5F3FF" },
+          }}
+        >
+          <Box component="img" src="/favicon.ico" alt="" sx={{ width: 30, height: 30, objectFit: "contain" }} />
+        </IconButton>
+      </Tooltip>
 
       {/* MOBILE DRAWER */}
       <Drawer
         open={mobileOpen}
-        onClose={handleToggle}
+        onClose={handleMobileClose}
         variant="temporary"
         sx={{
           display: { xs: "block", md: "none" },

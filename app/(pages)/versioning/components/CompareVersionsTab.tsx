@@ -25,7 +25,7 @@ import ViewWeekIcon from "@mui/icons-material/ViewWeek";
 import ViewAgendaIcon from "@mui/icons-material/ViewAgenda";
 import { ArrowRight, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import StructuredViewComponent from "@/app/(pages)/approvals/[projectId]/components/StructuredView";
-import GanttGridView from "@/app/(pages)/sprintManagement/Components/GridTableView";
+import GanttGridView from "@/app/components/shared/GanttGridView";
 
 type ViewMode = "structured" | "gantt";
 

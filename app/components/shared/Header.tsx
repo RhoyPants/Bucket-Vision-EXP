@@ -13,7 +13,6 @@ import { logoutRequest } from "@/app/api-service/authService";
 // Map exact routes to display titles
 const routeTitleMap: Record<string, string> = {
   "/dashboard": "Dashboard",
-  "/sprintManagement": "Sprint Management",
   "/taskboard": "Task Board",
   "/teamOverview": "Team Overview",
   "/projects": "Projects",
@@ -21,7 +20,8 @@ const routeTitleMap: Record<string, string> = {
   "/settings": "Settings",
   "/myApprovals": "My Approvals",
   "/myRequests": "My Requests",
-  "/myDrafts": "My Archive",
+  "/myDrafts": "My Drafts",
+  "/cancelledRequests": "Cancelled Requests",
   "/projectCalendar": "Project Calendar",
   "/projectTimeline": "Project Timeline",
   "/personalDashboard": "Personal Dashboard",
@@ -32,7 +32,6 @@ const routeTitleMap: Record<string, string> = {
 // Map routes to descriptions
 const routeDescriptionMap: Record<string, string> = {
   "/dashboard": "Your central workspace and project overview",
-  "/sprintManagement": "Plan and manage sprint cycles",
   "/taskboard": "Manage and track all assigned tasks and subtasks",
   "/teamOverview": "Overview of team members and their assignments",
   "/projects": "Manage all your projects and their status",
@@ -40,7 +39,8 @@ const routeDescriptionMap: Record<string, string> = {
   "/settings": "Configure system settings and user permissions",
   "/myApprovals": "Requests that need your review or approval decision",
   "/myRequests": "Track all project requests you've submitted and their approval status",
-  "/myDrafts": "Review your draft and cancelled project requests",
+  "/myDrafts": "Continue editing project requests you have saved as drafts",
+  "/cancelledRequests": "Review project requests that you have cancelled",
   "/projectCalendar": "View and manage project timelines and task schedules",
   "/projectTimeline": "Visualize project timelines and dependencies",
   "/personalDashboard": "Customize and view your personal dashboard",
@@ -135,23 +135,29 @@ export default function Header() {
       <Toolbar
         disableGutters
         sx={{
-          minHeight: "72px",
-          height: "72px",
-          px: 4,
+          minHeight: { xs: "60px", sm: "72px" },
+          height: { xs: "60px", sm: "72px" },
+          pl: { xs: 7.5, sm: 8, md: 4 },
+          pr: { xs: 2, sm: 3, md: 4 },
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          gap: { xs: 1, sm: 2 },
         }}
       >
         {/* Left: Page Title & Description */}
-        <Box sx={{ minWidth: 0 }}>
+        <Box sx={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
           <Typography
+            noWrap
+            title={pageTitle}
             sx={{
               color: "#111827",
               fontWeight: 700,
-              fontSize: "24px",
+              fontSize: { xs: "20px", sm: "24px" },
               fontFamily: "var(--font-ftsterling)",
               lineHeight: 1.2,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
           >
             {pageTitle}
@@ -162,6 +168,10 @@ export default function Header() {
               fontSize: "14px",
               fontWeight: 400,
               mt: 0.25,
+              display: { xs: "none", sm: "block" },
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
           >
             {pageDescription}
@@ -173,10 +183,11 @@ export default function Header() {
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: "20px",
+            gap: { xs: 0.5, sm: "20px" },
+            flexShrink: 0,
           }}
         >
-          <IconButton sx={{ color: "#374151" }}>
+          <IconButton aria-label="Help" sx={{ color: "#374151", display: { xs: "none", sm: "inline-flex" } }}>
             <HelpOutlineIcon sx={{ fontSize: 20 }} />
           </IconButton>
 
@@ -187,6 +198,7 @@ export default function Header() {
               alignItems: "center",
               gap: 1.25,
               cursor: "pointer",
+              borderRadius: "50%",
             }}
           >
             <Avatar
@@ -195,14 +207,14 @@ export default function Header() {
                 color: "#fff",
                 fontWeight: 700,
                 fontSize: "0.85rem",
-                width: 40,
-                height: 40,
+                width: { xs: 34, sm: 40 },
+                height: { xs: 34, sm: 40 },
               }}
             >
               {isHydrated ? userInitial : "U"}
             </Avatar>
 
-            <Box sx={{ minWidth: "fit-content" }}>
+            <Box sx={{ minWidth: "fit-content", display: { xs: "none", md: "block" } }}>
             {isHydrated ? (
               <Box>
                 <Typography
@@ -266,7 +278,8 @@ export default function Header() {
           PaperProps={{
             sx: {
               mt: 1.5,
-              minWidth: 260,
+              minWidth: { xs: 230, sm: 260 },
+              maxWidth: "calc(100vw - 24px)",
               borderRadius: "12px",
               boxShadow: "0 12px 40px rgba(0, 0, 0, 0.12)",
               overflow: "visible",

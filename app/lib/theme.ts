@@ -1,9 +1,23 @@
 'use client';
 
-import { createTheme, darken, hexToRgb, lighten, rgbToHex } from '@mui/material/styles';
+import { createTheme } from '@mui/material/styles';
 import '@fontsource/inter/400.css';
 import '@fontsource/inter/600.css';
 import '@fontsource/inter/700.css';
+
+/** Bucket Vision brand palette — tokens only, not applied globally. */
+export const brandColors = {
+  deepTwilight: '#110947',
+  deepTwilightLight: '#210E64',
+  vividRoyal: '#1B169D',
+  mediumSlateBlue: '#686AF3',
+  lavender: '#E0DAE6',
+  lavenderMist: '#F5F3FF',
+  aliceBlue: '#EFF6FF',
+} as const;
+
+export type BrandColorName = keyof typeof brandColors;
+export type BrandColorValue = (typeof brandColors)[BrandColorName];
 
 declare module '@mui/material/styles' {
   interface Palette {
@@ -36,9 +50,9 @@ declare module '@mui/material/Typography' {
   }
 }
 
-const typography: any = {
+const typography = {
   fontFamily: "var(--font-ftsterling), sans-serif",
-  // Base font size scale: ~87.5% of original (16px root → ~14px effective)
+  // Base font size scale: ~87.5% of original (16px root â†’ ~14px effective)
   htmlFontSize: 16,
   fontSize: 13,
   h1: {

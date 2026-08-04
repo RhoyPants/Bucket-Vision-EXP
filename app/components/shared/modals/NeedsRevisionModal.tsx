@@ -10,10 +10,15 @@ import {
   Typography,
   Stack,
   Chip,
+  TextField,
+  Alert,
+  CircularProgress,
 } from "@mui/material";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import RuleFolderOutlinedIcon from "@mui/icons-material/RuleFolderOutlined";
+import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
+import { useState } from "react";
 
 interface NeedsRevisionModalProps {
   open: boolean;
@@ -24,6 +29,7 @@ interface NeedsRevisionModalProps {
   remarks?: string;
   onClose: () => void;
   onReviseResubmit: () => void;
+  onCancelRequest?: (reason: string) => Promise<void>;
 }
 
 const formatDateTime = (value?: string) => {
@@ -49,8 +55,38 @@ export default function NeedsRevisionModal({
   remarks,
   onClose,
   onReviseResubmit,
+  onCancelRequest,
 }: NeedsRevisionModalProps) {
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
+
+  const closeCancelDialog = () => {
+    if (cancelling) return;
+    setCancelDialogOpen(false);
+    setCancellationReason("");
+    setCancelError("");
+  };
+
+  const confirmCancellation = async () => {
+    if (!onCancelRequest || !cancellationReason.trim()) return;
+    try {
+      setCancelling(true);
+      setCancelError("");
+      await onCancelRequest(cancellationReason.trim());
+      setCancelDialogOpen(false);
+      setCancellationReason("");
+      setCancelError("");
+    } catch (error) {
+      setCancelError(error instanceof Error ? error.message : "Unable to cancel this project request.");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   return (
+    <>
     <Dialog
       open={open}
       onClose={onClose}
@@ -144,6 +180,21 @@ export default function NeedsRevisionModal({
         >
           Close
         </Button>
+        {onCancelRequest ? (
+          <Button
+            onClick={() => {
+              setCancelError("");
+              setCancellationReason("");
+              setCancelDialogOpen(true);
+            }}
+            variant="outlined"
+            color="error"
+            startIcon={<CancelOutlinedIcon />}
+            sx={{ textTransform: "none", fontWeight: 700 }}
+          >
+            Cancel Request
+          </Button>
+        ) : null}
         <Button
           onClick={onReviseResubmit}
           variant="contained"
@@ -153,5 +204,44 @@ export default function NeedsRevisionModal({
         </Button>
       </DialogActions>
     </Dialog>
+
+    <Dialog open={cancelDialogOpen} onClose={closeCancelDialog} fullWidth maxWidth="sm">
+      <DialogTitle sx={{ fontSize: 18, fontWeight: 700 }}>Cancel project request?</DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2}>
+          <Typography sx={{ color: "#64748B", fontSize: 13, lineHeight: 1.5 }}>
+            <strong>{projectName || "This request"}</strong> will move to Cancelled Requests. Its details, structure, members, and attachments will be preserved and it can be resumed later.
+          </Typography>
+          <TextField
+            label="Cancellation reason"
+            placeholder="Why is this project request being cancelled?"
+            value={cancellationReason}
+            onChange={(event) => setCancellationReason(event.target.value)}
+            multiline
+            minRows={3}
+            required
+            fullWidth
+            disabled={cancelling}
+          />
+          {cancelError ? <Alert severity="error">{cancelError}</Alert> : null}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button onClick={closeCancelDialog} disabled={cancelling} sx={{ textTransform: "none" }}>
+          Back
+        </Button>
+        <Button
+          variant="contained"
+          color="error"
+          startIcon={cancelling ? <CircularProgress size={16} color="inherit" /> : <CancelOutlinedIcon />}
+          onClick={confirmCancellation}
+          disabled={!cancellationReason.trim() || cancelling}
+          sx={{ textTransform: "none", fontWeight: 700, boxShadow: "none" }}
+        >
+          {cancelling ? "Cancelling..." : "Cancel Request"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+    </>
   );
 }

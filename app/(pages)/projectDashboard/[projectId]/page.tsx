@@ -9,6 +9,7 @@ import ProjectDashboardContent from "./components/ProjectDashboardContent";
 import ProjectIncidentReports from "./components/ProjectIncidentReports";
 import ProjectTeamOverview from "./components/ProjectTeamOverview";
 import ProjectInfo from "./components/ProjectInfo";
+import ProjectReports from "./components/ProjectReports";
 
 export default async function ProjectDashboardRoute({
   params,
@@ -37,6 +38,7 @@ export default async function ProjectDashboardRoute({
         {view === "team-organization" ? <ProjectTeamOrganization projectId={projectId} /> : null}
         {view === "project-structure" ? <ProjectStructure projectId={projectId} /> : null}
         {view === "project-versioning" ? <ProjectVersioning projectId={projectId} /> : null}
+        {view === "project-reports" ? <ProjectReports projectId={projectId} /> : null}
         {view === "incident-reports" ? <ProjectIncidentReports projectId={projectId} /> : null}
         {view === "team-overview" ? <ProjectTeamOverview projectId={projectId} /> : null}
         {view === "project-info" ? <ProjectInfo projectId={projectId} /> : null}

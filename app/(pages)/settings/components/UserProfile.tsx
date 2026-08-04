@@ -1,670 +1,235 @@
 "use client";
 
 import {
+  AccountTreeOutlined,
+  BadgeOutlined,
+  BusinessOutlined,
+  CheckCircleOutline,
+  EmailOutlined,
+  FolderOutlined,
+  GroupsOutlined,
+  PersonOutline,
+  SupervisorAccountOutlined,
+} from "@mui/icons-material";
+import {
+  Alert,
+  Avatar,
   Box,
-  Card,
-  CardContent,
+  Chip,
+  CircularProgress,
+  Divider,
   Grid,
   Paper,
+  Stack,
   Typography,
-  Avatar,
-  Chip,
-  Divider,
-  CircularProgress,
-  ToggleButton,
-  ToggleButtonGroup,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
 } from "@mui/material";
-import { useEffect, useState } from "react";
-import { useAppSelector, useAppDispatch } from "@/app/redux/hook";
+import { useEffect, useMemo, useState } from "react";
+import { getBusinessUnitsDropdown } from "@/app/api-service/businessUnitService";
+import { getUserById } from "@/app/lib/user.api";
+import { getUserRelations } from "@/app/lib/userRelation.api";
+import { brandColors } from "@/app/lib/theme";
 import { getProjects } from "@/app/redux/controllers/projectController";
+import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 
-// Helper function to determine user's role in a project (from new API structure)
-const getUserRoleInProject = (project: any, userId: string) => {
-  const roles: string[] = [];
+type ProfileRecord = Record<string, any>;
+type RelationUser = { id?: string; name?: string; email?: string; role?: string | { name?: string }; position?: string };
+type BusinessUnit = { id?: string; code?: string; name?: string; entity?: string; buHead?: string; buHeadUserId?: string; assistantHead?: string; isActive?: boolean };
 
-  // Check via projectMembers array with role field
-  if (project.projectMembers && Array.isArray(project.projectMembers)) {
-    const member = project.projectMembers.find((m: any) => m.userId === userId);
-    if (member) {
-      if (member.role === "OWNER") roles.push("owner");
-      if (member.role === "SUB_OWNER") roles.push("subowner");
-      if (member.role === "MEMBER") roles.push("member");
-    }
-  }
+const readable = (value?: string) =>
+  value ? value.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase()) : "Not assigned";
 
-  // Fallback: Check if ownerId property exists
-  if (project.ownerId === userId && !roles.includes("owner")) {
-    roles.push("owner");
-  }
-
-  return roles;
-};
-
-// Helper function to filter projects by user's role
-const filterProjectsByRole = (projects: any[], userId: string, role: "owner" | "subowner" | "member") => {
-  return projects.filter((project) => {
-    const roles = getUserRoleInProject(project, userId);
-    return roles.includes(role);
-  });
-};
-
-// Component to display projects in a role section
-const ProjectSection = ({
-  title,
-  projects,
-  roleColor,
-  roleBgColor,
-  loading,
-  user,
-  viewType,
-}: {
-  title: string;
-  projects: any[];
-  roleColor: string;
-  roleBgColor: string;
-  loading: boolean;
-  user: any;
-  viewType: "card" | "table";
-}) => {
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" py={4}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
+function Detail({ icon, label, value, helper }: { icon: React.ReactNode; label: string; value?: React.ReactNode; helper?: string }) {
   return (
-    <Box mb={5}>
-      <Box display="flex" alignItems="center" gap={2} mb={2}>
-        <Typography variant="h6" fontWeight={700}>
-          {title}
-        </Typography>
-        <Chip
-          label={projects.length}
-          size="small"
-          sx={{
-            bgcolor: roleBgColor,
-            color: roleColor,
-            fontWeight: 600,
-          }}
-        />
+    <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ minWidth: 0 }}>
+      <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: brandColors.lavenderMist, color: brandColors.vividRoyal, display: "grid", placeItems: "center", flexShrink: 0 }}>
+        {icon}
       </Box>
-
-      {projects.length > 0 ? viewType === "card" ? (
-        // 🔹 CARD VIEW
-        <Grid container spacing={2}>
-          {projects.map((project: any) => (
-            <Grid
-              size={{ xs: 12, sm: 6, md: 4 }}
-              key={project.id || project.project_id}
-            >
-              <Card
-                elevation={0}
-                sx={{
-                  borderRadius: 2,
-                  border: "1px solid #e8e7e2",
-                  height: "100%",
-                  "&:hover": {
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                    border: "1px solid #d6d5cf",
-                  },
-                  transition: "all 0.2s",
-                }}
-              >
-                <CardContent>
-                  <Typography variant="subtitle1" fontWeight={600} mb={1}>
-                    {project.name || project.project_name}
-                  </Typography>
-
-                  <Typography
-                    variant="caption"
-                    color="#888"
-                    sx={{ display: "block", mb: 1.5 }}
-                  >
-                    {project.ref_no}
-                  </Typography>
-
-                  {project.description && (
-                    <Typography variant="body2" color="#666" sx={{ mb: 1.5 }}>
-                      {project.description.substring(0, 80)}
-                      {project.description.length > 80 ? "..." : ""}
-                    </Typography>
-                  )}
-
-                  <Box display="flex" gap={1} flexWrap="wrap" mb={1.5}>
-                    {(() => {
-                      const roles = getUserRoleInProject(project, user.id);
-                      const roleConfig: Record<
-                        string,
-                        { label: string; bgcolor: string; color: string }
-                      > = {
-                        owner: {
-                          label: "Owner",
-                          bgcolor: "#e0e7ff",
-                          color: "#4f46e5",
-                        },
-                        subowner: {
-                          label: "Subowner",
-                          bgcolor: "#fce7f3",
-                          color: "#ee0b9a",
-                        },
-                        member: {
-                          label: "Member",
-                          bgcolor: "#dbeafe",
-                          color: "#0369a1",
-                        },
-                      };
-
-                      return roles.map((role) => (
-                        <Chip
-                          key={role}
-                          label={roleConfig[role].label}
-                          size="small"
-                          sx={{
-                            bgcolor: roleConfig[role].bgcolor,
-                            color: roleConfig[role].color,
-                            fontWeight: 600,
-                          }}
-                        />
-                      ));
-                    })()}
-                  </Box>
-
-                  <Typography variant="caption" color="#888" sx={{ display: "block", mb: 1 }}>
-                    Members ({project.projectMembers?.length || 0})
-                  </Typography>
-
-                  <Box display="flex" flexWrap="wrap" gap={0.5} mb={1.5}>
-                    {project.projectMembers?.slice(0, 3).map((member: any) => (
-                      <Avatar
-                        key={member.id}
-                        sx={{
-                          width: 28,
-                          height: 28,
-                          fontSize: "0.75rem",
-                          bgcolor: "#6366f1",
-                        }}
-                        title={member.user?.name || member.name}
-                      >
-                        {(member.user?.name || member.name)?.charAt(0) || "M"}
-                      </Avatar>
-                    ))}
-                    {project.projectMembers && project.projectMembers.length > 3 && (
-                      <Avatar
-                        sx={{
-                          width: 28,
-                          height: 28,
-                          fontSize: "0.75rem",
-                          bgcolor: "#cbd5e1",
-                          color: "#333",
-                        }}
-                      >
-                        +{project.projectMembers.length - 3}
-                      </Avatar>
-                    )}
-                  </Box>
-
-                  {project.status && (
-                    <Chip
-                      label={project.status}
-                      size="small"
-                      sx={{
-                        bgcolor:
-                          project.status === "active"
-                            ? "#dcfce7"
-                            : "#fee2e2",
-                        color:
-                          project.status === "active"
-                            ? "#166534"
-                            : "#991b1b",
-                      }}
-                    />
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      ) : (
-        // 🔹 TABLE VIEW
-        <TableContainer component={Paper} sx={{ border: "1px solid #e8e7e2" }}>
-          <Table>
-            <TableHead sx={{ bgcolor: "#f5f3ff" }}>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 600, color: "#210e64" }}>
-                  Project Name
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "#210e64" }}>
-                  Ref.No
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "#210e64" }}>
-                  Your Role
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "#210e64" }}>
-                  Members
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "#210e64" }}>
-                  Status
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {projects.map((project: any) => (
-                <TableRow
-                  key={project.id || project.project_id}
-                  sx={{
-                    "&:hover": { bgcolor: "#f9f8ff" },
-                    borderBottom: "1px solid #e8e7e2",
-                  }}
-                >
-                  <TableCell>
-                    <Typography fontWeight={600}>
-                      {project.name || project.project_name}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" color="#888">
-                      {project.ref_no}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Box display="flex" gap={0.5} flexWrap="wrap">
-                      {(() => {
-                        const roles = getUserRoleInProject(project, user.id);
-                        const roleConfig: Record<
-                          string,
-                          { label: string; bgcolor: string; color: string }
-                        > = {
-                          owner: {
-                            label: "Owner",
-                            bgcolor: "#e0e7ff",
-                            color: "#4f46e5",
-                          },
-                          subowner: {
-                            label: "Subowner",
-                            bgcolor: "#fce7f3",
-                            color: "#ee0b9a",
-                          },
-                          member: {
-                            label: "Member",
-                            bgcolor: "#dbeafe",
-                            color: "#0369a1",
-                          },
-                        };
-
-                        return roles.map((role) => (
-                          <Chip
-                            key={role}
-                            label={roleConfig[role].label}
-                            size="small"
-                            sx={{
-                              bgcolor: roleConfig[role].bgcolor,
-                              color: roleConfig[role].color,
-                              fontWeight: 600,
-                            }}
-                          />
-                        ));
-                      })()}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Box display="flex" gap={0.5}>
-                        {project.projectMembers?.slice(0, 2).map((member: any) => (
-                          <Avatar
-                            key={member.id}
-                            sx={{
-                              width: 28,
-                              height: 28,
-                              fontSize: "0.7rem",
-                              bgcolor: "#6366f1",
-                            }}
-                            title={member.user?.name || member.name}
-                          >
-                            {(member.user?.name || member.name)?.charAt(0) || "M"}
-                          </Avatar>
-                        ))}
-                      </Box>
-                      <Typography variant="body2" color="#888">
-                        {project.projectMembers?.length || 0}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    {project.status && (
-                      <Chip
-                        label={project.status}
-                        size="small"
-                        sx={{
-                          bgcolor:
-                            project.status === "active"
-                              ? "#dcfce7"
-                              : "#fee2e2",
-                          color:
-                            project.status === "active"
-                              ? "#166534"
-                              : "#991b1b",
-                        }}
-                      />
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      ) : (
-        <Paper sx={{ p: 3, textAlign: "center" }}>
-          <Typography color="#888">
-            You have no {title.toLowerCase()}
-          </Typography>
-        </Paper>
-      )}
-    </Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography sx={{ color: "#747184", fontSize: 12, mb: 0.25 }}>{label}</Typography>
+        <Typography sx={{ color: brandColors.deepTwilight, fontSize: 14, fontWeight: 600, overflowWrap: "anywhere" }}>{value || "Not provided"}</Typography>
+        {helper && <Typography sx={{ color: "#8C8998", fontSize: 11.5, mt: 0.25 }}>{helper}</Typography>}
+      </Box>
+    </Stack>
   );
-};
+}
+
+function PersonRow({ person, emptyText }: { person?: RelationUser; emptyText: string }) {
+  if (!person) return <Typography sx={{ color: "#89859A", fontSize: 13 }}>{emptyText}</Typography>;
+  const role = typeof person.role === "string" ? person.role : person.role?.name;
+  return (
+    <Stack direction="row" spacing={1.25} alignItems="center">
+      <Avatar sx={{ width: 38, height: 38, bgcolor: brandColors.lavenderMist, color: brandColors.vividRoyal, fontSize: 14, fontWeight: 700 }}>
+        {(person.name || "U").split(" ").map((part) => part[0]).slice(0, 2).join("").toUpperCase()}
+      </Avatar>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography noWrap sx={{ color: brandColors.deepTwilight, fontSize: 13.5, fontWeight: 650 }}>{person.name || "Unnamed user"}</Typography>
+        <Typography noWrap sx={{ color: "#777386", fontSize: 12 }}>{person.position || readable(role) || person.email}</Typography>
+      </Box>
+    </Stack>
+  );
+}
 
 export default function UserProfile() {
   const dispatch = useAppDispatch();
-  const { user } = useAppSelector((state) => state.auth);
-  const { projects, loading } = useAppSelector((state) => state.project);
-  const [userProjects, setUserProjects] = useState<any[]>([]);
-  const [viewType, setViewType] = useState<"card" | "table">("card");
-
+  const authUser = useAppSelector((state) => state.auth.user);
+  const permissions = useAppSelector((state) => state.auth.permissions);
+  const { projects, loading: projectsLoading } = useAppSelector((state) => state.project);
+  const [profile, setProfile] = useState<ProfileRecord | null>(null);
+  const [relations, setRelations] = useState<{ managers: RelationUser[]; members: RelationUser[] }>({ managers: [], members: [] });
+  const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadWarning, setLoadWarning] = useState(false);
 
   useEffect(() => {
-    // Filter projects where user is a member, owner, or subowner
-    if (projects && projects.length > 0 && user) {
+    if (!authUser?.id) return;
+    let active = true;
+    setLoading(true);
+    Promise.allSettled([getUserById(authUser.id), getUserRelations(), getBusinessUnitsDropdown()]).then((results) => {
+      if (!active) return;
+      const [userResult, relationResult, unitResult] = results;
+      setProfile(userResult.status === "fulfilled" ? userResult.value : authUser);
+      if (relationResult.status === "fulfilled") setRelations(relationResult.value);
+      if (unitResult.status === "fulfilled") setBusinessUnits(unitResult.value);
+      setLoadWarning(results.some((result) => result.status === "rejected"));
+      setLoading(false);
+    });
+    dispatch(getProjects());
+    return () => { active = false; };
+  }, [authUser, dispatch]);
 
-      
-      const filtered = projects.filter((project: any) => {
-        const isMember = project.projectMembers?.some((member: any) => {
-          return member.userId === user.id;
-        });
-        const isOwner = project.ownerId === user.id;
-        
+  const user = { ...authUser, ...(profile || {}) } as ProfileRecord;
+  const roleName = typeof user.role === "string" ? user.role : user.role?.name;
+  const businessUnit = useMemo(() => {
+    if (user.businessUnit && typeof user.businessUnit === "object") return user.businessUnit as BusinessUnit;
+    return businessUnits.find((unit) => unit.id === user.businessUnitId || unit.code === user.businessUnitCode);
+  }, [businessUnits, user.businessUnit, user.businessUnitCode, user.businessUnitId]);
+  const relatedProjects = useMemo(() => projects.filter((project: any) =>
+    project.ownerId === user.id || project.projectMembers?.some((member: any) => member.userId === user.id || member.user?.id === user.id)
+  ), [projects, user.id]);
+  const ownedCount = relatedProjects.filter((project: any) => project.ownerId === user.id || project.projectMembers?.some((member: any) => member.userId === user.id && member.role === "OWNER")).length;
+  const initials = (user.name || "User").split(" ").map((part: string) => part[0]).slice(0, 2).join("").toUpperCase();
+  const statusActive = user.isActive !== false;
+  const buHead = businessUnit?.buHead || user.buHead || relations.managers[0]?.name;
+  const permissionRows = useMemo(() => Object.values(permissions || {})
+    .filter((permission) => permission.canView || permission.canCreate || permission.canUpdate || permission.canDelete || permission.canApprove)
+    .sort((a, b) => (a.name || a.key).localeCompare(b.name || b.key)), [permissions]);
 
-        
-        return isMember || isOwner;
-      });
-      
-
-      setUserProjects(filtered);
-    }
-  }, [projects, user]);
-
-  if (!user) {
-    return <Typography>Loading user information...</Typography>;
-  }
-
-  const userInitials = user.name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase() || "U";
+  if (!authUser || loading) return <Box sx={{ minHeight: 320, display: "grid", placeItems: "center" }}><CircularProgress size={30} /></Box>;
 
   return (
-    <Box
-      sx={{
-        height: "100%",
-        maxHeight: "calc(100vh - 200px)",
-        overflowY: "auto",
-        overflowX: "hidden",
-        paddingRight: "8px",
-        "&::-webkit-scrollbar": {
-          width: "8px",
-        },
-        "&::-webkit-scrollbar-track": {
-          background: "#f5f3ff",
-          borderRadius: "4px",
-        },
-        "&::-webkit-scrollbar-thumb": {
-          background: "#d0c4e8",
-          borderRadius: "4px",
-          "&:hover": {
-            background: "#b8acd4",
-          },
-        },
-      }}
-    >
-      {/* 🔹 HEADER */}
-      <Typography variant="h5" fontWeight={700} mb={3}>
-        My Profile
-      </Typography>
+    <Box sx={{ pb: 3 }}>
+      {loadWarning && <Alert severity="warning" sx={{ mb: 2 }}>Some organization details could not be loaded. Available profile information is shown below.</Alert>}
 
-      <Grid container spacing={3}>
-        {/* 🔹 USER INFO CARD */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card elevation={1} sx={{ borderRadius: 2 }}>
-            <CardContent>
-              <Box display="flex" alignItems="flex-start" gap={2} mb={3}>
-                <Avatar
-                  sx={{
-                    width: 80,
-                    height: 80,
-                    bgcolor: "#6366f1",
-                    color: "#fff",
-                    fontWeight: 600,
-                    fontSize: "1.5rem",
-                  }}
-                >
-                  {userInitials}
-                </Avatar>
+      <Paper elevation={0} sx={{ overflow: "hidden", border: "1px solid #E3E0EA", borderRadius: 3, bgcolor: "#fff" }}>
+        <Box sx={{ height: 76, background: `linear-gradient(110deg, ${brandColors.deepTwilight} 0%, ${brandColors.vividRoyal} 58%, ${brandColors.mediumSlateBlue} 100%)` }} />
+        <Box sx={{ px: { xs: 2, md: 3 }, pb: 2.5, mt: -38 }}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ xs: "flex-start", sm: "flex-end" }}>
+            <Avatar sx={{ width: 86, height: 86, bgcolor: "#fff", color: brandColors.vividRoyal, border: "5px solid #fff", boxShadow: "0 3px 12px rgba(17,9,71,.18)", fontSize: 25, fontWeight: 750 }}>{initials}</Avatar>
+            <Box sx={{ flex: 1, pb: 0.5 }}>
+              <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
+                <Typography sx={{ color: brandColors.deepTwilight, fontSize: { xs: 22, md: 26 }, fontWeight: 750, lineHeight: 1.2 }}>{user.name || "Unnamed user"}</Typography>
+                <Chip label={statusActive ? "Active" : "Inactive"} size="small" sx={{ bgcolor: statusActive ? "#E5F8F1" : "#FDECEC", color: statusActive ? "#087A57" : "#B42318", fontWeight: 700 }} />
+              </Stack>
+              <Typography sx={{ color: "#696578", fontSize: 13.5, mt: 0.5 }}>{user.position || readable(roleName)}{businessUnit?.name ? ` · ${businessUnit.name}` : ""}</Typography>
+            </Box>
+            <Chip icon={<BadgeOutlined />} label={readable(roleName)} sx={{ mb: { sm: 0.75 }, bgcolor: brandColors.lavenderMist, color: brandColors.deepTwilight, fontWeight: 650, "& .MuiChip-icon": { color: brandColors.vividRoyal } }} />
+          </Stack>
+        </Box>
+      </Paper>
 
-                <Box flex={1}>
-                  <Typography variant="h6" fontWeight={700}>
-                    {user.name}
-                  </Typography>
-                  <Typography variant="body2" color="#888" sx={{ mb: 1 }}>
-                    {user.email}
-                  </Typography>
-
-                  <Box display="flex" gap={1} flexWrap="wrap">
-                    {user.role && (
-                      <Chip
-                        label={user.role}
-                        size="small"
-                        sx={{
-                          bgcolor: "#f5f3ff",
-                          color: "#210e64",
-                          fontWeight: 600,
-                        }}
-                      />
-                    )}
-                    {user.isActive && (
-                      <Chip
-                        label="Active"
-                        size="small"
-                        sx={{
-                          bgcolor: "#dcfce7",
-                          color: "#166534",
-                          fontWeight: 600,
-                        }}
-                      />
-                    )}
-                  </Box>
-                </Box>
-              </Box>
-
-              <Divider sx={{ my: 2 }} />
-
-              {/* 📋 PROFILE DETAILS */}
-              <Box>
-                <Typography variant="subtitle2" fontWeight={600} mb={1.5}>
-                  Account Details
-                </Typography>
-
-                <Box mb={1.5}>
-                  <Typography variant="caption" color="#888">
-                    User ID
-                  </Typography>
-                  <Typography variant="body2">{user.id}</Typography>
-                </Box>
-
-                <Box mb={1.5}>
-                  <Typography variant="caption" color="#888">
-                    Role
-                  </Typography>
-                  <Typography variant="body2">{user.role || "N/A"}</Typography>
-                </Box>
-
-                <Box>
-                  <Typography variant="caption" color="#888">
-                    Status
-                  </Typography>
-                  <Typography variant="body2">
-                    {user.isActive ? "Active" : "Inactive"}
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
+      <Grid container spacing={2} sx={{ mt: 0 }}>
+        <Grid size={{ xs: 12, lg: 7 }}>
+          <Paper elevation={0} sx={{ p: { xs: 2, md: 2.5 }, height: "100%", border: "1px solid #E3E0EA", borderRadius: 3 }}>
+            <Typography sx={{ color: brandColors.deepTwilight, fontSize: 16, fontWeight: 700 }}>Profile information</Typography>
+            <Typography sx={{ color: "#7A7688", fontSize: 12.5, mt: 0.25 }}>Your account and organization details</Typography>
+            <Divider sx={{ my: 2 }} />
+            <Grid container spacing={2.5}>
+              <Grid size={{ xs: 12, sm: 6 }}><Detail icon={<PersonOutline fontSize="small" />} label="Full name" value={user.name} /></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><Detail icon={<EmailOutlined fontSize="small" />} label="Email address" value={user.email} /></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><Detail icon={<BadgeOutlined fontSize="small" />} label="System role" value={readable(roleName)} /></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><Detail icon={<AccountTreeOutlined fontSize="small" />} label="Position / job title" value={user.position || user.jobTitle} /></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><Detail icon={<BusinessOutlined fontSize="small" />} label="Business unit" value={businessUnit?.name || user.businessUnitName} helper={businessUnit?.code ? `${businessUnit.code}${businessUnit.entity ? ` · ${businessUnit.entity}` : ""}` : undefined} /></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><Detail icon={<SupervisorAccountOutlined fontSize="small" />} label="Business Unit Head / Approver" value={buHead} /></Grid>
+              {user.department && <Grid size={{ xs: 12, sm: 6 }}><Detail icon={<BusinessOutlined fontSize="small" />} label="Department" value={user.department} /></Grid>}
+              {user.employeeId && <Grid size={{ xs: 12, sm: 6 }}><Detail icon={<BadgeOutlined fontSize="small" />} label="Employee ID" value={user.employeeId} /></Grid>}
+            </Grid>
+          </Paper>
         </Grid>
 
-        {/* 🔹 STATISTICS */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card elevation={1} sx={{ borderRadius: 2, height: "100%" }}>
-            <CardContent>
-              <Typography variant="subtitle2" fontWeight={600} mb={2}>
-                Statistics
-              </Typography>
+        <Grid size={{ xs: 12, lg: 5 }}>
+          <Stack spacing={2} sx={{ height: "100%" }}>
+            <Paper elevation={0} sx={{ p: 2.5, border: "1px solid #E3E0EA", borderRadius: 3 }}>
+              <Typography sx={{ color: brandColors.deepTwilight, fontSize: 16, fontWeight: 700 }}>Reporting relationships</Typography>
+              <Typography sx={{ color: "#7A7688", fontSize: 12.5, mt: 0.25, mb: 2 }}>People connected to your account</Typography>
+              <Typography sx={{ color: "#7A7688", fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", mb: 1 }}>Manager / Approver</Typography>
+              <Stack spacing={1.25}>{relations.managers.length ? relations.managers.map((person, index) => <PersonRow key={person.id || index} person={person} emptyText="" />) : <PersonRow emptyText="No manager or approver assigned" />}</Stack>
+              <Divider sx={{ my: 2 }} />
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Box><Typography sx={{ color: brandColors.deepTwilight, fontSize: 13.5, fontWeight: 650 }}>Direct members</Typography><Typography sx={{ color: "#7A7688", fontSize: 12 }}>Users reporting to you</Typography></Box>
+                <Chip label={relations.members.length} size="small" sx={{ bgcolor: brandColors.aliceBlue, color: "#2656A8", fontWeight: 700 }} />
+              </Stack>
+            </Paper>
 
-              <Box
-                display="grid"
-                gridTemplateColumns="1fr 1fr"
-                gap={2}
-              >
-                <Paper sx={{ p: 2, bgcolor: "#f5f3ff", border: "none" }}>
-                  <Typography variant="caption" color="#888">
-                    Total Projects
-                  </Typography>
-                  <Typography variant="h5" fontWeight={700} color="#210e64">
-                    {userProjects.length}
-                  </Typography>
-                </Paper>
-
-                <Paper sx={{ p: 2, bgcolor: "#fef3c7", border: "none" }}>
-                  <Typography variant="caption" color="#888">
-                    User ID
-                  </Typography>
-                  <Typography variant="body2" fontWeight={600}>
-                    {user.id.substring(0, 8)}...
-                  </Typography>
-                </Paper>
-              </Box>
-            </CardContent>
-          </Card>
+            <Paper elevation={0} sx={{ p: 2.5, flex: 1, border: "1px solid #E3E0EA", borderRadius: 3 }}>
+              <Typography sx={{ color: brandColors.deepTwilight, fontSize: 16, fontWeight: 700, mb: 1.75 }}>Project involvement</Typography>
+              <Grid container spacing={1.25}>
+                {[{ label: "Assigned projects", value: relatedProjects.length, icon: <FolderOutlined /> }, { label: "Project owner", value: ownedCount, icon: <SupervisorAccountOutlined /> }, { label: "Team member", value: Math.max(0, relatedProjects.length - ownedCount), icon: <GroupsOutlined /> }].map((item) => (
+                  <Grid size={{ xs: 12, sm: 4, lg: 12 }} key={item.label}>
+                    <Stack direction="row" alignItems="center" spacing={1.25} sx={{ p: 1.25, bgcolor: "#FAF9FD", borderRadius: 2 }}>
+                      <Box sx={{ color: brandColors.vividRoyal, display: "flex" }}>{item.icon}</Box>
+                      <Box sx={{ flex: 1 }}><Typography sx={{ color: "#777386", fontSize: 12 }}>{item.label}</Typography><Typography sx={{ color: brandColors.deepTwilight, fontSize: 18, fontWeight: 750, lineHeight: 1.1 }}>{projectsLoading ? "—" : item.value}</Typography></Box>
+                    </Stack>
+                  </Grid>
+                ))}
+              </Grid>
+            </Paper>
+          </Stack>
         </Grid>
       </Grid>
 
-      <Divider sx={{ my: 4 }} />
+      <Paper elevation={0} sx={{ mt: 2, p: { xs: 2, md: 2.5 }, border: "1px solid #E3E0EA", borderRadius: 3 }}>
+        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} gap={1}>
+          <Box>
+            <Typography sx={{ color: brandColors.deepTwilight, fontSize: 16, fontWeight: 700 }}>Access permissions</Typography>
+            <Typography sx={{ color: "#7A7688", fontSize: 12.5, mt: 0.25 }}>Read-only summary of the access assigned to your role</Typography>
+          </Box>
+          <Chip label={`${permissionRows.length} accessible modules`} size="small" sx={{ bgcolor: brandColors.lavenderMist, color: brandColors.vividRoyal, fontWeight: 700 }} />
+        </Stack>
+        <Divider sx={{ my: 2 }} />
 
-      {/* 🔹 USER'S PROJECTS BY ROLE */}
-      <Box>
-        <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
-          <Typography variant="h5" fontWeight={700}>
-            My Projects ({userProjects.length})
-          </Typography>
-
-          {/* VIEW TYPE TOGGLE */}
-          <ToggleButtonGroup
-            value={viewType}
-            exclusive
-            onChange={(event, newViewType) => {
-              if (newViewType !== null) setViewType(newViewType);
-            }}
-            size="small"
-            sx={{
-              border: "1px solid #e8e7e2",
-              borderRadius: 1,
-            }}
-          >
-            <ToggleButton
-              value="card"
-              sx={{
-                textTransform: "none",
-                color: viewType === "card" ? "#fff" : "#210e64",
-                backgroundColor: viewType === "card" ? "#210e64" : "transparent",
-                "&.Mui-selected": {
-                  backgroundColor: "#210e64",
-                  color: "#fff",
-                },
-                "&:hover": {
-                  backgroundColor: viewType === "card" ? "#210e64" : "#f5f3ff",
-                },
-              }}
-            >
-              Card View
-            </ToggleButton>
-            <ToggleButton
-              value="table"
-              sx={{
-                textTransform: "none",
-                color: viewType === "table" ? "#fff" : "#210e64",
-                backgroundColor: viewType === "table" ? "#210e64" : "transparent",
-                "&.Mui-selected": {
-                  backgroundColor: "#210e64",
-                  color: "#fff",
-                },
-                "&:hover": {
-                  backgroundColor: viewType === "table" ? "#210e64" : "#f5f3ff",
-                },
-              }}
-            >
-              Table View
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
-
-        {/* OWNER PROJECTS */}
-        <ProjectSection
-          title="Owner"
-          projects={filterProjectsByRole(userProjects, user.id, "owner")}
-          roleColor="#4f46e5"
-          roleBgColor="#e0e7ff"
-          loading={loading}
-          user={user}
-          viewType={viewType}
-        />
-
-        {/* SUBOWNER PROJECTS */}
-        <ProjectSection
-          title="Subowner"
-          projects={filterProjectsByRole(userProjects, user.id, "subowner")}
-          roleColor="#ee0b9a"
-          roleBgColor="#fce7f3"
-          loading={loading}
-          user={user}
-          viewType={viewType}
-        />
-
-        {/* MEMBER PROJECTS */}
-        <ProjectSection
-          title="Member"
-          projects={filterProjectsByRole(userProjects, user.id, "member")}
-          roleColor="#0369a1"
-          roleBgColor="#dbeafe"
-          loading={loading}
-          user={user}
-          viewType={viewType}
-        />
-
-        {/* NO PROJECTS MESSAGE */}
-        {!loading && userProjects.length === 0 && (
-          <Paper sx={{ p: 3, textAlign: "center" }}>
-            <Typography color="#888">
-              You are not a member of any projects yet
-            </Typography>
-          </Paper>
+        {permissionRows.length ? (
+          <Grid container spacing={1.25}>
+            {permissionRows.map((permission) => {
+              const actions = [
+                { label: "View", enabled: permission.canView },
+                { label: "Create", enabled: permission.canCreate },
+                { label: "Update", enabled: permission.canUpdate },
+                { label: "Delete", enabled: permission.canDelete },
+                { label: "Approve", enabled: permission.canApprove },
+              ].filter((action) => action.enabled);
+              return (
+                <Grid size={{ xs: 12, md: 6 }} key={permission.key}>
+                  <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} gap={1} sx={{ p: 1.5, minHeight: 66, border: "1px solid #ECE9F1", borderRadius: 2, bgcolor: "#FCFBFE" }}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography noWrap sx={{ color: brandColors.deepTwilight, fontSize: 13.5, fontWeight: 650 }}>{permission.name || readable(permission.key)}</Typography>
+                      <Typography noWrap sx={{ color: "#8A8697", fontSize: 11.5 }}>{permission.path || permission.key}</Typography>
+                    </Box>
+                    <Stack direction="row" gap={0.6} flexWrap="wrap" useFlexGap>
+                      {actions.map((action) => (
+                        <Chip key={action.label} icon={<CheckCircleOutline />} label={action.label} size="small" sx={{ height: 25, bgcolor: action.label === "View" ? brandColors.aliceBlue : brandColors.lavenderMist, color: action.label === "View" ? "#2656A8" : brandColors.vividRoyal, fontSize: 11, fontWeight: 650, "& .MuiChip-icon": { fontSize: 14, color: "inherit" } }} />
+                      ))}
+                    </Stack>
+                  </Stack>
+                </Grid>
+              );
+            })}
+          </Grid>
+        ) : (
+          <Typography sx={{ color: "#89859A", fontSize: 13 }}>No module permissions are currently assigned to this account.</Typography>
         )}
-      </Box>
+      </Paper>
+
+      <Typography sx={{ color: "#94909F", fontSize: 11.5, mt: 1.5, px: 0.5 }}>Account ID: {user.id}</Typography>
     </Box>
   );
 }

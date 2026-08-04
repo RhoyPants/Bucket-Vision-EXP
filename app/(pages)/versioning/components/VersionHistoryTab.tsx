@@ -34,7 +34,7 @@ import {
   GitCompareArrows,
 } from "lucide-react";
 import { fetchVersionDetail } from "@/app/redux/controllers/versioningController";
-import GanttGridView from "@/app/(pages)/sprintManagement/Components/GridTableView";
+import GanttGridView from "@/app/components/shared/GanttGridView";
 import StructuredViewComponent from "@/app/(pages)/approvals/[projectId]/components/StructuredView";
 
 type ViewMode = "structured" | "gantt";

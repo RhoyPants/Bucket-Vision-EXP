@@ -340,6 +340,47 @@ export default function SubtaskHealthKpi({
         ["UNCLASSIFIED", "Unclassified", data.summary.unclassified],
       ] as const).map(([key, label, value]) => {
         const tone = tones[key];
+        if (bareSummary) {
+          const description = {
+            TOTAL: "Subtasks tracked",
+            CRITICAL: "Need attention",
+            ONFLOW: "Within flow",
+            HEALTHY: "On schedule",
+            UNCLASSIFIED: "Not classified",
+          }[key];
+          return (
+            <Box
+              key={key}
+              sx={{
+                minHeight: 64,
+                px: 1.25,
+                py: 1,
+                borderRadius: 1.5,
+                bgcolor: "#FFFFFF",
+                border: `1px solid ${tone.border}`,
+                borderTop: `3px solid ${tone.color}`,
+                boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+              }}
+            >
+              <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1}>
+                <Stack direction="row" spacing={0.65} alignItems="center" sx={{ minWidth: 0 }}>
+                  <Box sx={{ width: 22, height: 22, display: "grid", placeItems: "center", borderRadius: 1, color: tone.color, bgcolor: tone.iconBg }}>
+                    <HealthAndSafetyOutlinedIcon sx={{ fontSize: 14 }} />
+                  </Box>
+                  <Typography sx={{ color: "#475569", fontSize: 10.5, fontWeight: 700, lineHeight: 1.2 }}>
+                    {label}
+                  </Typography>
+                </Stack>
+                <Typography sx={{ color: tone.color, fontSize: 22, fontWeight: 800, lineHeight: 1 }}>
+                  {value}
+                </Typography>
+              </Stack>
+              <Typography sx={{ color: "#64748B", fontSize: 9, mt: 0.75, pl: 3.6, whiteSpace: "nowrap" }}>
+                {description}
+              </Typography>
+            </Box>
+          );
+        }
         return (
           <Box key={key} sx={{ minHeight: 66, px: 1.25, py: 0.85, display: "flex", alignItems: "center", gap: 1, borderRadius: 2.25, bgcolor: tone.bg, border: `1px solid ${tone.border}` }}>
             <Box sx={{ width: 36, height: 36, display: "grid", placeItems: "center", flexShrink: 0, borderRadius: "50%", color: tone.color, bgcolor: tone.iconBg }}><HealthAndSafetyOutlinedIcon sx={{ fontSize: 19 }} /></Box>

@@ -4,14 +4,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Typography,
-  Button,
   Stack,
-  Card,
-  Grid,
+  Paper,
   TextField,
   MenuItem,
+  InputAdornment,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
+import SearchIcon from "@mui/icons-material/Search";
 
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { useRouter } from "next/navigation";
@@ -36,6 +35,9 @@ import ProjectsGrid from "./components/ProjectsGrid";
 import { ProjectCardActions, ViewType } from "./components/types";
 import { usePermissions } from "@/app/lib/usePermissions";
 import { notifyFirstApprovalStep } from "@/app/utils/approvalEmailNotification";
+import { brandColors } from "@/app/lib/theme";
+
+const PROJECTS_PER_PAGE = 6;
 
 const projectStatuses = [
   { value: "DRAFT", label: "Draft", bg: "#f3f4f6", color: "#4b5563" },
@@ -43,6 +45,7 @@ const projectStatuses = [
   { value: "FOR_APPROVAL", label: "For Approval", bg: "#eff6ff", color: "#1d4ed8" },
   { value: "NEEDS_REVISION", label: "Needs Revision", bg: "#fff7ed", color: "#9a3412" },
   { value: "ACTIVE", label: "Active", bg: "#ecfdf5", color: "#047857" },
+  { value: "COMPLETED", label: "Completed", bg: "#eef2ff", color: "#4338ca" },
 ] as const;
 
 const hiddenProjectStatuses = new Set([
@@ -59,8 +62,7 @@ export default function ProjectsPage() {
   const { projects } = useAppSelector((state) => state.project);
   const { allApprovals, auditTrail } = useAppSelector((state) => state.approval);
   const { user, permissionRole } = useAppSelector((state) => state.auth);
-  const { canCreate, canUpdate, canDelete } = usePermissions();
-  const canCreateProject = canCreate("projects");
+  const { canUpdate, canDelete } = usePermissions();
   const canUpdateProject = canUpdate("projects");
   const normalizedRole = String(permissionRole || user?.role || "")
     .toUpperCase()
@@ -74,6 +76,7 @@ export default function ProjectsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [businessUnitFilter, setBusinessUnitFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [page, setPage] = useState(1);
 
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [projectModalMode, setProjectModalMode] = useState<"create" | "edit">("create");
@@ -160,19 +163,6 @@ export default function ProjectsPage() {
     dispatch(getProjects());
   }, [dispatch]);
 
-  const counts = useMemo(() => {
-    const list = (projects || []).filter(
-      (project: any) => !hiddenProjectStatuses.has(project.status)
-    );
-    return {
-      total: list.length,
-      byStatus: projectStatuses.reduce<Record<string, number>>((result, status) => {
-        result[status.value] = list.filter((project: any) => project.status === status.value).length;
-        return result;
-      }, {}),
-    };
-  }, [projects]);
-
   const allProjects = useMemo(() => {
     return (projects || []).filter(
       (project: any) => !hiddenProjectStatuses.has(project.status)
@@ -204,30 +194,26 @@ export default function ProjectsPage() {
       const matchesBusinessUnit =
         businessUnitFilter === "ALL" ||
         (p?.businessUnitDetails?.name || p?.businessUnitName || "") === businessUnitFilter;
+      const normalizedStatus = String(p?.status || "DRAFT").toUpperCase();
       const matchesStatus =
-        !canViewAllProjectStatuses || statusFilter === "ALL" || p?.status === statusFilter;
+        !canViewAllProjectStatuses || statusFilter === "ALL" || normalizedStatus === statusFilter;
       return matchesSearch && matchesBusinessUnit && matchesStatus;
     });
   }, [visibleProjects, searchQuery, businessUnitFilter, statusFilter, canViewAllProjectStatuses]);
 
-  const kpiCards = canViewAllProjectStatuses
-    ? [
-        { label: "Total Projects", value: counts.total, bg: "#ecfdf5", color: "#065f46" },
-        ...projectStatuses.map((status) => ({
-          label: status.label,
-          value: counts.byStatus[status.value],
-          bg: status.bg,
-          color: status.color,
-        })),
-      ]
-    : [
-        {
-          label: "Total Active Projects",
-          value: activeProjects.length,
-          bg: "#ecfdf5",
-          color: "#065f46",
-        },
-      ];
+  const totalPages = Math.max(1, Math.ceil(filteredProjects.length / PROJECTS_PER_PAGE));
+  const paginatedProjects = filteredProjects.slice(
+    (page - 1) * PROJECTS_PER_PAGE,
+    page * PROJECTS_PER_PAGE
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, businessUnitFilter, statusFilter]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const actions: ProjectCardActions = {
     onOpenDashboard: (projectId) => router.push(`/projectDashboard/${projectId}`),
@@ -275,115 +261,116 @@ export default function ProjectsPage() {
     onVersion: (project) => {
       router.push(`/versioning?projectId=${project.id}`);
     },
-    onSprint: (projectId) => router.push(`/sprintManagement?projectId=${projectId}`),
+    onSprint: (projectId) => router.push(`/projectDashboard/${projectId}?view=sprint-management`),
     onCreateProject: () => {
-      if (!canCreateProject) return;
       router.push("/projects/new/setup");
     },
   };
 
   return (
     <Layout>
-      <Box sx={{ p: { xs: 2, md: 4 } }}>
-        {/* KPI CARDS */}
-        <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
-          {kpiCards.map((item) => (
-            <Grid key={item.label} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
-              <Card
-                sx={{
-                  px: 1.5,
-                  py: 1.25,
-                  border: "1px solid #e5e7eb",
-                  backgroundColor: item.bg,
-                }}
-              >
-                <Typography sx={{ fontSize: 12, color: "#6b7280", fontWeight: 600 }}>
-                  {item.label}
-                </Typography>
-                <Typography sx={{ fontSize: 24, lineHeight: 1.2, fontWeight: 800, color: item.color }}>
-                  {item.value}
-                </Typography>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-
-        {/* SEARCH + FILTER */}
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={1.5}
-          sx={{ mb: 3 }}
+      <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1600, mx: "auto" }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, md: 2.5 },
+            mb: 2.5,
+            border: `1px solid ${brandColors.lavender}`,
+            borderRadius: 3,
+            backgroundColor: "#FFFFFF",
+          }}
         >
-          <TextField
-            label="Search Project"
-            placeholder="Search by project name"
-            size="small"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ minWidth: { xs: "100%", md: 260 } }}
-          />
-          <TextField
-            select
-            label="Business Unit"
-            size="small"
-            value={businessUnitFilter}
-            onChange={(e) => setBusinessUnitFilter(e.target.value)}
-            sx={{ minWidth: { xs: "100%", md: 240 } }}
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            justifyContent="space-between"
+            alignItems={{ xs: "stretch", sm: "center" }}
+            spacing={1.5}
+            sx={{ mb: 2 }}
           >
-            <MenuItem value="ALL">All Business Units</MenuItem>
-            {businessUnitOptions.map((bu) => (
-              <MenuItem key={bu} value={bu}>
-                {bu}
-              </MenuItem>
-            ))}
-          </TextField>
-          {canViewAllProjectStatuses ? (
+            <Box>
+              <Typography sx={{ color: brandColors.deepTwilight, fontSize: 16, fontWeight: 700 }}>
+                Project directory
+              </Typography>
+              <Typography sx={{ color: "#6B6880", fontSize: 13, mt: 0.25 }}>
+                {filteredProjects.length} {filteredProjects.length === 1 ? "project" : "projects"}
+                {filteredProjects.length !== visibleProjects.length ? ` of ${visibleProjects.length}` : ""}
+              </Typography>
+            </Box>
+          </Stack>
+
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+            <TextField
+              placeholder="Search projects"
+              size="small"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: "#89859A", fontSize: 20 }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={{ flex: 1, minWidth: { xs: "100%", md: 280 } }}
+            >
+            </TextField>
             <TextField
               select
-              label="Project Status"
+              label="Business Unit"
               size="small"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              sx={{ minWidth: { xs: "100%", md: 200 } }}
+              value={businessUnitFilter}
+              onChange={(e) => setBusinessUnitFilter(e.target.value)}
+              sx={{ minWidth: { xs: "100%", md: 240 } }}
             >
-              <MenuItem value="ALL">All Statuses</MenuItem>
-              {projectStatuses.map((status) => (
-                <MenuItem key={status.value} value={status.value}>
-                  {status.label}
+              <MenuItem value="ALL">All Business Units</MenuItem>
+              {businessUnitOptions.map((bu) => (
+                <MenuItem key={bu} value={bu}>
+                  {bu}
                 </MenuItem>
               ))}
             </TextField>
-          ) : null}
-        </Stack>
+            {canViewAllProjectStatuses ? (
+              <TextField
+                select
+                label="Status"
+                size="small"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                sx={{ minWidth: { xs: "100%", md: 190 } }}
+              >
+                <MenuItem value="ALL">All Statuses</MenuItem>
+                {projectStatuses.map((status) => (
+                  <MenuItem key={status.value} value={status.value}>
+                    {status.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ) : null}
+          </Stack>
+        </Paper>
 
         <ProjectsGrid
-          projects={filteredProjects}
+          projects={paginatedProjects}
           actions={actions}
           viewType={viewType}
           onViewTypeChange={setViewType}
-          // headerAction={
-          //   canCreateProject ? (
-          //     <Button
-          //       variant="contained"
-          //       startIcon={<AddIcon />}
-          //       onClick={actions.onCreateProject}
-          //       sx={{
-          //         bgcolor: "#210e64",
-          //         "&:hover": { bgcolor: "#1a0b4f" },
-          //       }}
-          //     >
-          //       Create Project
-          //     </Button>
-          //   ) : null
-          // }
           emptyMessage={canViewAllProjectStatuses ? "No projects found" : "No active projects"}
           emptySubtext={
             canViewAllProjectStatuses
               ? "Create a project to get started"
               : "Projects appear here once they are approved and activated"
           }
-          showCreateButton={canCreateProject && visibleProjects.length === 0}
-          createButtonLabel="Create Project"
+          pagination={{
+            page,
+            limit: PROJECTS_PER_PAGE,
+            total: filteredProjects.length,
+            totalPages,
+            hasNextPage: page < totalPages,
+            hasPrevPage: page > 1,
+          }}
+          onPageChange={setPage}
         />
 
         

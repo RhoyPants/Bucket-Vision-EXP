@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Box,
   Grid,
@@ -19,27 +18,17 @@ import {
   TableBody,
   Chip,
   IconButton,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
-  Divider,
   Pagination,
 } from "@mui/material";
-import AssignmentIcon from "@mui/icons-material/Assignment";
 import GridViewIcon from "@mui/icons-material/GridView";
 import ViewListIcon from "@mui/icons-material/ViewList";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
-import SettingsIcon from "@mui/icons-material/Settings";
+import AssignmentIcon from "@mui/icons-material/Assignment";
 import LayersIcon from "@mui/icons-material/Layers";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import SendIcon from "@mui/icons-material/Send";
-import PeopleIcon from "@mui/icons-material/People";
 import ProjectCard, { getProjectVersionLabel } from "./ProjectCard";
 import { ProjectCardActions, ViewType } from "./types";
 import { usePermissions } from "@/app/lib/usePermissions";
+import { brandColors } from "@/app/lib/theme";
 
 interface ProjectsGridProps {
   projects: ProjectGridItem[];
@@ -61,6 +50,8 @@ interface ProjectsGridProps {
   };
   onPageChange?: (page: number) => void;
   actionMode?: "default" | "approval";
+  legendItems?: Array<{ label: string; color: string }>;
+  showActions?: boolean;
 }
 
 type ProjectGridItem = {
@@ -115,38 +106,13 @@ export default function ProjectsGrid({
   pagination,
   onPageChange,
   actionMode = "default",
+  legendItems,
+  showActions = true,
 }: ProjectsGridProps) {
-  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
-  const [menuProject, setMenuProject] = useState<ProjectGridItem | null>(null);
-  const { canView, canCreate, canUpdate, canDelete, role } = usePermissions();
+  const { canCreate } = usePermissions();
   const canCreateProject = canCreate("projects");
-  const canUpdateProject = canUpdate("projects");
-  const normalizedRole = String(role || "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
-  const canDeleteProject = canDelete("projects") && normalizedRole === "SUPERADMIN";
-
-  const menuOpen = Boolean(menuAnchor) && Boolean(menuProject);
   const approvalOnly = actionMode === "approval";
-
-  const openMenu = (
-    event: React.MouseEvent<HTMLElement>,
-    project: ProjectGridItem,
-  ) => {
-    event.stopPropagation();
-    setMenuAnchor(event.currentTarget);
-    setMenuProject(project);
-  };
-
-  const closeMenu = () => {
-    setMenuAnchor(null);
-    setMenuProject(null);
-  };
-
-  const runMenuAction = (fn: () => void) => {
-    closeMenu();
-    fn();
-  };
+  const showActionColumn = showActions && (approvalOnly || projects.some((project) => project.status === "NEEDS_REVISION"));
 
   const formatDate = (value?: string) => {
     if (!value) return "-";
@@ -161,25 +127,28 @@ export default function ProjectsGrid({
 
   const statusStyle = (status?: string) => {
     if (status === "ACTIVE" || status === "APPROVED") {
-      return { label: "Active", bg: "#ECFDF5", color: "#047857", border: "#BBF7D0" };
+      return { label: "Active", bg: "#D1FAE5", color: "#111827", border: "#34D399" };
+    }
+    if (status === "COMPLETED") {
+      return { label: "Completed", bg: "#EEF2FF", color: "#3730A3", border: "#818CF8" };
     }
     if (status === "FOR_REVIEW") {
-      return { label: "For Review", bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" };
+      return { label: "For Review", bg: "#FEF3C7", color: "#111827", border: "#FBBF24" };
     }
     if (status === "FOR_APPROVAL") {
-      return { label: "For Approval", bg: "#EEF2FF", color: "#4338CA", border: "#C7D2FE" };
+      return { label: "For Approval", bg: "#DBEAFE", color: "#111827", border: "#60A5FA" };
     }
     if (status === "NEEDS_REVISION") {
-      return { label: "Needs Revision", bg: "#FFF7ED", color: "#9A3412", border: "#FDBA74" };
+      return { label: "Needs Revision", bg: "#FFE4E6", color: "#111827", border: "#FB7185" };
     }
     if (status === "REJECTED") {
-      return { label: "Rejected", bg: "#FEF2F2", color: "#B91C1C", border: "#FECACA" };
+      return { label: "Rejected", bg: "#FFE4E6", color: "#111827", border: "#FB7185" };
     }
     if (status === "ARCHIVED") {
       return { label: "Archived", bg: "#F3F4F6", color: "#4B5563", border: "#D1D5DB" };
     }
-    if (status === "CANCELLED") return { label: "Cancelled", bg: "#FEF2F2", color: "#B91C1C", border: "#FECACA" };
-    return { label: "Draft", bg: "#F8FAFC", color: "#475569", border: "#E2E8F0" };
+    if (status === "CANCELLED") return { label: "Cancelled", bg: "#FFE4E6", color: "#111827", border: "#FB7185" };
+    return { label: "Draft", bg: "#EDE9FE", color: "#111827", border: "#A78BFA" };
   };
 
   const businessUnitName = (project: ProjectGridItem) => {
@@ -187,19 +156,22 @@ export default function ProjectsGrid({
   };
 
   const tableHeadCellSx = {
-    py: 1.25,
+    py: 1.1,
     fontSize: 11,
-    fontWeight: 800,
-    color: "#475569",
+    fontWeight: 600,
+    color: brandColors.deepTwilightLight,
     textTransform: "uppercase",
-    letterSpacing: 0.4,
-    borderBottom: "1px solid #E2E8F0",
+    letterSpacing: 0.5,
+    borderBottom: `1px solid ${brandColors.lavender}`,
     whiteSpace: "nowrap",
   };
 
   const tableBodyCellSx = {
-    py: 1.35,
-    borderBottom: "1px solid #EEF2F7",
+    py: 1,
+    height: 52,
+    fontSize: 12.5,
+    color: "#3F3B4D",
+    borderBottom: `1px solid ${brandColors.lavenderMist}`,
   };
 
   const stickyActionCellSx = {
@@ -210,7 +182,7 @@ export default function ProjectsGrid({
     right: 0,
     zIndex: 1,
     bgcolor: "#FFFFFF",
-    boxShadow: "-10px 0 16px -16px rgba(15, 23, 42, 0.45)",
+    boxShadow: "-8px 0 12px -14px rgba(33, 14, 100, 0.35)",
   };
 
   const paginationStart = pagination?.total
@@ -221,37 +193,44 @@ export default function ProjectsGrid({
     : 0;
 
   const statusLegend = (
-    <Stack
-      direction={{ xs: "column", sm: "row" }}
-      spacing={{ xs: 0.75, sm: 2 }}
-      alignItems={{ xs: "flex-start", sm: "center" }}
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        flexWrap: "wrap",
+        columnGap: { xs: 1.25, sm: 1.75 },
+        rowGap: 0.5,
+        minWidth: 0,
+      }}
     >
-      <Typography sx={{ fontSize: 12, fontWeight: 700, color: "#475569", letterSpacing: 0.2 }}>
-        Status Legend
+      <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: brandColors.deepTwilightLight, whiteSpace: "nowrap" }}>
+        Status
       </Typography>
-      {[
-        { label: "Draft", color: "#C9B6FF" },
-        { label: "For Review", color: "#FDD6AD" },
-        { label: "For Approval", color: "#9DC9FE" },
-        { label: "Needs Revision", color: "#F4989E" },
-        { label: "Active", color: "#73FED5" },
-      ].map((item) => (
-        <Stack key={item.label} direction="row" spacing={0.75} alignItems="center">
+      {(legendItems || [
+        { label: "Draft", color: "#A78BFA" },
+        { label: "For Review", color: "#FBBF24" },
+        { label: "For Approval", color: "#60A5FA" },
+        { label: "Needs Revision", color: "#FB7185" },
+        { label: "Active", color: "#34D399" },
+        { label: "Completed", color: "#818CF8" },
+      ]).map((item) => (
+        <Stack key={item.label} direction="row" spacing={0.5} alignItems="center">
           <Box
             sx={{
-              width: 12,
-              height: 12,
+              width: 9,
+              height: 9,
               borderRadius: "50%",
               backgroundColor: item.color,
               border: "1px solid rgba(15, 23, 42, 0.12)",
+              flexShrink: 0,
             }}
           />
-          <Typography sx={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>
+          <Typography sx={{ fontSize: 11.25, lineHeight: 1.2, color: "#6B6880", fontWeight: 400, whiteSpace: "nowrap" }}>
             {item.label}
           </Typography>
         </Stack>
       ))}
-    </Stack>
+    </Box>
   );
 
   const headerWithViewToggle = (
@@ -260,7 +239,7 @@ export default function ProjectsGrid({
       justifyContent="space-between"
       alignItems={{ xs: "stretch", sm: "center" }}
       spacing={1}
-      sx={{ mb: 2 }}
+      sx={{ mb: 1.25 }}
     >
       {statusLegend}
       <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
@@ -323,15 +302,15 @@ export default function ProjectsGrid({
             display: "flex",
             flexDirection: "column",
             height: {
-              xs: 520,
-              md: "clamp(420px, calc(100vh - 430px), 620px)",
+              xs: 480,
+              md: "clamp(390px, calc(100vh - 395px), 560px)",
             },
-            minHeight: 420,
-            border: "1px solid #E2E8F0",
-            borderRadius: "8px",
+            minHeight: 390,
+            border: `1px solid ${brandColors.lavender}`,
+            borderRadius: "12px",
             overflow: "hidden",
             backgroundColor: "#FFFFFF",
-            boxShadow: "0 12px 30px rgba(15, 23, 42, 0.06)",
+            boxShadow: "0 8px 24px rgba(33, 14, 100, 0.05)",
           }}
         >
         <TableContainer
@@ -349,6 +328,9 @@ export default function ProjectsGrid({
               "& .MuiTableCell-root": {
                 px: { xs: 1.25, md: 1.75 },
               },
+              "& .MuiTableCell-root:not(:last-child)": {
+                borderRight: `1px solid ${brandColors.lavender}`,
+              },
               "& .MuiTableRow-root:hover .project-action-cell": {
                 bgcolor: "#F8FAFC",
               },
@@ -356,36 +338,36 @@ export default function ProjectsGrid({
           >
             <TableHead>
               <TableRow>
-                <TableCell sx={{ ...tableHeadCellSx, width: "28%", bgcolor: "#F8FAFC" }}>
+                <TableCell sx={{ ...tableHeadCellSx, width: "28%", bgcolor: brandColors.aliceBlue }}>
                   Project Name
                 </TableCell>
-                <TableCell sx={{ ...tableHeadCellSx, width: 132, bgcolor: "#F8FAFC" }}>
+                <TableCell sx={{ ...tableHeadCellSx, width: 118, bgcolor: brandColors.aliceBlue }}>
                   Version
                 </TableCell>
-                <TableCell sx={{ ...tableHeadCellSx, width: 132, bgcolor: "#F8FAFC" }}>
+                <TableCell sx={{ ...tableHeadCellSx, width: 112, bgcolor: brandColors.aliceBlue }}>
                   Status
                 </TableCell>
-                <TableCell sx={{ ...tableHeadCellSx, width: 122, bgcolor: "#F8FAFC" }}>
+                <TableCell sx={{ ...tableHeadCellSx, width: 112, bgcolor: brandColors.aliceBlue }}>
                   Start Date
                 </TableCell>
-                <TableCell sx={{ ...tableHeadCellSx, width: 122, bgcolor: "#F8FAFC" }}>
+                <TableCell sx={{ ...tableHeadCellSx, width: 112, bgcolor: brandColors.aliceBlue }}>
                   End Date
                 </TableCell>
-                <TableCell sx={{ ...tableHeadCellSx, width: 130, bgcolor: "#F8FAFC" }}>
+                <TableCell sx={{ ...tableHeadCellSx, width: 180, bgcolor: brandColors.aliceBlue }}>
                   Business Unit
                 </TableCell>
-                <TableCell
+                {showActionColumn && <TableCell
                   align="center"
                   className="project-action-cell"
                   sx={{
                     ...tableHeadCellSx,
                     ...stickyActionCellSx,
                     zIndex: 3,
-                    bgcolor: "#F8FAFC",
+                    bgcolor: brandColors.aliceBlue,
                   }}
                 >
                   Action
-                </TableCell>
+                </TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -396,13 +378,13 @@ export default function ProjectsGrid({
                     key={project.id}
                     hover
                     onClick={() => actions.onOpenDashboard?.(project.id)}
-                    sx={{ bgcolor: "#FFFFFF", cursor: "pointer" }}
+                    sx={{ bgcolor: "#FFFFFF", cursor: "pointer", "&:hover": { bgcolor: `${brandColors.lavenderMist} !important` } }}
                   >
                     <TableCell sx={tableBodyCellSx}>
                       <Typography
                         noWrap
                         title={project.name || "Untitled Project"}
-                        sx={{ fontSize: 14, fontWeight: 700, color: "#0F172A" }}
+                        sx={{ fontSize: 13, fontWeight: 600, color: brandColors.deepTwilight }}
                       >
                         {project.name || "Untitled Project"}
                       </Typography>
@@ -418,9 +400,9 @@ export default function ProjectsGrid({
                             height: 23,
                             fontSize: 10,
                             fontWeight: 800,
-                            bgcolor: "#F8FAFC",
-                            color: "#334155",
-                            border: "1px solid #CBD5E1",
+                            bgcolor: brandColors.lavenderMist,
+                            color: brandColors.deepTwilightLight,
+                            border: `1px solid ${brandColors.lavender}`,
                             "& .MuiChip-label": {
                               overflow: "hidden",
                               textOverflow: "ellipsis",
@@ -439,26 +421,28 @@ export default function ProjectsGrid({
                           fontWeight: 700,
                           bgcolor: status.bg,
                           color: status.color,
-                          border: `1px solid ${status.border}`,
+                          border: `1px solid ${status.border}55`,
                         }}
                       />
                     </TableCell>
                     <TableCell sx={tableBodyCellSx}>
-                      <Typography sx={{ fontSize: 13, color: "#334155", fontWeight: 400 }}>
+                      <Typography sx={{ fontSize: 12.5, color: "#3F3B4D", fontWeight: 400, whiteSpace: "nowrap" }}>
                         {formatDate(project.startDate)}
                       </Typography>
                     </TableCell>
                     <TableCell sx={tableBodyCellSx}>
-                      <Typography sx={{ fontSize: 13, color: "#334155", fontWeight: 400 }}>
+                      <Typography sx={{ fontSize: 12.5, color: "#3F3B4D", fontWeight: 400, whiteSpace: "nowrap" }}>
                         {formatDate(project.expectedEndDate)}
                       </Typography>
                     </TableCell>
                     <TableCell sx={tableBodyCellSx}>
-                      <Typography sx={{ fontSize: 13, color: "#334155", fontWeight: 400 }}>
-                        {businessUnitName(project)}
-                      </Typography>
+                      <Tooltip title={businessUnitName(project)}>
+                        <Typography noWrap sx={{ fontSize: 12.5, color: "#3F3B4D", fontWeight: 400 }}>
+                          {businessUnitName(project)}
+                        </Typography>
+                      </Tooltip>
                     </TableCell>
-                    <TableCell
+                    {showActionColumn && <TableCell
                       align="center"
                       className="project-action-cell"
                       sx={{ ...tableBodyCellSx, ...stickyActionCellSx }}
@@ -486,26 +470,8 @@ export default function ProjectsGrid({
                             <VisibilityIcon sx={{ fontSize: 16 }} />
                           </IconButton>
                         </Tooltip>
-                      ) : (
-                        <Tooltip title="Actions">
-                          <IconButton
-                            size="small"
-                            onClick={(event) => openMenu(event, project)}
-                            sx={{
-                              color: "#334155",
-                              border: "1px solid #E2E8F0",
-                              bgcolor: "#FFFFFF",
-                              "&:hover": {
-                                bgcolor: "#F1F5F9",
-                                borderColor: "#CBD5E1",
-                              },
-                            }}
-                          >
-                            <MoreVertIcon sx={{ fontSize: 18 }} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </TableCell>
+                      ) : null}
+                    </TableCell>}
                   </TableRow>
                 );
               })}
@@ -523,8 +489,8 @@ export default function ProjectsGrid({
               flexShrink: 0,
               px: { xs: 1.5, sm: 2 },
               py: 1.25,
-              borderTop: "1px solid #E2E8F0",
-              bgcolor: "#F8FAFC",
+              borderTop: `1px solid ${brandColors.lavender}`,
+              bgcolor: brandColors.aliceBlue,
             }}
           >
             <Typography sx={{ fontSize: 12.5, color: "#64748B", fontWeight: 600 }}>
@@ -555,76 +521,6 @@ export default function ProjectsGrid({
         )}
         </Box>
 
-        {!approvalOnly && (
-          <Menu
-            anchorEl={menuAnchor}
-            open={menuOpen}
-            onClose={closeMenu}
-          >
-            {menuProject
-            ? menuProject.status === "NEEDS_REVISION"
-              ? [
-                <MenuItem key="view-only" onClick={() => runMenuAction(() => actions.onViewApproval(menuProject))}>
-                  <ListItemIcon><VisibilityIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>View</ListItemText>
-                </MenuItem>,
-              ]
-              : [
-                canUpdateProject && (!menuProject.status || menuProject.status === "DRAFT" || menuProject.status === "FOR_REVIEW" || menuProject.status === "NEEDS_REVISION") && (
-                  <MenuItem key="setup" onClick={() => runMenuAction(() => actions.onSetup(menuProject.id))}>
-                    <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>Setup Project</ListItemText>
-                  </MenuItem>
-                ),
-                (menuProject.status === "FOR_APPROVAL" || menuProject.status === "FOR_REVIEW" || menuProject.status === "NEEDS_REVISION" || menuProject.status === "REJECTED" || menuProject.status === "ACTIVE") && (
-                  <MenuItem key="view-approval" onClick={() => runMenuAction(() => actions.onViewApproval(menuProject))}>
-                    <ListItemIcon><VisibilityIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>View Approval</ListItemText>
-                  </MenuItem>
-                ),
-                canUpdateProject && (menuProject.status === "NEEDS_REVISION" || menuProject.status === "REJECTED") && (
-                  <MenuItem key="resubmit" onClick={() => runMenuAction(() => actions.onSubmitForApproval(menuProject))}>
-                    <ListItemIcon><SendIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>Revise &amp; Resubmit</ListItemText>
-                  </MenuItem>
-                ),
-                (menuProject.status === "ACTIVE" || menuProject.status === "APPROVED") && canView("team_management") && (
-                  <MenuItem key="team-management" onClick={() => runMenuAction(() => actions.onTeamManage(menuProject))}>
-                    <ListItemIcon><PeopleIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>Team Management</ListItemText>
-                  </MenuItem>
-                ),
-                (menuProject.status === "ACTIVE" || menuProject.status === "APPROVED") && canView("versioning") && (
-                  <MenuItem key="project-versions" onClick={() => runMenuAction(() => actions.onVersion(menuProject))}>
-                    <ListItemIcon><LayersIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>Project Versions</ListItemText>
-                  </MenuItem>
-                ),
-                <MenuItem key="sprint" onClick={() => runMenuAction(() => actions.onSprint(menuProject.id))}>
-                  <ListItemIcon><AssignmentIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>Sprint Management</ListItemText>
-                </MenuItem>,
-                menuProject.status !== "ARCHIVED" && canUpdateProject && (
-                  <MenuItem key="edit" onClick={() => runMenuAction(() => actions.onEdit(menuProject))}>
-                    <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>Edit Project</ListItemText>
-                  </MenuItem>
-                ),
-                <Divider key="divider" />,
-                canDeleteProject && (
-                <MenuItem
-                  key="delete"
-                  onClick={() => runMenuAction(() => actions.onDelete(menuProject.id))}
-                  sx={{ color: "#B91C1C" }}
-                >
-                  <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>Delete</ListItemText>
-                </MenuItem>
-                ),
-              ]
-              : null}
-          </Menu>
-        )}
       </Box>
     );
   }
@@ -640,10 +536,50 @@ export default function ProjectsGrid({
               actions={actions}
               viewType="card"
               actionMode={actionMode}
+              showActions={showActions}
             />
           </Grid>
         ))}
       </Grid>
+      {pagination && pagination.total > 0 && (
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          alignItems="center"
+          justifyContent="space-between"
+          spacing={1.5}
+          sx={{
+            mt: 3,
+            px: { xs: 1, sm: 2 },
+            py: 1.5,
+            borderTop: "1px solid #E0DAE6",
+          }}
+        >
+          <Typography sx={{ fontSize: 12.5, color: "#6B6880", fontWeight: 600 }}>
+            Showing {paginationStart}-{paginationEnd} of {pagination.total} projects
+          </Typography>
+          <Pagination
+            page={pagination.page}
+            count={pagination.totalPages}
+            onChange={(_, nextPage) => onPageChange?.(nextPage)}
+            color="primary"
+            size="small"
+            shape="rounded"
+            siblingCount={1}
+            boundaryCount={1}
+            sx={{
+              "& .MuiPaginationItem-root": {
+                color: "#210E64",
+                borderRadius: "8px",
+                fontWeight: 700,
+              },
+              "& .Mui-selected": {
+                bgcolor: "#210E64 !important",
+                color: "#FFFFFF",
+              },
+            }}
+          />
+        </Stack>
+      )}
     </Box>
   );
 }

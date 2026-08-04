@@ -339,7 +339,7 @@ export default function ProjectModal({
         {project?.id && (
           <IconButton
             onClick={() =>
-              router.push(`/sprintManagement?projectId=${project.id}`)
+              router.push(`/projectDashboard/${project.id}?view=sprint-management`)
             }
             size="small"
           >

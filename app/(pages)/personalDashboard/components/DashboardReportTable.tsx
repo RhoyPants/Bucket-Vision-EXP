@@ -95,9 +95,12 @@ export default function DashboardReportTable({
         border: "1px solid #dbeafe",
         boxShadow: "none",
         backgroundColor: "#fff",
+        height: "auto !important",
+        maxHeight: "none !important",
+        overflow: "visible",
       }}
     >
-      <CardContent>
+      <CardContent sx={{ height: "auto", maxHeight: "none", overflow: "visible" }}>
         <Stack
           direction={{ xs: "column", md: "row" }}
           justifyContent="space-between"
@@ -142,12 +145,16 @@ export default function DashboardReportTable({
           <TableContainer
             sx={{
               border: "1px solid #cbd5e1",
-              maxHeight: 620,
-              overflow: "auto",
+              display: "block",
+              height: "auto !important",
+              maxHeight: "none !important",
+              overflowX: "auto",
+              overflowY: "hidden",
+              scrollbarGutter: "stable",
               bgcolor: "#fff",
             }}
           >
-            <Table size="small" stickyHeader sx={{ minWidth: 260 + reportTable.columns.length * 58 }}>
+            <Table size="small" sx={{ minWidth: 260 + reportTable.columns.length * 58, mb: 1.5 }}>
               <TableHead>
                 <TableRow>
                   <TableCell

@@ -6,12 +6,13 @@ import {
   Typography,
   Stack,
   Button,
-  Grid,
-  Card,
+  Paper,
   TextField,
   MenuItem,
+  InputAdornment,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import SearchIcon from "@mui/icons-material/Search";
 import { useRouter } from "next/navigation";
 
 import Layout from "@/app/components/shared/Layout";
@@ -23,6 +24,8 @@ import { getMyRequestsProjects } from "@/app/redux/controllers/projectController
 import { getApprovalAuditTrail } from "@/app/redux/controllers/approvalController";
 import { usePermissions } from "@/app/lib/usePermissions";
 import NeedsRevisionModal from "@/app/components/shared/modals/NeedsRevisionModal";
+import { brandColors } from "@/app/lib/theme";
+import axiosApi from "@/app/lib/axios";
 
 type MyRequestProject = {
   id: string;
@@ -132,18 +135,15 @@ export default function MyRequestsPage() {
     return myRequests;
   }, [myRequests, pagination.total]);
 
-  const counts = useMemo(() => {
-    return {
-      total: pagination.total || myRequests.length,
-      forReview: myRequests.filter((p) => p.status === "FOR_REVIEW").length,
-      forApproval: myRequests.filter((p) => p.status === "FOR_APPROVAL").length,
-      needsRevision: myRequests.filter((p) => p.status === "NEEDS_REVISION").length,
-      approved: myRequests.filter((p) => p.status === "ACTIVE").length,
-      rejected: myRequests.filter((p) => p.status === "REJECTED").length,
-    };
-  }, [myRequests]);
-
   const actions: ProjectCardActions = {
+    onOpenDashboard: async (projectId) => {
+      const project = myRequests.find((request) => request.id === projectId);
+      if (project?.status === "NEEDS_REVISION") {
+        await openNeedsRevisionModal(project);
+        return;
+      }
+      router.push(`/projectDashboard/${projectId}`);
+    },
     onEdit: (project) => router.push(`/projects/${project.id}/setup`),
     onDelete: () => undefined,
     onSetup: (projectId) => router.push(`/projects/${projectId}/setup`),
@@ -163,7 +163,7 @@ export default function MyRequestsPage() {
     },
     onTeamManage: () => undefined,
     onVersion: (project) => router.push(`/versioning?projectId=${project.id}`),
-    onSprint: (projectId) => router.push(`/sprintManagement?projectId=${projectId}`),
+    onSprint: (projectId) => router.push(`/projectDashboard/${projectId}?view=sprint-management`),
     onCreateProject: () => {
       if (!canCreateProject) return;
       router.push("/projects/new/setup");
@@ -173,99 +173,103 @@ export default function MyRequestsPage() {
   return (
     <Layout>
       <Guard module="PROJECTS" action="READ">
-        <Box sx={{ p: { xs: 2, md: 4 } }}>
-          <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
-            {[
-              { label: "Total", value: counts.total, bg: "#f8fafc", color: "#334155" },
-              { label: "For Review", value: counts.forReview, bg: "#fffbeb", color: "#92400e" },
-              { label: "For Approval", value: counts.forApproval, bg: "#eff6ff", color: "#1e40af" },
-              { label: "Needs Revision", value: counts.needsRevision, bg: "#fff7ed", color: "#9a3412" },
-              { label: "Approved", value: counts.approved, bg: "#ecfdf5", color: "#065f46" },
-              { label: "Rejected", value: counts.rejected, bg: "#fef2f2", color: "#991b1b" },
-            ].map((item) => (
-              <Grid key={item.label} size={{ xs: 6, md: 4, lg: 2 }}>
-                <Card
+        <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1600, mx: "auto" }}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 2, md: 2.5 },
+              mb: 2.5,
+              border: `1px solid ${brandColors.lavender}`,
+              borderRadius: 3,
+              backgroundColor: "#FFFFFF",
+            }}
+          >
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              justifyContent="space-between"
+              alignItems={{ xs: "stretch", sm: "center" }}
+              spacing={1.5}
+              sx={{ mb: 2 }}
+            >
+              <Box>
+                <Typography sx={{ color: brandColors.deepTwilight, fontSize: 16, fontWeight: 700 }}>
+                  Request directory
+                </Typography>
+                <Typography sx={{ color: "#6B6880", fontSize: 13, mt: 0.25 }}>
+                  {pagination.total || myRequests.length}{" "}
+                  {(pagination.total || myRequests.length) === 1 ? "request" : "requests"}
+                </Typography>
+              </Box>
+              {canCreateProject ? (
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={actions.onCreateProject}
                   sx={{
-                    px: 1.5,
-                    py: 1.25,
-                    border: "1px solid #e5e7eb",
-                    backgroundColor: item.bg,
+                    bgcolor: brandColors.deepTwilightLight,
+                    "&:hover": { bgcolor: brandColors.deepTwilight },
                   }}
                 >
-                  <Typography sx={{ fontSize: 12, color: "#6b7280", fontWeight: 600 }}>
-                    {item.label}
-                  </Typography>
-                  <Typography sx={{ fontSize: 24, lineHeight: 1.2, fontWeight: 800, color: item.color }}>
-                    {item.value}
-                  </Typography>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+                  New request
+                </Button>
+              ) : null}
+            </Stack>
 
-          <Stack
-            direction={{ xs: "column", md: "row" }}
-            spacing={1.5}
-            sx={{ mb: 3 }}
-          >
-            <TextField
-              label="Search Request"
-              placeholder="Search by project name"
-              size="small"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              sx={{ minWidth: { xs: "100%", md: 260 } }}
-            />
-            <TextField
-              select
-              label="Status"
-              size="small"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              sx={{ minWidth: { xs: "100%", md: 220 } }}
-            >
-              <MenuItem value="ALL">All Status</MenuItem>
-              <MenuItem value="FOR_REVIEW">For Review</MenuItem>
-              <MenuItem value="FOR_APPROVAL">For Approval</MenuItem>
-              <MenuItem value="NEEDS_REVISION">Needs Revision</MenuItem>
-              <MenuItem value="ACTIVE">Approved</MenuItem>
-              <MenuItem value="REJECTED">Rejected</MenuItem>
-            </TextField>
-            <TextField
-              select
-              label="Business Unit"
-              size="small"
-              value={businessUnitFilter}
-              onChange={(e) => setBusinessUnitFilter(e.target.value)}
-              sx={{ minWidth: { xs: "100%", md: 240 } }}
-            >
-              <MenuItem value="ALL">All Business Units</MenuItem>
-              {businessUnitOptions.map((bu) => (
-                <MenuItem key={bu.id} value={bu.id}>
-                  {bu.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Stack>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+              <TextField
+                placeholder="Search requests"
+                size="small"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon sx={{ color: "#89859A", fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+                sx={{ flex: 1, minWidth: { xs: "100%", md: 280 } }}
+              />
+              <TextField
+                select
+                label="Status"
+                size="small"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                sx={{ minWidth: { xs: "100%", md: 200 } }}
+              >
+                <MenuItem value="ALL">All Statuses</MenuItem>
+                <MenuItem value="FOR_REVIEW">For Review</MenuItem>
+                <MenuItem value="FOR_APPROVAL">For Approval</MenuItem>
+                <MenuItem value="NEEDS_REVISION">Needs Revision</MenuItem>
+                <MenuItem value="ACTIVE">Approved</MenuItem>
+                <MenuItem value="REJECTED">Rejected</MenuItem>
+              </TextField>
+              <TextField
+                select
+                label="Business Unit"
+                size="small"
+                value={businessUnitFilter}
+                onChange={(e) => setBusinessUnitFilter(e.target.value)}
+                sx={{ minWidth: { xs: "100%", md: 240 } }}
+              >
+                <MenuItem value="ALL">All Business Units</MenuItem>
+                {businessUnitOptions.map((bu) => (
+                  <MenuItem key={bu.id} value={bu.id}>
+                    {bu.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Stack>
+          </Paper>
 
           <ProjectsGrid
             projects={filteredRequests}
             actions={actions}
             viewType={viewType}
             onViewTypeChange={setViewType}
-            headerAction={canCreateProject ? (
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={actions.onCreateProject}
-                sx={{
-                  bgcolor: "#210e64",
-                  "&:hover": { bgcolor: "#1a0b4f" },
-                }}
-              >
-                New Request
-              </Button>
-            ) : null}
             emptyMessage="No submitted requests yet"
             emptySubtext={
               myRequests.length === 0
@@ -276,6 +280,7 @@ export default function MyRequestsPage() {
             createButtonLabel="Create New Request"
             pagination={pagination}
             onPageChange={setPage}
+            showActions={false}
           />
 
           <NeedsRevisionModal
@@ -286,6 +291,21 @@ export default function MyRequestsPage() {
               if (needsRevisionInfo?.projectId) {
                 router.push(`/projects/${needsRevisionInfo.projectId}/setup`);
               }
+            }}
+            onCancelRequest={async (reason) => {
+              if (!needsRevisionInfo?.projectId) return;
+              await axiosApi.post(`/projects/${needsRevisionInfo.projectId}/cancel`, { reason });
+              setNeedsRevisionOpen(false);
+              setNeedsRevisionInfo(null);
+              await dispatch(getMyRequestsProjects({
+                page,
+                limit: pageLimit,
+                search: searchQuery.trim(),
+                status: statusFilter,
+                businessUnitId: businessUnitFilter,
+                sortBy: "createdAt",
+                sortOrder: "desc",
+              }));
             }}
             projectName={needsRevisionInfo?.projectName}
             rejectedBy={needsRevisionInfo?.rejectedBy}

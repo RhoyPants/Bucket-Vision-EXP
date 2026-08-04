@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Typography, Grid, Card } from "@mui/material";
+import { Box, InputAdornment, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
 import { useRouter } from "next/navigation";
 
 import Layout from "@/app/components/shared/Layout";
@@ -13,7 +14,7 @@ import {
 } from "@/app/(pages)/projects/components/types";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { getMyApprovalsProjects } from "@/app/redux/controllers/projectController";
-import type { Projects } from "@/app/redux/slices/projectSlice";
+import { brandColors } from "@/app/lib/theme";
 
 export default function MyApprovalsPage() {
   const dispatch = useAppDispatch();
@@ -26,30 +27,40 @@ export default function MyApprovalsPage() {
 
   const [viewType, setViewType] = useState<ViewType>("list");
   const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [businessUnitFilter, setBusinessUnitFilter] = useState("ALL");
   const pageLimit = 10;
   const query = useMemo(
     () => ({
       page,
       limit: pageLimit,
+      search: searchQuery.trim(),
+      status: statusFilter,
+      businessUnitId: businessUnitFilter,
       sortBy: "createdAt",
       sortOrder: "desc" as const,
     }),
-    [page]
+    [businessUnitFilter, page, searchQuery, statusFilter]
   );
 
   useEffect(() => {
     dispatch(getMyApprovalsProjects(query));
   }, [dispatch, query]);
 
-  const counts = useMemo(() => {
-    return {
-      total: approvalProjects.length,
-      forReview: approvalProjects.filter((p: Projects) => p.status === "FOR_REVIEW")
-        .length,
-      forApproval: approvalProjects.filter(
-        (p: Projects) => p.status === "FOR_APPROVAL",
-      ).length,
-    };
+  useEffect(() => {
+    setPage(1);
+  }, [businessUnitFilter, searchQuery, statusFilter]);
+
+  const businessUnitOptions = useMemo(() => {
+    const units = new Map<string, string>();
+    approvalProjects.forEach((project) => {
+      const details = project.businessUnitDetails;
+      if (details?.id && details?.name) units.set(details.id, details.name);
+    });
+    return Array.from(units, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
   }, [approvalProjects]);
 
   const actions: ProjectCardActions = {
@@ -61,63 +72,78 @@ export default function MyApprovalsPage() {
     onTeamManage: () => undefined,
     onVersion: (project) => router.push(`/versioning?projectId=${project.id}`),
     onSprint: (projectId) =>
-      router.push(`/sprintManagement?projectId=${projectId}`),
+      router.push(`/projectDashboard/${projectId}?view=sprint-management`),
     onCreateProject: () => router.push("/projects/new/setup"),
   };
 
   return (
     <Layout>
       <Guard module="PROJECTS" action="READ">
-        <Box sx={{ p: { xs: 2, md: 4 } }}>
-          <Grid container spacing={1.5} sx={{ mb: 3 }}>
-            {[
-              {
-                label: "Total Queue",
-                value: counts.total,
-                bg: "#f8fafc",
-                color: "#334155",
-              },
-              {
-                label: "For Review",
-                value: counts.forReview,
-                bg: "#fffbeb",
-                color: "#92400e",
-              },
-              {
-                label: "For Approval",
-                value: counts.forApproval,
-                bg: "#eff6ff",
-                color: "#1e40af",
-              },
-            ].map((item) => (
-              <Grid key={item.label} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Card
-                  sx={{
-                    px: 1.5,
-                    py: 1.25,
-                    border: "1px solid #e5e7eb",
-                    backgroundColor: item.bg,
-                  }}
-                >
-                  <Typography
-                    sx={{ fontSize: 12, color: "#6b7280", fontWeight: 600 }}
-                  >
-                    {item.label}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: 24,
-                      lineHeight: 1.2,
-                      fontWeight: 800,
-                      color: item.color,
-                    }}
-                  >
-                    {item.value}
-                  </Typography>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+        <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1600, mx: "auto" }}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 2, md: 2.5 },
+              mb: 2.5,
+              border: `1px solid ${brandColors.lavender}`,
+              borderRadius: 3,
+              backgroundColor: "#FFFFFF",
+            }}
+          >
+            <Typography sx={{ color: brandColors.deepTwilight, fontSize: 16, fontWeight: 700 }}>
+              Approval queue
+            </Typography>
+            <Typography sx={{ color: "#6B6880", fontSize: 13, mt: 0.25 }}>
+              {pagination.total || approvalProjects.length}{" "}
+              {(pagination.total || approvalProjects.length) === 1 ? "request awaiting action" : "requests awaiting action"}
+            </Typography>
+
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ mt: 2 }}>
+              <TextField
+                placeholder="Search approval requests"
+                size="small"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon sx={{ color: "#89859A", fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+                sx={{ flex: 1, minWidth: { xs: "100%", md: 280 } }}
+              />
+              <TextField
+                select
+                label="Approval Status"
+                size="small"
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                sx={{ minWidth: { xs: "100%", md: 210 } }}
+              >
+                <MenuItem value="ALL">All Statuses</MenuItem>
+                <MenuItem value="FOR_REVIEW">For Review</MenuItem>
+                <MenuItem value="FOR_APPROVAL">For Approval</MenuItem>
+              </TextField>
+              <TextField
+                select
+                label="Business Unit"
+                size="small"
+                value={businessUnitFilter}
+                onChange={(event) => setBusinessUnitFilter(event.target.value)}
+                sx={{ minWidth: { xs: "100%", md: 240 } }}
+              >
+                <MenuItem value="ALL">All Business Units</MenuItem>
+                {businessUnitOptions.map((unit) => (
+                  <MenuItem key={unit.id} value={unit.id}>
+                    {unit.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Stack>
+          </Paper>
 
           <ProjectsGrid
             projects={approvalProjects}
@@ -129,6 +155,10 @@ export default function MyApprovalsPage() {
             pagination={pagination}
             onPageChange={(nextPage) => setPage((current) => current === nextPage ? current : nextPage)}
             actionMode="approval"
+            legendItems={[
+              { label: "For Review", color: "#FBBF24" },
+              { label: "For Approval", color: "#60A5FA" },
+            ]}
           />
         </Box>
       </Guard>

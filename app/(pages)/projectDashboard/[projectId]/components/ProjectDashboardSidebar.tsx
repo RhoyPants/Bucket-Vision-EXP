@@ -15,7 +15,9 @@ import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined
 import ArrowBackOutlinedIcon from "@mui/icons-material/ArrowBackOutlined";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import axiosApi from "@/app/lib/axios";
+import { useAppSelector } from "@/app/redux/hook";
 
 const sidebarWidth = 280;
 
@@ -28,9 +30,11 @@ export default function ProjectDashboardSidebar({ projectId }: { projectId: stri
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const currentUser = useAppSelector((state) => state.auth.user);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("UNKNOWN");
+  const [ownerId, setOwnerId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -39,6 +43,7 @@ export default function ProjectDashboardSidebar({ projectId }: { projectId: stri
       const project = (response.data?.data ?? response.data)?.project;
       setProgress(normalizeProgress(project?.progress));
       setStatus(project?.status || "UNKNOWN");
+      setOwnerId(project?.ownerId ? String(project.ownerId) : null);
     }).catch(() => undefined);
     return () => { active = false; };
   }, [projectId]);
@@ -49,7 +54,7 @@ export default function ProjectDashboardSidebar({ projectId }: { projectId: stri
     { label: "Project Team Organization", href: `/projectDashboard/${projectId}?view=team-organization`, icon: <AccountTreeOutlinedIcon /> },
     { label: "Project Structure", href: `/projectDashboard/${projectId}?view=project-structure`, icon: <SchemaOutlinedIcon /> },
     { label: "Project Versioning", href: `/projectDashboard/${projectId}?view=project-versioning`, icon: <HistoryOutlinedIcon /> },
-    { label: "Project Reports", href: `/reports?projectId=${projectId}`, icon: <AssessmentOutlinedIcon /> },
+    { label: "Project Reports", href: `/projectDashboard/${projectId}?view=project-reports`, icon: <AssessmentOutlinedIcon /> },
     { label: "Project Team Overview", href: `/projectDashboard/${projectId}?view=team-overview`, icon: <GroupsOutlinedIcon /> },
     { label: "Project Info and Config", href: `/projectDashboard/${projectId}?view=project-info`, icon: <InfoOutlinedIcon /> },
     { label: "Incident Report", href: `/projectDashboard/${projectId}?view=incident-reports`, icon: <ReportProblemOutlinedIcon /> },
@@ -59,6 +64,9 @@ export default function ProjectDashboardSidebar({ projectId }: { projectId: stri
     setMobileOpen(false);
     router.push(href);
   };
+  const canSetupProject = String(status).trim().toUpperCase() === "DRAFT"
+    && Boolean(ownerId)
+    && String(currentUser?.id || "") === ownerId;
 
   const content = (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column", bgcolor: "#FFFFFF" }}>
@@ -97,6 +105,11 @@ export default function ProjectDashboardSidebar({ projectId }: { projectId: stri
 
       <Box sx={{ mt: "auto", p: 1.5 }}>
         <Divider sx={{ mb: 1.5 }} />
+        {canSetupProject && (
+          <Button fullWidth variant="contained" startIcon={<SettingsOutlinedIcon />} onClick={() => navigate(`/projects/${projectId}/setup`)} sx={{ minHeight: 42, mb: 1, textTransform: "none", borderRadius: 1.5, bgcolor: "#210E64", fontWeight: 800, boxShadow: "none", "&:hover": { bgcolor: "#1B169D", boxShadow: "none" } }}>
+            Setup Project
+          </Button>
+        )}
         <Button fullWidth variant="outlined" startIcon={<ArrowBackOutlinedIcon />} onClick={() => navigate("/projects")} sx={{ minHeight: 42, textTransform: "none", borderRadius: 1.5, fontWeight: 800 }}>
           Back to Project List
         </Button>

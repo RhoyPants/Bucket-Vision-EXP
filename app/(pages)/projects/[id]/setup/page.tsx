@@ -13,7 +13,9 @@ export default function ProjectSetupPage() {
   return (
     <><Header /><Box
       sx={{
-        p: { xs: 2, md: 4 },
+        px: { xs: 2, md: 4 },
+        pt: { xs: 1, md: 1.5 },
+        pb: { xs: 2, md: 4 },
 
         width: "100%",
         maxWidth: "100%",
@@ -21,8 +23,10 @@ export default function ProjectSetupPage() {
         minWidth: 0,
 
         boxSizing: "border-box",
-
+        height: { xs: "calc(100vh - 60px)", sm: "calc(100vh - 72px)" },
+        overflowY: "auto",
         overflowX: "hidden",
+        overscrollBehavior: "contain",
       }}
     >
       <ProjectSetupWizard

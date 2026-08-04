@@ -44,11 +44,12 @@ import {
   buildRejectionEmailHTML,
 } from "@/app/components/shared/email/ApprovalEmailTemplate";
 import { getApprovalStepOrder } from "@/app/utils/approvalEmailNotification";
+import { notifyProjectActivated } from "@/app/utils/projectActivationEmailNotification";
 import type { ApprovalAuditLog } from "@/app/redux/slices/approvalSlice";
 import ApprovalFlowUI from "@/app/components/shared/modals/ApprovalModals/ApprovalFlowUI";
 import ApprovalAuditTrail from "@/app/components/shared/modals/ApprovalModals/ApprovalAuditTrail";
 import ApprovalRejectDialog from "@/app/components/shared/modals/ApprovalModals/ApprovalRejectDialog";
-import GanttGridView from "@/app/(pages)/sprintManagement/Components/GridTableView";
+import GanttGridView from "@/app/components/shared/GanttGridView";
 import StructuredViewComponent from "./components/StructuredView";
 import DashboardCalendar from "@/app/components/shared/calendar/DashboardCalendar";
 import {
@@ -298,6 +299,11 @@ function ApprovalReviewPageContent() {
             );
 
           await Promise.allSettled(emailJobs);
+        } else {
+          // No pending step means this was the final approval. The helper
+          // confirms that the backend changed the project to ACTIVE before
+          // notifying each owner, sub-owner, and member of their assignments.
+          await notifyProjectActivated(projectId);
         }
       } catch (emailErr) {
         console.warn("Could not send next-step email:", emailErr);

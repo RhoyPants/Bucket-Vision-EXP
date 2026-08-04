@@ -148,7 +148,7 @@ export default function SSOCallbackPage() {
 
           localStorage.removeItem("sso_prefill");
           localStorage.removeItem("sso_registration");
-          router.replace("/personalDashboard");
+          router.replace("/dashboard");
           return;
         }
 

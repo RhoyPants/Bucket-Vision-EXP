@@ -122,23 +122,23 @@ export default function KanbanSortableCard({
   const getPriorityTheme = (priority?: string) => {
     if (priority === "High") {
       return {
-        headerBg: "#FEF2F2",
-        border: "#FCA5A5",
+        headerBg: "#FFFFFF",
+        border: "#EF5350",
         accent: "#DC2626",
       };
     }
 
     if (priority === "Low") {
       return {
-        headerBg: "#F0FDF4",
-        border: "#86EFAC",
+        headerBg: "#FFFFFF",
+        border: "#2FC99A",
         accent: "#16A34A",
       };
     }
 
     return {
-      headerBg: "#FFFBEB",
-      border: "#FCD34D",
+      headerBg: "#FFFFFF",
+      border: "#F6B719",
       accent: "#F59E0B",
     };
   };
@@ -227,8 +227,9 @@ export default function KanbanSortableCard({
               : isDragging
                 ? "#e3f2fd"
                 : "#fff",
-            border: isTaskBoardCard ? `1px solid ${priorityTheme.border}` : "1px solid #eee",
-            boxShadow: isTaskBoardCard ? "0 1px 4px rgba(15,23,42,0.05)" : "0 2px 8px rgba(0,0,0,0.06)",
+            border: isTaskBoardCard ? "1px solid #E4E1EA" : "1px solid #eee",
+            borderTop: isTaskBoardCard ? `3px solid ${priorityTheme.border}` : undefined,
+            boxShadow: isTaskBoardCard ? "0 4px 12px rgba(33,14,100,0.055)" : "0 2px 8px rgba(0,0,0,0.06)",
             transition: "all 0.2s ease",
             overflow: "hidden",
             ...(compact && {
@@ -364,29 +365,55 @@ export default function KanbanSortableCard({
               mx: isTaskBoardCard ? -1.25 : 0,
               mt: isTaskBoardCard ? -1.25 : 0,
               px: isTaskBoardCard ? 1.25 : 0,
-              py: isTaskBoardCard ? 1 : 0,
+              py: isTaskBoardCard ? 0.9 : 0,
               pr: isTaskBoardCard ? 7 : 0,
-              backgroundColor: isTaskBoardCard ? priorityTheme.headerBg : "transparent",
-              borderBottom: isTaskBoardCard ? `1px solid ${priorityTheme.border}` : "none",
+              backgroundColor: "transparent",
+              borderBottom: isTaskBoardCard ? "1px solid #EEEAF2" : "none",
               position: "relative",
             }}
           >
-            <Typography
-              fontWeight={700}
-              sx={{
-                fontSize: isTaskBoardCard ? 13 : "inherit",
-                lineHeight: 1.25,
-                minHeight: "2.5em",
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                wordBreak: "break-word",
-              }}
-            >
-              {subtask.title}
-            </Typography>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                fontWeight={700}
+                sx={{
+                  fontSize: isTaskBoardCard ? 13 : "inherit",
+                  lineHeight: 1.25,
+                  minHeight: isTaskBoardCard ? "auto" : "2.5em",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  wordBreak: "break-word",
+                }}
+              >
+                {subtask.title}
+              </Typography>
+              {isTaskBoardCard && (
+                <Box
+                  component="span"
+                  sx={{
+                    mt: 0.65,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 0.55,
+                    px: 0.75,
+                    py: 0.2,
+                    borderRadius: "999px",
+                    bgcolor: `${priorityTheme.border}14`,
+                    color: priorityTheme.accent,
+                    fontSize: 9.5,
+                    lineHeight: 1.4,
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.03em",
+                  }}
+                >
+                  <Box component="span" sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: priorityTheme.border }} />
+                  {subtask.priority || "Medium"} priority
+                </Box>
+              )}
+            </Box>
 
             {!isTaskBoardCard && (
               <Chip

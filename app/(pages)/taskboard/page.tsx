@@ -319,7 +319,7 @@ export default function TaskBoardPage() {
   // ========================================
   return (
     <Layout>
-      <Container maxWidth="xl" sx={{ py: 3 }}>
+      <Container maxWidth="xl" sx={{ py: { xs: 2, md: 3 }, px: { xs: 1.5, sm: 2.5 } }}>
       
 
         {/* Error Alert */}
@@ -372,7 +372,7 @@ export default function TaskBoardPage() {
         />
 
         {/* View Toggle */}
-        <Box sx={{ mb: 2.5, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Box sx={{ mb: 1.5, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Box>
             <Typography
               sx={{
@@ -483,7 +483,7 @@ export default function TaskBoardPage() {
 
         {/* Kanban View */}
         {!loading && safeFilteredSubtasks.length > 0 && viewMode === "kanban" && (
-          <Box sx={{ background: "#F7F8FA", borderRadius: "12px", p: 2 }}>
+          <Box sx={{ background: "transparent" }}>
             <KanbanBoard
               parentTaskId={null}
               columns={kanbanColumns}

@@ -468,7 +468,7 @@ export default function ProjectSetupWizard({
   useEffect(() => {
     if (draftSuccessOpen) {
       const timer = setTimeout(() => {
-        router.push("/projects");
+        router.push("/myDrafts");
       }, 3000);
       return () => clearTimeout(timer);
     }
@@ -1181,7 +1181,7 @@ export default function ProjectSetupWizard({
   return (
     <Box sx={{ width: "100%", pb: 4 }}>
       {/* WIZARD STEPPER */}
-      <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+      <Stepper activeStep={activeStep} sx={{ position: "sticky", top: 4, zIndex: 20, mb: 2, p: { xs: 1.25, sm: 1.75 }, bgcolor: "rgba(255,255,255,.96)", backdropFilter: "blur(10px)", border: "1px solid #E0DAE6", borderRadius: 2.5, boxShadow: "0 5px 16px rgba(33,14,100,.08)", "& .MuiStepLabel-label": { fontSize: { xs: 11, sm: 12.5 } }, "& .MuiStepIcon-root": { fontSize: { xs: 21, sm: 24 } } }}>
         {WIZARD_STEPS.map((label) => (
           <Step key={label}>
             <StepLabel>{label}</StepLabel>
@@ -1191,7 +1191,37 @@ export default function ProjectSetupWizard({
 
       {/* PROJECT HEADER - Show if project exists */}
       {(project || projectForm.name) && (
-        <Card sx={{ mb: 3, backgroundColor: "#f3f4f6" }}>
+        <>
+        <Card elevation={0} sx={{ mb: 2, border: "1px solid #E0DAE6", borderRadius: 2.5, overflow: "hidden", bgcolor: "#FFFFFF" }}>
+          <Box sx={{ height: 4, background: "linear-gradient(90deg, #210E64, #686AF3)" }} />
+          <CardContent sx={{ p: { xs: 1.5, md: 2 }, "&:last-child": { pb: { xs: 1.5, md: 2 } } }}>
+            <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} gap={1} sx={{ mb: 1.5 }}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ color: "#686278", fontSize: 10.5, fontWeight: 750, textTransform: "uppercase", letterSpacing: ".06em" }}>Project snapshot</Typography>
+                <Typography noWrap title={projectForm.name || project?.name || "New Project"} sx={{ color: "#110947", fontSize: 19, fontWeight: 750, mt: 0.15 }}>
+                  {projectForm.name || project?.name || "New Project"}
+                </Typography>
+              </Box>
+              <MuiChip label={project?.status || "DRAFT"} size="small" sx={{ height: 27, bgcolor: "#FEF3C7", color: "#92400E", fontSize: 11, fontWeight: 750, border: "1px solid #FDE68A" }} />
+            </Stack>
+            <Grid container spacing={0} sx={{ border: "1px solid #ECE9F1", borderRadius: 2, overflow: "hidden", bgcolor: "#FCFBFE" }}>
+              {[
+                { label: "Project PIN", value: projectForm.pin || project?.pin || "Not assigned" },
+                { label: "Business Unit", value: projectForm.businessUnitName || project?.businessUnitDetails?.name || project?.businessUnitName || "Not assigned" },
+                { label: "Total Budget", value: `₱${formatBudget(projectForm.totalBudget || project?.totalBudget || 0)}` },
+                { label: "Timeline", value: `${projectForm.startDate ? new Date(projectForm.startDate).toLocaleDateString() : "Not set"} – ${projectForm.expectedEndDate ? new Date(projectForm.expectedEndDate).toLocaleDateString() : "Not set"}` },
+              ].map((item, index) => (
+                <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={item.label}>
+                  <Box sx={{ px: 1.5, py: 1.1, minHeight: 58, borderRight: { lg: index < 3 ? "1px solid #E0DAE6" : 0 }, borderBottom: { xs: index < 3 ? "1px solid #E0DAE6" : 0, sm: index < 2 ? "1px solid #E0DAE6" : 0, lg: 0 } }}>
+                    <Typography sx={{ color: "#858092", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em" }}>{item.label}</Typography>
+                    <Typography noWrap title={item.value} sx={{ color: "#322D43", fontSize: 13, fontWeight: 600, mt: 0.3 }}>{item.value}</Typography>
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+          </CardContent>
+        </Card>
+        <Card sx={{ display: "none", mb: 3, backgroundColor: "#f3f4f6" }}>
           <CardContent>
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
               <Box flex={1}>
@@ -1221,14 +1251,15 @@ export default function ProjectSetupWizard({
             </Stack>
           </CardContent>
         </Card>
+        </>
       )}
 
       {/* STEP CONTENT */}
       <Box sx={{ minHeight: "500px" }}>
         {/* STEP 0: CREATE PROJECT (all fields + work schedule) */}
         {activeStep === 0 && (
-          <Card>
-            <CardContent>
+          <Card elevation={0} sx={{ border: "1px solid #E0DAE6", borderRadius: 3 }}>
+            <CardContent sx={{ p: { xs: 1.5, md: 2.25 }, "&:last-child": { pb: { xs: 1.5, md: 2.25 } } }}>
               {projectErrors.length > 0 && projectErrors.some((e) => e.field === "submit") && (
                 <Alert severity="error" sx={{ mb: 3 }}>
                   {projectErrors.find((e) => e.field === "submit")?.message}
@@ -1256,11 +1287,11 @@ export default function ProjectSetupWizard({
                 attachmentsSection={
                   <Box
                     sx={{
-                      backgroundColor: "#eff6ff",
-                      border: "1px solid #bfdbfe",
+                      backgroundColor: "#F5F3FF",
+                      border: "1px solid #E0DAE6",
                       borderRadius: 2,
-                      p: 2,
-                      mb: 2,
+                      p: 1.75,
+                      mb: 0,
                     }}
                   >
                     <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 13, mb: 1 }}>
@@ -1293,7 +1324,7 @@ export default function ProjectSetupWizard({
                               endIcon={<CloudUploadIcon />}
                               disabled={attachmentBusy}
                               sx={{
-                                height: 56,
+                                height: 44,
                                 borderStyle: "dashed",
                                 borderColor: "#cbd5e1",
                                 color: "#374151",
@@ -1919,9 +1950,11 @@ export default function ProjectSetupWizard({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          mt: 4,
-          pt: 3,
-          borderTop: "1px solid #e5e7eb",
+          mt: 2,
+          p: 1.5,
+          border: "1px solid #E0DAE6",
+          borderRadius: 2.5,
+          bgcolor: "#FFFFFF",
         }}
       >
         <Button
@@ -2051,7 +2084,7 @@ export default function ProjectSetupWizard({
         <DialogTitle>✅ Draft Saved</DialogTitle>
         <DialogContent>
           <Typography sx={{ mt: 1 }}>
-            Project was successfully saved as draft. Redirecting to Projects...
+            Project was successfully saved as draft. Redirecting to My Drafts...
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -2059,10 +2092,10 @@ export default function ProjectSetupWizard({
             variant="contained"
             onClick={() => {
               setDraftSuccessOpen(false);
-              router.push("/projects");
+              router.push("/myDrafts");
             }}
           >
-            Go to Projects
+            Go to My Drafts
           </Button>
         </DialogActions>
       </Dialog>
