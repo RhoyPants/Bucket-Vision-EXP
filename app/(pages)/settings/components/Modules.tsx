@@ -64,6 +64,8 @@ export default function Modules() {
 
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
+  const trimmedName = name.trim();
+  const isValidModuleName = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/.test(trimmedName);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -96,6 +98,10 @@ export default function Modules() {
       setError("Both name and path are required.");
       return;
     }
+    if (!isValidModuleName) {
+      setError("Module name must use lowercase snake_case.");
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -103,7 +109,7 @@ export default function Modules() {
 
     try {
       const res = await axiosApi.post("/modules", {
-        name: name.trim().toUpperCase(),
+        name: trimmedName,
         path: path.trim(),
       });
 
@@ -142,13 +148,15 @@ export default function Modules() {
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2} mb={2}>
           <TextField
             label="Module Name"
-            placeholder="e.g. PROJECTS"
+            placeholder="e.g. settings_project_maintenance"
             value={name}
-            onChange={(e) => setName(e.target.value.toUpperCase())}
+            onChange={(e) => setName(e.target.value)}
             size="small"
             fullWidth={isMobile}
             sx={{ minWidth: isMobile ? "auto" : 200 }}
-            helperText="Uppercase — must match authorize() middleware"
+            error={Boolean(trimmedName) && !isValidModuleName}
+            helperText="Use lowercase snake_case"
+            inputProps={{ autoCapitalize: "none", spellCheck: false }}
           />
           <TextField
             label="API Path"
@@ -163,7 +171,7 @@ export default function Modules() {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleCreate}
-            disabled={submitting || !name.trim() || !path.trim()}
+            disabled={submitting || !isValidModuleName || !path.trim()}
             sx={{
               alignSelf: { xs: "stretch", sm: "flex-start" },
               mt: { xs: 0, sm: "4px !important" },

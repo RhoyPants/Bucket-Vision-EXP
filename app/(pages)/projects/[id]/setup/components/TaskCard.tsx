@@ -10,6 +10,7 @@ import {
   Tooltip,
   CircularProgress,
 } from "@mui/material";
+import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SaveIcon from "@mui/icons-material/Check";
@@ -185,18 +186,11 @@ function TaskCard({
             </Tooltip>
 
             <Tooltip title={budgetError || ""} open={!!budgetError}>
-              <TextField
+              <DecimalBudgetField
                 size="small"
                 label="Budget"
-                type="number"
-                inputProps={{ step: "0.01" }}
                 value={editForm.budgetAllocated}
-                onChange={(e) =>
-                  handleEditChange(
-                    "budgetAllocated",
-                    parseFloat(e.target.value) || 0,
-                  )
-                }
+                onValueChange={(value) => handleEditChange("budgetAllocated", value)}
                 onBlur={() => handleEditBlur("budgetAllocated")}
                 error={!!budgetError}
                 sx={{ width: "100%" }}

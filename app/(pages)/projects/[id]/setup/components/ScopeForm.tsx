@@ -1,7 +1,6 @@
 import { Box, Button, TextField, Alert, Typography, Chip, Backdrop, CircularProgress, Stack, MenuItem } from "@mui/material";
 import { useEffect, useState } from "react";
 import WarningIcon from "@mui/icons-material/Warning";
-import { formatBudget } from "@/app/utils/formatters";
 import {
   validateScopeForm,
   getFieldError,
@@ -13,6 +12,7 @@ import {
   getMaintenanceRecords,
   MaintenanceRecord,
 } from "@/app/api-service/workBreakdownMaintenanceService";
+import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 
 interface ScopeFormProps {
   scopeForm: {
@@ -232,15 +232,14 @@ export default function ScopeForm({
             </Typography>
             <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
           </Box>
-          <TextField
+          <DecimalBudgetField
             fullWidth
-            type="text"
             placeholder="0"
-            value={scopeForm.budgetAllocated ? formatBudget(scopeForm.budgetAllocated) : ""}
-            onChange={(e) =>
+            value={scopeForm.budgetAllocated}
+            onValueChange={(value) =>
               setScopeForm({
                 ...scopeForm,
-                budgetAllocated: e.target.value.replace(/,/g, ""),
+                budgetAllocated: value === 0 ? "" : String(value),
               })
             }
             onBlur={() => handleFieldBlur("budgetAllocated")}

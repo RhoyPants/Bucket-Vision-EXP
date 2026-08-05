@@ -13,7 +13,7 @@ import {
   MenuItem,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import { formatBudget } from "@/app/utils/formatters";
+import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import {
   validateTaskForm,
   calculateBudgetPercent,
@@ -219,13 +219,12 @@ export default function TaskForm({
       </Tooltip>
 
       <Tooltip title={budgetError || ""} open={!!budgetError}>
-        <TextField
+        <DecimalBudgetField
           size="small"
           label="Budget"
           placeholder="0"
-          type="text"
-          value={form.budgetAllocated ? formatBudget(form.budgetAllocated) : ""}
-          onChange={(e) => handleChange("budgetAllocated", parseFloat(e.target.value.replace(/,/g, "")) || 0)}
+          value={form.budgetAllocated}
+          onValueChange={(value) => handleChange("budgetAllocated", value)}
           onBlur={() => handleBlur("budgetAllocated")}
           error={!!budgetError}
           sx={{ flex: "0 1 200px" }}

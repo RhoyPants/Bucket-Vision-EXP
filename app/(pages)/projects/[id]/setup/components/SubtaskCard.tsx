@@ -11,6 +11,7 @@ import {
   FormHelperText,
   FormControl,
 } from "@mui/material";
+import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import ChecklistForm from "./ChecklistForm";
 import {
@@ -361,13 +362,11 @@ function SubtaskCard({
           )}
         </FormControl>
 
-        <TextField
+        <DecimalBudgetField
           size="small"
           label="Budget"
-          type="number"
-          inputProps={{ step: "0.01" }}
-          value={form.budgetAllocated || ""}
-          onChange={(e) => handleChange("budgetAllocated", parseFloat(e.target.value) || 0)}
+          value={form.budgetAllocated}
+          onValueChange={(value) => handleChange("budgetAllocated", value)}
           onBlur={() => handleBlur("budgetAllocated")}
           error={hasFieldError("budgetAllocated", errors)}
           helperText={getFieldError("budgetAllocated", errors) || ""}

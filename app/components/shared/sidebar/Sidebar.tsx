@@ -35,7 +35,7 @@ const settingsTabs = [
   { key: "projectApprovals", label: "Project Approvals", permissionKey: "settings_project_approvals" },
   { key: "modules", label: "Modules", permissionKey: "settings_modules" },
   { key: "businessUnits", label: "Business Units", permissionKey: "settings_business_units" },
-  { key: "projectMaintenance", label: "Project Maintenance", permissionKey: "settings_business_units" },
+  { key: "projectMaintenance", label: "Project Maintenance", permissionKey: "settings_project_maintenance" },
 ] as const;
 
 const mainNavItems = [

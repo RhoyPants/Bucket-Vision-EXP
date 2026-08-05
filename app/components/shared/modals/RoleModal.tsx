@@ -195,6 +195,14 @@ const mergeFrontendPermissionModules = (modules: ModuleRecord[]) => {
   return [...modules, ...missingModules];
 };
 
+const mergeModuleRecords = (...collections: ModuleRecord[][]) => {
+  const merged = new Map<string, ModuleRecord>();
+  collections.flat().forEach((module) => {
+    if (!merged.has(module.key)) merged.set(module.key, module);
+  });
+  return Array.from(merged.values());
+};
+
 const normalizeRolePermissionItems = (payload: unknown): unknown[] => {
   const wrapped = payload as { data?: unknown } | null;
   return extractArray(wrapped?.data || payload);
@@ -255,9 +263,15 @@ export default function RoleModal({ open, onClose, role, refresh }: RoleModalPro
 
         if (role) {
           setRoleName(role.name);
-          const permRes = await axiosApi.get(`/roles/${role.id}/page-permissions`);
+          const [moduleRes, permRes] = await Promise.all([
+            axiosApi.get("/modules"),
+            axiosApi.get(`/roles/${role.id}/page-permissions`),
+          ]);
           permissionItems = normalizeRolePermissionItems(permRes.data);
-          modulesData = normalizeModules(permissionItems);
+          modulesData = mergeModuleRecords(
+            normalizeModules(moduleRes.data),
+            normalizeModules(permissionItems),
+          );
         } else {
           setRoleName("");
           const res = await axiosApi.get("/modules");

@@ -4,6 +4,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import WarningIcon from "@mui/icons-material/Warning";
 import CloseIcon from "@mui/icons-material/Close";
+import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import TaskForm from "./TaskForm";
 import TaskCard from "./TaskCard";
 import {
@@ -312,14 +313,13 @@ function ScopeCard({
               </Typography>
               <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
             </Box>
-            <TextField
+            <DecimalBudgetField
               fullWidth
-              type="number"
-              value={scopeEdit?.budgetAllocated || ""}
-              onChange={(e) =>
+              value={scopeEdit?.budgetAllocated ?? ""}
+              onValueChange={(value) =>
                 setScopeEdit({
                   ...scopeEdit,
-                  budgetAllocated: e.target.value,
+                  budgetAllocated: value,
                 })
               }
               onBlur={() => handleEditFieldBlur("budgetAllocated")}
@@ -331,7 +331,6 @@ function ScopeCard({
               InputProps={{
                 startAdornment: "₱ ",
               }}
-              inputProps={{ step: "0.01", min: "0" }}
               sx={{
                 "& .MuiOutlinedInput-root": {
                   borderRadius: 1.5,

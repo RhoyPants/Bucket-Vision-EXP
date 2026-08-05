@@ -27,6 +27,7 @@ import {
   hasFieldError,
   formatDateForInput,
 } from "@/app/utils/subtaskValidation";
+import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import EditIcon from "@mui/icons-material/Edit";
 
 export default function SubtaskModal({
@@ -338,15 +339,11 @@ export default function SubtaskModal({
               )}
             </FormControl>
 
-            <TextField
+            <DecimalBudgetField
               label="Budget"
               size="small"
-              type="number"
-              inputProps={{ step: "0.01" }}
               value={form.budgetAllocated}
-              onChange={(e) =>
-                handleChange("budgetAllocated", parseFloat(e.target.value) || 0)
-              }
+              onValueChange={(value) => handleChange("budgetAllocated", value)}
               error={hasFieldError("budgetAllocated", errors)}
               helperText={getFieldError("budgetAllocated", errors) || ""}
               sx={{ flex: 1 }}

@@ -40,7 +40,7 @@ import {
   ProjectFormData,
   ValidationError,
 } from "@/app/utils/projectValidation";
-import { formatBudget } from "@/app/utils/formatters";
+import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import ProjectTeamPanel from "@/app/(pages)/projects/[id]/setup/components/ProjectTeamPanel";
 import {
   getAllRegions,
@@ -612,20 +612,11 @@ export default function ProjectModal({
                     </Typography>
                     <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
                   </Box>
-                  <TextField
+                  <DecimalBudgetField
                     fullWidth
-                    type="text"
                     placeholder="0"
-                    value={form.totalBudget ? formatBudget(form.totalBudget) : ""}
-                    onChange={(e) => {
-                      // Remove commas and get numeric value
-                      const numericValue = e.target.value.replace(/,/g, "");
-                      const cleanValue = Math.max(0, Number(numericValue) || 0);
-                      setForm({
-                        ...form,
-                        totalBudget: cleanValue,
-                      });
-                    }}
+                    value={form.totalBudget}
+                    onValueChange={(value) => setForm({ ...form, totalBudget: value })}
                     onBlur={() => handleFieldBlur("totalBudget")}
                     error={touched.totalBudget && hasFieldError("totalBudget", errors)}
                     helperText={touched.totalBudget && getFieldError("totalBudget", errors)}

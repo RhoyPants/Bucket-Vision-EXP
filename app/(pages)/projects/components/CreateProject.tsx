@@ -12,7 +12,7 @@ import {
   Alert,
 } from "@mui/material";
 import type { ReactNode } from "react";
-import { formatBudget } from "@/app/utils/formatters";
+import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import { hasFieldError, getFieldError } from "@/app/utils/projectValidation";
 import { brandColors } from "@/app/lib/theme";
 
@@ -271,15 +271,11 @@ export default function CreateProject({
               <Typography variant="subtitle2" fontWeight={600}>Total Budget</Typography>
               <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
             </Box>
-            <TextField
+            <DecimalBudgetField
               fullWidth
-              type="text"
               placeholder="0"
-              value={form.totalBudget ? formatBudget(form.totalBudget) : ""}
-              onChange={(e) => {
-                const cleanValue = Math.max(0, Number(e.target.value.replace(/,/g, "")) || 0);
-                setForm({ ...form, totalBudget: cleanValue });
-              }}
+              value={form.totalBudget}
+              onValueChange={(value) => setForm({ ...form, totalBudget: value })}
               onBlur={() => onFieldBlur("totalBudget")}
               error={touched.totalBudget && hasFieldError("totalBudget", errors)}
               helperText={touched.totalBudget && getFieldError("totalBudget", errors)}

@@ -20,6 +20,7 @@ import {
   getFieldError,
   hasFieldError,
 } from "@/app/utils/taskValidation";
+import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import { setCurrentTask } from "@/app/redux/slices/taskSlice";
 import EditIcon from "@mui/icons-material/Edit";
 
@@ -156,16 +157,12 @@ export default function TaskModal({
           />
 
           {/* Budget */}
-          <TextField
+          <DecimalBudgetField
             label="Budget Allocated"
             fullWidth
             size="small"
-            type="number"
-            inputProps={{ step: "0.01" }}
             value={form.budgetAllocated}
-            onChange={(e) =>
-              handleChange("budgetAllocated", parseFloat(e.target.value) || 0)
-            }
+            onValueChange={(value) => handleChange("budgetAllocated", value)}
             error={hasFieldError("budgetAllocated", errors)}
             helperText={getFieldError("budgetAllocated", errors) || ""}
             disabled={isViewOnly || saving}

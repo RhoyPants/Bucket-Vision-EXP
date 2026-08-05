@@ -21,7 +21,7 @@ import {
   formatDateForInput,
   ValidationError,
 } from "@/app/utils/subtaskValidation";
-import { formatBudget } from "@/app/utils/formatters";
+import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import {
   getSubtasksForTask,
   MaintenanceRecord,
@@ -327,13 +327,12 @@ export default function SubtaskForm({
           <MenuItem value="LOW">LOW</MenuItem>
         </TextField>
 
-        <TextField
+        <DecimalBudgetField
           size="small"
           label="Budget"
           placeholder="0"
-          type="text"
-          value={form.budgetAllocated ? formatBudget(form.budgetAllocated) : ""}
-          onChange={(e) => handleChange("budgetAllocated", parseFloat(e.target.value.replace(/,/g, "")) || 0)}
+          value={form.budgetAllocated}
+          onValueChange={(value) => handleChange("budgetAllocated", value)}
           onBlur={() => handleBlur("budgetAllocated")}
           error={hasFieldError("budgetAllocated", errors)}
           helperText={getFieldError("budgetAllocated", errors) || " "}

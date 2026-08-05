@@ -19,7 +19,7 @@ export const formatBudget = (value?: number | string, includeSymbol = false): st
   
   const formatted = numValue.toLocaleString("en-US", {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   });
   
   return includeSymbol ? `₱${formatted}` : formatted;
