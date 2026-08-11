@@ -1,7 +1,7 @@
 import { Box, Typography, LinearProgress } from "@mui/material";
 import { Task, CompareTheme, getCompareTheme } from "./types";
 import SubtaskCard from "./SubtaskCard";
-import { formatBudget } from "@/app/utils/formatters";
+import { formatBudget, formatPercent } from "@/app/utils/formatters";
 
 interface TaskRowProps {
   task: Task;
@@ -16,7 +16,7 @@ export default function TaskRow({ task, theme }: TaskRowProps) {
     <Box
       sx={{
         backgroundColor: ct ? ct.background : "#f0f9ff",
-        p: 2,
+        p: { xs: 1.5, sm: 2 },
         mb: 2,
         border: ct ? `1px solid ${ct.border}` : "2px solid #0ea5e9",
         ...(isModified && { borderLeft: `4px solid ${ct!.accent}` }),
@@ -36,7 +36,7 @@ export default function TaskRow({ task, theme }: TaskRowProps) {
           <Typography fontSize={11} sx={{ color: "#64748b", fontWeight: 600 }}>
             Budget: <Box component="span" sx={{ color: "#1f2937", fontWeight: 700 }}>{formatBudget(task.budgetAllocated, true)}</Box>
             <Box component="span" sx={{ color: "#94a3b8", mx: 0.75 }}>•</Box>
-            Weight: <Box component="span" sx={{ color: "#1f2937", fontWeight: 700 }}>{Number(task.budgetPercent || 0).toFixed(2)}%</Box>
+            Weight: <Box component="span" sx={{ color: "#1f2937", fontWeight: 700 }}>{formatPercent(task.budgetPercent)}</Box>
           </Typography>
         </Box>
 
@@ -44,7 +44,7 @@ export default function TaskRow({ task, theme }: TaskRowProps) {
         <Box>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
             <Typography variant="caption" sx={{ color: "#6b7280", fontWeight: 500 }}>Progress</Typography>
-            <Typography variant="caption" sx={{ color: "#1f2937", fontWeight: 700 }}>{task.progress}%</Typography>
+            <Typography variant="caption" sx={{ color: "#1f2937", fontWeight: 700 }}>{formatPercent(task.progress)}</Typography>
           </Box>
           <LinearProgress
             variant="determinate"
@@ -68,6 +68,7 @@ export default function TaskRow({ task, theme }: TaskRowProps) {
           sx={{
             display: "flex",
             gap: 1.5,
+            alignItems: "stretch",
             overflowX: "auto",
             pb: 1,
             scrollBehavior: "smooth",

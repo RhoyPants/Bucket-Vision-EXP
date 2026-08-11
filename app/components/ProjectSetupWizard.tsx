@@ -52,6 +52,7 @@ import {
   createSubtask,
   updateSubtask,
   deleteSubtask,
+  moveSubtask,
 } from "@/app/redux/controllers/subTaskController";
 import { getEngagedUsers, getProjectMembers } from "@/app/redux/controllers/projectMemberController";
 import { submitProjectForApproval } from "@/app/redux/controllers/approvalController";
@@ -84,6 +85,7 @@ import {
 } from "@/app/api-service/attachmentService";
 import { usePermissions } from "@/app/lib/usePermissions";
 import ValidationModal from "@/app/components/shared/modals/ValidationModal";
+import DeleteStructureItemDialog, { StructureItemKind } from "@/app/components/shared/modals/DeleteStructureItemDialog";
 
 
 const WIZARD_STEPS = ["Create Project", "Team Management", "Project Structure", "Confirmation & Summary"];
@@ -194,6 +196,7 @@ export default function ProjectSetupWizard({
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
   const [submitSuccessOpen, setSubmitSuccessOpen] = useState(false);
+  const [submittedApprovalAssignments, setSubmittedApprovalAssignments] = useState<any[]>([]);
   const [draftSuccessOpen, setDraftSuccessOpen] = useState(false);
   const [projectAttachmentFiles, setProjectAttachmentFiles] = useState<File[]>([]);
   const [projectAttachments, setProjectAttachments] = useState<any[]>([]);
@@ -201,6 +204,13 @@ export default function ProjectSetupWizard({
   const [attachmentLimitDialogOpen, setAttachmentLimitDialogOpen] = useState(false);
   const [attachmentLimitDialogMessage, setAttachmentLimitDialogMessage] = useState("");
   const [structureValidationModalOpen, setStructureValidationModalOpen] = useState(false);
+  const [structureItemPendingDelete, setStructureItemPendingDelete] = useState<{
+    kind: StructureItemKind;
+    id: string;
+    name: string;
+    taskId?: string;
+    impactMessage: string;
+  } | null>(null);
   const [structureValidationFeedback, setStructureValidationFeedback] = useState<StructureValidationFeedback>({
     title: "Project Structure Validation",
     details: [],
@@ -543,6 +553,8 @@ export default function ProjectSetupWizard({
       await dispatch(
         updateScope(scopeEdit.id, {
           name: scopeEdit.name,
+          sourceType: scopeEdit.sourceType,
+          scopeMaintenanceId: scopeEdit.scopeMaintenanceId,
           budgetAllocated: Number(scopeEdit.budgetAllocated),
         })
       );
@@ -556,20 +568,17 @@ export default function ProjectSetupWizard({
     }
   }, [scopeEdit, dispatch, refreshProject]);
 
-  const handleDeleteScope = useCallback(async (scopeId: string) => {
-    if (window.confirm("Delete this scope and all tasks?")) {
-      try {
-        setSaving(true);
-        await dispatch(deleteScope(scopeId));
-        await refreshProject();
-      } catch (error) {
-        console.error("Error deleting scope:", error);
-        alert("Failed to delete scope");
-      } finally {
-        setSaving(false);
-      }
-    }
-  }, [dispatch, refreshProject]);
+  const handleDeleteScope = useCallback((scopeId: string) => {
+    const scope = project?.scopes?.find((item: any) => item.id === scopeId);
+    const tasks = scope?.tasks || [];
+    const subtaskCount = tasks.reduce((sum: number, task: any) => sum + (task.subtasks?.length || 0), 0);
+    setStructureItemPendingDelete({
+      kind: "scope",
+      id: scopeId,
+      name: scope?.name || "this scope",
+      impactMessage: `${tasks.length} task(s), ${subtaskCount} subtask(s), and their checklist items will also be deleted.`,
+    });
+  }, [project?.scopes]);
 
   // ===========================
   // TASK HANDLERS
@@ -629,6 +638,8 @@ export default function ProjectSetupWizard({
       await dispatch(
         updateTask(taskId, {
           title: updates.title,
+          sourceType: updates.taskMaintenanceId ? "MAINTENANCE" : updates.sourceType,
+          taskMaintenanceId: updates.taskMaintenanceId,
           description: updates.description || "",
           budgetAllocated: Number(updates.budgetAllocated) || 0,
           budgetPercent: percent,
@@ -643,20 +654,19 @@ export default function ProjectSetupWizard({
     }
   }, [project, dispatch, refreshProject]);
 
-  const handleDeleteTask = useCallback(async (taskId: string) => {
-    if (window.confirm("Delete this task and all subtasks?")) {
-      try {
-        setSaving(true);
-        await dispatch(deleteTask(taskId));
-        await refreshProject();
-      } catch (error) {
-        console.error("Error deleting task:", error);
-        alert("Failed to delete task");
-      } finally {
-        setSaving(false);
-      }
-    }
-  }, [dispatch, refreshProject]);
+  const handleDeleteTask = useCallback((taskId: string) => {
+    const task = project?.scopes
+      ?.flatMap((scope: any) => scope.tasks || [])
+      .find((item: any) => item.id === taskId);
+    setStructureItemPendingDelete({
+      kind: "task",
+      id: taskId,
+      name: task?.title || "this task",
+      impactMessage: task?.subtasks?.length
+        ? `${task.subtasks.length} subtask(s) and their checklist items will also be deleted.`
+        : "The task will be removed from this project scope.",
+    });
+  }, [project?.scopes]);
 
   // ===========================
   // SUBTASK HANDLERS
@@ -695,7 +705,6 @@ export default function ProjectSetupWizard({
             projectedEndDate: data.projectedEndDate || "",
             budgetAllocated: Number(data.budgetAllocated) || 0,
             budgetPercent: percent,
-            remarks: data.remarks || "",
             userIds: data.users?.map((u: any) => u.id || u.userId) || [],
           },
           taskId
@@ -735,7 +744,6 @@ export default function ProjectSetupWizard({
           budgetPercent: percent,
           projectedStartDate: data.projectedStartDate,
           projectedEndDate: data.projectedEndDate,
-          remarks: data.remarks || "",
           userIds: data.users?.map((u: any) => u.id || u.userId) || [],
         })
       );
@@ -750,26 +758,64 @@ export default function ProjectSetupWizard({
     }
   }, [subtaskInputs, project, dispatch, refreshProject]);
 
-  const handleDeleteSubtask = useCallback(async (id: string, taskId: string) => {
-    if (window.confirm("Delete this subtask?")) {
-      try {
-        setSaving(true);
-        await dispatch(deleteSubtask(id, taskId));
-        await refreshProject();
-      } catch (error) {
-        console.error("Error deleting subtask:", error);
-        alert("Failed to delete subtask");
-      } finally {
-        setSaving(false);
+  const handleDeleteSubtask = useCallback((id: string, taskId: string) => {
+    const subtask = project?.scopes
+      ?.flatMap((scope: any) => scope.tasks || [])
+      .flatMap((task: any) => task.subtasks || [])
+      .find((item: any) => item.id === id);
+    const checklistCount = (subtask?.checklists || subtask?.checklist || []).length;
+    setStructureItemPendingDelete({
+      kind: "subtask",
+      id,
+      taskId,
+      name: subtask?.title || "this subtask",
+      impactMessage: checklistCount
+        ? `${checklistCount} checklist item(s) will also be deleted.`
+        : "The subtask will be removed from this task.",
+    });
+  }, [project?.scopes]);
+
+  const confirmStructureItemDelete = async () => {
+    if (!structureItemPendingDelete) return;
+    try {
+      setSaving(true);
+      if (structureItemPendingDelete.kind === "scope") await dispatch(deleteScope(structureItemPendingDelete.id));
+      if (structureItemPendingDelete.kind === "task") await dispatch(deleteTask(structureItemPendingDelete.id));
+      if (structureItemPendingDelete.kind === "subtask") {
+        await dispatch(deleteSubtask(structureItemPendingDelete.id, structureItemPendingDelete.taskId!));
       }
+      setStructureItemPendingDelete(null);
+      await refreshProject();
+    } catch (error) {
+      console.error("Error deleting project structure item:", error);
+      setSubmitMessage(`Failed to delete ${structureItemPendingDelete.kind}. Please try again.`);
+    } finally {
+      setSaving(false);
     }
-  }, [dispatch, refreshProject]);
+  };
 
   const sortedScopes = useMemo(() => {
     return [...(project?.scopes || [])].sort(
       (a: any, b: any) => (a.order ?? 0) - (b.order ?? 0)
     );
   }, [project?.scopes]);
+
+  const handleReorderSubtasks = async (taskId: string, draggedId: string, targetId: string) => {
+    const task = project?.scopes?.flatMap((scope: any) => scope.tasks || []).find((item: any) => item.id === taskId);
+    const items = [...(task?.subtasks || [])];
+    const from = items.findIndex((item: any) => item.id === draggedId);
+    const to = items.findIndex((item: any) => item.id === targetId);
+    if (from < 0 || to < 0 || from === to) return;
+    const [moved] = items.splice(from, 1);
+    items.splice(to, 0, moved);
+    await dispatch(moveSubtask({
+      id: draggedId,
+      order: to,
+      parentTaskId: taskId,
+      orderedIds: items.map((item: any) => item.id),
+    }));
+    await refreshProject();
+  };
 
   const teamMemberCount = useMemo(() => {
     const ids = new Set<string>();
@@ -797,6 +843,27 @@ export default function ProjectSetupWizard({
 
     return Number(project?._count?.projectMembers || 0);
   }, [projectMembers, project?.projectMembers, project?._count?.projectMembers]);
+
+  const approvalFlow = project?.approvalFlow || project?.currentApprovalFlow;
+  const approvalSteps = approvalFlow?.steps || [];
+  const projectLocation = [
+    projectForm.location?.street || project?.location?.street,
+    projectForm.location?.barangayName || project?.location?.barangayName,
+    projectForm.location?.cityName || project?.location?.cityName,
+    projectForm.location?.provinceName || project?.location?.provinceName,
+    projectForm.location?.regionName || project?.location?.regionName,
+  ].filter(Boolean).join(", ") || "Not specified";
+
+  const getApproverLabel = (step: any) => {
+    const assigned = step.assignedUsers || step.users || [];
+    const names = assigned.map((entry: any) => entry.user?.name || entry.name).filter(Boolean);
+    if (names.length) return names.join(", ");
+    if (step.approverSource === "PROJECT_BU_HEAD") return "Project Business Unit Head";
+    if (step.approverSource === "REQUESTER_BU_HEAD") return "Requester's Business Unit Head";
+    if (step.approverSource === "ROLE") return step.role || "Configured role";
+    if (step.approverSource === "SPECIFIC_USERS") return "Configured users";
+    return step.role || "Approver assigned by workflow";
+  };
 
   // SAVE PROJECT DETAILS (called from project setup step)
   const handleSaveProjectDetails = async () => {
@@ -927,7 +994,12 @@ export default function ProjectSetupWizard({
       setSaving(true);
 
       // Submit project for approval
-      await dispatch(submitProjectForApproval(currentProjectId) as any);
+      const submissionResult = await dispatch(submitProjectForApproval(currentProjectId) as any);
+      const returnedAssignments = [
+        ...(Array.isArray(submissionResult?.approvals) ? submissionResult.approvals : []),
+        ...(Array.isArray(submissionResult?.reviewers) ? submissionResult.reviewers : []),
+      ];
+      setSubmittedApprovalAssignments(returnedAssignments);
 
       // Notify only the first approval step after the submission succeeds.
       try {
@@ -1525,6 +1597,7 @@ export default function ProjectSetupWizard({
                   onUpdateTask={handleUpdateTask}
                   onDeleteTask={handleDeleteTask}
                   onAddSubtask={handleAddSubtask}
+                  onReorderSubtasks={handleReorderSubtasks}
                   onUpdateSubtask={handleUpdateSubtask}
                   onDeleteSubtask={handleDeleteSubtask}
                   onEditSubtask={(sub: any, taskId: string) => {
@@ -1538,7 +1611,6 @@ export default function ProjectSetupWizard({
                         budgetAllocated: sub.budgetAllocated,
                         projectedStartDate: sub.projectedStartDate || "",
                         projectedEndDate: sub.projectedEndDate || "",
-                        remarks: sub.remarks || "",
                         users: sub.assignees?.map((a: any) => a.user) || [],
                       },
                     }));
@@ -1557,8 +1629,8 @@ export default function ProjectSetupWizard({
 
         {/* STEP 3: CONFIRMATION & SUMMARY */}
         {activeStep === 3 && (
-          <Stack spacing={2}>
-            <Card sx={{ backgroundColor: "#f0fdf4", borderLeft: "4px solid #22c55e" }}>
+          <Stack spacing={1.25}>
+            <Card sx={{ display: "none", backgroundColor: "#f0fdf4", borderLeft: "4px solid #22c55e" }}>
               <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
                 <Stack direction="row" spacing={2}>
                   <CheckCircleIcon sx={{ color: "#22c55e", fontSize: 28 }} />
@@ -1581,7 +1653,20 @@ export default function ProjectSetupWizard({
                     <Typography variant="h6" fontWeight={700} mb={2}>
                       📋 Project Information
                     </Typography>
-                    <Stack spacing={2}>
+                    <Stack
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+                        gap: 1,
+                        "& > .MuiBox-root": {
+                          minWidth: 0,
+                          p: 1.25,
+                          border: "1px solid #eef2f7",
+                          borderRadius: 1.25,
+                          bgcolor: "#fafbfc",
+                        },
+                      }}
+                    >
                       <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>
                         <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase" }}>
                           Name
@@ -1652,7 +1737,20 @@ export default function ProjectSetupWizard({
                     <Typography variant="h6" fontWeight={700} mb={2}>
                       📍 Timeline & Location
                     </Typography>
-                    <Stack spacing={2}>
+                    <Stack
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+                        gap: 1,
+                        "& > .MuiBox-root": {
+                          minWidth: 0,
+                          p: 1.25,
+                          border: "1px solid #eef2f7",
+                          borderRadius: 1.25,
+                          bgcolor: "#fafbfc",
+                        },
+                      }}
+                    >
                       <Box sx={{ pb: 2, borderBottom: "1px solid #e5e7eb" }}>
                         <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase" }}>
                           Start - End Date
@@ -1696,7 +1794,7 @@ export default function ProjectSetupWizard({
               </Grid>
 
               {/* WORK SCHEDULE CARD */}
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Card sx={{ height: "100%" }}>
                   <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
                     <Typography variant="h6" fontWeight={700} mb={2}>
@@ -1759,7 +1857,7 @@ export default function ProjectSetupWizard({
               </Grid>
 
               {/* TEAM MEMBERS CARD */}
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Card sx={{ height: "100%" }}>
                   <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
                     <Typography variant="h6" fontWeight={700} mb={2}>
@@ -1842,7 +1940,7 @@ export default function ProjectSetupWizard({
               </Grid>
 
               {/* ATTACHMENTS CARD */}
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Card sx={{ height: "100%" }}>
                   <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
                     <Typography variant="h6" fontWeight={700} mb={2}>
@@ -1897,7 +1995,7 @@ export default function ProjectSetupWizard({
                       📊 Project Structure
                     </Typography>
                     {project?.scopes && project.scopes.length > 0 ? (
-                      <Stack spacing={1.25} sx={{ maxHeight: 320, overflowY: "auto", pr: 0.5 }}>
+                      <Stack spacing={1.25}>
                         {project.scopes.map((scope: any) => (
                           <Box key={scope.id} sx={{ p: 1.5, backgroundColor: "#f8faff", borderRadius: 1, border: "1px solid #e0e7ff" }}>
                             <Typography fontWeight={700} sx={{ color: "#6366f1", mb: 1 }}>
@@ -1911,14 +2009,41 @@ export default function ProjectSetupWizard({
                                 <Typography sx={{ fontSize: "0.8rem", fontWeight: 600, color: "#999", mb: 1 }}>
                                   {scope.tasks.length} task(s):
                                 </Typography>
-                                <Stack spacing={0.5} sx={{ ml: 2 }}>
+                                <Stack spacing={1} sx={{ ml: 2 }}>
                                   {scope.tasks.map((task: any) => (
-                                    <Typography
-                                      key={task.id}
-                                      sx={{ fontSize: "0.8rem", color: "#666", pl: 1, borderLeft: "2px solid #e5e7eb", ml: 0.5 }}
-                                    >
-                                      • {task.title} {task.subtasks?.length ? `(${task.subtasks.length} subtask${task.subtasks.length !== 1 ? "s" : ""})` : ""}
-                                    </Typography>
+                                    <Box key={task.id} sx={{ pl: 1.25, borderLeft: "2px solid #c7d2fe" }}>
+                                      <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={0.5}>
+                                        <Typography sx={{ fontSize: "0.82rem", color: "#334155", fontWeight: 700 }}>{task.title}</Typography>
+                                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", whiteSpace: "nowrap" }}>Budget: ₱{formatBudget(task.budgetAllocated || 0)}</Typography>
+                                      </Stack>
+                                      {task.description && <Typography sx={{ mt: 0.25, fontSize: "0.75rem", color: "#64748b" }}>{task.description}</Typography>}
+                                      {task.subtasks?.length > 0 ? (
+                                        <Stack spacing={0.75} sx={{ mt: 0.75 }}>
+                                          {task.subtasks.map((subtask: any) => {
+                                            const checklistItems = subtask.checklists || subtask.checklist || [];
+                                            return (
+                                              <Box key={subtask.id} sx={{ p: 1, bgcolor: "#fff", border: "1px solid #e2e8f0", borderRadius: 1 }}>
+                                                <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={0.5}>
+                                                  <Typography sx={{ fontSize: "0.78rem", color: "#475569", fontWeight: 600 }}>{subtask.title}</Typography>
+                                                  <Typography sx={{ fontSize: "0.72rem", color: "#64748b", whiteSpace: "nowrap" }}>{subtask.priority || "No priority"} · ₱{formatBudget(subtask.budgetAllocated || 0)}</Typography>
+                                                </Stack>
+                                                {subtask.description && <Typography sx={{ mt: 0.25, fontSize: "0.73rem", color: "#64748b" }}>{subtask.description}</Typography>}
+                                                {checklistItems.length > 0 && (
+                                                  <Box sx={{ mt: 0.75 }}>
+                                                    <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 700 }}>Checklist ({checklistItems.length})</Typography>
+                                                    <Stack spacing={0.25} sx={{ mt: 0.35 }}>
+                                                      {checklistItems.map((item: any) => (
+                                                        <Typography key={item.id || item.title} sx={{ fontSize: "0.72rem", color: "#475569" }}>{item.isCompleted ? "✓" : "○"} {item.title}</Typography>
+                                                      ))}
+                                                    </Stack>
+                                                  </Box>
+                                                )}
+                                              </Box>
+                                            );
+                                          })}
+                                        </Stack>
+                                      ) : <Typography sx={{ mt: 0.5, fontSize: "0.72rem", color: "#94a3b8" }}>No subtasks</Typography>}
+                                    </Box>
                                   ))}
                                 </Stack>
                               </Box>
@@ -1985,7 +2110,16 @@ export default function ProjectSetupWizard({
         </Stack>
       </Box>
 
-      {/* SUBMIT CONFIRMATION DIALOG */}
+      <DeleteStructureItemDialog
+        open={Boolean(structureItemPendingDelete)}
+        kind={structureItemPendingDelete?.kind || "task"}
+        name={structureItemPendingDelete?.name || "this item"}
+        impactMessage={structureItemPendingDelete?.impactMessage || "This item will be permanently deleted."}
+        loading={saving}
+        onClose={() => setStructureItemPendingDelete(null)}
+        onConfirm={() => void confirmStructureItemDelete()}
+      />
+
       <Dialog
         open={leaveConfirmOpen}
         onClose={() => setLeaveConfirmOpen(false)}
@@ -2013,48 +2147,74 @@ export default function ProjectSetupWizard({
           setSubmitConfirm(false);
           setSubmitMessage("");
         }}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
       >
-        <DialogTitle>📤 Submit Project for Approval?</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 2 }}>
-            <Typography>
-              Your project is ready for review. Once submitted, it will be reviewed by your Business Unit Head(s), then forwarded to the Office of President for final approval.
-            </Typography>
+        <DialogTitle sx={{ px: 3, pt: 3, pb: 1 }}>
+          <Typography sx={{ color: "#1e293b", fontSize: 20, fontWeight: 700 }}>Submit project for approval?</Typography>
+          <Typography sx={{ mt: 0.5, color: "#64748b", fontSize: 13, fontWeight: 400 }}>
+            Review the project snapshot and approval route below. Submission will notify the first assigned approver.
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ px: 3, py: 2 }}>
+          <Stack spacing={2}>
+            <Box sx={{ p: 2, border: "1px solid #e2e8f0", borderRadius: 2, bgcolor: "#f8fafc" }}>
+              <Typography sx={{ color: "#475569", fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", mb: 1.5 }}>Project snapshot</Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" }, gap: 1.5 }}>
+                {[
+                  ["Project name", projectForm.name || project?.name || "Not specified"],
+                  ["Project PIN", projectForm.pin || project?.pin || "Not assigned"],
+                  ["Location", projectLocation],
+                  ["Business unit", projectForm.businessUnitName || project?.businessUnitDetails?.name || project?.businessUnitName || "Not assigned"],
+                  ["Timeline", `${projectForm.startDate ? new Date(projectForm.startDate).toLocaleDateString() : "Not set"} – ${projectForm.expectedEndDate ? new Date(projectForm.expectedEndDate).toLocaleDateString() : "Not set"}`],
+                  ["Budget", `₱${formatBudget(projectForm.totalBudget || project?.totalBudget || 0)}`],
+                  ["Project team", `${teamMemberCount} member(s)`],
+                ].map(([label, value]) => (
+                  <Box key={label}>
+                    <Typography sx={{ color: "#64748b", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase" }}>{label}</Typography>
+                    <Typography sx={{ mt: 0.25, color: "#1e293b", fontSize: 13, fontWeight: 600 }}>{value}</Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
 
-            <Alert severity="info">
-              ℹ️ You can continue editing the project while it's in review. The latest version will be reviewed.
-            </Alert>
+            <Box sx={{ p: 2, border: "1px solid #e2e8f0", borderRadius: 2 }}>
+              <Typography sx={{ color: "#475569", fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", mb: 1.25 }}>Project structure</Typography>
+              <Stack spacing={1} sx={{ maxHeight: 220, overflowY: "auto", pr: 0.5 }}>
+                {(project?.scopes || []).map((scope: any) => (
+                  <Box key={scope.id} sx={{ p: 1.25, bgcolor: "#f8fafc", borderRadius: 1.5 }}>
+                    <Typography sx={{ color: "#1e293b", fontSize: 13, fontWeight: 700 }}>{scope.name}</Typography>
+                    {(scope.tasks || []).map((task: any) => (
+                      <Box key={task.id} sx={{ mt: 0.75, pl: 1.25, borderLeft: "2px solid #cbd5e1" }}>
+                        <Typography sx={{ color: "#334155", fontSize: 12.5, fontWeight: 600 }}>{task.title}</Typography>
+                        <Typography sx={{ color: "#64748b", fontSize: 11.5 }}>
+                          {(task.subtasks || []).map((subtask: any) => `${subtask.title}${(subtask.checklists || subtask.checklist || []).length ? ` (${(subtask.checklists || subtask.checklist).length} checklist)` : ""}`).join(" · ") || "No subtasks"}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                ))}
+              </Stack>
+            </Box>
 
-            <Box sx={{ backgroundColor: "#f9fafb", p: 2, borderRadius: 1 }}>
-              <Typography sx={{ fontSize: 12, fontWeight: 600, mb: 2 }}>
-                📋 PROJECT SNAPSHOT:
-              </Typography>
-              <Stack spacing={1}>
-                <Typography sx={{ fontSize: 12 }}>
-                  • <strong>Name:</strong> {projectForm.name || project?.name}
-                </Typography>
-                <Typography sx={{ fontSize: 12 }}>
-                  • <strong>Code:</strong> {projectForm.pin || project?.pin}
-                </Typography>
-                <Typography sx={{ fontSize: 12 }}>
-                  • <strong>Timeline:</strong> {projectForm.startDate ? new Date(projectForm.startDate).toLocaleDateString() : "—"} • {projectForm.expectedEndDate ? new Date(projectForm.expectedEndDate).toLocaleDateString() : "—"}
-                </Typography>
-                <Typography sx={{ fontSize: 12 }}>
-                  • <strong>Budget:</strong> ₱{formatBudget(projectForm.totalBudget || project?.totalBudget || 0)}
-                </Typography>
-                <Typography sx={{ fontSize: 12 }}>
-                  • <strong>Team:</strong> {teamMemberCount} member(s)
-                </Typography>
-                <Typography sx={{ fontSize: 12 }}>
-                  • <strong>Structure:</strong> {project?.scopes?.length || 0} scope(s), {project?.scopes?.reduce((sum: number, s: any) => sum + (s.tasks?.length || 0), 0) || 0} task(s)
-                </Typography>
+            <Box sx={{ p: 2, border: "1px solid #e2e8f0", borderRadius: 2 }}>
+              <Typography sx={{ color: "#475569", fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase" }}>Approval route</Typography>
+              <Typography sx={{ mt: 0.5, color: "#1e293b", fontSize: 14, fontWeight: 700 }}>{approvalFlow?.name || "Default approval flow"}</Typography>
+              <Stack spacing={0.75} sx={{ mt: 1.25 }}>
+                {approvalSteps.length ? approvalSteps.map((step: any, index: number) => (
+                  <Stack key={step.id || index} direction="row" spacing={1} alignItems="center">
+                    <Box sx={{ width: 24, height: 24, borderRadius: "50%", bgcolor: "#ede9fe", color: "#4c1d95", display: "grid", placeItems: "center", fontSize: 11, fontWeight: 800 }}>{index + 1}</Box>
+                    <Box>
+                      <Typography sx={{ color: "#334155", fontSize: 12.5, fontWeight: 650 }}>{getApproverLabel(step)}</Typography>
+                      <Typography sx={{ color: "#64748b", fontSize: 11 }}>{step.stepExecutionMode === "PARALLEL" ? "Parallel review" : "Sequential review"}{step.requiresAll ? " · All must approve" : ""}</Typography>
+                    </Box>
+                  </Stack>
+                )) : <Typography sx={{ color: "#64748b", fontSize: 12.5 }}>Approvers will be assigned from the default workflow when submitted.</Typography>}
               </Stack>
             </Box>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ pt: 2 }}>
+        <DialogActions sx={{ px: 3, py: 2, borderTop: "1px solid #e2e8f0" }}>
           <Button
             onClick={() => {
               setSubmitConfirm(false);
@@ -2107,24 +2267,58 @@ export default function ProjectSetupWizard({
           setSubmitSuccessOpen(false);
           router.push("/myRequests");
         }}
-        maxWidth="xs"
+        maxWidth="sm"
         fullWidth
+        PaperProps={{ sx: { borderRadius: 2.5 } }}
       >
-        <DialogTitle sx={{ fontWeight: 800, color: "#065f46" }}>
-          Project Request Submitted
+        <DialogTitle sx={{ px: 3, pt: 3, pb: 1, fontWeight: 800, color: "#065f46" }}>
+          Project submitted successfully
         </DialogTitle>
-        <DialogContent>
-          <Stack spacing={1.5} alignItems="center" sx={{ py: 1 }}>
-            <CheckCircleIcon sx={{ fontSize: 56, color: "#10b981" }} />
-            <Typography sx={{ textAlign: "center", fontWeight: 700 }}>
-              Project request was successfully submitted.
-            </Typography>
-            <Typography sx={{ textAlign: "center", color: "#6b7280", fontSize: 14 }}>
-              You can track its review and approval status in My Requests.
-            </Typography>
+        <DialogContent sx={{ px: 3, py: 2 }}>
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <CheckCircleIcon sx={{ fontSize: 48, color: "#10b981", flexShrink: 0 }} />
+              <Box>
+                <Typography sx={{ color: "#1e293b", fontWeight: 700 }}>Your project request is now in review.</Typography>
+                <Typography sx={{ mt: 0.25, color: "#64748b", fontSize: 13 }}>Track its progress and approval status in My Requests.</Typography>
+              </Box>
+            </Stack>
+
+            <Box sx={{ p: 1.75, bgcolor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 1.5 }}>
+              <Typography sx={{ color: "#64748b", fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em" }}>Project Identification Number</Typography>
+              <Typography sx={{ mt: 0.35, color: "#210e64", fontSize: 18, fontWeight: 800 }}>{projectForm.pin || project?.pin || "Not assigned"}</Typography>
+              <Typography sx={{ mt: 0.25, color: "#475569", fontSize: 12.5 }}>{projectForm.name || project?.name}</Typography>
+            </Box>
+
+            <Box>
+              <Typography sx={{ color: "#475569", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", mb: 1 }}>Review and approval route</Typography>
+              {submittedApprovalAssignments.length > 0 ? (
+                <Stack spacing={0.75}>
+                  {submittedApprovalAssignments.map((assignment: any, index: number) => {
+                    const person = assignment.approver || assignment.reviewer || assignment.user || assignment.assignedUser;
+                    const name = assignment.approverName || assignment.reviewerName || person?.name || assignment.name || "Assigned approver";
+                    const email = assignment.approverEmail || assignment.reviewerEmail || person?.email || assignment.email;
+                    const role = assignment.level || assignment.role || assignment.step?.role || (index === 0 ? "Reviewer" : "Approver");
+                    return (
+                      <Stack key={assignment.id || `${name}-${index}`} direction="row" spacing={1.25} alignItems="center" sx={{ p: 1.25, border: "1px solid #e2e8f0", borderRadius: 1.5 }}>
+                        <Box sx={{ width: 26, height: 26, borderRadius: "50%", bgcolor: "#ede9fe", color: "#4c1d95", display: "grid", placeItems: "center", fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{assignment.order || assignment.levelOrder || index + 1}</Box>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography sx={{ color: "#1e293b", fontSize: 13, fontWeight: 700 }}>{name}</Typography>
+                          <Typography noWrap sx={{ color: "#64748b", fontSize: 11.5 }}>{role}{email ? ` · ${email}` : ""}</Typography>
+                        </Box>
+                      </Stack>
+                    );
+                  })}
+                </Stack>
+              ) : (
+                <Box sx={{ p: 1.5, bgcolor: "#f8fafc", borderRadius: 1.5 }}>
+                  <Typography sx={{ color: "#64748b", fontSize: 12.5 }}>The backend did not return named assignments. Approvers can be viewed in My Requests once assigned.</Typography>
+                </Box>
+              )}
+            </Box>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: "center", pb: 2.5 }}>
+        <DialogActions sx={{ px: 3, py: 2, borderTop: "1px solid #e2e8f0" }}>
           <Button
             variant="contained"
             onClick={() => {

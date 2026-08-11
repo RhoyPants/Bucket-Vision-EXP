@@ -68,6 +68,7 @@ interface ProjectCardProps {
   gridTemplate?: string;
   actionMode?: "default" | "approval";
   showActions?: boolean;
+  nextApproverName?: string;
 }
 
 export const formatLocation = (location?: ProjectCardProject["location"]): string => {
@@ -223,10 +224,11 @@ function DateRangeMeta({
   );
 }
 
-function ApprovalStatusBadge({ project, onViewApproval, onResubmit }: {
+function ApprovalStatusBadge({ project, onViewApproval, onResubmit, nextApproverName }: {
   project: ProjectCardProject;
   onViewApproval: () => void;
   onResubmit: () => void;
+  nextApproverName?: string;
 }) {
   const status = project.status;
   const tone = statusChipColor(status);
@@ -267,9 +269,16 @@ function ApprovalStatusBadge({ project, onViewApproval, onResubmit }: {
         sx={{ ...badgeBase, cursor: "pointer", "&:hover": { borderColor: tone.color } }}
       >
         <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: tone.border, flexShrink: 0 }} />
-        <Typography sx={{ fontSize: 11, fontWeight: 700, color: tone.color }}>
-          {status === "FOR_REVIEW" ? "Pending BU Review" : "Pending OP Approval"}
-        </Typography>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontSize: 11, fontWeight: 700, color: tone.color }}>
+            {status === "FOR_REVIEW" ? "Pending Review" : "Pending Approval"}
+          </Typography>
+          {nextApproverName && (
+            <Typography noWrap title={nextApproverName} sx={{ mt: 0.1, maxWidth: 210, fontSize: 10, color: "#64748b", fontWeight: 600 }}>
+              Next: {nextApproverName}
+            </Typography>
+          )}
+        </Box>
         <Typography sx={{ fontSize: 10, color: "#475569", ml: "auto", fontWeight: 700 }}>View</Typography>
       </Box>
     );
@@ -305,6 +314,7 @@ export default function ProjectCard({
   gridTemplate = "1fr 110px 170px 110px 80px 80px",
   actionMode = "default",
   showActions = true,
+  nextApproverName,
 }: ProjectCardProps) {
   const isArchived = project.status === "ARCHIVED";
   const chipStyle = statusChipColor(project.status);
@@ -619,6 +629,7 @@ export default function ProjectCard({
           project={project}
           onViewApproval={() => actions.onViewApproval(project)}
           onResubmit={() => actions.onSubmitForApproval(project)}
+          nextApproverName={nextApproverName}
         />
       </Box>
 

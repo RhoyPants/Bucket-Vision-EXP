@@ -11,14 +11,14 @@
  * @returns Formatted currency string
  */
 export const formatBudget = (value?: number | string, includeSymbol = false): string => {
-  if (value === undefined || value === null) return "0";
+  if (value === undefined || value === null) return includeSymbol ? "â‚±0.00" : "0.00";
   
   const numValue = typeof value === "string" ? parseFloat(value) : value;
   
-  if (isNaN(numValue)) return "0";
+  if (isNaN(numValue)) return includeSymbol ? "â‚±0.00" : "0.00";
   
   const formatted = numValue.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
   
@@ -57,11 +57,11 @@ export const formatBudgetShort = (value?: number | string): string => {
  * @returns Formatted percentage string
  */
 export const formatPercent = (value?: number | string, decimals = 2): string => {
-  if (value === undefined || value === null) return "0%";
+  if (value === undefined || value === null) return `${(0).toFixed(decimals)}%`;
   
   const numValue = typeof value === "string" ? parseFloat(value) : value;
   
-  if (isNaN(numValue)) return "0%";
+  if (isNaN(numValue)) return `${(0).toFixed(decimals)}%`;
   
   return numValue.toFixed(decimals) + "%";
 };

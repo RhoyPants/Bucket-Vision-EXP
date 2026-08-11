@@ -1,7 +1,7 @@
 import { Card, Box, Typography, LinearProgress, Stack, Divider } from "@mui/material";
 import { Scope, CompareTheme, getCompareTheme } from "./types";
 import TaskRow from "./TaskRow";
-import { formatBudget } from "@/app/utils/formatters";
+import { formatBudget, formatPercent } from "@/app/utils/formatters";
 
 interface ScopeCardProps {
   scope: Scope;
@@ -28,8 +28,8 @@ export default function ScopeCard({ scope, theme }: ScopeCardProps) {
     >
       {/* SCOPE HEADER */}
       <Box sx={{ p: 2.5, bgcolor: ct ? ct.background : "#ffffff", borderBottom: ct ? `1px solid ${ct.border}` : "1px solid #e5e7eb" }}>
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
-          <Box>
+        <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto auto", alignItems: "start", columnGap: 3, mb: 1.5 }}>
+          <Box sx={{ minWidth: 0 }}>
             <Typography fontWeight={700} fontSize={16} sx={{ color: ct ? ct.text : "#1f2937", mb: 0.5 }}>
               {scope.name}
             </Typography>
@@ -49,12 +49,12 @@ export default function ScopeCard({ scope, theme }: ScopeCardProps) {
               </Typography>
             </Box>
           )}
-          <Box sx={{ textAlign: "right", flexShrink: 0, ml: 2 }}>
+          <Box sx={{ textAlign: "right", flexShrink: 0 }}>
             <Typography variant="caption" sx={{ color: "#6b7280", fontWeight: 600, display: "block", mb: 0.25 }}>
               Weight
             </Typography>
             <Typography fontWeight={700} fontSize={14} sx={{ color: "#1f2937" }}>
-              {Number(scope.budgetPercent || 0).toFixed(2)}%
+              {formatPercent(scope.budgetPercent)}
             </Typography>
           </Box>
         </Box>
@@ -63,7 +63,7 @@ export default function ScopeCard({ scope, theme }: ScopeCardProps) {
         <Box>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.75 }}>
             <Typography variant="caption" sx={{ color: "#6b7280", fontWeight: 600 }}>Overall Progress</Typography>
-            <Typography variant="caption" sx={{ color: "#1f2937", fontWeight: 700 }}>{scope.progress}%</Typography>
+            <Typography variant="caption" sx={{ color: "#1f2937", fontWeight: 700 }}>{formatPercent(scope.progress)}</Typography>
           </Box>
           <LinearProgress
             variant="determinate"

@@ -9,6 +9,7 @@ import {
   Checkbox,
   CircularProgress,
   FormControlLabel,
+  IconButton,
   Stack,
   Table,
   TableBody,
@@ -17,7 +18,10 @@ import {
   TableHead,
   TableRow,
   Typography,
+  Tooltip,
 } from "@mui/material";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import { DashboardReportTable } from "@/app/api-service/personalDashboardService";
 
 type TimelineValue = {
@@ -324,6 +328,7 @@ export default function ProjectedActualTimelineChart({
   const [showActual, setShowActual] = useState(true);
   const [showProjectedPercent, setShowProjectedPercent] = useState(false);
   const [showActualPercent, setShowActualPercent] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const project = useMemo(() => unwrapProject(projectTree), [projectTree]);
   const activeProject =
@@ -337,8 +342,14 @@ export default function ProjectedActualTimelineChart({
   const hasProjectTree = Boolean(activeProject?.scopes?.length);
 
   return (
-    <Card sx={{ borderRadius: 2, border: "1px solid #dbeafe", boxShadow: "none", bgcolor: "#fff" }}>
-      <CardContent>
+    <Card sx={{
+      borderRadius: isFullscreen ? 0 : 2,
+      border: "1px solid #dbeafe",
+      boxShadow: isFullscreen ? "0 24px 60px rgba(15,23,42,.24)" : "none",
+      bgcolor: "#fff",
+      ...(isFullscreen && { position: "fixed", inset: 0, zIndex: 1400, width: "100vw", height: "100vh" }),
+    }}>
+      <CardContent sx={{ height: isFullscreen ? "100%" : "auto", display: "flex", flexDirection: "column" }}>
         <Stack
           direction={{ xs: "column", lg: "row" }}
           spacing={1.5}
@@ -373,6 +384,16 @@ export default function ProjectedActualTimelineChart({
               label="Actual %"
               sx={{ "& .MuiFormControlLabel-label": { fontSize: 12, fontWeight: 800 } }}
             />
+            <Tooltip title={isFullscreen ? "Exit full screen" : "Show full screen"}>
+              <IconButton
+                size="small"
+                onClick={() => setIsFullscreen((current) => !current)}
+                aria-label={isFullscreen ? "Exit full screen" : "Show timeline full screen"}
+                sx={{ border: "1px solid #CBD5E1", borderRadius: 1.5 }}
+              >
+                {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+              </IconButton>
+            </Tooltip>
           </Stack>
         </Stack>
 
@@ -385,7 +406,7 @@ export default function ProjectedActualTimelineChart({
         ) : !hasProjectTree ? (
           <Alert severity="info">Project scope, task, and subtask data is not available yet.</Alert>
         ) : (
-          <TableContainer sx={{ border: `1px solid ${gridBorder}`, overflow: "auto", maxHeight: 560 }}>
+          <TableContainer sx={{ border: `1px solid ${gridBorder}`, overflow: "auto", maxHeight: isFullscreen ? "none" : 560, flex: isFullscreen ? 1 : "initial", minHeight: 0 }}>
             <Table
               size="small"
               stickyHeader

@@ -27,6 +27,14 @@ export interface MaintenanceRecord {
   updatedAt?: string;
 }
 
+export interface MaintenanceHierarchyTask extends MaintenanceRecord {
+  subtasks?: MaintenanceRecord[];
+}
+
+export interface MaintenanceHierarchyScope extends MaintenanceRecord {
+  tasks?: MaintenanceHierarchyTask[];
+}
+
 export interface MaintenancePayload {
   code?: string;
   name?: string;
@@ -58,6 +66,18 @@ const pluralPath: Record<MaintenanceKind, string> = {
   subtask: "subtasks",
 };
 
+const maintenanceListInFlight = new Map<MaintenanceKind, Promise<MaintenanceRecord[]>>();
+const relatedListInFlight = new Map<string, Promise<MaintenanceRecord[]>>();
+let hierarchyInFlight: Promise<MaintenanceHierarchyScope[]> | null = null;
+
+const dedupeRelatedRequest = (key: string, request: () => Promise<MaintenanceRecord[]>) => {
+  const existing = relatedListInFlight.get(key);
+  if (existing) return existing;
+  const pending = request().finally(() => relatedListInFlight.delete(key));
+  relatedListInFlight.set(key, pending);
+  return pending;
+};
+
 const unwrapList = (payload: unknown): MaintenanceRecord[] => {
   if (Array.isArray(payload)) return payload as MaintenanceRecord[];
   if (!payload || typeof payload !== "object") return [];
@@ -78,24 +98,44 @@ const unwrapList = (payload: unknown): MaintenanceRecord[] => {
 };
 
 export async function getMaintenanceRecords(kind: MaintenanceKind) {
-  const response = await axiosApi.get(
-    `${baseRoute}/${pluralPath[kind]}?active=false`,
-  );
-  return unwrapList(response.data);
+  const existing = maintenanceListInFlight.get(kind);
+  if (existing) return existing;
+
+  const request = axiosApi
+    .get(`${baseRoute}/${pluralPath[kind]}?active=false`)
+    .then((response) => unwrapList(response.data))
+    .finally(() => maintenanceListInFlight.delete(kind));
+  maintenanceListInFlight.set(kind, request);
+  return request;
+}
+
+export async function getMaintenanceHierarchy() {
+  if (hierarchyInFlight) return hierarchyInFlight;
+  hierarchyInFlight = axiosApi
+    .get(`${baseRoute}/hierarchy?active=false`)
+    .then((response) => unwrapList(response.data) as MaintenanceHierarchyScope[])
+    .finally(() => {
+      hierarchyInFlight = null;
+    });
+  return hierarchyInFlight;
 }
 
 export async function getTasksForScope(scopeMaintenanceId: string) {
-  const response = await axiosApi.get(`${baseRoute}/tasks`, {
-    params: { scopeMaintenanceId, active: false },
+  return dedupeRelatedRequest(`scope:${scopeMaintenanceId}`, async () => {
+    const response = await axiosApi.get(`${baseRoute}/tasks`, {
+      params: { scopeMaintenanceId, active: false },
+    });
+    return unwrapList(response.data);
   });
-  return unwrapList(response.data);
 }
 
 export async function getSubtasksForTask(taskMaintenanceId: string) {
-  const response = await axiosApi.get(`${baseRoute}/subtasks`, {
-    params: { taskMaintenanceId, active: false },
+  return dedupeRelatedRequest(`task:${taskMaintenanceId}`, async () => {
+    const response = await axiosApi.get(`${baseRoute}/subtasks`, {
+      params: { taskMaintenanceId, active: false },
+    });
+    return unwrapList(response.data);
   });
-  return unwrapList(response.data);
 }
 
 export async function createMaintenanceRecord(

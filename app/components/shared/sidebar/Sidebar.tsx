@@ -25,7 +25,12 @@ import { getMyApprovals, getMyRequests } from "@/app/api-service/projectService"
 const drawerWidth = 240;
 const collapsedDrawerWidth = 80;
 const sidebarCollapsedStorageKey = "bv-sidebar-collapsed";
-const settingsTabs = [
+const settingsTabs: Array<{
+  key: string;
+  label: string;
+  permissionKey: string;
+  fallbackPermissionKey?: string;
+}> = [
   { key: "profile", label: "My Profile", permissionKey: "settings_profile" },
   { key: "roles", label: "Roles", permissionKey: "settings_roles" },
   { key: "users", label: "Users", permissionKey: "settings_users" },
@@ -36,7 +41,8 @@ const settingsTabs = [
   { key: "modules", label: "Modules", permissionKey: "settings_modules" },
   { key: "businessUnits", label: "Business Units", permissionKey: "settings_business_units" },
   { key: "projectMaintenance", label: "Project Maintenance", permissionKey: "settings_project_maintenance" },
-] as const;
+  { key: "holidayMaintenance", label: "Holiday Maintenance", permissionKey: "settings_holiday_maintenance", fallbackPermissionKey: "admin" },
+];
 
 const mainNavItems = [
   { label: "Dashboard", href: "/dashboard", permissionKey: "dashboard", icon: <DashboardOutlinedIcon /> },
@@ -99,7 +105,11 @@ export default function Sidebar() {
     needsRevision: 0,
   });
   const allowedSettingsTabs = hydrated
-    ? settingsTabs.filter((tab) => canView(tab.permissionKey))
+    ? settingsTabs.filter(
+        (tab) =>
+          canView(tab.permissionKey) ||
+          Boolean(tab.fallbackPermissionKey && canView(tab.fallbackPermissionKey)),
+      )
     : [];
   const canViewSettings = hydrated
     ? canView("settings") || allowedSettingsTabs.length > 0
@@ -209,12 +219,12 @@ export default function Sidebar() {
           </Box>
         ) : (
           <Image
-            src="/images/GVI_LOGO_DARK.png"
+            src="/images/LOGO.png"
             width={130}
             height={42}
             priority
             alt="GVI Logo"
-            style={{ display: "block", width: 130, height: "auto", filter: "brightness(0) invert(1)" }}
+            style={{ display: "block", width: 130, height: "auto"}}
           />
         )}
       </Box>

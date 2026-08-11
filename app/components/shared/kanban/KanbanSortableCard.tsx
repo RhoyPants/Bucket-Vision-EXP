@@ -14,7 +14,6 @@ import {
   addChecklist,
   deleteChecklist,
   toggleChecklist,
-  deleteSubtask,
 } from "@/app/redux/controllers/subTaskController";
 
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -105,11 +104,6 @@ export default function KanbanSortableCard({
     transition: transition || "transform 250ms ease",
     cursor: showHierarchy && parentTaskId === null ? "default" : isDragging ? "grabbing" : "grab",
     opacity: isDragging ? 0.5 : 1,
-  };
-
-  const handleDeleteSubtask = async () => {
-    if (!confirm("Delete this subtask?")) return;
-    await dispatch(deleteSubtask(subtask.id, subtask.parentTaskId) as any);
   };
 
   const getProgressColor = (progress?: number) => {
@@ -337,20 +331,6 @@ export default function KanbanSortableCard({
                 </IconButton>
               </Tooltip>
 
-                <Tooltip title="Delete Subtask" arrow>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={handleDeleteSubtask}
-                    sx={{
-                      background: "#fff",
-                      border: "1px solid #eee",
-                      "&:hover": { background: "#fdecea" },
-                    }}
-                  >
-                    <DeleteOutlineIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
               </>
             )}
           </Box>
@@ -663,7 +643,7 @@ export default function KanbanSortableCard({
               Progress
             </Typography>
             <Typography fontSize={isTaskBoardCard ? 11 : 12} fontWeight={800}>
-              {subtask.progress || 0}%
+              {Number(subtask.progress || 0).toFixed(2)}%
             </Typography>
           </Box>
 

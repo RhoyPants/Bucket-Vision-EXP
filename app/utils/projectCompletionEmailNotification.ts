@@ -1,6 +1,7 @@
 import axiosApi from "@/app/lib/axios";
 import { sendEmail } from "@/app/api-service/emailService";
 import { buildProjectCompletionEmailHTML } from "@/app/components/shared/email/ProjectCompletionEmailTemplate";
+import { formatEmailDateTime } from "@/app/utils/emailDateTime";
 
 type Recipient = {
   id?: string;
@@ -46,16 +47,6 @@ type CompletionNotificationOptions = {
   actualEndDate: string;
   remarks?: string;
   completedBy?: string;
-};
-
-const formatDate = (value: string) => {
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
 };
 
 const normalizeRecipient = (recipient: Recipient) => ({
@@ -119,7 +110,7 @@ export async function notifyProjectCompletion({
     typeof window !== "undefined"
       ? `${window.location.origin}/projectDashboard/${projectId}?view=project-info`
       : "";
-  const completionDate = formatDate(actualEndDate);
+  const completionDate = formatEmailDateTime(new Date());
   const results = await Promise.allSettled(
     Array.from(uniqueRecipients.values()).map((recipient) =>
       sendEmail({

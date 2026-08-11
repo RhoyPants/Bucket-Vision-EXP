@@ -52,6 +52,7 @@ interface ProjectsGridProps {
   actionMode?: "default" | "approval";
   legendItems?: Array<{ label: string; color: string }>;
   showActions?: boolean;
+  showRequestTrackingColumns?: boolean;
 }
 
 type ProjectGridItem = {
@@ -83,6 +84,12 @@ type ProjectGridItem = {
     cityName?: string;
     provinceName?: string;
   } | null;
+  createdAt?: string;
+  submittedAt?: string;
+  nextApprover?: { name?: string; email?: string } | string | null;
+  approvals?: any[];
+  projectApprovals?: any[];
+  approvalSteps?: any[];
 };
 
 type ProjectVersionSource = {
@@ -108,6 +115,7 @@ export default function ProjectsGrid({
   actionMode = "default",
   legendItems,
   showActions = true,
+  showRequestTrackingColumns = false,
 }: ProjectsGridProps) {
   const { canCreate } = usePermissions();
   const canCreateProject = canCreate("projects");
@@ -164,6 +172,33 @@ export default function ProjectsGrid({
     letterSpacing: 0.5,
     borderBottom: `1px solid ${brandColors.lavender}`,
     whiteSpace: "nowrap",
+  };
+
+  const formatDateTime = (value?: string) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    return new Intl.DateTimeFormat("en-PH", {
+      timeZone: "Asia/Manila",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(date);
+  };
+
+  const nextApproverName = (project: ProjectGridItem) => {
+    if (typeof project.nextApprover === "string") return project.nextApprover;
+    if (project.nextApprover?.name) return project.nextApprover.name;
+    const approvals = project.approvals || project.projectApprovals || project.approvalSteps || [];
+    const pending = approvals
+      .filter((approval: any) => String(approval.status || "PENDING").toUpperCase() === "PENDING")
+      .sort((a: any, b: any) => Number(a.order ?? a.stepOrder ?? a.sequence ?? 999) - Number(b.order ?? b.stepOrder ?? b.sequence ?? 999));
+    const next = pending[0];
+    if (!next) return ["ACTIVE", "APPROVED", "COMPLETED"].includes(String(project.status).toUpperCase()) ? "Approval complete" : "Not assigned";
+    return next.approverName || next.approver?.name || next.reviewerName || next.reviewer?.name || next.user?.name || next.role || next.level || "Assigned approver";
   };
 
   const tableBodyCellSx = {
@@ -323,7 +358,7 @@ export default function ProjectsGrid({
           <Table
             stickyHeader
             sx={{
-              minWidth: { xs: 860, md: 920 },
+              minWidth: { xs: showRequestTrackingColumns ? 1160 : 860, md: showRequestTrackingColumns ? 1220 : 920 },
               tableLayout: "fixed",
               "& .MuiTableCell-root": {
                 px: { xs: 1.25, md: 1.75 },
@@ -356,6 +391,12 @@ export default function ProjectsGrid({
                 <TableCell sx={{ ...tableHeadCellSx, width: 180, bgcolor: brandColors.aliceBlue }}>
                   Business Unit
                 </TableCell>
+                {showRequestTrackingColumns && <TableCell sx={{ ...tableHeadCellSx, width: 170, bgcolor: brandColors.aliceBlue }}>
+                  Requested At
+                </TableCell>}
+                {showRequestTrackingColumns && <TableCell sx={{ ...tableHeadCellSx, width: 170, bgcolor: brandColors.aliceBlue }}>
+                  Next Approver
+                </TableCell>}
                 {showActionColumn && <TableCell
                   align="center"
                   className="project-action-cell"
@@ -442,6 +483,18 @@ export default function ProjectsGrid({
                         </Typography>
                       </Tooltip>
                     </TableCell>
+                    {showRequestTrackingColumns && <TableCell sx={tableBodyCellSx}>
+                      <Typography sx={{ fontSize: 12, color: "#3F3B4D", whiteSpace: "nowrap" }}>
+                        {formatDateTime(project.submittedAt || project.createdAt)}
+                      </Typography>
+                    </TableCell>}
+                    {showRequestTrackingColumns && <TableCell sx={tableBodyCellSx}>
+                      <Tooltip title={nextApproverName(project)}>
+                        <Typography noWrap sx={{ fontSize: 12.5, color: "#3F3B4D", fontWeight: 600 }}>
+                          {nextApproverName(project)}
+                        </Typography>
+                      </Tooltip>
+                    </TableCell>}
                     {showActionColumn && <TableCell
                       align="center"
                       className="project-action-cell"
@@ -537,6 +590,7 @@ export default function ProjectsGrid({
               viewType="card"
               actionMode={actionMode}
               showActions={showActions}
+              nextApproverName={showRequestTrackingColumns ? nextApproverName(project) : undefined}
             />
           </Grid>
         ))}

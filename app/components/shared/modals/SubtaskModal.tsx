@@ -62,7 +62,6 @@ export default function SubtaskModal({
     projectedEndDate: "",
     budgetAllocated: 0,
     budgetPercent: 0,
-    remarks: "",
     users: [],
   });
 
@@ -89,7 +88,6 @@ export default function SubtaskModal({
         projectedEndDate: "",
         budgetAllocated: 0,
         budgetPercent: 0,
-        remarks: "",
         users: [],
       });
       setLocalMode("create");
@@ -123,7 +121,6 @@ export default function SubtaskModal({
           projectedEndDate: subtask.projectedEndDate || "",
           budgetAllocated: subtask.budgetAllocated || 0,
           budgetPercent: subtask.budgetPercent || 0,
-          remarks: subtask.remarks || "",
           users: assignedUsers,
         });
         setLocalMode("view");
@@ -234,7 +231,6 @@ export default function SubtaskModal({
         projectedStartDate: form.projectedStartDate,
         projectedEndDate: form.projectedEndDate,
         budgetAllocated: form.budgetAllocated,
-        remarks: form.remarks,
         userIds,
       },
       taskBudget
@@ -258,7 +254,6 @@ export default function SubtaskModal({
               projectedEndDate: form.projectedEndDate,
               budgetAllocated: form.budgetAllocated,
               budgetPercent: budgetPercent,
-              remarks: form.remarks,
               userIds,
             },
             taskId
@@ -277,7 +272,6 @@ export default function SubtaskModal({
               projectedEndDate: form.projectedEndDate,
               budgetAllocated: form.budgetAllocated,
               budgetPercent: budgetPercent,
-              remarks: form.remarks,
               userIds,
             },
             updateTaskId  // 🔥 Pass taskId to reload kanban
@@ -435,23 +429,6 @@ export default function SubtaskModal({
             sx={readableDisabledFieldSx}
           />
 
-          {/* Remarks */}
-          <TextField
-            label="Remarks (Optional)"
-            fullWidth
-            size="small"
-            multiline
-            rows={2}
-            value={form.remarks}
-            onChange={(e) => handleChange("remarks", e.target.value)}
-            error={hasFieldError("remarks", errors)}
-            helperText={
-              getFieldError("remarks", errors) || `${form.remarks?.length || 0}/500`
-            }
-            disabled={saving}
-            InputProps={{ readOnly: isViewOnly }}
-            sx={readableDisabledFieldSx}
-          />
         </Box>
       </DialogContent>
 

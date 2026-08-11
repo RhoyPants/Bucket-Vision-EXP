@@ -32,13 +32,11 @@ import KeyboardArrowUpOutlinedIcon from "@mui/icons-material/KeyboardArrowUpOutl
 import {
   createMaintenanceRecord,
   bulkUpdateMaintenanceStatus,
-  getMaintenanceRecords,
+  getMaintenanceHierarchy,
   MaintenanceKind,
   MaintenancePayload,
   MaintenanceRecord,
   MaintenanceRelation,
-  getSubtasksForTask,
-  getTasksForScope,
   reorderScopes,
   reorderSubtasksForTask,
   reorderTasksForScope,
@@ -177,6 +175,7 @@ export default function ProjectMaintenance() {
   const [reorderingKey, setReorderingKey] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [scopeFilterId, setScopeFilterId] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] =
     useState<MaintenanceRecord | null>(null);
@@ -187,26 +186,28 @@ export default function ProjectMaintenance() {
     try {
       setLoading(true);
       setError("");
-      const [scopes, tasks, subtasks] = await Promise.all([
-        getMaintenanceRecords("scope"),
-        getMaintenanceRecords("task"),
-        getMaintenanceRecords("subtask"),
-      ]);
-      const scopedTaskEntries = await Promise.all(
-        scopes.map(async (scope) => [
-          scope.id,
-          await getTasksForScope(scope.id),
-        ] as const),
-      );
-      const taskSubtaskEntries = await Promise.all(
-        tasks.map(async (task) => [
-          task.id,
-          await getSubtasksForTask(task.id),
-        ] as const),
-      );
+      const scopes = await getMaintenanceHierarchy();
+      const taskMap = new Map<string, MaintenanceRecord>();
+      const subtaskMap = new Map<string, MaintenanceRecord>();
+      const groupedTasks: Record<string, MaintenanceRecord[]> = {};
+      const groupedSubtasks: Record<string, MaintenanceRecord[]> = {};
+
+      scopes.forEach((scope) => {
+        const scopeTasks = scope.tasks || [];
+        groupedTasks[scope.id] = scopeTasks;
+        scopeTasks.forEach((task) => {
+          taskMap.set(task.id, task);
+          const taskSubtasks = task.subtasks || [];
+          groupedSubtasks[task.id] = taskSubtasks;
+          taskSubtasks.forEach((subtask) => subtaskMap.set(subtask.id, subtask));
+        });
+      });
+
+      const tasks = Array.from(taskMap.values());
+      const subtasks = Array.from(subtaskMap.values());
       setRecords({ scope: scopes, task: tasks, subtask: subtasks });
-      setTasksByScope(Object.fromEntries(scopedTaskEntries));
-      setSubtasksByTask(Object.fromEntries(taskSubtaskEntries));
+      setTasksByScope(groupedTasks);
+      setSubtasksByTask(groupedSubtasks);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -542,6 +543,9 @@ export default function ProjectMaintenance() {
   };
 
   const sortedScopes = records.scope;
+  const visibleScopes = scopeFilterId
+    ? sortedScopes.filter((scope) => scope.id === scopeFilterId)
+    : sortedScopes;
   const displayTasksForScope = (scopeId: string) =>
     tasksByScope[scopeId] || [];
   const displaySubtasksForTask = (taskId: string) =>
@@ -684,6 +688,35 @@ export default function ProjectMaintenance() {
         </Alert>
       ) : null}
 
+      {!loading && sortedScopes.length > 0 ? (
+        <Paper variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: "#FAFAFC" }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1.5}
+            alignItems={{ xs: "stretch", sm: "center" }}
+          >
+            <TextField
+              select
+              size="small"
+              label="Filter by scope"
+              value={scopeFilterId}
+              onChange={(event) => setScopeFilterId(event.target.value)}
+              sx={{ minWidth: { xs: "100%", sm: 320 } }}
+            >
+              <MenuItem value="">All scopes ({sortedScopes.length})</MenuItem>
+              {sortedScopes.map((scope) => (
+                <MenuItem key={scope.id} value={scope.id}>
+                  {scope.code} — {scope.name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Typography sx={{ color: "#64748B", fontSize: 12 }}>
+              Showing {visibleScopes.length} of {sortedScopes.length} scopes
+            </Typography>
+          </Stack>
+        </Paper>
+      ) : null}
+
       {loading ? (
         <Paper
           variant="outlined"
@@ -698,7 +731,8 @@ export default function ProjectMaintenance() {
         </Alert>
       ) : (
         <Stack spacing={2}>
-          {sortedScopes.map((scope, scopeIndex) => {
+          {visibleScopes.map((scope) => {
+            const scopeIndex = sortedScopes.findIndex((item) => item.id === scope.id);
             const scopeTasks = displayTasksForScope(scope.id);
             return (
               <Paper

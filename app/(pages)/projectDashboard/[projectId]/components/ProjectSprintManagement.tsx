@@ -217,6 +217,8 @@ export default function ProjectSprintManagement({ projectId }: { projectId: stri
         <Stack direction="row" spacing={1} sx={{ p: 1, overflowX: "auto" }}>
           {tasks.length ? tasks.map((task) => {
             const active = task.id === selectedTask?.id;
+            const taskTitle = task.title || task.name || "Untitled Task";
+            const taskCardWidth = Math.min(360, Math.max(180, 180 + Math.max(0, taskTitle.length - 20) * 5));
             return (
               <Box
                 key={task.id}
@@ -232,7 +234,7 @@ export default function ProjectSprintManagement({ projectId }: { projectId: stri
                 aria-pressed={active}
                 aria-label={`Select task ${task.title || task.name || "Untitled Task"}`}
                 sx={{
-                  flex: "0 0 180px",
+                  flex: `0 0 ${taskCardWidth}px`,
                   p: 1,
                   borderRadius: 1.5,
                   cursor: "pointer",
@@ -243,13 +245,13 @@ export default function ProjectSprintManagement({ projectId }: { projectId: stri
                   "&:hover": { transform: "translateY(-1px)", borderColor: "#5EEAD4", boxShadow: "0 4px 9px rgba(13, 148, 136, 0.10)" },
                 }}
               >
-                <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 900, color: "#115E59" }}>
-                  {task.title || task.name || "Untitled Task"}
+                <Typography noWrap title={taskTitle} sx={{ fontSize: 12.5, fontWeight: 900, color: "#115E59" }}>
+                  {taskTitle}
                 </Typography>
 
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 0.6 }}>
                   <Typography sx={{ fontSize: 10, fontWeight: 700, color: "#64748B" }}>Progress</Typography>
-                  <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: "#0F766E" }}>{Number(task.progress ?? 0).toFixed(0)}%</Typography>
+                  <Typography sx={{ fontSize: 10.5, fontWeight: 900, color: "#0F766E" }}>{Number(task.progress ?? 0).toFixed(2)}%</Typography>
                 </Stack>
                 <LinearProgress
                   variant="determinate"

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -8,6 +8,7 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  IconButton,
   Stack,
   Table,
   TableBody,
@@ -16,7 +17,10 @@ import {
   TableHead,
   TableRow,
   Typography,
+  Tooltip,
 } from "@mui/material";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import { DashboardReportTable as DashboardReportTableData } from "@/app/api-service/personalDashboardService";
 
 const labelCellSx = {
@@ -67,6 +71,7 @@ export default function DashboardReportTable({
   reportTable: DashboardReportTableData | null;
   loading?: boolean;
 }) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const summaryValuesByRow = useMemo(
     () =>
       new Map(
@@ -98,9 +103,19 @@ export default function DashboardReportTable({
         height: "auto !important",
         maxHeight: "none !important",
         overflow: "visible",
+        ...(isFullscreen && {
+          position: "fixed",
+          inset: 0,
+          zIndex: 1400,
+          width: "100vw",
+          height: "100vh !important",
+          borderRadius: 0,
+          overflow: "hidden",
+          boxShadow: "0 24px 60px rgba(15,23,42,.24)",
+        }),
       }}
     >
-      <CardContent sx={{ height: "auto", maxHeight: "none", overflow: "visible" }}>
+      <CardContent sx={{ height: isFullscreen ? "100%" : "auto", maxHeight: "none", overflow: isFullscreen ? "hidden" : "visible", display: "flex", flexDirection: "column" }}>
         <Stack
           direction={{ xs: "column", md: "row" }}
           justifyContent="space-between"
@@ -132,6 +147,16 @@ export default function DashboardReportTable({
                 sx={{ fontWeight: 700, bgcolor: "#f8fafc", color: "#475569" }}
               />
             )}
+            <Tooltip title={isFullscreen ? "Exit full screen" : "Show full screen"}>
+              <IconButton
+                size="small"
+                onClick={() => setIsFullscreen((current) => !current)}
+                aria-label={isFullscreen ? "Exit full screen" : "Show report table full screen"}
+                sx={{ border: "1px solid #CBD5E1", borderRadius: 1.5 }}
+              >
+                {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+              </IconButton>
+            </Tooltip>
           </Stack>
         </Stack>
 
@@ -146,10 +171,12 @@ export default function DashboardReportTable({
             sx={{
               border: "1px solid #cbd5e1",
               display: "block",
-              height: "auto !important",
-              maxHeight: "none !important",
+              height: isFullscreen ? "100%" : "auto !important",
+              maxHeight: isFullscreen ? "none" : "none !important",
+              flex: isFullscreen ? 1 : "initial",
+              minHeight: 0,
               overflowX: "auto",
-              overflowY: "hidden",
+              overflowY: isFullscreen ? "auto" : "hidden",
               scrollbarGutter: "stable",
               bgcolor: "#fff",
             }}

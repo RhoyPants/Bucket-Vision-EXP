@@ -23,6 +23,7 @@ interface ScopeListProps {
   onDeleteSubtask: (subId: string, taskId: string) => void;
   onEditSubtask: (sub: any, taskId: string) => void;
   onAddSubtask: (taskId: string) => void;
+  onReorderSubtasks: (taskId: string, draggedId: string, targetId: string) => Promise<void>;
 }
 
 export default function ScopeList({
@@ -47,13 +48,15 @@ export default function ScopeList({
   onDeleteSubtask,
   onEditSubtask,
   onAddSubtask,
+  onReorderSubtasks,
 }: ScopeListProps) {
   return (
     <Box mt={4}>
-      {scopes?.map((scope: any) => (
+      {scopes?.map((scope: any, scopeIndex: number) => (
         <ScopeCard
           key={scope.id}
           scope={scope}
+          orderNumber={scopeIndex + 1}
           isInvalidScope={invalidScopeIds.includes(String(scope.id))}
           invalidTaskIds={invalidTaskIds}
           scopeEdit={scopeEdit}
@@ -74,6 +77,7 @@ export default function ScopeList({
           onDeleteSubtask={onDeleteSubtask}
           onEditSubtask={onEditSubtask}
           onAddSubtask={onAddSubtask}
+          onReorderSubtasks={onReorderSubtasks}
         />
       ))}
     </Box>

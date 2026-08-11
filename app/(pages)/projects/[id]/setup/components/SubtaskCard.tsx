@@ -26,6 +26,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SaveIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
+import DragIndicatorRoundedIcon from "@mui/icons-material/DragIndicatorRounded";
 import {
   validateSubtaskForm,
   calculateBudgetPercent,
@@ -39,6 +40,7 @@ import {
 
 interface SubtaskCardProps {
   sub: any;
+  orderLabel: string;
   taskId: string;
   taskBudget: number;
   isEditing: boolean;
@@ -53,6 +55,7 @@ interface SubtaskCardProps {
 
 function SubtaskCard({
   sub,
+  orderLabel,
   taskId,
   taskBudget,
   isEditing,
@@ -119,7 +122,6 @@ function SubtaskCard({
       projectedStartDate: form.projectedStartDate,
       projectedEndDate: form.projectedEndDate,
       budgetAllocated: form.budgetAllocated,
-      remarks: form.remarks,
       userIds,
     };
 
@@ -162,10 +164,14 @@ function SubtaskCard({
         }}
       >
         {/* Title & Priority */}
-        <Box display="flex" alignItems="flex-start" justifyContent="space-between" mb={1}>
-          <Typography fontWeight={600} noWrap flex={1}>
-            {sub.title}
-          </Typography>
+        <Box display="flex" alignItems="flex-start" justifyContent="space-between" gap={0.75} mb={1}>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.35, mb: 0.5 }}>
+              <DragIndicatorRoundedIcon sx={{ color: "#8b5cf6", fontSize: 16 }} />
+              <Chip label={`SUBTASK ${orderLabel}`} size="small" sx={{ height: 20, bgcolor: "#f3e8ff", color: "#6b21a8", fontSize: 8.5, fontWeight: 800 }} />
+            </Box>
+            <Typography fontWeight={600} noWrap>{sub.title}</Typography>
+          </Box>
           {sub.priority && (
             <Chip
               label={sub.priority}
@@ -419,18 +425,18 @@ function SubtaskCard({
         />
       </Box>
 
-      {/* Remarks */}
+      {/* Description */}
       <TextField
         size="small"
-        label="Remarks (Optional)"
-        placeholder="Add remarks..."
+        label="Description (Optional)"
+        placeholder="Add details..."
         multiline
         rows={2}
-        value={form.remarks || ""}
-        onChange={(e) => handleChange("remarks", e.target.value)}
-        onBlur={() => handleBlur("remarks")}
-        error={hasFieldError("remarks", errors)}
-        helperText={getFieldError("remarks", errors) || ""}
+        value={form.description || ""}
+        onChange={(e) => handleChange("description", e.target.value)}
+        onBlur={() => handleBlur("description")}
+        error={hasFieldError("description", errors)}
+        helperText={getFieldError("description", errors) || `${form.description?.length || 0}/500`}
         disabled={saving}
       />
 

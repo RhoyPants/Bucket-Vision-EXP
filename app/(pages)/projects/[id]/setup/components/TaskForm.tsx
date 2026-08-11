@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   TextField,
-  Tooltip,
   CircularProgress,
   Typography,
   Backdrop,
@@ -106,6 +105,13 @@ export default function TaskForm({
         [field]: value,
       },
     }));
+    const fieldHasValue =
+      field === "budgetAllocated"
+        ? Number(value) > 0
+        : typeof value !== "string" || value.trim().length > 0;
+    if (fieldHasValue) {
+      setErrors((current) => current.filter((error) => error.field !== field));
+    }
   };
 
   const handleBlur = (field: string) => {
@@ -120,6 +126,12 @@ export default function TaskForm({
 
     if (!validation.isValid) {
       setErrors(validation.errors);
+      setTouched((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          validation.errors.map((validationError) => [validationError.field, true]),
+        ),
+      }));
       return;
     }
 
@@ -158,8 +170,7 @@ export default function TaskForm({
         justifyContent: "start",
       }}
     >
-      <Tooltip title={titleError || ""} open={!!titleError}>
-        {scopeMaintenanceId ? (
+      {scopeMaintenanceId ? (
           <TextField
             select
             size="small"
@@ -216,10 +227,8 @@ export default function TaskForm({
             helperText="Legacy custom scope"
           />
         )}
-      </Tooltip>
 
-      <Tooltip title={budgetError || ""} open={!!budgetError}>
-        <DecimalBudgetField
+      <DecimalBudgetField
           size="small"
           label="Budget"
           placeholder="0"
@@ -227,10 +236,10 @@ export default function TaskForm({
           onValueChange={(value) => handleChange("budgetAllocated", value)}
           onBlur={() => handleBlur("budgetAllocated")}
           error={!!budgetError}
+          helperText={budgetError || undefined}
           sx={{ flex: "0 1 200px" }}
           disabled={saving}
-        />
-      </Tooltip>
+      />
 
       <Typography
         variant="caption"

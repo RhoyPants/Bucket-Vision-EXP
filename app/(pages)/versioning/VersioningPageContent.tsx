@@ -10,6 +10,7 @@ import {
   Stack,
   Tab,
   Tabs,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
@@ -52,6 +53,7 @@ type ProjectRecord = {
   id?: string;
   name?: string;
   pin?: string;
+  status?: string;
   startDate?: string;
   expectedEndDate?: string;
   totalBudget?: number;
@@ -186,6 +188,16 @@ export function VersioningPageContent({
     versions[0] ||
     null;
 
+  const listedProject = projects?.find((item) => item.id === projectId);
+  const projectStatus = String(
+    project?.status || listedProject?.status || activeVersion?.status || "",
+  ).toUpperCase();
+  const canCreateVersion = projectStatus === "ACTIVE";
+  const openCreateVersionModal = () => {
+    if (!canCreateVersion) return;
+    setCreateVersionModalOpen(true);
+  };
+
   const selectedProjectPin = project?.pin || activeVersion?.pin || pin || "N/A";
   const startDate = project?.startDate || activeVersion?.expectedStartDate || activeVersion?.startDate;
   const endDate = project?.expectedEndDate || activeVersion?.expectedEndDate;
@@ -269,23 +281,28 @@ export function VersioningPageContent({
               </Stack>
             </Box>
             <Guard permissionKey="versioning" action="create">
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setCreateVersionModalOpen(true)}
-                sx={{
-                  height: 36,
-                  px: 2.25,
-                  borderRadius: 2,
-                  textTransform: "none",
-                  fontWeight: 800,
-                  bgcolor: "#210E64",
-                  boxShadow: "none",
-                  "&:hover": { bgcolor: "#180A4D", boxShadow: "none" },
-                }}
-              >
-                Create New Version
-              </Button>
+              <Tooltip title={canCreateVersion ? "" : "New versions can only be created for active projects."} arrow>
+                <span>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={openCreateVersionModal}
+                    disabled={!canCreateVersion}
+                    sx={{
+                      height: 36,
+                      px: 2.25,
+                      borderRadius: 2,
+                      textTransform: "none",
+                      fontWeight: 800,
+                      bgcolor: "#210E64",
+                      boxShadow: "none",
+                      "&:hover": { bgcolor: "#180A4D", boxShadow: "none" },
+                    }}
+                  >
+                    Create New Version
+                  </Button>
+                </span>
+              </Tooltip>
             </Guard>
           </Box>
         ) : (
@@ -316,24 +333,29 @@ export function VersioningPageContent({
 
           <Stack direction="row" spacing={1.25} alignItems="center">
             <Guard permissionKey="versioning" action="create">
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setCreateVersionModalOpen(true)}
-                sx={{
-                  height: 35,
-                  px: 2.5,
-                  borderRadius: 2.25,
-                  textTransform: "none",
-                  fontWeight: 900,
-                  bgcolor: "#210E64",
-                  color: "#FFFFFF",
-                  boxShadow: "none",
-                  "&:hover": { bgcolor: "#180A4D", boxShadow: "none" },
-                }}
-              >
-                Create New Version
-              </Button>
+              <Tooltip title={canCreateVersion ? "" : "New versions can only be created for active projects."} arrow>
+                <span>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={openCreateVersionModal}
+                    disabled={!canCreateVersion}
+                    sx={{
+                      height: 35,
+                      px: 2.5,
+                      borderRadius: 2.25,
+                      textTransform: "none",
+                      fontWeight: 900,
+                      bgcolor: "#210E64",
+                      color: "#FFFFFF",
+                      boxShadow: "none",
+                      "&:hover": { bgcolor: "#180A4D", boxShadow: "none" },
+                    }}
+                  >
+                    Create New Version
+                  </Button>
+                </span>
+              </Tooltip>
             </Guard>
             {!embedded && (
               <Button
@@ -442,6 +464,7 @@ export function VersioningPageContent({
           onClose={() => setCreateVersionModalOpen(false)}
           projectId={projectId}
           projectName={project?.name}
+          projectStatus={projectStatus}
           activeVersion={{
             versionLabel: activeVersion ? getVersionTitle(activeVersion) : "v1",
             expectedEndDate: endDate,

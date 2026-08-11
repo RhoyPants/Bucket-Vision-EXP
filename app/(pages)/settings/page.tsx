@@ -19,6 +19,7 @@ import Modules from "./components/Modules";
 import BusinessUnits from "./components/BusinessUnits";
 import UserRequests from "@/app/(pages)/settings/components/UserRequestsPanel";
 import ProjectMaintenance from "./components/ProjectMaintenance";
+import HolidayMaintenance from "./components/HolidayMaintenance";
 import Guard from "@/app/components/shared/Guard";
 import { usePermissions } from "@/app/lib/usePermissions";
 
@@ -32,6 +33,7 @@ type TabType =
   | "modules"
   | "businessUnits"
   | "projectMaintenance"
+  | "holidayMaintenance"
   | "userRequests";
 
 interface NavItem {
@@ -97,6 +99,13 @@ const NAV_ITEMS: NavItem[] = [
     label: "Project Maintenance",
     permissionKey: "settings_project_maintenance",
     fallbackPermissionKey: "settings_business_units",
+    requiredAction: "view",
+  },
+  {
+    id: "holidayMaintenance",
+    label: "Holiday Maintenance",
+    permissionKey: "settings_holiday_maintenance",
+    fallbackPermissionKey: "admin",
     requiredAction: "view",
   },
 ];
@@ -224,6 +233,8 @@ function SettingsPageContent() {
         );
       case "projectMaintenance":
         return <ProjectMaintenance />;
+      case "holidayMaintenance":
+        return <HolidayMaintenance />;
       case "userRequests":
         return (
           <Guard

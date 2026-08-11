@@ -1,6 +1,7 @@
 import axios from "@/app/lib/axios";
 import { sendEmail } from "@/app/api-service/emailService";
 import { buildApprovalEmailHTML } from "@/app/components/shared/email/ApprovalEmailTemplate";
+import { formatEmailDateTime } from "@/app/utils/emailDateTime";
 
 type Approval = {
   status?: string;
@@ -20,21 +21,6 @@ type ProjectDetails = {
   startDate?: string;
   expectedEndDate?: string;
 };
-
-const dateLabel = (value?: string, includeTime = false) =>
-  value
-    ? new Date(value).toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-        ...(includeTime
-          ? {
-              hour: "numeric",
-              minute: "2-digit",
-            }
-          : {}),
-      })
-    : "—";
 
 export const getApprovalStepOrder = (approval: Approval) => {
   for (const value of [approval.order, approval.stepOrder, approval.sequence, approval.level]) {
@@ -94,10 +80,10 @@ export async function notifyFirstApprovalStep(
             projectName: project.name || "—",
             pin: project.pin || "—",
             priorityType: project.priority || "—",
-            projectedStart: dateLabel(project.startDate),
-            projectedEnd: dateLabel(project.expectedEndDate),
+            projectedStart: formatEmailDateTime(project.startDate),
+            projectedEnd: formatEmailDateTime(project.expectedEndDate),
             requestedBy: requestedBy || "—",
-            date: dateLabel(new Date().toISOString(), true),
+            date: formatEmailDateTime(new Date()),
             approvalUrl,
           }),
         })

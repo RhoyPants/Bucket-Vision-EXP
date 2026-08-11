@@ -1191,14 +1191,14 @@ export default function ProjectInfo({ projectId }: { projectId: string }) {
 
         <Section title="Record information">
           <FieldGrid>
-            <Field label="Project ID" value={project.id} />
-            <Field label="Created on" value={formatDate(project.createdAt)} />
-            <Field label="Last updated" value={formatDate(project.updatedAt)} />
-            <Field label="Activated on" value={formatDate(project.activatedAt)} />
+            <Field label="Project Vision ID #" value="TBD" />
+            <Field label="Created on" value={formatDateTime(project.createdAt)} />
+            <Field label="Last updated" value={formatDateTime(project.updatedAt)} />
+            <Field label="Activated on" value={formatDateTime(project.activatedAt)} />
             <Field
               label="Created by"
-              value={project.createdBy?.name}
-              detail={project.createdBy?.email}
+              value={requester?.name}
+              detail={requester?.email}
             />
             <Field
               label="Completed by"

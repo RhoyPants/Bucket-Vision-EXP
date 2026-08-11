@@ -328,10 +328,10 @@ export default function Users() {
                 <TableCell sx={{ fontSize: 11.5, color: brandColors.deepTwilight, fontWeight: 700, width: "20%" }}>
                   Business Unit
                 </TableCell>
-                <TableCell sx={{ fontSize: 11.5, color: brandColors.deepTwilight, fontWeight: 700, width: "12%" }}>
+                <TableCell sx={{ fontSize: 11.5, color: brandColors.deepTwilight, fontWeight: 700, width: 150, textAlign: "center" }}>
                   Status
                 </TableCell>
-                <TableCell sx={{ fontSize: 11.5, color: brandColors.deepTwilight, fontWeight: 700, width: 86, textAlign: "center" }}>
+                <TableCell sx={{ fontSize: 11.5, color: brandColors.deepTwilight, fontWeight: 700, width: 96, textAlign: "center" }}>
                   Actions
                 </TableCell>
               </TableRow>
@@ -364,12 +364,18 @@ export default function Users() {
                   <TableCell>
                     <Typography sx={{ color: "#4F4B5E", fontSize: 13 }} noWrap title={getBusinessUnitName(user)}>{getBusinessUnitName(user)}</Typography>
                   </TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={1} alignItems="center">
+                  <TableCell sx={{ px: 1.25 }}>
+                    <Stack
+                      direction="row"
+                      spacing={0.75}
+                      alignItems="center"
+                      justifyContent="center"
+                      sx={{ width: "100%" }}
+                    >
                       <Chip
                         label={user?.isActive ? "Active" : "Inactive"}
                         size="small"
-                        sx={{ height: 25, bgcolor: user?.isActive ? "#E5F8F1" : "#F1EFF3", color: user?.isActive ? "#087A57" : "#6F6A78", fontSize: 11.5, fontWeight: 650 }}
+                        sx={{ minWidth: 54, height: 25, bgcolor: user?.isActive ? "#E5F8F1" : "#F1EFF3", color: user?.isActive ? "#087A57" : "#6F6A78", fontSize: 11.5, fontWeight: 650 }}
                       />
                       {canUpdateUser ? (
                         <Switch
@@ -377,6 +383,8 @@ export default function Users() {
                           checked={Boolean(user?.isActive)}
                           disabled={statusUpdatingId === user.id}
                           onChange={() => handleToggleUserStatus(user)}
+                          inputProps={{ "aria-label": `${user.name || user.fullName || "User"} status` }}
+                          sx={{ flexShrink: 0, m: 0 }}
                         />
                       ) : null}
                     </Stack>

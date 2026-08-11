@@ -54,6 +54,7 @@ export default function MyRequestsPage() {
   const [businessUnitFilter, setBusinessUnitFilter] = useState("ALL");
   const [needsRevisionOpen, setNeedsRevisionOpen] = useState(false);
   const [needsRevisionInfo, setNeedsRevisionInfo] = useState<any>(null);
+  const [approvalsByProject, setApprovalsByProject] = useState<Record<string, any[]>>({});
 
   const openNeedsRevisionModal = async (project: any) => {
     try {
@@ -119,6 +120,35 @@ export default function MyRequestsPage() {
     return (projects || []) as MyRequestProject[];
   }, [projects]);
 
+  useEffect(() => {
+    let active = true;
+    const loadApprovalRoutes = async () => {
+      const results = await Promise.allSettled(
+        myRequests.map(async (project) => {
+          const response = await axiosApi.get(`/approvals/${project.id}`);
+          const data = response.data?.data;
+          const approvals = Array.isArray(data)
+            ? data
+            : Array.isArray(data?.approvals)
+              ? data.approvals
+              : Array.isArray(response.data?.approvals)
+                ? response.data.approvals
+                : [];
+          return [project.id, approvals] as const;
+        }),
+      );
+      if (!active) return;
+      const next: Record<string, any[]> = {};
+      results.forEach((result) => {
+        if (result.status === "fulfilled") next[result.value[0]] = result.value[1];
+      });
+      setApprovalsByProject(next);
+    };
+    if (myRequests.length) void loadApprovalRoutes();
+    else setApprovalsByProject({});
+    return () => { active = false; };
+  }, [myRequests]);
+
   const businessUnitOptions = useMemo(() => {
     const buMap = new Map<string, string>();
     myRequests.forEach((project) => {
@@ -132,8 +162,11 @@ export default function MyRequestsPage() {
   }, [myRequests]);
 
   const filteredRequests = useMemo(() => {
-    return myRequests;
-  }, [myRequests, pagination.total]);
+    return myRequests.map((project) => ({
+      ...project,
+      approvals: approvalsByProject[project.id] || [],
+    }));
+  }, [approvalsByProject, myRequests]);
 
   const actions: ProjectCardActions = {
     onOpenDashboard: async (projectId) => {
@@ -281,6 +314,7 @@ export default function MyRequestsPage() {
             pagination={pagination}
             onPageChange={setPage}
             showActions={false}
+            showRequestTrackingColumns
           />
 
           <NeedsRevisionModal

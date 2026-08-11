@@ -31,6 +31,7 @@ interface VersioningActionModalProps {
   onClose: () => void;
   projectId: string;
   projectName?: string;
+  projectStatus?: string;
   activeVersion?: any;
 }
 
@@ -39,6 +40,7 @@ export default function VersioningActionModal({
   onClose,
   projectId,
   projectName = "Project",
+  projectStatus,
   activeVersion,
 }: VersioningActionModalProps) {
   const dispatch = useDispatch<AppDispatch>();
@@ -52,6 +54,13 @@ export default function VersioningActionModal({
   const [action, setAction] = useState<"choose" | "proceed" | "create">("choose");
   const [loadingAction, setLoadingAction] = useState(false);
   const [actionError, setActionError] = useState("");
+  const canCreateVersion = String(projectStatus || "").toUpperCase() === "ACTIVE";
+
+  const validateActiveProject = () => {
+    if (canCreateVersion) return true;
+    setActionError("A new version can only be created when the project is active.");
+    return false;
+  };
 
   // Load versions when modal opens
   useEffect(() => {
@@ -89,7 +98,7 @@ export default function VersioningActionModal({
   };
 
   const handleDeleteAndCreateNew = async () => {
-    if (!draftVersion || !projectId) return;
+    if (!draftVersion || !projectId || !validateActiveProject()) return;
 
     try {
       setLoadingAction(true);
@@ -130,7 +139,7 @@ export default function VersioningActionModal({
   };
 
   const handleCreateNew = async () => {
-    if (!projectId) return;
+    if (!projectId || !validateActiveProject()) return;
 
     try {
       setLoadingAction(true);
@@ -253,7 +262,8 @@ export default function VersioningActionModal({
                     color="primary"
                     size="small"
                     startIcon={<Copy className="w-4 h-4" />}
-                    onClick={() => setAction("create")}
+                    onClick={() => canCreateVersion && setAction("create")}
+                    disabled={!canCreateVersion}
                     fullWidth
                   >
                     {draftVersion
@@ -328,7 +338,7 @@ export default function VersioningActionModal({
           <Button
             onClick={onClose}
             variant="contained"
-            disabled={isLoading}
+            disabled={isLoading || !canCreateVersion}
           >
             Close
           </Button>

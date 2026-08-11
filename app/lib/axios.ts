@@ -130,6 +130,17 @@ axiosApi.interceptors.response.use(
 
     // Handle auth errors
     if (response.status === 401) {
+      const skipAuthRedirect = Boolean(
+        (response.config as typeof response.config & { skipAuthRedirect?: boolean })
+          .skipAuthRedirect,
+      );
+      if (skipAuthRedirect) {
+        const message =
+          response.data?.error ||
+          response.data?.message ||
+          "Unauthorized request. The API route may be missing authentication middleware.";
+        return Promise.reject(new Error(message));
+      }
       console.error("❌ API Error 401: Unauthorized — token expired");
       console.log("🔵 Current pathname:", typeof window !== "undefined" ? window.location.pathname : "(server)");
 

@@ -49,7 +49,11 @@ export const validateTaskForm = (
   }
 
   //  Budget Allocated validation
-  if (form.budgetAllocated === undefined || form.budgetAllocated === null) {
+  if (
+    form.budgetAllocated === undefined ||
+    form.budgetAllocated === null ||
+    form.budgetAllocated === 0
+  ) {
     errors.push({
       field: "budgetAllocated",
       message: "Budget allocation is required",

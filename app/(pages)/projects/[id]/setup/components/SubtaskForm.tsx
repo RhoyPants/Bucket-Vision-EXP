@@ -162,7 +162,6 @@ export default function SubtaskForm({
       projectedStartDate: form.projectedStartDate,
       projectedEndDate: form.projectedEndDate,
       budgetAllocated: form.budgetAllocated,
-      remarks: form.remarks,
       userIds,
     };
 

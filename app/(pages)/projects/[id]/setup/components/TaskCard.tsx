@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -9,6 +9,8 @@ import {
   IconButton,
   Tooltip,
   CircularProgress,
+  MenuItem,
+  Chip,
 } from "@mui/material";
 import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import EditIcon from "@mui/icons-material/Edit";
@@ -23,11 +25,14 @@ import {
   ValidationError,
 } from "@/app/utils/taskValidation";
 import SubtaskList from "./SubtaskList";
+import { getTasksForScope, MaintenanceRecord } from "@/app/api-service/workBreakdownMaintenanceService";
 
 interface TaskCardProps {
   task: any;
+  orderLabel: string;
   isInvalidTask?: boolean;
   scopeBudget: number;
+  scopeMaintenanceId?: string;
   subtaskInputs: Record<string, any>;
   setSubtaskInputs: (inputs: any) => void;
   members: any[];
@@ -38,12 +43,15 @@ interface TaskCardProps {
   onDeleteSubtask: (subId: string, taskId: string) => void;
   onEditSubtask: (sub: any, taskId: string) => void;
   onAddSubtask: (taskId: string) => void;
+  onReorderSubtasks: (taskId: string, draggedId: string, targetId: string) => Promise<void>;
 }
 
 function TaskCard({
   task,
+  orderLabel,
   isInvalidTask = false,
   scopeBudget,
+  scopeMaintenanceId,
   subtaskInputs,
   setSubtaskInputs,
   members,
@@ -54,20 +62,37 @@ function TaskCard({
   onDeleteSubtask,
   onEditSubtask,
   onAddSubtask,
+  onReorderSubtasks,
 }: TaskCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     title: task.title,
     budgetAllocated: task.budgetAllocated,
+    taskMaintenanceId: task.taskMaintenanceId,
   });
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
+  const [maintenanceTasks, setMaintenanceTasks] = useState<MaintenanceRecord[]>([]);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+
+  useEffect(() => {
+    if (!scopeMaintenanceId) return;
+    setMaintenanceLoading(true);
+    getTasksForScope(scopeMaintenanceId)
+      .then((items) => setMaintenanceTasks(items.filter((item) => item.isActive !== false)))
+      .finally(() => setMaintenanceLoading(false));
+  }, [scopeMaintenanceId]);
+
+  const usesAvailableMaintenanceTask = Boolean(
+    task.taskMaintenanceId && maintenanceTasks.some((item) => item.id === task.taskMaintenanceId),
+  );
 
   const handleEditStart = () => {
     setEditForm({
       title: task.title,
       budgetAllocated: task.budgetAllocated,
+      taskMaintenanceId: task.taskMaintenanceId,
     });
     setErrors([]);
     setTouched({});
@@ -174,15 +199,29 @@ function TaskCard({
           >
             <Tooltip title={titleError || ""} open={!!titleError}>
               <TextField
+                select={usesAvailableMaintenanceTask}
                 size="small"
                 label="Task"
-                value={editForm.title}
-                onChange={(e) => handleEditChange("title", e.target.value)}
+                value={usesAvailableMaintenanceTask ? (editForm.taskMaintenanceId || task.taskMaintenanceId || "") : editForm.title}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const selected = maintenanceTasks.find((item) => item.id === value);
+                  if (usesAvailableMaintenanceTask) {
+                    handleEditChange("taskMaintenanceId", value);
+                    handleEditChange("title", selected?.name || editForm.title);
+                  } else {
+                    handleEditChange("title", value);
+                  }
+                }}
                 onBlur={() => handleEditBlur("title")}
                 error={!!titleError}
                 sx={{ width: "100%" }}
-                disabled={saving}
-              />
+                disabled={saving || maintenanceLoading}
+              >
+                {usesAvailableMaintenanceTask && maintenanceTasks.map((item) => (
+                  <MenuItem key={item.id} value={item.id}>{item.name} ({item.code})</MenuItem>
+                ))}
+              </TextField>
             </Tooltip>
 
             <Tooltip title={budgetError || ""} open={!!budgetError}>
@@ -231,6 +270,7 @@ function TaskCard({
           >
             <Box flex={1} minWidth={0}>
               <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+                <Chip label={`TASK ${orderLabel}`} size="small" sx={{ height: 21, bgcolor: "#e0f2fe", color: "#0369a1", fontSize: 9.5, fontWeight: 800 }} />
                 <Typography
                   variant="body2"
                   sx={{ fontWeight: 600, color: "#0369a1" }}
@@ -298,6 +338,7 @@ function TaskCard({
         {!isEditing && (
           <SubtaskList
             task={task}
+            taskOrderLabel={orderLabel}
             subtaskInputs={subtaskInputs}
             setSubtaskInputs={setSubtaskInputs}
             members={members}
@@ -306,6 +347,7 @@ function TaskCard({
             onDeleteSubtask={onDeleteSubtask}
             onEditSubtask={onEditSubtask}
             onAddSubtask={onAddSubtask}
+            onReorderSubtasks={onReorderSubtasks}
           />
         )}
       </Box>

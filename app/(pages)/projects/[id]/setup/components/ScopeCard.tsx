@@ -1,10 +1,11 @@
-import { Box, Button, TextField, Typography, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Alert, Chip } from "@mui/material";
-import React, { useState } from "react";
+import { Box, Button, TextField, Typography, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Alert, Chip, MenuItem, Stack } from "@mui/material";
+import React, { useEffect, useState } from "react";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import WarningIcon from "@mui/icons-material/Warning";
 import CloseIcon from "@mui/icons-material/Close";
 import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
+import { getMaintenanceRecords, MaintenanceRecord } from "@/app/api-service/workBreakdownMaintenanceService";
 import TaskForm from "./TaskForm";
 import TaskCard from "./TaskCard";
 import {
@@ -17,6 +18,7 @@ import {
 
 interface ScopeCardProps {
   scope: any;
+  orderNumber: number;
   isInvalidScope?: boolean;
   invalidTaskIds?: string[];
   scopeEdit: any;
@@ -37,10 +39,12 @@ interface ScopeCardProps {
   onDeleteSubtask: (subId: string, taskId: string) => void;
   onEditSubtask: (sub: any, taskId: string) => void;
   onAddSubtask: (taskId: string) => void;
+  onReorderSubtasks: (taskId: string, draggedId: string, targetId: string) => Promise<void>;
 }
 
 function ScopeCard({
   scope,
+  orderNumber,
   isInvalidScope = false,
   invalidTaskIds = [],
   scopeEdit,
@@ -61,11 +65,25 @@ function ScopeCard({
   onDeleteSubtask,
   onEditSubtask,
   onAddSubtask,
+  onReorderSubtasks,
 }: ScopeCardProps) {
   const [editModalOpen, setEditModalOpen] = useState(scopeEdit?.id === scope.id);
   const [editErrors, setEditErrors] = useState<ValidationError[]>([]);
   const [editTouched, setEditTouched] = useState<Record<string, boolean>>({});
   const [editSaving, setEditSaving] = useState(false);
+  const [maintenanceScopes, setMaintenanceScopes] = useState<MaintenanceRecord[]>([]);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+
+  useEffect(() => {
+    setMaintenanceLoading(true);
+    getMaintenanceRecords("scope")
+      .then((items) => setMaintenanceScopes(items.filter((item) => item.isActive !== false)))
+      .finally(() => setMaintenanceLoading(false));
+  }, []);
+
+  const usesAvailableMaintenanceScope = Boolean(
+    scope.scopeMaintenanceId && maintenanceScopes.some((item) => item.id === scope.scopeMaintenanceId),
+  );
 
   const handleEditOpen = () => {
     onEditScope(scope);
@@ -159,9 +177,10 @@ function ScopeCard({
         {/* SCOPE HEADER */}
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Box>
-            <Typography variant="subtitle1" fontWeight={700}>
-              {scope.name}
-            </Typography>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Chip label={`SCOPE ${orderNumber}`} size="small" sx={{ height: 22, bgcolor: "#ede9fe", color: "#4c1d95", fontSize: 10, fontWeight: 800 }} />
+              <Typography variant="subtitle1" fontWeight={700}>{scope.name}</Typography>
+            </Stack>
             <Typography variant="caption" color="text.secondary">
               ₱{(Number(scope.budgetAllocated) || 0).toLocaleString()} ({scope.budgetPercent?.toFixed(2)}%)
             </Typography>
@@ -206,12 +225,14 @@ function ScopeCard({
 
         {/* TASK LIST */}
         <Box mt={3}>
-          {scope.tasks?.map((task: any) => (
+          {scope.tasks?.map((task: any, taskIndex: number) => (
             <TaskCard
               key={task.id}
               task={task}
+              orderLabel={`${orderNumber}.${taskIndex + 1}`}
               isInvalidTask={invalidTaskIds.includes(String(task.id))}
               scopeBudget={Number(scope.budgetAllocated) || 0}
+              scopeMaintenanceId={scope.scopeMaintenanceId}
               subtaskInputs={subtaskInputs}
               setSubtaskInputs={setSubtaskInputs}
               members={members}
@@ -222,6 +243,7 @@ function ScopeCard({
               onDeleteSubtask={onDeleteSubtask}
               onEditSubtask={onEditSubtask}
               onAddSubtask={onAddSubtask}
+              onReorderSubtasks={onReorderSubtasks}
             />
           ))}
         </Box>
@@ -282,27 +304,37 @@ function ScopeCard({
               <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
             </Box>
             <TextField
+              select={usesAvailableMaintenanceScope}
               fullWidth
-              value={scopeEdit?.name || ""}
-              onChange={(e) =>
-                setScopeEdit({
+              value={usesAvailableMaintenanceScope ? (scopeEdit?.scopeMaintenanceId || scope.scopeMaintenanceId || "") : (scopeEdit?.name || "")}
+              onChange={(e) => {
+                const value = e.target.value;
+                const selected = maintenanceScopes.find((item) => item.id === value);
+                setScopeEdit(usesAvailableMaintenanceScope ? {
                   ...scopeEdit,
-                  name: e.target.value,
-                })
-              }
+                  sourceType: "MAINTENANCE",
+                  scopeMaintenanceId: value,
+                  name: selected?.name || scopeEdit?.name || "",
+                } : { ...scopeEdit, name: value });
+              }}
               onBlur={() => handleEditFieldBlur("name")}
               error={editTouched.name && hasFieldError("name", editErrors)}
               helperText={editTouched.name && getFieldError("name", editErrors)}
               variant="outlined"
               size="small"
-              placeholder="Enter scope name"
+              placeholder={usesAvailableMaintenanceScope ? undefined : "Enter scope name"}
+              disabled={editSaving || maintenanceLoading}
               inputProps={{ maxLength: 100 }}
               sx={{
                 "& .MuiOutlinedInput-root": {
                   borderRadius: 1.5,
                 },
               }}
-            />
+            >
+              {usesAvailableMaintenanceScope && maintenanceScopes.map((item) => (
+                <MenuItem key={item.id} value={item.id}>{item.name} ({item.code})</MenuItem>
+              ))}
+            </TextField>
           </Box>
 
           {/* BUDGET ALLOCATED */}

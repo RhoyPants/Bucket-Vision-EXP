@@ -290,7 +290,7 @@ export const loadMyBoard = (filters?: {
   page?: number;
   limit?: number;
 }) => {
-  return async (dispatch: AppDispatch) => {
+  return async (dispatch: AppDispatch, getState: any) => {
     try {
       // ✅ Build query params
       const params = new URLSearchParams();
@@ -300,6 +300,7 @@ export const loadMyBoard = (filters?: {
       if (filters?.search) params.append("search", filters.search);
       if (filters?.page) params.append("page", String(filters.page));
       if (filters?.limit) params.append("limit", String(filters.limit));
+      params.append("projectStatus", "ACTIVE");
 
       const queryString = params.toString();
       const url = queryString
@@ -309,9 +310,28 @@ export const loadMyBoard = (filters?: {
       const res = await axiosApi.get(url);
 
       // ✅ Set subtasks to Redux
-      dispatch(setSubtasks((res.data.data || []).map(normalizeBoardItem) as any));
+      const activeProjectIds = new Set<string>(
+        (getState()?.kanban?.boardFilters?.projects || [])
+          .map((project: { id?: string }) => project.id)
+          .filter(Boolean),
+      );
+      const activeItems = (res.data.data || [])
+        .map(normalizeBoardItem)
+        .filter(
+          (item: ReturnType<typeof normalizeBoardItem>) =>
+            item.projectId && activeProjectIds.has(item.projectId),
+        );
+      dispatch(setSubtasks(activeItems as any));
 
-      return res.data;
+      return {
+        ...res.data,
+        data: activeItems,
+        total: activeItems.length,
+        totalPages: Math.max(
+          1,
+          Math.ceil(activeItems.length / (filters?.limit || activeItems.length || 1)),
+        ),
+      };
     } catch (err) {
       console.error("❌ Error loading my board:", err);
       throw err;
@@ -341,13 +361,21 @@ export const loadBoardFilterData = () => {
   return async (dispatch: AppDispatch) => {
     try {
       // ✅ Fetch projects with full=true parameter
-      const projectsRes = await axiosApi.get("/projects?full=true");
+      const projectsRes = await axiosApi.get("/projects?full=true&status=ACTIVE");
 
       // ✅ Map projects to have { id, name } structure (FilterItem format)
-      const formattedProjects = (projectsRes.data || []).map((project: any) => ({
-        id: project.id,
-        name: project.name || project.title || "Unnamed Project",
-      }));
+      const projectItems = Array.isArray(projectsRes.data)
+        ? projectsRes.data
+        : projectsRes.data?.data || [];
+      const formattedProjects = projectItems
+        .filter(
+          (project: any) =>
+            String(project.status || project.projectStatus || "").toUpperCase() === "ACTIVE",
+        )
+        .map((project: any) => ({
+          id: project.id,
+          name: project.name || project.title || "Unnamed Project",
+        }));
 
       dispatch(
         setBoardFilters({

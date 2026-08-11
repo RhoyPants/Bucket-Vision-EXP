@@ -1,6 +1,6 @@
 import { Box, Card, Typography, Chip, LinearProgress, Stack } from "@mui/material";
 import { Subtask, Priority, CompareTheme } from "./types";
-import { formatBudget } from "@/app/utils/formatters";
+import { formatBudget, formatPercent } from "@/app/utils/formatters";
 
 const PRIORITY_COLOR_MAP: Record<Priority, { chip: string; text: string }> = {
   LOW: { chip: "#9ca3af", text: "#fff" },
@@ -37,8 +37,11 @@ export default function SubtaskCard({ subtask, theme }: SubtaskCardProps) {
     <Card
       sx={{
         p: 2,
-        maxWidth: 240,
-        flexShrink: 0,
+        width: 252,
+        minWidth: 252,
+        flex: "0 0 252px",
+        display: "flex",
+        flexDirection: "column",
         border: ct ? `1px solid ${ct.border}` : "2px solid #a78bfa",
         ...(isModified && { borderLeft: `4px solid ${ct!.accent}` }),
         bgcolor: ct ? ct.background : "#f5f3ff",
@@ -51,11 +54,22 @@ export default function SubtaskCard({ subtask, theme }: SubtaskCardProps) {
       }}
     >
       {/* SUBTASK HEADER */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1, minHeight: 42, mb: 1.25 }}>
         <Typography
           fontWeight={600}
           fontSize={13}
-          sx={{ color: ct ? ct.text : "#1f2937", flex: 1, wordBreak: "break-word" }}
+          title={subtask.title}
+          sx={{
+            color: ct ? ct.text : "#1f2937",
+            flex: 1,
+            minWidth: 0,
+            lineHeight: 1.35,
+            wordBreak: "break-word",
+            display: "-webkit-box",
+            WebkitBoxOrient: "vertical",
+            WebkitLineClamp: 2,
+            overflow: "hidden",
+          }}
         >
           {subtask.title}
         </Typography>
@@ -69,7 +83,6 @@ export default function SubtaskCard({ subtask, theme }: SubtaskCardProps) {
               fontWeight: 600,
               fontSize: 11,
               height: 20,
-              ml: 1,
               flexShrink: 0,
             }}
           />
@@ -83,7 +96,7 @@ export default function SubtaskCard({ subtask, theme }: SubtaskCardProps) {
             Progress
           </Typography>
           <Chip
-            label={`${subtask.progress}%`}
+            label={formatPercent(subtask.progress)}
             size="small"
             sx={{
               backgroundColor: ct ? ct.accent : "#6366f1",
@@ -117,32 +130,28 @@ export default function SubtaskCard({ subtask, theme }: SubtaskCardProps) {
         </Box>
         <Box sx={{ textAlign: "right" }}>
           <Typography sx={{ fontSize: 9, color: "#9ca3af", fontWeight: 700, textTransform: "uppercase" }}>Weight</Typography>
-          <Typography sx={{ fontSize: 10.5, color: "#374151", fontWeight: 700 }}>{Number(subtask.budgetPercent || 0).toFixed(2)}%</Typography>
+          <Typography sx={{ fontSize: 10.5, color: "#374151", fontWeight: 700 }}>{formatPercent(subtask.budgetPercent)}</Typography>
         </Box>
       </Stack>
 
       {/* DATES */}
       <Stack spacing={0.75} sx={{ fontSize: 12 }}>
-        {(projectedStart || projectedEnd) && (
-          <Box>
+          <Box sx={{ minHeight: 42 }}>
             <Typography variant="caption" sx={{ color: "#6b7280", fontWeight: 600, display: "block", mb: 0.25 }}>
               Projected
             </Typography>
             <Typography variant="caption" sx={{ color: "#374151" }}>
-              {projectedStart && projectedEnd ? `${projectedStart} - ${projectedEnd}` : projectedStart || projectedEnd || "N/A"}
+              {projectedStart && projectedEnd ? `${projectedStart} - ${projectedEnd}` : projectedStart || projectedEnd || "—"}
             </Typography>
           </Box>
-        )}
-        {(actualStart || actualEnd) && (
-          <Box>
+          <Box sx={{ minHeight: 42 }}>
             <Typography variant="caption" sx={{ color: "#6b7280", fontWeight: 600, display: "block", mb: 0.25 }}>
               Actual
             </Typography>
             <Typography variant="caption" sx={{ color: "#374151" }}>
-              {actualStart && actualEnd ? `${actualStart} - ${actualEnd}` : actualStart || actualEnd || "N/A"}
+              {actualStart && actualEnd ? `${actualStart} - ${actualEnd}` : actualStart || actualEnd || "—"}
             </Typography>
           </Box>
-        )}
       </Stack>
     </Card>
   );

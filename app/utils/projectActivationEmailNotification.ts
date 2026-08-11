@@ -4,6 +4,7 @@ import {
   ActivationAssignmentGroup,
   buildProjectActivationEmailHTML,
 } from "@/app/components/shared/email/ProjectActivationEmailTemplate";
+import { formatEmailDateTime } from "@/app/utils/emailDateTime";
 
 type Person = {
   id?: string;
@@ -127,17 +128,6 @@ const assignmentsFor = (
   return Array.from(groups.values());
 };
 
-const formatDate = (value?: string) => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-};
-
 export async function notifyProjectActivated(projectId: string) {
   const notificationKey = `project-activation-email:${projectId}`;
   if (
@@ -185,9 +175,9 @@ export async function notifyProjectActivated(projectId: string) {
         projectName: project.name || "Project",
         pin: project.pin || "—",
         priority: project.priority || "—",
-        projectedStart: formatDate(project.startDate),
-        projectedEnd: formatDate(project.expectedEndDate),
-        activatedDate: formatDate(
+        projectedStart: formatEmailDateTime(project.startDate),
+        projectedEnd: formatEmailDateTime(project.expectedEndDate),
+        activatedDate: formatEmailDateTime(
           project.activatedAt || project.updatedAt || new Date().toISOString(),
         ),
         assignments: assignmentsFor(project, recipient.id),

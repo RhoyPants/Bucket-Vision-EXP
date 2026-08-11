@@ -339,7 +339,7 @@ export default function GridTableView({
                         minWidth: "35px",
                       }}
                     >
-                      {subtask.progress || 0}%
+                      {Number(subtask.progress || 0).toFixed(2)}%
                     </Typography>
                   </Box>
                 </TableCell>

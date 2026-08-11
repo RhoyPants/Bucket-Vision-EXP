@@ -30,6 +30,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
+import ChecklistIcon from "@mui/icons-material/Checklist";
 
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -37,7 +38,6 @@ import {
   getProgressLogs,
   saveProgressLog,
   updateProgressLog,
-  deleteProgressLog,
 } from "@/app/redux/controllers/progressController";
 import { getSCurve } from "@/app/redux/controllers/scurveController";
 import axiosApi from "@/app/lib/axios";
@@ -61,6 +61,7 @@ const formatPercent = (value: unknown) => {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue.toFixed(2) : "0.00";
 };
+const roundPercent = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 const getProgressUpdateCount = (log: any) => Number(log?.updateCount ?? log?.dayNumber ?? 0);
 
 interface ProgressCalendarProps {
@@ -71,6 +72,12 @@ interface ProgressCalendarProps {
   onSuccess?: () => void;
 }
 
+interface SubtaskChecklistItem {
+  id?: string;
+  title?: string;
+  isCompleted: boolean;
+}
+
 export default function ProgressCalendar({
   subtaskId,
   isTaskBoard = false,
@@ -79,10 +86,9 @@ export default function ProgressCalendar({
   onSuccess,
 }: ProgressCalendarProps) {
   const dispatch = useDispatch<any>();
-  const { canView, canUpdate, canDelete } = usePermissions();
+  const { canView, canUpdate } = usePermissions();
   const canViewProgress = canView("progress");
   const canUpdateProgress = canUpdate("progress");
-  const canDeleteProgress = canDelete("progress");
 
   const logsArray =
     useSelector(
@@ -129,6 +135,7 @@ export default function ProgressCalendar({
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
   const [currentProgress, setCurrentProgress] = useState(0);
+  const [subtaskChecklists, setSubtaskChecklists] = useState<SubtaskChecklistItem[]>([]);
   const [range, setRange] = useState<any>(null);
   const [loadingSubtask, setLoadingSubtask] = useState(false);
   const [checkingCanAdd, setCheckingCanAdd] = useState(false);
@@ -140,6 +147,7 @@ export default function ProgressCalendar({
     value: number;
   } | null>(null);
   const [showProgressFormModal, setShowProgressFormModal] = useState(false);
+  const [completionConfirmOpen, setCompletionConfirmOpen] = useState(false);
   const [showExistingLogModal, setShowExistingLogModal] = useState(false);
   const [editingLog, setEditingLog] = useState<any>(null);
   const [removedAttachmentIds, setRemovedAttachmentIds] = useState<string[]>([]);
@@ -234,6 +242,7 @@ export default function ProgressCalendar({
           end: data.projectedEndDate || "",
         });
         setCurrentProgress(data.progress || 0);
+        setSubtaskChecklists(data.checklists || data.checklist || []);
       } catch (err: any) {
         console.error(" Error loading subtask:", err);
         setError("Failed to load subtask details");
@@ -383,6 +392,11 @@ export default function ProgressCalendar({
       return false;
     }
 
+    if (!/^\d+(\.\d{1,2})?$/.test(dailyPercent)) {
+      setError("Daily progress can have a maximum of 2 decimal places");
+      return false;
+    }
+
     if (value > allowedProgress) {
       setError(`Cannot exceed 100% total. Available: ${formatPercent(allowedProgress)}%`);
       return false;
@@ -390,6 +404,19 @@ export default function ProgressCalendar({
 
     return true;
   };
+
+  const incompleteChecklists = useMemo(
+    () => subtaskChecklists.filter((item) => !item.isCompleted),
+    [subtaskChecklists],
+  );
+
+  const resultingProgress = useMemo(() => {
+    const value = Number(dailyPercent) || 0;
+    const previousValue = editingLog ? Number(editingLog.dailyPercent || 0) : 0;
+    return cumulativeProgress - previousValue + value;
+  }, [cumulativeProgress, dailyPercent, editingLog]);
+
+  const isCompletingSubtask = resultingProgress >= 100;
 
   const openExistingLogDetails = useCallback(
     (existingLog: any) => {
@@ -484,13 +511,28 @@ export default function ProgressCalendar({
   // =========================
   // SAVE HANDLER WITH LOADING
   // =========================
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (completionConfirmed = false) => {
     if (!canUpdateProgress) {
       setError("You don't have access to update progress.");
       return;
     }
 
     if (!validateProgress()) return;
+
+    if (isCompletingSubtask && incompleteChecklists.length > 0) {
+      setBlockDialog({
+        open: true,
+        reason: "CHECKLIST_INCOMPLETE",
+        message: `Complete all checklist items before setting this subtask to 100%. ${incompleteChecklists.length} item${incompleteChecklists.length === 1 ? " is" : "s are"} still unchecked.`,
+        existingLog: null,
+      });
+      return;
+    }
+
+    if (isCompletingSubtask && !completionConfirmed) {
+      setCompletionConfirmOpen(true);
+      return;
+    }
 
     try {
       setCheckingCanAdd(true);
@@ -504,7 +546,7 @@ export default function ProgressCalendar({
 
       setCheckingCanAdd(false);
       setSaveModalOpen(true);
-      const value = Number(dailyPercent);
+      const value = roundPercent(Number(dailyPercent));
       const feedbackMode = editingLog?.id ? "edit" : "add";
       setSavedProgressFeedback({ mode: feedbackMode, value });
 
@@ -603,29 +645,13 @@ export default function ProgressCalendar({
     editingLog,
     canUpdateProgress,
     removedAttachmentIds,
+    isCompletingSubtask,
+    incompleteChecklists,
   ]);
 
   const remainingProgress = 100 - cumulativeProgress;
   const editableCurrentPercent = editingLog ? Number(editingLog.dailyPercent || 0) : 0;
   const allowedProgressForForm = Math.max(0, remainingProgress + editableCurrentPercent);
-
-  const handleDeleteProgressLog = useCallback(async () => {
-    if (!canDeleteProgress || !selectedLogForDetails?.id) return;
-    if (!window.confirm("Delete this progress log?")) return;
-
-    try {
-      setCheckingCanAdd(true);
-      await dispatch(deleteProgressLog(selectedLogForDetails.id, subtaskId));
-      setShowExistingLogModal(false);
-      setSelectedLogForDetails(null);
-      setSelectedAttachmentIndex(null);
-      onSuccess?.();
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to delete progress log");
-    } finally {
-      setCheckingCanAdd(false);
-    }
-  }, [canDeleteProgress, dispatch, onSuccess, selectedLogForDetails?.id, subtaskId]);
 
   return (
     <Box display="grid" gridTemplateColumns="3fr 1.2fr" gap={2}>
@@ -1043,6 +1069,8 @@ export default function ProgressCalendar({
         <DialogTitle sx={{ fontWeight: 800 }}>
           {blockDialog.reason === "ALREADY_ADDED"
             ? "Progress Already Added"
+            : blockDialog.reason === "CHECKLIST_INCOMPLETE"
+              ? "Checklist Not Complete"
             : blockDialog.reason === "NOT_ASSIGNED"
               ? "Not Assigned"
               : blockDialog.reason === "UPDATE_LIMIT_REACHED"
@@ -1051,7 +1079,7 @@ export default function ProgressCalendar({
         </DialogTitle>
         <DialogContent dividers>
           <Alert
-            severity={blockDialog.reason === "NOT_ASSIGNED" ? "warning" : "info"}
+            severity={blockDialog.reason === "NOT_ASSIGNED" || blockDialog.reason === "CHECKLIST_INCOMPLETE" ? "warning" : "info"}
             sx={{ mb: blockDialog.existingLog ? 2 : 0 }}
           >
             {blockDialog.message}
@@ -1164,8 +1192,13 @@ export default function ProgressCalendar({
               type="number"
               fullWidth
               value={dailyPercent}
-              onChange={(e) => setDailyPercent(e.target.value)}
-              inputProps={{ min: 0, max: allowedProgressForForm }}
+              onChange={(e) => {
+                const nextValue = e.target.value;
+                if (nextValue === "" || /^\d{0,3}(\.\d{0,2})?$/.test(nextValue)) {
+                  setDailyPercent(nextValue);
+                }
+              }}
+              inputProps={{ min: 0, max: allowedProgressForForm, step: 0.01 }}
               error={
                 dailyPercent ? Number(dailyPercent) > allowedProgressForForm : false
               }
@@ -1191,6 +1224,20 @@ export default function ProgressCalendar({
               }}
               sx={{ mt: 2 }}
             />
+
+            {isCompletingSubtask && (
+              <Alert
+                severity={incompleteChecklists.length ? "warning" : "success"}
+                icon={<ChecklistIcon />}
+                sx={{ mt: 2 }}
+              >
+                {incompleteChecklists.length
+                  ? `${incompleteChecklists.length} checklist item${incompleteChecklists.length === 1 ? " remains" : "s remain"} unchecked. You cannot complete this subtask yet.`
+                  : subtaskChecklists.length
+                    ? "All checklist items are checked. Submitting will complete this subtask."
+                    : "Submitting will complete this subtask."}
+              </Alert>
+            )}
 
             {/* Remarks */}
             <TextField
@@ -1359,9 +1406,9 @@ export default function ProgressCalendar({
             Cancel
           </Button>
           <Button
-            onClick={handleSave}
+            onClick={() => handleSave()}
             variant="contained"
-            disabled={checkingCanAdd || isLoading || !dailyPercent || cumulativeProgress >= 100 || !canUpdateProgress}
+            disabled={checkingCanAdd || isLoading || !dailyPercent || cumulativeProgress >= 100 || !canUpdateProgress || (isCompletingSubtask && incompleteChecklists.length > 0)}
           >
             {checkingCanAdd
               ? "Checking..."
@@ -1370,6 +1417,39 @@ export default function ProgressCalendar({
                 : editingLog
                   ? "Update"
                   : "Submit"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={completionConfirmOpen}
+        onClose={() => setCompletionConfirmOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>Complete this subtask?</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} alignItems="center" sx={{ py: 1, textAlign: "center" }}>
+            <CheckCircleIcon sx={{ fontSize: 56, color: "#2E7D32" }} />
+            <Typography>
+              This progress update brings the subtask to 100%. All checklist requirements are complete.
+            </Typography>
+            <Typography variant="body2" sx={{ color: "#667085" }}>
+              Confirm to save the progress and mark the subtask as completed.
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setCompletionConfirmOpen(false)}>Go Back</Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={() => {
+              setCompletionConfirmOpen(false);
+              handleSave(true);
+            }}
+          >
+            Complete Subtask
           </Button>
         </DialogActions>
       </Dialog>
@@ -1450,16 +1530,6 @@ export default function ProgressCalendar({
                 {getProgressUpdateCount(selectedLogForDetails) >= MAX_PROGRESS_UPDATE_COUNT
                   ? "Update Limit Reached"
                   : "Edit / Resubmit"}
-              </Button>
-            ) : null}
-            {canDeleteProgress && selectedLogForDetails?.id ? (
-              <Button
-                variant="outlined"
-                color="error"
-                disabled={checkingCanAdd || isLoading}
-                onClick={handleDeleteProgressLog}
-              >
-                Delete
               </Button>
             ) : null}
             <Button

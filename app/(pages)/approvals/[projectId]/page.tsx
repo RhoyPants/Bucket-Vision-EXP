@@ -45,6 +45,7 @@ import {
 } from "@/app/components/shared/email/ApprovalEmailTemplate";
 import { getApprovalStepOrder } from "@/app/utils/approvalEmailNotification";
 import { notifyProjectActivated } from "@/app/utils/projectActivationEmailNotification";
+import { formatEmailDateTime } from "@/app/utils/emailDateTime";
 import type { ApprovalAuditLog } from "@/app/redux/slices/approvalSlice";
 import ApprovalFlowUI from "@/app/components/shared/modals/ApprovalModals/ApprovalFlowUI";
 import ApprovalAuditTrail from "@/app/components/shared/modals/ApprovalModals/ApprovalAuditTrail";
@@ -286,13 +287,13 @@ function ApprovalReviewPageContent() {
                   pin: (project?.pin as string) || "—",
                   priorityType: (project?.priority as string) || "—",
                   projectedStart: project?.startDate
-                    ? new Date(project.startDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+                    ? formatEmailDateTime(project.startDate)
                     : "—",
                   projectedEnd: project?.expectedEndDate
-                    ? new Date(project.expectedEndDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+                    ? formatEmailDateTime(project.expectedEndDate)
                     : "—",
                   requestedBy: (project?.owner as any)?.name || "—",
-                  date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+                  date: formatEmailDateTime(new Date()),
                   approvalUrl: `${origin}/myApprovals`,
                 }),
               }).catch((err) => console.warn("Step email failed:", err))
@@ -343,14 +344,14 @@ function ApprovalReviewPageContent() {
             pin: (project?.pin as string) || "—",
             priorityType: (project?.priority as string) || "—",
             projectedStart: project?.startDate
-              ? new Date(project.startDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+              ? formatEmailDateTime(project.startDate)
               : "—",
             projectedEnd: project?.expectedEndDate
-              ? new Date(project.expectedEndDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+              ? formatEmailDateTime(project.expectedEndDate)
               : "—",
             rejectedBy: currentUser?.name || "Approver",
             rejectionReason: remarks,
-            date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+            date: formatEmailDateTime(new Date()),
             revisionUrl: `${origin}/projects/${projectId}/setup`,
           }),
         }).catch((err) => console.warn("Rejection email failed:", err));

@@ -1,3 +1,5 @@
+import { formatEmailDateTime } from "@/app/utils/emailDateTime";
+
 export type ActivationAssignmentGroup = {
   taskId: string;
   taskTitle: string;
@@ -33,13 +35,7 @@ const escapeHtml = (value: string) =>
 
 const safeDate = (value?: string) => {
   if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatEmailDateTime(value);
 };
 
 export function buildProjectActivationEmailHTML(
