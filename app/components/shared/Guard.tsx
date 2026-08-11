@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useSyncExternalStore } from "react";
 import { usePermissions } from "@/app/lib/usePermissions";
 import { PermissionModule, PermissionAction } from "@/app/lib/permission";
 
@@ -21,8 +21,15 @@ export default function Guard({
 }: GuardProps) {
   const { can } = usePermissions();
   const key = permissionKey || module;
+  const hydrated = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
 
-  if (!key || !can(key, action)) return <>{fallback}</>;
+  // Permissions are restored from browser storage. Keep SSR and the first
+  // browser render identical, then reveal authorized content after hydration.
+  if (!hydrated || !key || !can(key, action)) return <>{fallback}</>;
 
   return <>{children}</>;
 }

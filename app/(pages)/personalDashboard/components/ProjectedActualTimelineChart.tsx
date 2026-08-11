@@ -22,7 +22,9 @@ import {
 } from "@mui/material";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
+import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
 import { DashboardReportTable } from "@/app/api-service/personalDashboardService";
+import { exportDashboardReport } from "../utils/exportDashboardReport";
 
 type TimelineValue = {
   value: number | null;
@@ -329,6 +331,7 @@ export default function ProjectedActualTimelineChart({
   const [showProjectedPercent, setShowProjectedPercent] = useState(false);
   const [showActualPercent, setShowActualPercent] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const project = useMemo(() => unwrapProject(projectTree), [projectTree]);
   const activeProject =
@@ -384,6 +387,36 @@ export default function ProjectedActualTimelineChart({
               label="Actual %"
               sx={{ "& .MuiFormControlLabel-label": { fontSize: 12, fontWeight: 800 } }}
             />
+            <Tooltip title="Download editable Excel report">
+              <span>
+                <IconButton
+                  size="small"
+                  disabled={!reportTable || exporting}
+                  onClick={async () => {
+                    if (!reportTable) return;
+                    try {
+                      setExporting(true);
+                      await exportDashboardReport({
+                        reportTable,
+                        timelineRows: ganttRows,
+                        startDate,
+                        showProjected,
+                        showActual,
+                        showProjectedPercent,
+                        showActualPercent,
+                        sheets: "all",
+                      });
+                    } finally {
+                      setExporting(false);
+                    }
+                  }}
+                  aria-label="Download dashboard report as Excel"
+                  sx={{ border: "1px solid #CBD5E1", borderRadius: 1.5 }}
+                >
+                  {exporting ? <CircularProgress size={18} /> : <DownloadOutlinedIcon />}
+                </IconButton>
+              </span>
+            </Tooltip>
             <Tooltip title={isFullscreen ? "Exit full screen" : "Show full screen"}>
               <IconButton
                 size="small"

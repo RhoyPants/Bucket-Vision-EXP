@@ -45,7 +45,6 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import TableViewOutlinedIcon from "@mui/icons-material/TableViewOutlined";
 import { useSearchParams } from "next/navigation";
 import {
   CartesianGrid,
@@ -66,7 +65,6 @@ import { useAppSelector } from "@/app/redux/hook";
 import { getActiveProjectDropdown } from "@/app/api-service/projectService";
 import {
   downloadProjectReportPdf,
-  downloadProjectReportExcel,
   getProjectReportPreview,
   getReportCalendar,
   ProjectReportPreview,
@@ -1408,7 +1406,6 @@ export function ReportsContent({
   const [previewLoading, setPreviewLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [viewingPdf, setViewingPdf] = useState(false);
-  const [downloadingExcel, setDownloadingExcel] = useState(false);
   const [error, setError] = useState("");
   const reportResultRef = useRef<HTMLDivElement | null>(null);
 
@@ -1553,39 +1550,6 @@ export function ReportsContent({
     }
   };
 
-  const handleExcelDownload = async () => {
-    if (!preview || !selectedDate) return;
-    setDownloadingExcel(true);
-    setError("");
-    try {
-      const response = await downloadProjectReportExcel(
-        projectId,
-        reportParams(reportType, selectedDate),
-      );
-      const blob = new Blob([response.data], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const disposition = String(response.headers["content-disposition"] || "");
-      const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
-      const quotedName = disposition.match(/filename="?([^";]+)"?/i)?.[1];
-      const filename =
-        (encodedName ? decodeURIComponent(encodedName) : quotedName) ||
-        `${preview.project.pin || "VISION"}-${reportType.toLowerCase()}-report-${preview.report.periodStart}${reportType === "WEEKLY" ? `-to-${preview.report.periodEnd}` : ""}.xlsx`;
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = filename;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
-    } catch (requestError) {
-      setError(errorMessage(requestError, "Unable to generate the Excel report."));
-    } finally {
-      setDownloadingExcel(false);
-    }
-  };
-
   const selectedUnknown =
     projectId && !projects.some((project) => project.id === projectId);
 
@@ -1624,7 +1588,7 @@ export function ReportsContent({
                     )
                   }
                   onClick={handlePdfView}
-                  disabled={!preview || viewingPdf || downloading || downloadingExcel}
+                  disabled={!preview || viewingPdf || downloading}
                   sx={{ textTransform: "none", fontWeight: 600 }}
                 >
                   {viewingPdf ? "Opening PDF…" : "View PDF"}
@@ -1639,26 +1603,10 @@ export function ReportsContent({
                     )
                   }
                   onClick={handlePdfDownload}
-                  disabled={!preview || downloading || viewingPdf || downloadingExcel}
+                  disabled={!preview || downloading || viewingPdf}
                   sx={{ bgcolor: "#07346F", textTransform: "none", fontWeight: 600 }}
                 >
                   {downloading ? "Downloading PDF…" : "Download PDF"}
-                </Button>
-                <Button
-                  variant="contained"
-                  color="success"
-                  startIcon={
-                    downloadingExcel ? (
-                      <CircularProgress size={16} color="inherit" />
-                    ) : (
-                      <TableViewOutlinedIcon />
-                    )
-                  }
-                  onClick={handleExcelDownload}
-                  disabled={!preview || downloadingExcel || downloading || viewingPdf}
-                  sx={{ textTransform: "none", fontWeight: 600 }}
-                >
-                  {downloadingExcel ? "Downloading Excel…" : "Download Excel"}
                 </Button>
               </Stack>
             )}

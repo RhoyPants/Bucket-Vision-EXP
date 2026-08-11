@@ -109,6 +109,11 @@ export default function VersionHistoryTab({
     }).format(budget);
   };
 
+  const formatProgress = (progress: unknown) => {
+    const numericProgress = Number(progress);
+    return Number.isFinite(numericProgress) ? numericProgress.toFixed(1) : "0.0";
+  };
+
   const formatDisplayDate = (date?: string | null) => {
     if (!date) return "Not set";
     const parsedDate = new Date(date);
@@ -308,7 +313,7 @@ export default function VersionHistoryTab({
                           Progress
                         </Typography>
                         <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
-                          {version.progress.toFixed(1)}%
+                          {formatProgress(version.progress)}%
                         </Typography>
                       </Grid>
                       {("_count" in version) && (
@@ -429,7 +434,7 @@ export default function VersionHistoryTab({
                   Progress
                 </Typography>
                 <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
-                  {selectedVersionForDetail?.progress?.toFixed(1) || 0}%
+                  {formatProgress(selectedVersionForDetail?.progress)}%
                 </Typography>
               </Box>
             </Box>

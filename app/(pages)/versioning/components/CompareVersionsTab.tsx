@@ -381,7 +381,7 @@ export default function CompareVersionsTab({
                 },
                 {
                   label: "Progress Change",
-                  value: `${(summary?.headerChanges?.progressDiff ?? 0).toFixed(1)}%`,
+                  value: `${Number(summary?.headerChanges?.progressDiff ?? 0).toFixed(1)}%`,
                   diff: summary?.headerChanges?.progressDiff ?? 0,
                   unit: "%",
                 },

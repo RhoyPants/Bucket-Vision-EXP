@@ -27,6 +27,7 @@
     "dagre": "^0.8.5",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.20",
+    "exceljs": "^4.4.0",
     "lucide-react": "^1.11.0",
     "next": "^16.2.4",
     "pdfjs-dist": "^3.11.174",
