@@ -55,7 +55,10 @@ export default function ProjectDashboardContent({ projectId }: { projectId: stri
   const dispatch = useAppDispatch();
   const { selectedDashboard, chartData, reportTable, detailLoading, reportLoading, error } =
     useAppSelector((state) => state.personalDashboard);
-  const fullProject = useAppSelector((state) => state.project.fullProject);
+  const fullProject = useAppSelector((state) =>
+    state.project.fullProjectsById[projectId] ??
+    (String(state.project.fullProject?.id || "") === projectId ? state.project.fullProject : null),
+  );
   const [kpiOpen, setKpiOpen] = useState(false);
   const [editingKpi, setEditingKpi] = useState<PersonalDashboardKpi | null>(null);
   const [subtaskHealthSummary, setSubtaskHealthSummary] = useState<ComputedSubtaskKpi["summary"] | null>(null);
@@ -65,9 +68,8 @@ export default function ProjectDashboardContent({ projectId }: { projectId: stri
       dispatch(fetchPersonalDashboardDetail(projectId)),
       dispatch(fetchDashboardChartData(projectId)),
       dispatch(fetchDashboardReportTable(projectId)),
-      dispatch(getProjectFull(projectId)),
+      dispatch(getProjectFull(projectId, { preferCache: true })),
     ]);
-    notifySubtaskKpiRefresh();
   }, [dispatch, projectId]);
 
   useEffect(() => {
@@ -93,6 +95,7 @@ export default function ProjectDashboardContent({ projectId }: { projectId: stri
     if (!window.confirm(`Delete KPI "${kpi.name}"?`)) return;
     await dispatch(removeKpi(projectId, kpi.id));
     await refresh();
+    notifySubtaskKpiRefresh();
   };
 
   return (
@@ -177,7 +180,7 @@ export default function ProjectDashboardContent({ projectId }: { projectId: stri
           </Box>
 
           <SubtaskHealthKpi projectId={projectId} showSummary={false} onSummaryChange={setSubtaskHealthSummary} />
-          <DashboardCharts dashboard={dashboard} chartData={chartData} />
+          <DashboardCharts dashboard={dashboard} chartData={chartData} projectTree={fullProject} />
           <ProjectedActualTimelineChart reportTable={reportTable ?? chartData?.reportTable ?? null} projectTree={fullProject} loading={reportLoading} />
           <DashboardReportTable reportTable={reportTable ?? chartData?.reportTable ?? null} loading={reportLoading} />
         </Stack>
@@ -188,7 +191,10 @@ export default function ProjectDashboardContent({ projectId }: { projectId: stri
       <KPIModal
         open={kpiOpen}
         onClose={() => setKpiOpen(false)}
-        onSaved={refresh}
+        onSaved={async () => {
+          await refresh();
+          notifySubtaskKpiRefresh();
+        }}
         dashboard={dashboard}
         editingKpi={editingKpi}
       />

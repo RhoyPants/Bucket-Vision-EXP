@@ -66,7 +66,7 @@ export default function ProjectIncidentReports({ projectId }: { projectId: strin
     try {
       const [list, project] = await Promise.all([
         incidentService.list(projectId, { status: status || undefined, severity: severity || undefined }),
-        dispatch(getProjectFull(projectId)),
+        dispatch(getProjectFull(projectId, { preferCache: true })),
       ]);
       setIncidents(list.incidents);
       setScopes((project?.scopes ?? []) as unknown as HierarchyScope[]);

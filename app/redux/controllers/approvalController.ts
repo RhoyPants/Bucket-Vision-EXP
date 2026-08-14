@@ -21,6 +21,11 @@ import {
   rejectProjectFailure,
 } from "@/app/redux/slices/approvalSlice";
 import { ProjectApproval, ApprovalAuditLog } from "@/app/redux/slices/approvalSlice";
+import {
+  decrementApprovalCount,
+  decrementNeedsRevisionCount,
+} from "@/app/redux/slices/notificationCountSlice";
+import { RootState } from "@/app/redux/store";
 
 /**
  * Fetch pending approvals for current user
@@ -147,9 +152,15 @@ export const getApprovalAuditTrail = (projectId: string) => async (dispatch: App
 /**
  * Submit project for approval
  */
-export const submitProjectForApproval = (projectId: string) => async (dispatch: AppDispatch) => {
+export const submitProjectForApproval = (projectId: string) => async (dispatch: AppDispatch, getState: () => RootState) => {
   dispatch(submitProjectStart());
   try {
+    const projectState = getState().project;
+    const projectBeforeSubmit = [
+      projectState.fullProject,
+      ...projectState.projectDirectory,
+      ...projectState.projects,
+    ].find((project) => project?.id === projectId);
     const response = await axios.post("/approvals/submit", {
       projectId,
     });
@@ -161,6 +172,9 @@ export const submitProjectForApproval = (projectId: string) => async (dispatch: 
         approvals,
       })
     );
+    if (projectBeforeSubmit?.status === "NEEDS_REVISION") {
+      dispatch(decrementNeedsRevisionCount());
+    }
     return response.data.data;
   } catch (error: any) {
     const message = error.response?.data?.message || "Failed to submit project for approval";
@@ -186,6 +200,7 @@ export const approveProject = (projectId: string, remarks?: string) => async (di
         updatedApproval,
       })
     );
+    dispatch(decrementApprovalCount());
     return response.data.data;
   } catch (error: any) {
     const message = error.response?.data?.message || "Failed to approve project";
@@ -212,6 +227,7 @@ export const rejectProject =
           updatedApproval,
         })
       );
+      dispatch(decrementApprovalCount());
       return response.data.data;
     } catch (error: any) {
       const message = error.response?.data?.message || "Failed to reject project";

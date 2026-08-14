@@ -9,6 +9,7 @@ import { useState, useSyncExternalStore } from "react";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { logout } from "@/app/redux/slices/authSlice";
 import { logoutRequest } from "@/app/api-service/authService";
+import { resetNotificationCounts } from "@/app/redux/slices/notificationCountSlice";
 
 // Map exact routes to display titles
 const routeTitleMap: Record<string, string> = {
@@ -113,6 +114,7 @@ export default function Header() {
     } catch (error) {
       console.error("Backend logout failed:", error);
     } finally {
+      dispatch(resetNotificationCounts());
       dispatch(logout());
       router.push("/");
     }

@@ -43,7 +43,7 @@ export default function ProjectSprintManagement({ projectId }: { projectId: stri
 
   useEffect(() => {
     let active = true;
-    dispatch(getProjectFull(projectId))
+    dispatch(getProjectFull(projectId, { preferCache: true }))
       .then((project) => {
         if (!active) return;
         const nextScopes = (project?.scopes ?? []) as Scope[];

@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Box, CircularProgress, FormControl, MenuItem, Select, Stack, Typography } from "@mui/material";
 import SwapHorizRoundedIcon from "@mui/icons-material/SwapHorizRounded";
-import axiosApi from "@/app/lib/axios";
 import SubtaskHealthKpi from "./SubtaskHealthKpi";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
-import { getProjects } from "@/app/redux/controllers/projectController";
+import { fetchPersonalDashboardDetail } from "@/app/redux/controllers/personalDashboardController";
+import { getActiveProjectDropdown } from "@/app/api-service/projectService";
 
 type DashboardHeaderData = {
   project?: {
@@ -41,57 +41,31 @@ export default function ProjectDashboardHeader({ projectId }: { projectId: strin
   const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const projects = useAppSelector((state) => state.project.projects);
-  const { user, permissionRole } = useAppSelector((state) => state.auth);
-  const [dashboard, setDashboard] = useState<DashboardHeaderData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  const normalizedRole = String(permissionRole || user?.role || "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
-  const canViewAllProjectStatuses = normalizedRole === "BUHEAD" || normalizedRole === "SUPERADMIN";
+  const { selectedDashboard, detailLoading: loading, error } = useAppSelector((state) => state.personalDashboard);
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
+  const dashboard = selectedDashboard?.id === projectId
+    ? selectedDashboard as DashboardHeaderData
+    : null;
 
   const switchableProjects = useMemo(() => {
-    const hiddenStatuses = new Set(["REJECTED", "APPROVED", "INACTIVE", "ARCHIVED"]);
     return (projects || [])
-      .filter((project: any) => {
-        const status = String(project?.status || "").toUpperCase();
-        if (hiddenStatuses.has(status)) return false;
-        return canViewAllProjectStatuses || status === "ACTIVE";
-      })
       .sort((a: any, b: any) => String(a?.name || "").localeCompare(String(b?.name || "")));
-  }, [projects, canViewAllProjectStatuses]);
+  }, [projects]);
 
   useEffect(() => {
-    dispatch(getProjects() as any).catch(() => undefined);
+    dispatch(fetchPersonalDashboardDetail(projectId)).catch(() => undefined);
+  }, [dispatch, projectId]);
+
+  useEffect(() => {
+    getActiveProjectDropdown()
+      .then((data) => setProjects(Array.isArray(data) ? data : []))
+      .catch(() => setProjects([]));
   }, [dispatch]);
-
-  useEffect(() => {
-    let active = true;
-    axiosApi
-      .get(`/project-dashboards/${projectId}`)
-      .then((response) => {
-        if (active) setDashboard(response.data?.data ?? response.data);
-      })
-      .catch((requestError: unknown) => {
-        if (!active) return;
-        setError(
-          typeof requestError === "object" && requestError !== null && "message" in requestError
-            ? String(requestError.message)
-            : "Unable to load project dashboard",
-        );
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => { active = false; };
-  }, [projectId]);
 
   const handleSwitchProject = (nextProjectId: string) => {
     if (!nextProjectId || nextProjectId === projectId) return;
-    const currentView = searchParams.get("view");
-    router.push(`/projectDashboard/${nextProjectId}${currentView ? `?view=${encodeURIComponent(currentView)}` : ""}`);
+    const query = searchParams.toString();
+    router.push(`/projectDashboard/${nextProjectId}${query ? `?${query}` : ""}`);
   };
 
   return (
@@ -182,7 +156,7 @@ export default function ProjectDashboardHeader({ projectId }: { projectId: strin
                     {project.name || "Untitled Project"}
                   </Typography>
                   <Typography sx={{ fontSize: 10.5, color: "text.secondary" }}>
-                    {String(project.id) === projectId ? "Current project" : String(project.status || "").replaceAll("_", " ")}
+                    {String(project.id) === projectId ? "Current project" : "Active"}
                   </Typography>
                 </Box>
               </MenuItem>

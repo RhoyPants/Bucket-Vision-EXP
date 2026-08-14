@@ -1,5 +1,7 @@
 import axiosApi from "@/app/lib/axios";
 
+let activeProjectDropdownInFlight: Promise<any[]> | null = null;
+
 /**
  * Project API Service
  * Handles project-related API operations including project filtering
@@ -18,6 +20,17 @@ export type ProjectListQuery = {
   sortBy?: string;
   sortOrder?: "asc" | "desc";
 };
+
+export type ProjectDirectoryQuery = ProjectListQuery & {
+  limit?: 6 | 12 | 24 | 48;
+};
+
+export async function getProjectDirectory(params?: ProjectDirectoryQuery) {
+  const response = await axiosApi.get("/projects/directory", {
+    params: cleanParams(params),
+  });
+  return response.data || { data: [], meta: {} };
+}
 
 const cleanParams = (params?: ProjectListQuery) => {
   if (!params) return undefined;
@@ -71,6 +84,13 @@ export async function getProjectsByStatus(status: string) {
 }
 
 export async function getActiveProjectDropdown() {
-  const response = await axiosApi.get("/projects/active/dropdown");
-  return response.data?.data || response.data || [];
+  activeProjectDropdownInFlight =
+    activeProjectDropdownInFlight ||
+    axiosApi
+      .get("/projects/active/dropdown")
+      .then((response) => response.data?.data || response.data || [])
+      .finally(() => {
+        activeProjectDropdownInFlight = null;
+      });
+  return activeProjectDropdownInFlight;
 }

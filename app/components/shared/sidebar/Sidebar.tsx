@@ -21,6 +21,8 @@ import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePermissions } from "@/app/lib/usePermissions";
 import { getMyApprovals, getMyRequests } from "@/app/api-service/projectService";
+import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
+import { setNotificationCounts } from "@/app/redux/slices/notificationCountSlice";
 
 const drawerWidth = 240;
 const collapsedDrawerWidth = 80;
@@ -65,6 +67,7 @@ const subscribeToHydration = (onStoreChange: () => void) => {
 
 const getHydratedSnapshot = () => true;
 const getServerHydratedSnapshot = () => false;
+let notificationCountsRequest: Promise<[unknown, unknown]> | null = null;
 
 const getResponseTotal = (response: unknown) => {
   if (!response || typeof response !== "object") return 0;
@@ -88,10 +91,11 @@ const getResponseTotal = (response: unknown) => {
 };
 
 export default function Sidebar() {
+  const dispatch = useAppDispatch();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { canView } = usePermissions();
+  const { canView, permissionsBootstrapped } = usePermissions();
   const hydrated = useSyncExternalStore(
     subscribeToHydration,
     getHydratedSnapshot,
@@ -100,10 +104,7 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(true);
-  const [notificationCounts, setNotificationCounts] = useState({
-    approvals: 0,
-    needsRevision: 0,
-  });
+  const notificationCounts = useAppSelector((state) => state.notificationCounts);
   const allowedSettingsTabs = hydrated
     ? settingsTabs.filter(
         (tab) =>
@@ -141,39 +142,37 @@ export default function Sidebar() {
   }, [pathname]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !permissionsBootstrapped || notificationCounts.initialized) return;
 
     let cancelled = false;
 
-    const loadNotificationCounts = () => {
-      Promise.all([
+    notificationCountsRequest = notificationCountsRequest || Promise.all([
         canViewApprovals
           ? getMyApprovals({ page: 1, limit: 1 })
           : Promise.resolve(null),
         canViewRequests
           ? getMyRequests({ page: 1, limit: 1, status: "NEEDS_REVISION" })
           : Promise.resolve(null),
-      ])
+      ]).finally(() => {
+        notificationCountsRequest = null;
+      });
+
+    notificationCountsRequest
         .then(([approvals, requests]) => {
           if (cancelled) return;
-          setNotificationCounts({
+          dispatch(setNotificationCounts({
             approvals: getResponseTotal(approvals),
             needsRevision: getResponseTotal(requests),
-          });
+          }));
         })
         .catch((error) => {
           if (!cancelled) console.warn("Unable to load sidebar notification counts:", error);
         });
-    };
-
-    loadNotificationCounts();
-    const refreshTimer = window.setInterval(loadNotificationCounts, 30_000);
 
     return () => {
       cancelled = true;
-      window.clearInterval(refreshTimer);
     };
-  }, [canViewApprovals, canViewRequests, hydrated]);
+  }, [canViewApprovals, canViewRequests, dispatch, hydrated, notificationCounts.initialized, permissionsBootstrapped]);
 
   const currentWidth = collapsed ? collapsedDrawerWidth : drawerWidth;
   const settingsTab = searchParams.get("tab") || "profile";

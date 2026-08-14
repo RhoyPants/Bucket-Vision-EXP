@@ -1,5 +1,7 @@
 import axiosApi from "@/app/lib/axios";
 
+let businessUnitsDropdownInFlight: Promise<any[]> | null = null;
+
 /**
  * Business Unit API Service
  * Handles all business unit operations
@@ -25,8 +27,16 @@ export async function getAllBusinessUnits(entity?: string, isActive?: boolean) {
  * Get all business units for dropdown (public endpoint, no auth required)
  */
 export async function getBusinessUnitsDropdown() {
-  const response = await axiosApi.get("/business-units/dropdown");
-  return response.data?.data || [];
+  businessUnitsDropdownInFlight =
+    businessUnitsDropdownInFlight ||
+    axiosApi
+      .get("/business-units/dropdown")
+      .then((response) => response.data?.data || [])
+      .finally(() => {
+        businessUnitsDropdownInFlight = null;
+      });
+
+  return businessUnitsDropdownInFlight;
 }
 
 /**

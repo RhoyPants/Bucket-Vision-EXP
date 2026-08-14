@@ -140,6 +140,12 @@ function TaskCard({
     task.budgetAllocated,
     scopeBudget,
   );
+  const taskBudget = Number(task.budgetAllocated) || 0;
+  const subtaskBudgetTotal = (task.subtasks || []).reduce(
+    (total: number, subtask: any) => total + (Number(subtask?.budgetAllocated) || 0),
+    0
+  );
+  const taskBudgetVariance = taskBudget - subtaskBudgetTotal;
   const titleError = touched["title"] && getFieldError("title", errors);
   const budgetError =
     touched["budgetAllocated"] && getFieldError("budgetAllocated", errors);
@@ -331,6 +337,42 @@ function TaskCard({
                 <DeleteIcon fontSize="small" />
               </IconButton>
             </Box>
+          </Box>
+        )}
+
+        {!isEditing && (
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: { xs: "column", sm: "row" },
+              gap: { xs: 0.5, sm: 1 },
+              mt: 1.25,
+              p: 1,
+              bgcolor: "rgba(255,255,255,0.75)",
+              border: "1px solid #bae6fd",
+              borderRadius: 1,
+              "& > * + *": {
+                borderTop: { xs: "1px solid #e2e8f0", sm: 0 },
+                borderLeft: { xs: 0, sm: "1px solid #cbd5e1" },
+                pt: { xs: 0.5, sm: 0 },
+                pl: { xs: 0, sm: 1 },
+              },
+            }}
+          >
+            <Typography sx={{ color: "#475569", fontSize: 11 }}>
+              Allocated budget: <strong>₱{taskBudget.toLocaleString()}</strong>
+            </Typography>
+            <Typography sx={{ color: "#475569", fontSize: 11 }}>
+              Total subtasks: <strong>₱{subtaskBudgetTotal.toLocaleString()}</strong>
+            </Typography>
+            <Typography sx={{ color: "#475569", fontSize: 11, fontWeight: 700 }}>
+              Budget variance:{" "}
+              <Box component="span" sx={{ color: taskBudgetVariance < 0 ? "#dc2626" : taskBudgetVariance === 0 ? "#15803d" : "#1e3a8a" }}>
+                {taskBudgetVariance === 0
+                  ? "Balanced"
+                  : `₱${Math.abs(taskBudgetVariance).toLocaleString()} ${taskBudgetVariance < 0 ? "over allocation" : "under allocation"}`}
+              </Box>
+            </Typography>
           </Box>
         )}
 

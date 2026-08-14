@@ -76,13 +76,14 @@ export default function TaskBoardPage() {
     scopeId: null,
     taskId: null,
   });
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   // Progress Modal State
   const [progressModalOpen, setProgressModalOpen] = useState(false);
   const [selectedSubtask, setSelectedSubtask] = useState<SubtaskCardData | null>(null);
 
   // ========================================
-  //  INITIAL LOAD - Fetch filters dropdown data
+  // INITIAL LOAD - Fetch lightweight project dropdown data once
   // ========================================
   useEffect(() => {
     const loadInitialData = async () => {
@@ -90,21 +91,7 @@ export default function TaskBoardPage() {
       setError("");
 
       try {
-        //  Load filter dropdown data (projects, scopes, tasks)
         await dispatch(loadBoardFilterData());
-        //  Load initial subtasks (no filters yet)
-        const boardResponse = await dispatch(
-          loadMyBoard({
-            page: 1,
-            limit: pagination.limit,
-          }) as any
-        );
-        setPagination((prev) => ({
-          ...prev,
-          total: boardResponse?.total ?? 0,
-          totalPages: boardResponse?.totalPages ?? 1,
-          page: boardResponse?.page ?? 1,
-        }));
       } catch (err: any) {
         console.error("Error loading board:", err);
         setError(
@@ -116,23 +103,29 @@ export default function TaskBoardPage() {
     };
 
     loadInitialData();
-  }, [dispatch, pagination.limit]);
+  }, [dispatch]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPagination((prev) => ({ ...prev, page: 1 }));
+      setDebouncedSearch(filters.searchQuery.trim());
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [filters.searchQuery]);
 
   // ========================================
   //  WHEN FILTERS CHANGE - RELOAD SUBTASKS FROM BACKEND
   // ========================================
   useEffect(() => {
-    if (loading) return; // Skip if still loading initial data
-
-    // Only reload if filters changed (after initial load)
     const reloadBoard = async () => {
       try {
+        setLoading(true);
         const boardResponse = await dispatch(
           loadMyBoard({
             projectId: filters.projectId || undefined,
             scopeId: filters.scopeId || undefined,
             taskId: filters.taskId || undefined,
-            search: filters.searchQuery || undefined,
+            search: debouncedSearch || undefined,
             page: pagination.page,
             limit: pagination.limit,
           }) as any
@@ -145,11 +138,13 @@ export default function TaskBoardPage() {
         }));
       } catch (err: any) {
         console.error("Error reloading board with filters:", err);
+      } finally {
+        setLoading(false);
       }
     };
 
     reloadBoard();
-  }, [filters.projectId, filters.scopeId, filters.taskId, filters.searchQuery, pagination.page, pagination.limit, dispatch, loading]);
+  }, [filters.projectId, filters.scopeId, filters.taskId, debouncedSearch, pagination.page, pagination.limit, dispatch]);
 
   // ========================================
   //  LOAD scopes WHEN PROJECT CHANGES
@@ -290,12 +285,11 @@ export default function TaskBoardPage() {
             projectId: filters.projectId || undefined,
             scopeId: filters.scopeId || undefined,
             taskId: filters.taskId || undefined,
-            search: filters.searchQuery || undefined,
+            search: debouncedSearch || undefined,
             page: pagination.page,
             limit: pagination.limit,
           }) as any
         );
-        await dispatch(loadBoardFilterData() as any);
         setPagination((prev) => ({
           ...prev,
           total: boardResponse?.total ?? 0,
@@ -308,7 +302,7 @@ export default function TaskBoardPage() {
     };
 
     reloadBoard();
-  }, [dispatch, filters.projectId, filters.scopeId, filters.taskId, filters.searchQuery, pagination.page, pagination.limit]);
+  }, [dispatch, filters.projectId, filters.scopeId, filters.taskId, debouncedSearch, pagination.page, pagination.limit]);
 
   const handlePageChange = useCallback((page: number) => {
     setPagination((prev) => ({ ...prev, page }));

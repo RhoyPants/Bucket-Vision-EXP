@@ -17,7 +17,7 @@ export default function ProjectTeamOverview({ projectId }: { projectId: string }
 
   useEffect(() => {
     if (!projectReady) {
-      dispatch(getProjectFull(projectId));
+      dispatch(getProjectFull(projectId, { preferCache: true }));
     }
   }, [dispatch, projectId, projectReady]);
 

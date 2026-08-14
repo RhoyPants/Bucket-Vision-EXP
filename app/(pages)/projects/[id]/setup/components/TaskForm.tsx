@@ -49,7 +49,6 @@ export default function TaskForm({
   const [saving, setSaving] = useState(false);
   const [maintenanceTasks, setMaintenanceTasks] = useState<MaintenanceRecord[]>([]);
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
-  const [taskMenuOpen, setTaskMenuOpen] = useState(false);
 
   const form = taskInputs[scopeId] || {};
   const selectedTaskMaintenanceIds = new Set(
@@ -80,22 +79,6 @@ export default function TaskForm({
       active = false;
     };
   }, [scopeMaintenanceId]);
-
-  useEffect(() => {
-    if (!taskMenuOpen) return;
-    const closeMenuOnScroll = (event: Event) => {
-      const target = event.target;
-      if (
-        target instanceof Element &&
-        target.closest(".MuiMenu-paper, [role='listbox']")
-      ) {
-        return;
-      }
-      setTaskMenuOpen(false);
-    };
-    window.addEventListener("scroll", closeMenuOnScroll, true);
-    return () => window.removeEventListener("scroll", closeMenuOnScroll, true);
-  }, [taskMenuOpen]);
 
   const handleChange = (field: string, value: any) => {
     setTaskInputs((prev: any) => ({
@@ -190,11 +173,7 @@ export default function TaskForm({
             sx={{ flex: "0 1 300px", minWidth: 110 }}
             disabled={saving || maintenanceLoading}
             SelectProps={{
-              open: taskMenuOpen,
-              onOpen: () => setTaskMenuOpen(true),
-              onClose: () => setTaskMenuOpen(false),
               MenuProps: {
-                disablePortal: true,
                 PaperProps: { sx: { maxHeight: 280 } },
               },
             }}

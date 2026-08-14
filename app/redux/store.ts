@@ -21,6 +21,7 @@ import approvalStepUserReducer from "./slices/approvalStepUserSlice";
 import businessUnitReducer from "./slices/businessUnitSlice";
 import personalDashboardReducer from "./slices/personalDashboardSlice";
 import notesReducer from "./slices/notesSlice";
+import notificationCountReducer from "./slices/notificationCountSlice";
 // @ts-expect-error redux-logger has no bundled TypeScript declarations in this project.
 import logger from "redux-logger";
 
@@ -46,6 +47,7 @@ export const store = configureStore({
     businessUnit: businessUnitReducer,
     personalDashboard: personalDashboardReducer,
     notes: notesReducer,
+    notificationCounts: notificationCountReducer,
   },
   middleware: (getDefault) => getDefault().concat(logger),
   devTools: true,

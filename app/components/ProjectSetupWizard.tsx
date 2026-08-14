@@ -853,6 +853,25 @@ export default function ProjectSetupWizard({
     projectForm.location?.provinceName || project?.location?.provinceName,
     projectForm.location?.regionName || project?.location?.regionName,
   ].filter(Boolean).join(", ") || "Not specified";
+  const proposedBudget = Number(projectForm.totalBudget || project?.totalBudget || 0);
+  const allocatedScopeBudget = (project?.scopes || []).reduce(
+    (total: number, scope: any) => total + Number(scope?.budgetAllocated || 0),
+    0
+  );
+  const getScopeTaskTotal = (scope: any) =>
+    (scope?.tasks || []).reduce(
+      (total: number, task: any) => total + Number(task?.budgetAllocated || 0),
+      0
+    );
+  const getTaskSubtaskTotal = (task: any) =>
+    (task?.subtasks || []).reduce(
+      (total: number, subtask: any) => total + Number(subtask?.budgetAllocated || 0),
+      0
+    );
+  const budgetBalance = proposedBudget - allocatedScopeBudget;
+  const isBudgetBalanced = Math.abs(budgetBalance) < 0.01;
+  const isBudgetOver = budgetBalance < 0;
+  const allocatedBudgetPercent = proposedBudget > 0 ? (allocatedScopeBudget / proposedBudget) * 100 : 0;
 
   const getApproverLabel = (step: any) => {
     const assigned = step.assignedUsers || step.users || [];
@@ -1555,7 +1574,12 @@ export default function ProjectSetupWizard({
         {/* STEP 2: PROJECT STRUCTURE (scopes / tasks / subtasks) */}
         {activeStep === 2 && (
           <Box>
-            <Typography variant="h6" fontWeight={700} mb={3} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography
+              variant="h6"
+              fontWeight={700}
+              mb={3}
+              sx={{ display: "flex", alignItems: "center", gap: 1, color: "#111827" }}
+            >
               <AssignmentIcon /> Project Structure
             </Typography>
             <Typography sx={{ fontSize: 13, color: "#666", mb: 3 }}>
@@ -1987,6 +2011,90 @@ export default function ProjectSetupWizard({
                 </Card>
               </Grid>
 
+              {/* BUDGET RECONCILIATION CARD */}
+              <Grid size={{ xs: 12 }}>
+                <Card
+                  sx={{
+                    border: "1px solid",
+                    borderColor: isBudgetBalanced ? "#86efac" : isBudgetOver ? "#fca5a5" : "#fcd34d",
+                    bgcolor: isBudgetBalanced ? "#f0fdf4" : isBudgetOver ? "#fef2f2" : "#fffbeb",
+                  }}
+                >
+                  <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+                    <Stack
+                      direction={{ xs: "column", md: "row" }}
+                      justifyContent="space-between"
+                      alignItems={{ xs: "stretch", md: "center" }}
+                      gap={2}
+                    >
+                      <Box>
+                        <Typography sx={{ color: "#111827", fontSize: 16, fontWeight: 800 }}>
+                          Budget Summary
+                        </Typography>
+                        <Typography sx={{ mt: 0.25, color: "#64748b", fontSize: 12 }}>
+                          Compare the project budget allocation against the total allocated to scopes.
+                        </Typography>
+                      </Box>
+
+                      <Box
+                        sx={{
+                          px: 1.5,
+                          py: 0.75,
+                          borderRadius: 999,
+                          bgcolor: isBudgetBalanced ? "#dcfce7" : isBudgetOver ? "#fee2e2" : "#fef3c7",
+                          color: isBudgetBalanced ? "#166534" : isBudgetOver ? "#991b1b" : "#92400e",
+                          fontSize: 12,
+                          fontWeight: 800,
+                          whiteSpace: "nowrap",
+                          alignSelf: { xs: "flex-start", md: "center" },
+                        }}
+                      >
+                        {isBudgetBalanced ? "Balanced" : isBudgetOver ? "Over proposed budget" : "Under proposed budget"}
+                      </Box>
+                    </Stack>
+
+                    <Box
+                      sx={{
+                        mt: 2,
+                        display: "grid",
+                        gridTemplateColumns: { xs: "1fr", sm: "repeat(4, minmax(0, 1fr))" },
+                        border: "1px solid #e2e8f0",
+                        borderRadius: 1.5,
+                        overflow: "hidden",
+                        bgcolor: "#fff",
+                      }}
+                    >
+                      {[
+                        { label: "Budget allocation", value: `₱${formatBudget(proposedBudget)}` },
+                        { label: "Allocated budget", value: `₱${formatBudget(allocatedScopeBudget)}` },
+                        {
+                          label: "Budget variance",
+                          value: `₱${formatBudget(Math.abs(budgetBalance))}`,
+                        },
+                        { label: "Allocated", value: `${allocatedBudgetPercent.toFixed(2)}%` },
+                      ].map((item, index) => (
+                        <Box
+                          key={item.label}
+                          sx={{
+                            p: 1.5,
+                            minWidth: 0,
+                            borderRight: { sm: index < 3 ? "1px solid #e2e8f0" : 0 },
+                            borderBottom: { xs: index < 3 ? "1px solid #e2e8f0" : 0, sm: 0 },
+                          }}
+                        >
+                          <Typography sx={{ color: "#64748b", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase" }}>
+                            {item.label}
+                          </Typography>
+                          <Typography sx={{ mt: 0.35, color: "#111827", fontSize: 15, fontWeight: 800 }}>
+                            {item.value}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+
               {/* PROJECT STRUCTURE CARD */}
               <Grid size={{ xs: 12 }}>
                 <Card>
@@ -2001,9 +2109,34 @@ export default function ProjectSetupWizard({
                             <Typography fontWeight={700} sx={{ color: "#6366f1", mb: 1 }}>
                               {scope.name}
                             </Typography>
-                            <Typography sx={{ fontSize: "0.85rem", color: "#666", mb: 1 }}>
-                              Budget: ₱{formatBudget(scope.budgetAllocated)} ({scope.budgetPercent.toFixed(1)}%)
-                            </Typography>
+                            <Stack
+                              direction={{ xs: "column", sm: "row" }}
+                              spacing={{ xs: 0.75, sm: 1.5 }}
+                              sx={{
+                                mb: 1,
+                                "& > * + *": {
+                                  borderTop: { xs: "1px solid #e2e8f0", sm: 0 },
+                                  borderLeft: { xs: 0, sm: "1px solid #cbd5e1" },
+                                  pt: { xs: 0.75, sm: 0 },
+                                  pl: { xs: 0, sm: 1.5 },
+                                },
+                              }}
+                            >
+                              <Typography sx={{ fontSize: "0.8rem", color: "#475569" }}>
+                                Allocated budget: <strong>₱{formatBudget(scope.budgetAllocated || 0)}</strong>
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.8rem", color: "#475569" }}>
+                                Total tasks: <strong>₱{formatBudget(getScopeTaskTotal(scope))}</strong>
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.8rem", color: "#475569", fontWeight: 700 }}>
+                                Budget variance:{" "}
+                                <Box component="span" sx={{ color: Number(scope.budgetAllocated || 0) - getScopeTaskTotal(scope) < 0 ? "#dc2626" : Number(scope.budgetAllocated || 0) - getScopeTaskTotal(scope) === 0 ? "#15803d" : "#1e3a8a" }}>
+                                  {Number(scope.budgetAllocated || 0) - getScopeTaskTotal(scope) === 0
+                                    ? "Balanced"
+                                    : `₱${formatBudget(Math.abs(Number(scope.budgetAllocated || 0) - getScopeTaskTotal(scope)))} ${Number(scope.budgetAllocated || 0) - getScopeTaskTotal(scope) < 0 ? "over allocation" : "under allocation"}`}
+                                </Box>
+                              </Typography>
+                            </Stack>
                             {scope.tasks && scope.tasks.length > 0 && (
                               <Box sx={{ ml: 2, mt: 1 }}>
                                 <Typography sx={{ fontSize: "0.8rem", fontWeight: 600, color: "#999", mb: 1 }}>
@@ -2014,7 +2147,33 @@ export default function ProjectSetupWizard({
                                     <Box key={task.id} sx={{ pl: 1.25, borderLeft: "2px solid #c7d2fe" }}>
                                       <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={0.5}>
                                         <Typography sx={{ fontSize: "0.82rem", color: "#334155", fontWeight: 700 }}>{task.title}</Typography>
-                                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", whiteSpace: "nowrap" }}>Budget: ₱{formatBudget(task.budgetAllocated || 0)}</Typography>
+                                        <Stack
+                                          direction={{ xs: "column", sm: "row" }}
+                                          spacing={{ xs: 0.5, sm: 1 }}
+                                          sx={{
+                                            "& > * + *": {
+                                              borderTop: { xs: "1px solid #e2e8f0", sm: 0 },
+                                              borderLeft: { xs: 0, sm: "1px solid #cbd5e1" },
+                                              pt: { xs: 0.5, sm: 0 },
+                                              pl: { xs: 0, sm: 1 },
+                                            },
+                                          }}
+                                        >
+                                          <Typography sx={{ fontSize: "0.75rem", color: "#64748b", whiteSpace: "nowrap" }}>
+                                            Allocated: ₱{formatBudget(task.budgetAllocated || 0)}
+                                          </Typography>
+                                          <Typography sx={{ fontSize: "0.75rem", color: "#64748b", whiteSpace: "nowrap" }}>
+                                            Total subtasks: ₱{formatBudget(getTaskSubtaskTotal(task))}
+                                          </Typography>
+                                          <Typography sx={{ fontSize: "0.75rem", color: "#475569", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                            Budget variance:{" "}
+                                            <Box component="span" sx={{ color: Number(task.budgetAllocated || 0) - getTaskSubtaskTotal(task) < 0 ? "#dc2626" : Number(task.budgetAllocated || 0) - getTaskSubtaskTotal(task) === 0 ? "#15803d" : "#1e3a8a" }}>
+                                              {Number(task.budgetAllocated || 0) - getTaskSubtaskTotal(task) === 0
+                                                ? "Balanced"
+                                                : `₱${formatBudget(Math.abs(Number(task.budgetAllocated || 0) - getTaskSubtaskTotal(task)))} ${Number(task.budgetAllocated || 0) - getTaskSubtaskTotal(task) < 0 ? "over allocation" : "under allocation"}`}
+                                            </Box>
+                                          </Typography>
+                                        </Stack>
                                       </Stack>
                                       {task.description && <Typography sx={{ mt: 0.25, fontSize: "0.75rem", color: "#64748b" }}>{task.description}</Typography>}
                                       {task.subtasks?.length > 0 ? (
@@ -2054,6 +2213,7 @@ export default function ProjectSetupWizard({
                     ) : (
                       <Typography sx={{ color: "#999" }}>No scopes defined yet</Typography>
                     )}
+
                   </CardContent>
                 </Card>
               </Grid>

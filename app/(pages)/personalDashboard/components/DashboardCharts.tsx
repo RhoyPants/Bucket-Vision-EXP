@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { Alert, Box, Card, CardContent, Typography } from "@mui/material";
+import { Alert, Box, Card, CardContent, Stack, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Bar,
   BarChart,
@@ -23,6 +24,9 @@ import {
   PersonalDashboard,
 } from "@/app/api-service/personalDashboardService";
 import MeasuredChartContainer from "./MeasuredChartContainer";
+import GanttGridView from "@/app/components/shared/GanttGridView";
+import DashboardCalendar from "@/app/components/shared/calendar/DashboardCalendar";
+import VerticalScheduleMatrix from "@/app/components/shared/calendar/VerticalScheduleMatrix";
 
 const statusColors: Record<string, { accent: string }> = {
   CRITICAL: { accent: "#ef4444" },
@@ -68,10 +72,27 @@ const normalizeCharts = (charts?: DashboardChartConfig[]) =>
 export default function DashboardCharts({
   dashboard,
   chartData,
+  projectTree,
 }: {
   dashboard: PersonalDashboard | null;
   chartData: ChartData | null;
+  projectTree?: any;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const requestedVisualization = searchParams.get("visual");
+  const visualization = requestedVisualization === "timeline" || requestedVisualization === "calendar" || requestedVisualization === "matrix"
+    ? requestedVisualization
+    : "scurve";
+  const projectId = dashboard?.projectId || dashboard?.project?.id;
+  const setVisualization = (next: "scurve" | "timeline" | "calendar" | "matrix") => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "scurve") params.delete("visual");
+    else params.set("visual", next);
+    const query = params.toString();
+    router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+  };
   const enabledCharts = normalizeCharts(dashboard?.charts)
     .filter((chart) => chart.isEnabled)
     .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -112,35 +133,54 @@ export default function DashboardCharts({
   if (!dashboard) return null;
 
   return (
-    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "1fr 1fr" }, gap: 2, minWidth: 0 }}>
-      {enabledCharts.map((chart) => {
+    <Stack spacing={2} sx={{ minWidth: 0 }}>
+      <Card sx={flatCardSx}>
+        <CardContent>
+          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} gap={1.5} sx={{ mb: 2 }}>
+            <Box>
+              <Typography fontWeight={900}>Project schedule and progress</Typography>
+              <Typography sx={{ mt: 0.25, color: "#64748B", fontSize: 12 }}>
+                Switch views without reloading the project structure.
+              </Typography>
+            </Box>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={visualization}
+              onChange={(_, value) => value && setVisualization(value)}
+              aria-label="Project visualization"
+            >
+              <ToggleButton value="scurve" sx={{ textTransform: "none", fontWeight: 800 }}>S-Curve</ToggleButton>
+              <ToggleButton value="timeline" sx={{ textTransform: "none", fontWeight: 800 }}>Timeline</ToggleButton>
+              <ToggleButton value="calendar" sx={{ textTransform: "none", fontWeight: 800 }}>Calendar</ToggleButton>
+              <ToggleButton value="matrix" sx={{ textTransform: "none", fontWeight: 800 }}>Schedule Matrix</ToggleButton>
+            </ToggleButtonGroup>
+          </Stack>
 
-        if (chart.chartType === "SCURVE") {
-          const projectId = dashboard.projectId || dashboard.project?.id;
+          {visualization === "scurve" ? (
+            <Box sx={{ minHeight: { xs: 300, md: 380 }, overflow: "auto", width: "100%" }}>
+              {projectId ? <SCurveChart projectId={projectId} /> : <Alert severity="info">Project is not linked for this dashboard yet.</Alert>}
+            </Box>
+          ) : visualization === "timeline" ? (
+            projectId && projectTree ? <GanttGridView projectId={projectId} project={projectTree} /> : <Alert severity="info">Project timeline data is loading.</Alert>
+          ) : visualization === "calendar" ? (
+            projectId ? (
+              <DashboardCalendar
+                projectId={projectId}
+                projectStartDate={dashboard.project?.startDate ?? null}
+                projectTree={projectTree}
+              />
+            ) : <Alert severity="info">Project calendar data is not available.</Alert>
+          ) : (
+            projectTree ? (
+              <VerticalScheduleMatrix projectTree={projectTree} initialDate={dashboard.project?.startDate ?? null} />
+            ) : <Alert severity="info">Schedule matrix data is loading.</Alert>
+          )}
+        </CardContent>
+      </Card>
 
-          return (
-            <Card key={chart.chartType} sx={flatCardSx}>
-              <CardContent>
-                <Typography fontWeight={900} sx={{ mb: 2 }}>
-                  S-Curve
-                </Typography>
-                <Box
-                  sx={{
-                    minHeight: { xs: 300, md: 380 },
-                    overflow: "auto",
-                    width: "100%",
-                  }}
-                >
-                  {projectId ? (
-                    <SCurveChart projectId={projectId} />
-                  ) : (
-                    <Alert severity="info">Project is not linked for this dashboard yet.</Alert>
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
-          );
-        }
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "1fr 1fr" }, gap: 2, minWidth: 0 }}>
+      {enabledCharts.filter((chart) => chart.chartType !== "SCURVE").map((chart) => {
 
         if (chart.chartType === "DELAY_TREND") {
           return (
@@ -227,6 +267,7 @@ export default function DashboardCharts({
 
         return null;
       })}
-    </Box>
+      </Box>
+    </Stack>
   );
 }

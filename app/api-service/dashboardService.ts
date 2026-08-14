@@ -118,9 +118,29 @@ export interface GlobalDashboardData {
   generatedAt: string;
 }
 
+let dashboardInFlight: Promise<GlobalDashboardData> | null = null;
+let recentDashboard: { data: GlobalDashboardData; fetchedAt: number } | null = null;
+const DASHBOARD_REUSE_MS = 5_000;
+
 export const dashboardService = {
   async get(): Promise<GlobalDashboardData> {
-    const response = await axiosApi.get("/dashboard");
-    return response.data?.data ?? response.data;
+    if (recentDashboard && Date.now() - recentDashboard.fetchedAt < DASHBOARD_REUSE_MS) {
+      return recentDashboard.data;
+    }
+
+    dashboardInFlight =
+      dashboardInFlight ||
+      axiosApi
+        .get("/dashboard")
+        .then((response) => {
+          const data = (response.data?.data ?? response.data) as GlobalDashboardData;
+          recentDashboard = { data, fetchedAt: Date.now() };
+          return data;
+        })
+        .finally(() => {
+          dashboardInFlight = null;
+        });
+
+    return dashboardInFlight;
   },
 };

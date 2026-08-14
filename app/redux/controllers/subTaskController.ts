@@ -19,6 +19,11 @@ import { updateTaskProgress } from "../slices/taskSlice";
 import { getSCurve } from "./scurveController";
 import { normalizeBoardItem } from "@/app/api-service/myBoardService";
 
+const boardRequestsInFlight = new Map<string, Promise<any>>();
+let boardFiltersInFlight: Promise<any> | null = null;
+const scopeDropdownsInFlight = new Map<string, Promise<any>>();
+const taskDropdownsInFlight = new Map<string, Promise<any>>();
+
 // ========================================
 // LOAD FULL TASK (KANBAN)
 // ========================================
@@ -290,7 +295,7 @@ export const loadMyBoard = (filters?: {
   page?: number;
   limit?: number;
 }) => {
-  return async (dispatch: AppDispatch, getState: any) => {
+  return async (dispatch: AppDispatch) => {
     try {
       // ✅ Build query params
       const params = new URLSearchParams();
@@ -307,30 +312,19 @@ export const loadMyBoard = (filters?: {
         ? `/subtasks/board/my?${queryString}`
         : "/subtasks/board/my";
 
-      const res = await axiosApi.get(url);
+      const request =
+        boardRequestsInFlight.get(url) ||
+        axiosApi.get(url).finally(() => boardRequestsInFlight.delete(url));
+      boardRequestsInFlight.set(url, request);
+      const res = await request;
 
       // ✅ Set subtasks to Redux
-      const activeProjectIds = new Set<string>(
-        (getState()?.kanban?.boardFilters?.projects || [])
-          .map((project: { id?: string }) => project.id)
-          .filter(Boolean),
-      );
-      const activeItems = (res.data.data || [])
-        .map(normalizeBoardItem)
-        .filter(
-          (item: ReturnType<typeof normalizeBoardItem>) =>
-            item.projectId && activeProjectIds.has(item.projectId),
-        );
+      const activeItems = (res.data?.data || []).map(normalizeBoardItem);
       dispatch(setSubtasks(activeItems as any));
 
       return {
-        ...res.data,
+        ...res.data?.meta,
         data: activeItems,
-        total: activeItems.length,
-        totalPages: Math.max(
-          1,
-          Math.ceil(activeItems.length / (filters?.limit || activeItems.length || 1)),
-        ),
       };
     } catch (err) {
       console.error("❌ Error loading my board:", err);
@@ -360,18 +354,19 @@ export const loadMyBoardItem = (itemId: string) => {
 export const loadBoardFilterData = () => {
   return async (dispatch: AppDispatch) => {
     try {
-      // ✅ Fetch projects with full=true parameter
-      const projectsRes = await axiosApi.get("/projects?full=true&status=ACTIVE");
+      // Fetch only lightweight active project options for the board filter.
+      boardFiltersInFlight =
+        boardFiltersInFlight ||
+        axiosApi.get("/projects/active/dropdown").finally(() => {
+          boardFiltersInFlight = null;
+        });
+      const projectsRes = await boardFiltersInFlight;
 
       // ✅ Map projects to have { id, name } structure (FilterItem format)
       const projectItems = Array.isArray(projectsRes.data)
         ? projectsRes.data
         : projectsRes.data?.data || [];
       const formattedProjects = projectItems
-        .filter(
-          (project: any) =>
-            String(project.status || project.projectStatus || "").toUpperCase() === "ACTIVE",
-        )
         .map((project: any) => ({
           id: project.id,
           name: project.name || project.title || "Unnamed Project",
@@ -401,14 +396,20 @@ export const loadBoardFilterData = () => {
 export const loadScopesForProject = (projectId: string) => {
   return async (dispatch: AppDispatch, getState: any) => {
     try {
-      const res = await axiosApi.get(`/scopes/project/${projectId}`);
+      const request =
+        scopeDropdownsInFlight.get(projectId) ||
+        axiosApi
+          .get(`/scopes/project/${projectId}/dropdown`)
+          .finally(() => scopeDropdownsInFlight.delete(projectId));
+      scopeDropdownsInFlight.set(projectId, request);
+      const res = await request;
       
       // ✅ Get existing state to preserve projects
       const currentState = getState();
       const currentProjects = currentState?.kanban?.boardFilters?.projects || [];
 
       // ✅ Map scopes to have { id, name } structure
-      const formattedScopes = (res.data || []).map((scope: any) => ({
+      const formattedScopes = (res.data?.data || res.data || []).map((scope: any) => ({
         id: scope.id,
         name: scope.name || scope.title || "Unnamed Scope",
       }));
@@ -440,7 +441,13 @@ export const loadScopesForProject = (projectId: string) => {
 export const loadTasksForScope = (scopeId: string) => {
   return async (dispatch: AppDispatch, getState: any) => {
     try {
-      const res = await axiosApi.get(`/tasks/scope/${scopeId}`);
+      const request =
+        taskDropdownsInFlight.get(scopeId) ||
+        axiosApi
+          .get(`/tasks/scope/${scopeId}/dropdown`)
+          .finally(() => taskDropdownsInFlight.delete(scopeId));
+      taskDropdownsInFlight.set(scopeId, request);
+      const res = await request;
       
       // ✅ Get existing state to preserve projects and scopes
       const currentState = getState();
@@ -448,7 +455,7 @@ export const loadTasksForScope = (scopeId: string) => {
       const currentScopes = currentState?.kanban?.boardFilters?.scopes || [];
 
       // ✅ Map tasks to have { id, name } structure
-      const formattedTasks = (res.data || []).map((task: any) => ({
+      const formattedTasks = (res.data?.data || res.data || []).map((task: any) => ({
         id: task.id,
         name: task.name || task.title || "Unnamed Task",
       }));

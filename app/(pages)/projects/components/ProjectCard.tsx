@@ -15,11 +15,13 @@ import {
 import BusinessIcon from "@mui/icons-material/Business";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import PlaceIcon from "@mui/icons-material/Place";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import { ProjectCardActions, ViewType } from "./types";
 
 type ProjectCardProject = {
   id: string;
+  pin?: string;
   name?: string;
   description?: string;
   progress?: number;
@@ -34,6 +36,10 @@ type ProjectCardProject = {
   businessUnitDetails?: {
     id?: string;
     code?: string;
+    name?: string;
+  } | null;
+  owner?: {
+    id?: string;
     name?: string;
   } | null;
   activatedAt?: string;
@@ -134,13 +140,11 @@ const formatDate = (value?: string) => {
 const normalizeProgress = (raw: unknown): number => {
   const value = Number(raw);
   if (!Number.isFinite(value)) return 0;
-
-  if (value >= 0 && value <= 1) {
-    return Math.round(value * 100);
-  }
-
-  return Math.max(0, Math.min(100, Math.round(value)));
+  return Math.max(0, Math.min(100, value));
 };
+
+const formatProgress = (value: number): string =>
+  Number(value.toFixed(2)).toString();
 
 const getProjectProgress = (project: ProjectCardProject): number => {
   const raw =
@@ -319,6 +323,8 @@ export default function ProjectCard({
   const isArchived = project.status === "ARCHIVED";
   const chipStyle = statusChipColor(project.status);
   const businessUnitName = project.businessUnitDetails?.name || project.businessUnitName || "No BU";
+  const businessUnitCode = project.businessUnitDetails?.code || project.businessUnit || "No BU code";
+  const ownerName = project.owner?.name || "Not assigned";
   const versionLabel = getProjectVersionLabel(project);
   const versionTone = chipStyle;
   const approvalOnly = actionMode === "approval";
@@ -470,7 +476,7 @@ export default function ProjectCard({
             gap: 0.75,
             px: 2,
             py: 2,
-            height: 58,
+            minHeight: 58,
             position: "relative",
             background: "linear-gradient(23deg, #210E64 35%, #1B169D 100%)",
             borderBottom: `3px solid ${versionTone.border}`,
@@ -481,6 +487,13 @@ export default function ProjectCard({
           <Box sx={{ flex: 1, minWidth: 0, pr: approvalOnly ? 10 : 4, width: "100%" }}>
             <Typography fontWeight={800} sx={{ fontSize: 13, color: "#FFFFFF", lineHeight: 1.35, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {project.name || "Untitled Project"}
+            </Typography>
+            <Typography
+              noWrap
+              title={project.pin || "PIN not assigned"}
+              sx={{ mt: 0.2, fontSize: 10, color: "rgba(255,255,255,0.76)", fontWeight: 700, letterSpacing: 0.35 }}
+            >
+              {project.pin || "PIN not assigned"}
             </Typography>
           </Box>
 
@@ -555,19 +568,19 @@ export default function ProjectCard({
           <Stack direction="row" spacing={1.5} alignItems="stretch" sx={{ mb: 1.25 }}>
             <Stack spacing={1.1} sx={{ flex: "0 0 65%", minWidth: 0 }}>
               <MetaItem
-                icon={<CalendarMonthIcon sx={{ fontSize: 16 }} />}
-                label="Expected End Date"
-                value={formatDate(project.expectedEndDate)}
+                icon={<PersonOutlineIcon sx={{ fontSize: 16 }} />}
+                label="Owner"
+                value={ownerName}
               />
               <MetaItem
                 icon={<BusinessIcon sx={{ fontSize: 16 }} />}
                 label="Business Unit"
-                value={businessUnitName}
+                value={businessUnitCode}
               />
               <MetaItem
-                icon={<CalendarMonthIcon sx={{ fontSize: 16 }} />}
-                label="Expected Start Date"
-                value={formatDate(project.startDate)}
+                icon={<PlaceIcon sx={{ fontSize: 16 }} />}
+                label="Location"
+                value={formatLocation(project.location)}
               />
             </Stack>
 
@@ -606,7 +619,7 @@ export default function ProjectCard({
                   }}
                 >
                   <Typography sx={{ fontSize: 15, fontWeight: 800, color: PROGRESS_COLOR, lineHeight: 1 }}>
-                    {`${progressPercent}%`}
+                    {`${formatProgress(progressPercent)}%`}
                   </Typography>
                 </Box>
               </Box>
@@ -616,11 +629,27 @@ export default function ProjectCard({
             </Stack>
           </Stack>
 
-          <MetaItem
-            icon={<PlaceIcon sx={{ fontSize: 16 }} />}
-            label="Location"
-            value={formatLocation(project.location)}
-          />
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+              gap: 1.5,
+              pt: 1.25,
+              mt: 0.25,
+              borderTop: "1px solid #E2E8F0",
+            }}
+          >
+            <MetaItem
+              icon={<CalendarMonthIcon sx={{ fontSize: 16 }} />}
+              label="Start Date"
+              value={formatDate(project.startDate)}
+            />
+            <MetaItem
+              icon={<CalendarMonthIcon sx={{ fontSize: 16 }} />}
+              label="End Date"
+              value={formatDate(project.expectedEndDate)}
+            />
+          </Box>
         </Box>
       </CardContent>
 

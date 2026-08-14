@@ -61,6 +61,7 @@ export interface StructuredViewProps {
   project: {
     id: string;
     name: string;
+    totalBudget?: number;
     scopes: Scope[];
   };
   compareMode?: boolean;

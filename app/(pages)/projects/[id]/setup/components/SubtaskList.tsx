@@ -147,6 +147,7 @@ export default function SubtaskList({
 
         <SubtaskForm
           taskId={task.id}
+          taskName={task.title}
           taskMaintenanceId={task.taskMaintenanceId}
           taskBudget={task.budgetAllocated || 0}
           existingSubtasks={subtasks}

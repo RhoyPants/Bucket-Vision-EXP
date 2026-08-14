@@ -1,4 +1,4 @@
-import { AppDispatch } from "../store";
+import { AppDispatch, RootState } from "../store";
 import axiosApi from "@/app/lib/axios";
 import { AxiosResponse } from "axios";
 import {
@@ -8,6 +8,9 @@ import {
   deleteProjectLocal,
   setLoading,
   setProjectPagination,
+  setProjectDirectory,
+  setProjectDirectoryPagination,
+  setDirectoryLoading,
 } from "../slices/projectSlice";
 import {
   getMyApprovals as fetchMyApprovals,
@@ -16,7 +19,13 @@ import {
   ProjectListQuery,
   getProjectsByStatus as fetchProjectsByStatus,
   getActiveProjectDropdown as fetchActiveProjectDropdown,
+  getProjectDirectory as fetchProjectDirectory,
+  ProjectDirectoryQuery,
 } from "@/app/api-service/projectService";
+import {
+  setApprovalCount,
+  setNeedsRevisionCount,
+} from "../slices/notificationCountSlice";
 
 const normalizeProjectRow = (project: any) => ({
   ...project,
@@ -59,9 +68,40 @@ let activeProjectsInFlight: ReturnType<typeof fetchActiveProjectDropdown> | null
 const fullProjectInFlight = new Map<string, Promise<AxiosResponse<any>>>();
 const myDraftsInFlight = new Map<string, ReturnType<typeof fetchMyDrafts>>();
 const myRequestsInFlight = new Map<string, ReturnType<typeof fetchMyRequests>>();
+const recentMyRequests = new Map<string, { response: Awaited<ReturnType<typeof fetchMyRequests>>; fetchedAt: number }>();
 const myApprovalsInFlight = new Map<string, ReturnType<typeof fetchMyApprovals>>();
+const projectDirectoryInFlight = new Map<string, ReturnType<typeof fetchProjectDirectory>>();
 
 const queryKey = (params?: ProjectListQuery) => JSON.stringify(params || {});
+
+export const getProjectDirectory = (params?: ProjectDirectoryQuery) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      dispatch(setDirectoryLoading(true));
+      const key = queryKey(params);
+      const request =
+        projectDirectoryInFlight.get(key) ||
+        fetchProjectDirectory(params).finally(() => projectDirectoryInFlight.delete(key));
+      projectDirectoryInFlight.set(key, request);
+
+      const response = await request;
+      const { data, meta } = normalizeProjectListResponse(response);
+      const projectsData = data.map((project: any) => ({
+        ...project,
+        businessUnitDetails: project.businessUnitDetails || project.businessUnit || null,
+      }));
+
+      dispatch(setProjectDirectory(projectsData));
+      dispatch(setProjectDirectoryPagination(meta));
+      return projectsData;
+    } catch (err) {
+      console.error("Error fetching project directory:", err);
+      throw err;
+    } finally {
+      dispatch(setDirectoryLoading(false));
+    }
+  };
+};
 
 export const getProjects = () => {
   return async (dispatch: AppDispatch) => {
@@ -104,9 +144,18 @@ export const getProjects = () => {
 // ✅ GET FULL
 import { setFullProject } from "../slices/projectSlice";
 
-export const getProjectFull = (projectId: string) => {
-  return async (dispatch: AppDispatch) => {
+export const getProjectFull = (
+  projectId: string,
+  options?: { force?: boolean; preferCache?: boolean },
+) => {
+  return async (dispatch: AppDispatch, getState: () => RootState) => {
     try {
+      const cached = getState().project.fullProjectsById[projectId];
+      if (!options?.force && options?.preferCache && cached) {
+        dispatch(setFullProject(cached));
+        return cached;
+      }
+
       dispatch(setLoading(true));
 
       const request =
@@ -234,6 +283,7 @@ export const getMyApprovalsProjects = (params?: ProjectListQuery) => {
 
       dispatch(setProjects(projectsData));
       dispatch(setProjectPagination(meta));
+      dispatch(setApprovalCount(meta.total));
 
       return projectsData;
     } catch (err) {
@@ -252,18 +302,31 @@ export const getMyRequestsProjects = (params?: ProjectListQuery) => {
       dispatch(setLoading(true));
 
       const key = queryKey(params);
-      const request =
-        myRequestsInFlight.get(key) ||
-        fetchMyRequests(params).finally(() => {
-          myRequestsInFlight.delete(key);
-        });
-      myRequestsInFlight.set(key, request);
-
-      const response = await request;
+      const cached = recentMyRequests.get(key);
+      let response;
+      if (cached && Date.now() - cached.fetchedAt < 5_000) {
+        response = cached.response;
+      } else {
+        const request =
+          myRequestsInFlight.get(key) ||
+          fetchMyRequests(params)
+            .then((nextResponse) => {
+              recentMyRequests.set(key, { response: nextResponse, fetchedAt: Date.now() });
+              return nextResponse;
+            })
+            .finally(() => {
+              myRequestsInFlight.delete(key);
+            });
+        myRequestsInFlight.set(key, request);
+        response = await request;
+      }
       const { data: projectsData, meta } = normalizeProjectListResponse(response);
 
       dispatch(setProjects(projectsData));
       dispatch(setProjectPagination(meta));
+      if (params?.status === "NEEDS_REVISION") {
+        dispatch(setNeedsRevisionCount(meta.total));
+      }
 
       return projectsData;
     } catch (err) {

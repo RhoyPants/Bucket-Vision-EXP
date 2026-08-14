@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -15,7 +15,8 @@ import SearchIcon from "@mui/icons-material/Search";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { useRouter } from "next/navigation";
 
-import { getProjects, deleteProject } from "@/app/redux/controllers/projectController";
+import { getProjectDirectory, deleteProject } from "@/app/redux/controllers/projectController";
+import { getBusinessUnitsDropdown } from "@/app/api-service/businessUnitService";
 import {
   getProjectApprovals,
   getApprovalAuditTrail,
@@ -37,7 +38,7 @@ import { usePermissions } from "@/app/lib/usePermissions";
 import { notifyFirstApprovalStep } from "@/app/utils/approvalEmailNotification";
 import { brandColors } from "@/app/lib/theme";
 
-const PROJECTS_PER_PAGE = 6;
+type PageLimit = 6 | 12 | 24 | 48;
 
 const projectStatuses = [
   { value: "DRAFT", label: "Draft", bg: "#f3f4f6", color: "#4b5563" },
@@ -48,18 +49,11 @@ const projectStatuses = [
   { value: "COMPLETED", label: "Completed", bg: "#eef2ff", color: "#4338ca" },
 ] as const;
 
-const hiddenProjectStatuses = new Set([
-  "REJECTED",
-  "APPROVED",
-  "INACTIVE",
-  "ARCHIVED",
-]);
-
 export default function ProjectsPage() {
   const dispatch = useAppDispatch();
   const router = useRouter();
 
-  const { projects } = useAppSelector((state) => state.project);
+  const { projectDirectory: projects, directoryPagination: pagination } = useAppSelector((state) => state.project);
   const { allApprovals, auditTrail } = useAppSelector((state) => state.approval);
   const { user, permissionRole } = useAppSelector((state) => state.auth);
   const { canUpdate, canDelete } = usePermissions();
@@ -74,9 +68,12 @@ export default function ProjectsPage() {
 
   const [viewType, setViewType] = useState<ViewType>("card");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [businessUnitFilter, setBusinessUnitFilter] = useState("ALL");
+  const [businessUnitOptions, setBusinessUnitOptions] = useState<Array<{ id: string; code?: string; name: string }>>([]);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState<PageLimit>(12);
 
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [projectModalMode, setProjectModalMode] = useState<"create" | "edit">("create");
@@ -93,6 +90,18 @@ export default function ProjectsPage() {
   const [deletingProject, setDeletingProject] = useState(false);
   const [needsRevisionOpen, setNeedsRevisionOpen] = useState(false);
   const [needsRevisionInfo, setNeedsRevisionInfo] = useState<any>(null);
+
+  const loadDirectory = useCallback(() => dispatch(getProjectDirectory({
+    page,
+    limit,
+    search: debouncedSearch || undefined,
+    status: canViewAllProjectStatuses
+      ? (statusFilter === "ALL" ? undefined : statusFilter)
+      : "ACTIVE",
+    businessUnitId: businessUnitFilter === "ALL" ? undefined : businessUnitFilter,
+    sortBy: "createdAt",
+    sortOrder: "desc",
+  })), [dispatch, page, limit, debouncedSearch, statusFilter, businessUnitFilter, canViewAllProjectStatuses]);
 
   const openNeedsRevisionModal = async (project: any) => {
     try {
@@ -151,7 +160,7 @@ export default function ProjectsPage() {
       await dispatch(deleteProject(projectToDelete.id) as any);
       setDeleteConfirmOpen(false);
       setProjectToDelete(null);
-      dispatch(getProjects());
+      loadDirectory();
     } catch (err) {
       console.error("Failed to delete project:", err);
     } finally {
@@ -160,60 +169,26 @@ export default function ProjectsPage() {
   };
 
   useEffect(() => {
-    dispatch(getProjects());
-  }, [dispatch]);
-
-  const allProjects = useMemo(() => {
-    return (projects || []).filter(
-      (project: any) => !hiddenProjectStatuses.has(project.status)
-    );
-  }, [projects]);
-
-  const activeProjects = useMemo(() => {
-    return allProjects.filter(
-      (project: any) => project.status === "ACTIVE" || project.status === "APPROVED"
-    );
-  }, [allProjects]);
-
-  const visibleProjects = canViewAllProjectStatuses ? allProjects : activeProjects;
-
-  const businessUnitOptions = useMemo(() => {
-    const buSet = new Set<string>();
-    visibleProjects.forEach((p: any) => {
-      const buName = p?.businessUnitDetails?.name || p?.businessUnitName;
-      if (buName) buSet.add(buName);
-    });
-    return Array.from(buSet).sort((a, b) => a.localeCompare(b));
-  }, [visibleProjects]);
-
-  const filteredProjects = useMemo(() => {
-    return visibleProjects.filter((p: any) => {
-      const matchesSearch =
-        !searchQuery ||
-        String(p?.name || "").toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesBusinessUnit =
-        businessUnitFilter === "ALL" ||
-        (p?.businessUnitDetails?.name || p?.businessUnitName || "") === businessUnitFilter;
-      const normalizedStatus = String(p?.status || "DRAFT").toUpperCase();
-      const matchesStatus =
-        !canViewAllProjectStatuses || statusFilter === "ALL" || normalizedStatus === statusFilter;
-      return matchesSearch && matchesBusinessUnit && matchesStatus;
-    });
-  }, [visibleProjects, searchQuery, businessUnitFilter, statusFilter, canViewAllProjectStatuses]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredProjects.length / PROJECTS_PER_PAGE));
-  const paginatedProjects = filteredProjects.slice(
-    (page - 1) * PROJECTS_PER_PAGE,
-    page * PROJECTS_PER_PAGE
-  );
+    const timer = window.setTimeout(() => {
+      setPage(1);
+      setDebouncedSearch(searchQuery.trim());
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
 
   useEffect(() => {
-    setPage(1);
-  }, [searchQuery, businessUnitFilter, statusFilter]);
+    getBusinessUnitsDropdown()
+      .then((data) => setBusinessUnitOptions(Array.isArray(data) ? data : []))
+      .catch(() => setBusinessUnitOptions([]));
+  }, []);
 
   useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
+    loadDirectory();
+  }, [loadDirectory]);
+
+  useEffect(() => {
+    if (page > pagination.totalPages) setPage(Math.max(1, pagination.totalPages));
+  }, [page, pagination.totalPages]);
 
   const actions: ProjectCardActions = {
     onOpenDashboard: (projectId) => router.push(`/projectDashboard/${projectId}`),
@@ -292,8 +267,7 @@ export default function ProjectsPage() {
                 Project directory
               </Typography>
               <Typography sx={{ color: "#6B6880", fontSize: 13, mt: 0.25 }}>
-                {filteredProjects.length} {filteredProjects.length === 1 ? "project" : "projects"}
-                {filteredProjects.length !== visibleProjects.length ? ` of ${visibleProjects.length}` : ""}
+                {pagination.total} {pagination.total === 1 ? "project" : "projects"}
               </Typography>
             </Box>
           </Stack>
@@ -321,13 +295,16 @@ export default function ProjectsPage() {
               label="Business Unit"
               size="small"
               value={businessUnitFilter}
-              onChange={(e) => setBusinessUnitFilter(e.target.value)}
+              onChange={(e) => {
+                setBusinessUnitFilter(e.target.value);
+                setPage(1);
+              }}
               sx={{ minWidth: { xs: "100%", md: 240 } }}
             >
               <MenuItem value="ALL">All Business Units</MenuItem>
               {businessUnitOptions.map((bu) => (
-                <MenuItem key={bu} value={bu}>
-                  {bu}
+                <MenuItem key={bu.id} value={bu.id}>
+                  {bu.name}
                 </MenuItem>
               ))}
             </TextField>
@@ -337,7 +314,10 @@ export default function ProjectsPage() {
                 label="Status"
                 size="small"
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
                 sx={{ minWidth: { xs: "100%", md: 190 } }}
               >
                 <MenuItem value="ALL">All Statuses</MenuItem>
@@ -352,7 +332,7 @@ export default function ProjectsPage() {
         </Paper>
 
         <ProjectsGrid
-          projects={paginatedProjects}
+          projects={projects || []}
           actions={actions}
           viewType={viewType}
           onViewTypeChange={setViewType}
@@ -363,14 +343,15 @@ export default function ProjectsPage() {
               : "Projects appear here once they are approved and activated"
           }
           pagination={{
+            ...pagination,
             page,
-            limit: PROJECTS_PER_PAGE,
-            total: filteredProjects.length,
-            totalPages,
-            hasNextPage: page < totalPages,
-            hasPrevPage: page > 1,
+            limit,
           }}
           onPageChange={setPage}
+          onLimitChange={(nextLimit) => {
+            setLimit(nextLimit);
+            setPage(1);
+          }}
         />
 
         
@@ -409,7 +390,7 @@ export default function ProjectsPage() {
               await dispatch(approveProject(selectedProjectForApproval.id, remarks));
               await dispatch(getApprovalAuditTrail(selectedProjectForApproval.id));
               setApprovalDetailOpen(false);
-              dispatch(getProjects());
+              loadDirectory();
             } catch (err) {
               console.error("Failed to approve project:", err);
             }
@@ -419,7 +400,7 @@ export default function ProjectsPage() {
             try {
               await dispatch(rejectProject(selectedProjectForApproval.id, remarks));
               setApprovalDetailOpen(false);
-              dispatch(getProjects());
+              loadDirectory();
             } catch (err) {
               console.error("Failed to reject project:", err);
             }
@@ -448,7 +429,7 @@ export default function ProjectsPage() {
                 console.warn("Could not send approval email notifications:", emailError);
               }
               setApprovalSubmitOpen(false);
-              dispatch(getProjects());
+              loadDirectory();
             } catch (err) {
               console.error("Failed to submit project for approval:", err);
             }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Box,
@@ -25,7 +25,6 @@ import ArrowBackOutlinedIcon from "@mui/icons-material/ArrowBackOutlined";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
-import axiosApi from "@/app/lib/axios";
 import { useAppSelector } from "@/app/redux/hook";
 
 const sidebarWidth = 280;
@@ -44,27 +43,12 @@ export default function ProjectDashboardSidebar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentUser = useAppSelector((state) => state.auth.user);
+  const selectedDashboard = useAppSelector((state) => state.personalDashboard.selectedDashboard);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState("UNKNOWN");
-  const [ownerId, setOwnerId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    axiosApi
-      .get(`/project-dashboards/${projectId}`)
-      .then((response) => {
-        if (!active) return;
-        const project = (response.data?.data ?? response.data)?.project;
-        setProgress(normalizeProgress(project?.progress));
-        setStatus(project?.status || "UNKNOWN");
-        setOwnerId(project?.ownerId ? String(project.ownerId) : null);
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, [projectId]);
+  const project = selectedDashboard?.id === projectId ? selectedDashboard.project : null;
+  const progress = normalizeProgress(project?.progress);
+  const status = project?.status || "UNKNOWN";
+  const ownerId = project?.ownerId ? String(project.ownerId) : null;
 
   const items = [
     {

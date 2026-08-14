@@ -167,9 +167,11 @@ const getLocalDate = () => {
 const normalizeProgress = (value?: number) => {
   const progress = Number(value ?? 0);
   if (!Number.isFinite(progress)) return 0;
-  if (progress >= 0 && progress <= 1) return Math.round(progress * 100);
-  return Math.min(100, Math.max(0, Math.round(progress)));
+  return Math.min(100, Math.max(0, progress));
 };
+
+const formatProgress = (value: number): string =>
+  Number(value.toFixed(2)).toString();
 
 const formatDate = (value?: string) => {
   if (!value) return emptyValue;
@@ -1254,7 +1256,7 @@ export default function ProjectInfo({ projectId }: { projectId: string }) {
             >
               <Typography sx={{ color: "#64748B", fontSize: 13 }}>Project progress</Typography>
               <Typography sx={{ color: "#1E293B", fontSize: 13, fontWeight: 500 }}>
-                {progress}%
+                {formatProgress(progress)}%
               </Typography>
             </Box>
 

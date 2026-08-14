@@ -39,7 +39,6 @@ export default function ScopeForm({
   const [saving, setSaving] = useState(false);
   const [maintenanceScopes, setMaintenanceScopes] = useState<MaintenanceRecord[]>([]);
   const [maintenanceLoading, setMaintenanceLoading] = useState(true);
-  const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
   const selectedScopeMaintenanceIds = new Set(
     (existingScopes || [])
       .map((scope) => scope.scopeMaintenanceId)
@@ -56,22 +55,6 @@ export default function ScopeForm({
       )
       .finally(() => setMaintenanceLoading(false));
   }, []);
-
-  useEffect(() => {
-    if (!scopeMenuOpen) return;
-    const closeMenuOnScroll = (event: Event) => {
-      const target = event.target;
-      if (
-        target instanceof Element &&
-        target.closest(".MuiMenu-paper, [role='listbox']")
-      ) {
-        return;
-      }
-      setScopeMenuOpen(false);
-    };
-    window.addEventListener("scroll", closeMenuOnScroll, true);
-    return () => window.removeEventListener("scroll", closeMenuOnScroll, true);
-  }, [scopeMenuOpen]);
 
   const handleSubmit = async () => {
     const validation = validateScopeForm(
@@ -125,7 +108,7 @@ export default function ScopeForm({
   return (
     <Box sx={{ mb: 3, p: 2.5, bgcolor: "white", borderRadius: 2, border: "1px solid #e5e7eb" }}>
       {/* HEADER */}
-      <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2 }}>
+      <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2, color: "#111827" }}>
         Create New Scope
       </Typography>
 
@@ -198,11 +181,7 @@ export default function ScopeForm({
             size="small"
             disabled={saving || maintenanceLoading}
             SelectProps={{
-              open: scopeMenuOpen,
-              onOpen: () => setScopeMenuOpen(true),
-              onClose: () => setScopeMenuOpen(false),
               MenuProps: {
-                disablePortal: true,
                 PaperProps: { sx: { maxHeight: 280 } },
               },
             }}

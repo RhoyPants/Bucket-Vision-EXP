@@ -38,7 +38,7 @@ const refreshProgressDependencies = async (
     }
 
     if (projectId) {
-      const projectPromise = dispatch(getProjectFull(projectId) as any);
+      const projectPromise = dispatch(getProjectFull(projectId, { force: true }) as any);
       if (projectPromise && typeof projectPromise.then === "function") {
         await projectPromise;
       }

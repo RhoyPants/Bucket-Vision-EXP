@@ -10,6 +10,7 @@ import { getProjectFull } from "@/app/redux/controllers/projectController";
 type StructureProject = {
   id: string;
   name: string;
+  totalBudget?: number;
   scopes: Scope[];
 };
 
@@ -21,12 +22,13 @@ export default function ProjectStructure({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     let active = true;
-    dispatch(getProjectFull(projectId))
+    dispatch(getProjectFull(projectId, { preferCache: true }))
       .then((response) => {
         if (!active || !response) return;
         setProject({
           id: response.id,
           name: response.name || "Untitled Project",
+          totalBudget: Number(response.totalBudget || 0),
           scopes: (response.scopes || []) as unknown as Scope[],
         });
       })

@@ -44,6 +44,7 @@ export interface PersonalDashboard {
     progress?: number;
     description?: string;
     status?: string;
+    ownerId?: string | null;
     startDate?: string | null;
     expectedEndDate?: string | null;
   };

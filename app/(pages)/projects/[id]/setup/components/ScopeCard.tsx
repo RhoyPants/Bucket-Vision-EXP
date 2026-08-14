@@ -139,6 +139,12 @@ function ScopeCard({
     Number(scope.budgetAllocated) || 0,
     Number(scope.budgetAllocated) || 0
   );
+  const scopeBudget = Number(scope.budgetAllocated) || 0;
+  const taskBudgetTotal = (scope.tasks || []).reduce(
+    (total: number, task: any) => total + (Number(task?.budgetAllocated) || 0),
+    0
+  );
+  const scopeBudgetVariance = scopeBudget - taskBudgetTotal;
 
   return (
     <>
@@ -211,6 +217,39 @@ function ScopeCard({
             </IconButton>
           </Box>
         </Box>
+
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={{ xs: 0.75, sm: 1.5 }}
+          sx={{
+            mb: 2,
+            p: 1.25,
+            bgcolor: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: 1.25,
+            "& > * + *": {
+              borderTop: { xs: "1px solid #e2e8f0", sm: 0 },
+              borderLeft: { xs: 0, sm: "1px solid #cbd5e1" },
+              pt: { xs: 0.75, sm: 0 },
+              pl: { xs: 0, sm: 1.5 },
+            },
+          }}
+        >
+          <Typography sx={{ color: "#475569", fontSize: 12 }}>
+            Allocated budget: <strong>₱{scopeBudget.toLocaleString()}</strong>
+          </Typography>
+          <Typography sx={{ color: "#475569", fontSize: 12 }}>
+            Total tasks: <strong>₱{taskBudgetTotal.toLocaleString()}</strong>
+          </Typography>
+          <Typography sx={{ color: "#475569", fontSize: 12, fontWeight: 700 }}>
+            Budget variance:{" "}
+            <Box component="span" sx={{ color: scopeBudgetVariance < 0 ? "#dc2626" : scopeBudgetVariance === 0 ? "#15803d" : "#1e3a8a" }}>
+              {scopeBudgetVariance === 0
+                ? "Balanced"
+                : `₱${Math.abs(scopeBudgetVariance).toLocaleString()} ${scopeBudgetVariance < 0 ? "over allocation" : "under allocation"}`}
+            </Box>
+          </Typography>
+        </Stack>
 
         {/* TASK INPUT */}
         <TaskForm

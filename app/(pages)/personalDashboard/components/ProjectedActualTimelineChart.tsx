@@ -23,7 +23,10 @@ import {
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
-import { DashboardReportTable } from "@/app/api-service/personalDashboardService";
+import {
+  DashboardReportTable,
+  DashboardReportTableColumn,
+} from "@/app/api-service/personalDashboardService";
 import { exportDashboardReport } from "../utils/exportDashboardReport";
 
 type TimelineValue = {
@@ -179,10 +182,10 @@ const getDateLabel = (date?: string | null) => {
   return parsed.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 };
 
-const buildMonthGroups = (reportTable: DashboardReportTable): HeaderGroup[] => {
+const buildMonthGroups = (columns: DashboardReportTableColumn[]): HeaderGroup[] => {
   const groups: HeaderGroup[] = [];
 
-  reportTable.columns.forEach((column) => {
+  columns.forEach((column) => {
     const key = getMonthKey(column.date);
     const current = groups[groups.length - 1];
     if (current?.key === key) {
@@ -193,6 +196,38 @@ const buildMonthGroups = (reportTable: DashboardReportTable): HeaderGroup[] => {
   });
 
   return groups;
+};
+
+const buildDisplayColumns = (
+  columns: DashboardReportTableColumn[],
+  projectStartDate?: string | null
+): DashboardReportTableColumn[] => {
+  if (!columns.length || !projectStartDate) return columns;
+
+  const firstColumnDate = parseDate(normalizeDateKey(columns[0].date));
+  const officialStartDate = parseDate(normalizeDateKey(projectStartDate));
+  if (!firstColumnDate || !officialStartDate) return columns;
+
+  const visibleStartDate = new Date(officialStartDate);
+  visibleStartDate.setDate(visibleStartDate.getDate() - 7);
+  if (visibleStartDate >= firstColumnDate) return columns;
+
+  const prependedColumns: DashboardReportTableColumn[] = [];
+  const cursor = new Date(visibleStartDate);
+  while (cursor < firstColumnDate) {
+    const date = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(
+      cursor.getDate()
+    ).padStart(2, "0")}`;
+    prependedColumns.push({
+      index: -(prependedColumns.length + 1),
+      label: date,
+      date,
+      weekNumber: 0,
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return [...prependedColumns, ...columns];
 };
 
 const toNumber = (value?: number | null) => Number(value ?? 0);
@@ -337,11 +372,16 @@ export default function ProjectedActualTimelineChart({
   const activeProject =
     project?.id && reportTable?.project?.id && project.id !== reportTable.project.id ? null : project;
   const ganttRows = useMemo(() => buildGanttRows(activeProject, reportTable), [activeProject, reportTable]);
-  const monthGroups = useMemo(
-    () => (reportTable ? buildMonthGroups(reportTable) : []),
-    [reportTable]
-  );
   const startDate = activeProject?.startDate ?? reportTable?.project?.startDate ?? reportTable?.columns?.[0]?.date;
+  const displayColumns = useMemo(
+    () => (reportTable ? buildDisplayColumns(reportTable.columns, startDate) : []),
+    [reportTable, startDate]
+  );
+  const prependedColumnCount = Math.max(0, displayColumns.length - (reportTable?.columns.length ?? 0));
+  const monthGroups = useMemo(
+    () => buildMonthGroups(displayColumns),
+    [displayColumns]
+  );
   const hasProjectTree = Boolean(activeProject?.scopes?.length);
 
   return (
@@ -444,7 +484,7 @@ export default function ProjectedActualTimelineChart({
               size="small"
               stickyHeader
               sx={{
-                minWidth: 740 + reportTable.columns.length * 30,
+                minWidth: 740 + displayColumns.length * 30,
                 borderCollapse: "collapse",
                 "& .MuiTableCell-root": { fontFamily: "Arial, sans-serif" },
               }}
@@ -472,6 +512,15 @@ export default function ProjectedActualTimelineChart({
                   <TableCell sx={{ ...leftHeaderCellSx, top: 22, zIndex: 6, minWidth: 110 }}>AMOUNT</TableCell>
                   <TableCell sx={{ ...leftHeaderCellSx, top: 22, zIndex: 6, minWidth: 58 }}>%W</TableCell>
                   <TableCell sx={{ ...leftHeaderCellSx, top: 22, zIndex: 6, minWidth: 92 }}>Column 1</TableCell>
+                  {prependedColumnCount > 0 && (
+                    <TableCell
+                      colSpan={prependedColumnCount}
+                      align="center"
+                      sx={{ ...timelineCellSx, top: 22, zIndex: 5, bgcolor: darkHeader, color: "#fff", fontWeight: 900 }}
+                    >
+                      PRE-START
+                    </TableCell>
+                  )}
                   {reportTable.weekGroups.map((week) => (
                     <TableCell
                       key={week.weekNumber}
@@ -485,7 +534,7 @@ export default function ProjectedActualTimelineChart({
                 </TableRow>
                 <TableRow>
                   <TableCell colSpan={6} sx={{ ...leftHeaderCellSx, top: 44, zIndex: 6, bgcolor: darkHeader }} />
-                  {reportTable.columns.map((column) => (
+                  {displayColumns.map((column) => (
                     <TableCell
                       key={`day-${column.index}`}
                       align="center"
@@ -497,7 +546,7 @@ export default function ProjectedActualTimelineChart({
                 </TableRow>
                 <TableRow>
                   <TableCell colSpan={6} sx={{ ...leftHeaderCellSx, top: 66, zIndex: 6, bgcolor: darkHeader }} />
-                  {reportTable.columns.map((column) => (
+                  {displayColumns.map((column) => (
                     <TableCell
                       key={`date-${column.index}`}
                       align="center"
@@ -549,7 +598,7 @@ export default function ProjectedActualTimelineChart({
                           {row.budgetPercent ? `${row.budgetPercent.toFixed(2)}%` : ""}
                         </TableCell>
                         <TableCell sx={{ bgcolor: isProject || isScope ? darkHeader : navy, border: `1px solid ${gridBorder}` }} />
-                        <TableCell colSpan={reportTable.columns.length} sx={{ bgcolor: isProject || isScope ? darkHeader : navy, height: 24, border: `1px solid ${gridBorder}` }} />
+                        <TableCell colSpan={displayColumns.length} sx={{ bgcolor: isProject || isScope ? darkHeader : navy, height: 24, border: `1px solid ${gridBorder}` }} />
                       </TableRow>
                     );
                   }
@@ -576,7 +625,7 @@ export default function ProjectedActualTimelineChart({
                         <TableCell align="center" sx={{ border: `1px solid ${gridBorder}`, fontSize: 10, fontWeight: 800 }}>
                           PROJECTED
                         </TableCell>
-                        {reportTable.columns.map((column) => {
+                        {displayColumns.map((column) => {
                           const value = getProjectedCell(row, column.date, reportTable.columns);
                           return (
                             <TableCell
@@ -611,7 +660,7 @@ export default function ProjectedActualTimelineChart({
                         <TableCell align="center" sx={{ border: `1px solid ${gridBorder}`, color: "#dc2626", fontSize: 10, fontWeight: 900 }}>
                           ACTUAL
                         </TableCell>
-                        {reportTable.columns.map((column) => {
+                        {displayColumns.map((column) => {
                           const value = getActualCell(row, column.date, reportTable.columns);
                           return (
                             <TableCell

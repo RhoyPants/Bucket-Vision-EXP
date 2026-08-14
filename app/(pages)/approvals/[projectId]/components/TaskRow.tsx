@@ -1,4 +1,4 @@
-import { Box, Typography, LinearProgress } from "@mui/material";
+import { Box, Typography, LinearProgress, Stack } from "@mui/material";
 import { Task, CompareTheme, getCompareTheme } from "./types";
 import SubtaskCard from "./SubtaskCard";
 import { formatBudget, formatPercent } from "@/app/utils/formatters";
@@ -11,6 +11,12 @@ interface TaskRowProps {
 export default function TaskRow({ task, theme }: TaskRowProps) {
   const ct = theme;
   const isModified = ct !== undefined && task.changeStatus === "MODIFIED";
+  const taskBudget = Number(task.budgetAllocated || 0);
+  const subtaskTotal = (task.subtasks || []).reduce(
+    (total, subtask) => total + Number(subtask.budgetAllocated || 0),
+    0
+  );
+  const budgetVariance = taskBudget - subtaskTotal;
 
   return (
     <Box
@@ -39,6 +45,35 @@ export default function TaskRow({ task, theme }: TaskRowProps) {
             Weight: <Box component="span" sx={{ color: "#1f2937", fontWeight: 700 }}>{formatPercent(task.budgetPercent)}</Box>
           </Typography>
         </Box>
+
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={{ xs: 0.5, sm: 1 }}
+          sx={{
+            mb: 1,
+            "& > * + *": {
+              borderTop: { xs: "1px solid #e2e8f0", sm: 0 },
+              borderLeft: { xs: 0, sm: "1px solid #cbd5e1" },
+              pt: { xs: 0.5, sm: 0 },
+              pl: { xs: 0, sm: 1 },
+            },
+          }}
+        >
+          <Typography sx={{ color: "#475569", fontSize: 11 }}>
+            Allocated budget: <strong>{formatBudget(taskBudget, true)}</strong>
+          </Typography>
+          <Typography sx={{ color: "#475569", fontSize: 11 }}>
+            Total subtasks: <strong>{formatBudget(subtaskTotal, true)}</strong>
+          </Typography>
+          <Typography sx={{ color: "#475569", fontSize: 11, fontWeight: 700 }}>
+            Budget variance:{" "}
+            <Box component="span" sx={{ color: budgetVariance < 0 ? "#dc2626" : budgetVariance === 0 ? "#15803d" : "#1e3a8a" }}>
+              {budgetVariance === 0
+                ? "Balanced"
+                : `${formatBudget(Math.abs(budgetVariance), true)} ${budgetVariance < 0 ? "over allocation" : "under allocation"}`}
+            </Box>
+          </Typography>
+        </Stack>
 
         {/* PROGRESS */}
         <Box>

@@ -19,6 +19,8 @@ import {
   Chip,
   IconButton,
   Pagination,
+  TextField,
+  MenuItem,
 } from "@mui/material";
 import GridViewIcon from "@mui/icons-material/GridView";
 import ViewListIcon from "@mui/icons-material/ViewList";
@@ -49,6 +51,7 @@ interface ProjectsGridProps {
     hasPrevPage?: boolean;
   };
   onPageChange?: (page: number) => void;
+  onLimitChange?: (limit: 6 | 12 | 24 | 48) => void;
   actionMode?: "default" | "approval";
   legendItems?: Array<{ label: string; color: string }>;
   showActions?: boolean;
@@ -57,6 +60,7 @@ interface ProjectsGridProps {
 
 type ProjectGridItem = {
   id: string;
+  pin?: string;
   name?: string;
   description?: string;
   status?: string;
@@ -83,6 +87,10 @@ type ProjectGridItem = {
     barangayName?: string;
     cityName?: string;
     provinceName?: string;
+  } | null;
+  owner?: {
+    id?: string;
+    name?: string;
   } | null;
   createdAt?: string;
   submittedAt?: string;
@@ -112,6 +120,7 @@ export default function ProjectsGrid({
   createButtonLabel = "+ New Project",
   pagination,
   onPageChange,
+  onLimitChange,
   actionMode = "default",
   legendItems,
   showActions = true,
@@ -358,7 +367,7 @@ export default function ProjectsGrid({
           <Table
             stickyHeader
             sx={{
-              minWidth: { xs: showRequestTrackingColumns ? 1160 : 860, md: showRequestTrackingColumns ? 1220 : 920 },
+              minWidth: { xs: showRequestTrackingColumns ? 1360 : 1080, md: showRequestTrackingColumns ? 1420 : 1140 },
               tableLayout: "fixed",
               "& .MuiTableCell-root": {
                 px: { xs: 1.25, md: 1.75 },
@@ -376,6 +385,9 @@ export default function ProjectsGrid({
                 <TableCell sx={{ ...tableHeadCellSx, width: "28%", bgcolor: brandColors.aliceBlue }}>
                   Project Name
                 </TableCell>
+                <TableCell sx={{ ...tableHeadCellSx, width: 130, bgcolor: brandColors.aliceBlue }}>
+                  PIN
+                </TableCell>
                 <TableCell sx={{ ...tableHeadCellSx, width: 118, bgcolor: brandColors.aliceBlue }}>
                   Version
                 </TableCell>
@@ -390,6 +402,9 @@ export default function ProjectsGrid({
                 </TableCell>
                 <TableCell sx={{ ...tableHeadCellSx, width: 180, bgcolor: brandColors.aliceBlue }}>
                   Business Unit
+                </TableCell>
+                <TableCell sx={{ ...tableHeadCellSx, width: 170, bgcolor: brandColors.aliceBlue }}>
+                  Owner
                 </TableCell>
                 {showRequestTrackingColumns && <TableCell sx={{ ...tableHeadCellSx, width: 170, bgcolor: brandColors.aliceBlue }}>
                   Requested At
@@ -428,6 +443,11 @@ export default function ProjectsGrid({
                         sx={{ fontSize: 13, fontWeight: 600, color: brandColors.deepTwilight }}
                       >
                         {project.name || "Untitled Project"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={tableBodyCellSx}>
+                      <Typography noWrap title={project.pin || "PIN not assigned"} sx={{ fontSize: 12.5, color: "#3F3B4D", fontWeight: 600 }}>
+                        {project.pin || "-"}
                       </Typography>
                     </TableCell>
                     <TableCell sx={tableBodyCellSx}>
@@ -480,6 +500,13 @@ export default function ProjectsGrid({
                       <Tooltip title={businessUnitName(project)}>
                         <Typography noWrap sx={{ fontSize: 12.5, color: "#3F3B4D", fontWeight: 400 }}>
                           {businessUnitName(project)}
+                        </Typography>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell sx={tableBodyCellSx}>
+                      <Tooltip title={project.owner?.name || "Not assigned"}>
+                        <Typography noWrap sx={{ fontSize: 12.5, color: "#3F3B4D", fontWeight: 400 }}>
+                          {project.owner?.name || "Not assigned"}
                         </Typography>
                       </Tooltip>
                     </TableCell>
@@ -546,9 +573,16 @@ export default function ProjectsGrid({
               bgcolor: brandColors.aliceBlue,
             }}
           >
-            <Typography sx={{ fontSize: 12.5, color: "#64748B", fontWeight: 600 }}>
-              Showing {paginationStart}-{paginationEnd} of {pagination.total}
-            </Typography>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Typography sx={{ fontSize: 12.5, color: "#64748B", fontWeight: 600 }}>
+                Showing {paginationStart}-{paginationEnd} of {pagination.total}
+              </Typography>
+              <TextField select size="small" label="Per page" value={pagination.limit}
+                onChange={(event) => onLimitChange?.(Number(event.target.value) as 6 | 12 | 24 | 48)}
+                sx={{ width: 96 }}>
+                {[6, 12, 24, 48].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
+              </TextField>
+            </Stack>
             <Pagination
               page={pagination.page}
               count={pagination.totalPages}
@@ -608,9 +642,16 @@ export default function ProjectsGrid({
             borderTop: "1px solid #E0DAE6",
           }}
         >
-          <Typography sx={{ fontSize: 12.5, color: "#6B6880", fontWeight: 600 }}>
-            Showing {paginationStart}-{paginationEnd} of {pagination.total} projects
-          </Typography>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Typography sx={{ fontSize: 12.5, color: "#6B6880", fontWeight: 600 }}>
+              Showing {paginationStart}-{paginationEnd} of {pagination.total} projects
+            </Typography>
+            <TextField select size="small" label="Per page" value={pagination.limit}
+              onChange={(event) => onLimitChange?.(Number(event.target.value) as 6 | 12 | 24 | 48)}
+              sx={{ width: 96 }}>
+              {[6, 12, 24, 48].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
+            </TextField>
+          </Stack>
           <Pagination
             page={pagination.page}
             count={pagination.totalPages}

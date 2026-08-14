@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import {
   fetchCalendarScopes,
@@ -16,11 +16,13 @@ import { usePermissions } from "@/app/lib/usePermissions";
 interface DashboardCalendarProps {
   projectId: string | null;
   projectStartDate?: string | null; // used to auto-navigate to the project's month
+  projectTree?: any;
 }
 
 export default function DashboardCalendar({
   projectId,
   projectStartDate,
+  projectTree,
 }: DashboardCalendarProps) {
   const dispatch = useAppDispatch();
   const { canView } = usePermissions();
@@ -44,13 +46,42 @@ export default function DashboardCalendar({
   const [selectedSubtaskId, setSelectedSubtaskId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const { loading, error, scopes, subtasks } = useAppSelector(
+  const { loading, error, scopes: fetchedScopes, subtasks: fetchedSubtasks } = useAppSelector(
     (state) => state.projectCalendar
   );
 
+  const treeMatchesProject = Boolean(projectTree && String(projectTree.id) === String(projectId));
+  const treeScopes = useMemo(
+    () => (treeMatchesProject ? projectTree.scopes || [] : []),
+    [projectTree, treeMatchesProject],
+  );
+  const scopes = useMemo(
+    () => treeMatchesProject
+      ? treeScopes.map((scope: any) => ({ id: scope.id, name: scope.name || scope.title || "Unnamed" }))
+      : fetchedScopes,
+    [fetchedScopes, treeMatchesProject, treeScopes],
+  );
+  const subtasks = useMemo(() => {
+    if (!treeMatchesProject) return fetchedSubtasks;
+
+    return treeScopes.flatMap((scope: any) =>
+      (scope.tasks || []).flatMap((task: any) =>
+        (task.subtasks || []).map((subtask: any) => ({
+          id: subtask.id,
+          title: subtask.title || subtask.name || "Untitled",
+          progress: subtask.progress ?? 0,
+          startDate: subtask.projectedStartDate || subtask.startDate || "",
+          endDate: subtask.projectedEndDate || subtask.endDate || "",
+          scopeId: scope.id,
+          scopeName: scope.name || scope.title || "Unnamed",
+        })),
+      ),
+    ).filter((subtask: any) => !scopeId || String(subtask.scopeId) === String(scopeId));
+  }, [fetchedSubtasks, scopeId, treeMatchesProject, treeScopes]);
+
   // Fetch scopes once when project changes; also reset to project's start month
   useEffect(() => {
-    if (projectId) {
+    if (projectId && !treeMatchesProject) {
       dispatch(fetchCalendarScopes(projectId) as any);
       setScopeId(null);
       // Navigate to project's start month
@@ -62,16 +93,16 @@ export default function DashboardCalendar({
         }
       }
     }
-  }, [projectId, projectStartDate, dispatch]);
+  }, [projectId, projectStartDate, dispatch, treeMatchesProject]);
 
   // Fetch subtasks whenever project/month/year/scope changes
   useEffect(() => {
-    if (projectId) {
+    if (projectId && !treeMatchesProject) {
       dispatch(
         fetchCalendarMonth(projectId, year, month, scopeId || undefined) as any
       );
     }
-  }, [projectId, year, month, scopeId, dispatch]);
+  }, [projectId, year, month, scopeId, dispatch, treeMatchesProject]);
 
   const handlePrevMonth = () => {
     if (month === 1) {
@@ -149,21 +180,21 @@ export default function DashboardCalendar({
         />
 
         {/* Loading */}
-        {loading && (
+        {loading && !treeMatchesProject && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
             <CircularProgress />
           </Box>
         )}
 
         {/* Error */}
-        {error && (
+        {error && !treeMatchesProject && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
           </Alert>
         )}
 
         {/* Calendar Grid */}
-        {!loading && (
+        {(!loading || treeMatchesProject) && (
           <CalendarGrid
             month={month}
             year={year}

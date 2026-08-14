@@ -40,14 +40,6 @@ interface Props {
   project?: any;
 }
 
-interface DragState {
-  type: "move" | "resize-left" | "resize-right";
-  id: string;
-  startX: number;
-  origStart: number;
-  origEnd: number;
-}
-
 const toMs = (v: any): number | null => {
   if (v == null) return null;
   if (typeof v === "number") return isNaN(v) ? null : v;
@@ -67,7 +59,8 @@ const isToday   = (d: Date) => d.toDateString() === new Date().toDateString();
 const barColor = (row: any): string => {
   if (row.type === "scope") return "#5E35B1";
   if (row.type === "task")  return "#0D47A1";
-  if (row.progress === 100) return "#00C853";
+  const progress = Number(row.progress ?? 0);
+  if (Number.isFinite(progress) && progress >= 100) return "#00C853";
   if (!row.actualStartDate) return "#FFA726";
   return "#29B6F6";
 };
@@ -79,7 +72,6 @@ export default function GanttGridView({ projectId, project: externalProject }: P
   const [expandedTasks,  setExpandedTasks]  = useState<Set<string>>(new Set());
   const [zoom,           setZoom]           = useState<ZoomLevel>("day");
   const [scrollTop,      setScrollTop]      = useState(0);
-  const [overrides,      setOverrides]      = useState<Record<string, { start: number; end: number }>>({});
 
   // Auto-expand everything when project data is loaded so timeline opens fully drilled down.
   useEffect(() => {
@@ -99,7 +91,6 @@ export default function GanttGridView({ projectId, project: externalProject }: P
     setExpandedTasks(taskIds);
   }, [fullProject?.id, fullProject?.scopes]);
 
-  const dragRef   = useRef<DragState | null>(null);
   const rafRef    = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -200,17 +191,16 @@ const baseRows = useMemo(() => {
     if (row.type === "empty") return { start: null, end: null };
 
     if (row.type === "subtask") {
-      const ov = overrides[row.id];
       return {
-        start: ov ? ov.start : toMs(row.projectedStartDate || row.startDate),
-        end:   ov ? ov.end   : toMs(row.projectedEndDate   || row.endDate),
+        start: toMs(row.projectedStartDate || row.startDate),
+        end: toMs(row.projectedEndDate || row.endDate),
       };
     }
 
     if (row.type === "task") {
       const subs = row.subtasks || [];
-      const starts = subs.map((s: any) => { const ov = overrides[s.id]; return ov ? ov.start : toMs(s.projectedStartDate || s.startDate); }).filter(Boolean) as number[];
-      const ends   = subs.map((s: any) => { const ov = overrides[s.id]; return ov ? ov.end   : toMs(s.projectedEndDate   || s.endDate);   }).filter(Boolean) as number[];
+      const starts = subs.map((s: any) => toMs(s.projectedStartDate || s.startDate)).filter(Boolean) as number[];
+      const ends = subs.map((s: any) => toMs(s.projectedEndDate || s.endDate)).filter(Boolean) as number[];
       if (!starts.length) return { start: null, end: null };
       return { start: Math.min(...starts), end: Math.max(...ends) };
     }
@@ -219,11 +209,10 @@ const baseRows = useMemo(() => {
       const starts: number[] = [], ends: number[] = [];
       row.tasks?.forEach((t: any) =>
         t.subtasks?.forEach((s: any) => {
-          const ov = overrides[s.id];
-          const a  = ov ? ov.start : toMs(s.projectedStartDate || s.startDate);
-          const b  = ov ? ov.end   : toMs(s.projectedEndDate   || s.endDate);
-          if (a) starts.push(a);
-          if (b) ends.push(b);
+          const start = toMs(s.projectedStartDate || s.startDate);
+          const end = toMs(s.projectedEndDate || s.endDate);
+          if (start) starts.push(start);
+          if (end) ends.push(end);
         })
       );
       if (!starts.length) return { start: null, end: null };
@@ -231,7 +220,7 @@ const baseRows = useMemo(() => {
     }
 
     return { start: null, end: null };
-  }, [overrides]);
+  }, []);
 
   const getOffsetPx = useCallback((ms: number | null) =>
     !ms || !dates.length ? 0 : Math.max(0, (ms - dates[0].getTime()) / MS_DAY * pxPerDay),
@@ -242,30 +231,6 @@ const baseRows = useMemo(() => {
   [pxPerDay]);
 const toggleScope = (id: string) => setExpandedScopes(p => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; });
   const toggleTask  = (id: string) => setExpandedTasks(p  => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; });
- const startDrag = useCallback((e: React.MouseEvent, row: any, type: DragState["type"]) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const { start, end } = getRowMs(row);
-    if (!start || !end) return;
-    dragRef.current = { type, id: row.id, startX: e.clientX, origStart: start, origEnd: end };
-  }, [getRowMs]);
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      const d = dragRef.current;
-      if (!d) return;
-      const delta = ((e.clientX - d.startX) / pxPerDay) * MS_DAY;
-      let ns = d.origStart, ne = d.origEnd;
-      if      (d.type === "move")         { ns = d.origStart + delta; ne = d.origEnd + delta; }
-      else if (d.type === "resize-left")  { ns = Math.min(d.origStart + delta, d.origEnd - MS_DAY); }
-      else if (d.type === "resize-right") { ne = Math.max(d.origEnd + delta, d.origStart + MS_DAY); }
-      setOverrides(prev => ({ ...prev, [d.id]: { start: ns, end: ne } }));
-    };
-    const onUp = () => { dragRef.current = null; };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-  }, [pxPerDay]);
 const wbs = (row: any) => {
     const s = (row._si ?? 0) + 1, t = (row._ti ?? 0) + 1, x = (row._xi ?? 0) + 1;
     if (row.type === "scope")   return `${s}`;
@@ -311,15 +276,6 @@ const wbs = (row: any) => {
         <Typography variant="caption" color="text.secondary">
           {dates.length} days · {baseRows.length} rows
         </Typography>
-        {Object.keys(overrides).length > 0 && (
-          <Box
-            component="span"
-            onClick={() => setOverrides({})}
-            sx={{ fontSize: 12, color: "#ef4444", cursor: "pointer", textDecoration: "underline" }}
-          >
-            Reset changes ({Object.keys(overrides).length})
-          </Box>
-        )}
       </Stack>
 
       {/* WRAPPER - gives scroll container definite pixel dimensions */}
@@ -557,30 +513,13 @@ const wbs = (row: any) => {
                           border: isSc ? "2px solid #4527A0" : isTk ? "1.5px solid #0A3D91" : "1px solid rgba(0,0,0,0.12)",
                           boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
                           zIndex: 2,
-                          cursor: isSb ? "grab" : "default",
-                          "&:active": isSb ? { cursor: "grabbing" } : {},
-                          "&:hover": isSb ? { filter: "brightness(1.1)", boxShadow: "0 2px 6px rgba(0,0,0,0.25)" } : {},
+                          cursor: "default",
                           overflow: "hidden",
                         }}
-                        onMouseDown={isSb ? (e) => startDrag(e, row, "move") : undefined}
                       >
                         {/* Progress fill overlay */}
                         {progress > 0 && (
                           <Box sx={{ position: "absolute", inset: 0, width: `${progress}%`, bgcolor: "rgba(255,255,255,0.35)", pointerEvents: "none" }} />
-                        )}
-
-                        {/* Resize handles (subtask only) */}
-                        {isSb && widthPx > 24 && (
-                          <>
-                            <Box
-                              sx={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 7, cursor: "w-resize", zIndex: 5, bgcolor: "transparent", "&:hover": { bgcolor: "rgba(0,0,0,0.15)" } }}
-                              onMouseDown={(e) => { e.stopPropagation(); startDrag(e, row, "resize-left"); }}
-                            />
-                            <Box
-                              sx={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 7, cursor: "e-resize", zIndex: 5, bgcolor: "transparent", "&:hover": { bgcolor: "rgba(0,0,0,0.15)" } }}
-                              onMouseDown={(e) => { e.stopPropagation(); startDrag(e, row, "resize-right"); }}
-                            />
-                          </>
                         )}
 
                         {/* Bar label (wide bars only) */}
