@@ -26,6 +26,14 @@ export const formatBudget = (value?: number | string, includeSymbol = false): st
 };
 
 /**
+ * Calculate a monetary variance at currency precision.
+ * Converting each amount to centavos prevents floating-point residue from
+ * turning a zero variance into a false over/under allocation.
+ */
+export const calculateBudgetVariance = (allocated: number, total: number): number =>
+  (Math.round(allocated * 100) - Math.round(total * 100)) / 100;
+
+/**
  * Format a number with K suffix for thousands
  * Example: 1500000 → "1.5M", 1500 → "1.5K"
  * 

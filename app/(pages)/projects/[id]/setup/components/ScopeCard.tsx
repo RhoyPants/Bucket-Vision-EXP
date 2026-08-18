@@ -5,6 +5,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import WarningIcon from "@mui/icons-material/Warning";
 import CloseIcon from "@mui/icons-material/Close";
 import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
+import { calculateBudgetVariance } from "@/app/utils/formatters";
 import { getMaintenanceRecords, MaintenanceRecord } from "@/app/api-service/workBreakdownMaintenanceService";
 import TaskForm from "./TaskForm";
 import TaskCard from "./TaskCard";
@@ -144,7 +145,7 @@ function ScopeCard({
     (total: number, task: any) => total + (Number(task?.budgetAllocated) || 0),
     0
   );
-  const scopeBudgetVariance = scopeBudget - taskBudgetTotal;
+  const scopeBudgetVariance = calculateBudgetVariance(scopeBudget, taskBudgetTotal);
 
   return (
     <>

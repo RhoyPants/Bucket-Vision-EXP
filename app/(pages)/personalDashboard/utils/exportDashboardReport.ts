@@ -99,12 +99,9 @@ const projectedValue = (row: TimelineExportRow, date: string, columns: Dashboard
   return days ? row.budgetPercent / days / 100 : null;
 };
 
-const actualValue = (row: TimelineExportRow, date: string, columns: DashboardReportTable["columns"]) => {
+const actualValue = (row: TimelineExportRow, date: string) => {
   const log = row.progressLogs?.find((item) => dateKey(item.date) === dateKey(date));
-  if (log) return (Number(log.dailyPercent ?? 0) * (row.budgetPercent / 100)) / 100;
-  if (!inRange(date, row.actualStartDate, row.actualEndDate)) return null;
-  const days = columns.filter((column) => inRange(column.date, row.actualStartDate, row.actualEndDate)).length;
-  return days ? ((row.budgetPercent * (row.progress / 100)) / days) / 100 : null;
+  return log ? (Number(log.dailyPercent ?? 0) * (row.budgetPercent / 100)) / 100 : null;
 };
 
 const configureTimelineColumns = (sheet: Worksheet, count: number) => {
@@ -187,7 +184,7 @@ const addTimelineSheet = (sheet: Worksheet, options: ExportOptions) => {
       row.getCell(6).font = { name: "Arial", size: 9, bold: true, color: { argb: COLORS.actualText } };
       styleCells(row, 1, lastColumn, COLORS.white, "FF111827", false);
       reportTable.columns.forEach((column, index) => {
-        const value = actualValue(item, column.date, reportTable.columns);
+        const value = actualValue(item, column.date);
         if (value === null) return;
         const cell = row.getCell(index + 7);
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COLORS.actual } };
@@ -306,7 +303,7 @@ const addProgressTimesheet = (sheet: Worksheet, options: ExportOptions) => {
     styleCells(row, 1, lastColumn, COLORS.white, "FF111827", false);
     reportTable.columns.forEach((column, index) => {
       // The displayed ACTUAL row is the single source of truth for this sheet.
-      const value = actualValue(item, column.date, reportTable.columns);
+      const value = actualValue(item, column.date);
       if (value === null) return;
       const cell = row.getCell(index + 4);
       setNumeric(cell, value, "0.00%");

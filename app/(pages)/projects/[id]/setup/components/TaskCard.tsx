@@ -26,6 +26,7 @@ import {
 } from "@/app/utils/taskValidation";
 import SubtaskList from "./SubtaskList";
 import { getTasksForScope, MaintenanceRecord } from "@/app/api-service/workBreakdownMaintenanceService";
+import { calculateBudgetVariance } from "@/app/utils/formatters";
 
 interface TaskCardProps {
   task: any;
@@ -145,7 +146,7 @@ function TaskCard({
     (total: number, subtask: any) => total + (Number(subtask?.budgetAllocated) || 0),
     0
   );
-  const taskBudgetVariance = taskBudget - subtaskBudgetTotal;
+  const taskBudgetVariance = calculateBudgetVariance(taskBudget, subtaskBudgetTotal);
   const titleError = touched["title"] && getFieldError("title", errors);
   const budgetError =
     touched["budgetAllocated"] && getFieldError("budgetAllocated", errors);

@@ -334,19 +334,12 @@ const getProjectedCell = (
 
 const getActualCell = (
   row: Extract<GanttRow, { type: "subtask" }>,
-  date: string,
-  columns: DashboardReportTable["columns"]
+  date: string
 ): TimelineValue | null => {
   const dateKey = normalizeDateKey(date);
   const log = row.progressLogs.find((item) => normalizeDateKey(item.date) === dateKey);
-  if (log) {
-    return { value: toNumber(log.dailyPercent) * (row.budgetPercent / 100) };
-  }
-
-  if (!isDateInRange(date, row.actualStartDate, row.actualEndDate)) return null;
-  const actualDays = countColumnsInRange(columns, row.actualStartDate, row.actualEndDate);
-  if (!actualDays) return { value: null };
-  return { value: (row.budgetPercent * (row.progress / 100)) / actualDays };
+  if (!log) return null;
+  return { value: toNumber(log.dailyPercent) * (row.budgetPercent / 100) };
 };
 
 const hasActualData = (row: Extract<GanttRow, { type: "subtask" }>) =>
@@ -661,7 +654,7 @@ export default function ProjectedActualTimelineChart({
                           ACTUAL
                         </TableCell>
                         {displayColumns.map((column) => {
-                          const value = getActualCell(row, column.date, reportTable.columns);
+                          const value = getActualCell(row, column.date);
                           return (
                             <TableCell
                               key={`${row.key}-actual-${column.index}`}
