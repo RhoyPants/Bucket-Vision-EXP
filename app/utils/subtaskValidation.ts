@@ -34,9 +34,12 @@ export const validateSubtaskForm = (
   form: Partial<SubtaskFormData>,
   taskBudget: number = 0,
   projectStartDate?: string,
-  projectEndDate?: string
+  projectEndDate?: string,
+  budgetRequired: boolean = true
 ): ValidationResult => {
   const errors: ValidationError[] = [];
+  const budget = Number(form.budgetAllocated ?? 0);
+  const hasBudgetValue = form.budgetAllocated !== undefined && form.budgetAllocated !== null;
 
   // ✅ Title validation
   if (!form.title || form.title.trim() === "") {
@@ -128,17 +131,22 @@ export const validateSubtaskForm = (
   }
 
   // ✅ Budget Allocated validation
-  if (form.budgetAllocated === undefined || form.budgetAllocated === null) {
+  if (!budgetRequired && budget !== 0) {
+    errors.push({
+      field: "budgetAllocated",
+      message: "Subtasks under Punchlisting must remain at ₱0.00",
+    });
+  } else if (budgetRequired && !hasBudgetValue) {
     errors.push({
       field: "budgetAllocated",
       message: "Budget allocation is required",
     });
-  } else if (form.budgetAllocated < 0) {
+  } else if (budgetRequired && budget <= 0) {
     errors.push({
       field: "budgetAllocated",
-      message: "Budget cannot be negative",
+      message: "Budget must be greater than ₱0.00",
     });
-  } else if (form.budgetAllocated > 999999999) {
+  } else if (budgetRequired && budget > 999999999) {
     errors.push({
       field: "budgetAllocated",
       message: "Budget exceeds maximum allowed value",
@@ -146,7 +154,7 @@ export const validateSubtaskForm = (
   }
 
   // ✅ Budget validation against task budget
-  if (form.budgetAllocated !== undefined && form.budgetAllocated !== null && taskBudget > 0 && form.budgetAllocated > taskBudget) {
+  if (budgetRequired && hasBudgetValue && taskBudget > 0 && budget > taskBudget) {
     errors.push({
       field: "budgetAllocated",
       message: `Budget allocation (₱${form.budgetAllocated}) exceeds task budget (₱${taskBudget})`,

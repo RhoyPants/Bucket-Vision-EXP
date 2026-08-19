@@ -50,6 +50,19 @@ const SourceTooltip = styled(({ className, ...props }: React.ComponentProps<type
   },
 }));
 
+const getInclusiveCalendarDays = (start?: string, end?: string): number | null => {
+  if (!start || !end) return null;
+  const parseDateKey = (value: string) => {
+    const match = value.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return Number.NaN;
+    return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  };
+  const startTime = parseDateKey(start);
+  const endTime = parseDateKey(end);
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime < startTime) return null;
+  return Math.floor((endTime - startTime) / 86_400_000) + 1;
+};
+
 export default function KanbanSortableCard({
   subtask,
   isOverlay = false,
@@ -159,6 +172,10 @@ export default function KanbanSortableCard({
       ? `${formatCompactDate(startDate) || "Start"} - ${formatCompactDate(endDate) || "End"}`
       : "";
   const priorityTheme = getPriorityTheme(subtask.priority);
+  const totalDays = getInclusiveCalendarDays(
+    subtask.projectedStartDate,
+    subtask.projectedEndDate,
+  );
 
   const handleAddChecklist = async () => {
     if (!input.trim()) return;
@@ -525,29 +542,24 @@ export default function KanbanSortableCard({
           {/*  DATE INFO */}
           {!isTaskBoardCard && (subtask.projectedStartDate || subtask.projectedEndDate) && (
             <Box sx={{ mb: 1.5, pb: 1.5, borderBottom: "1px solid #e5e7eb" }}>
-              {subtask.projectedStartDate && (
+              <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={0.75}>
+                {subtask.projectedStartDate && (
+                  <Typography variant="caption" sx={{ minWidth: 0, fontSize: "11px", color: "#374151", whiteSpace: "nowrap" }}>
+                    Start: <b>{new Date(subtask.projectedStartDate).toLocaleDateString()}</b>
+                  </Typography>
+                )}
+                {subtask.projectedEndDate && (
+                  <Typography variant="caption" sx={{ minWidth: 0, ml: "auto", fontSize: "11px", color: "#374151", whiteSpace: "nowrap", textAlign: "right" }}>
+                    End: <b>{new Date(subtask.projectedEndDate).toLocaleDateString()}</b>
+                  </Typography>
+                )}
+              </Stack>
+              {totalDays !== null && (
                 <Typography
                   variant="caption"
-                  sx={{
-                    display: "block",
-                    fontSize: "11px",
-                    color: "#374151",
-                    mb: 0.3,
-                  }}
+                  sx={{ display: "block", mt: 0.3, fontSize: "11px", color: "#210E64", fontWeight: 700 }}
                 >
-                  Start: <b>{new Date(subtask.projectedStartDate).toLocaleDateString()}</b>
-                </Typography>
-              )}
-              {subtask.projectedEndDate && (
-                <Typography
-                  variant="caption"
-                  sx={{
-                    display: "block",
-                    fontSize: "11px",
-                    color: "#374151",
-                  }}
-                >
-                  End: <b>{new Date(subtask.projectedEndDate).toLocaleDateString()}</b>
+                  Total days: <b>{totalDays} {totalDays === 1 ? "day" : "days"}</b>
                 </Typography>
               )}
             </Box>

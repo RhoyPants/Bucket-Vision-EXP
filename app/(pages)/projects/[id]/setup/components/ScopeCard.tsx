@@ -6,6 +6,7 @@ import WarningIcon from "@mui/icons-material/Warning";
 import CloseIcon from "@mui/icons-material/Close";
 import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import { calculateBudgetVariance } from "@/app/utils/formatters";
+import { scopeRequiresBudget } from "@/app/utils/budgetPolicy";
 import { getMaintenanceRecords, MaintenanceRecord } from "@/app/api-service/workBreakdownMaintenanceService";
 import TaskForm from "./TaskForm";
 import TaskCard from "./TaskCard";
@@ -73,6 +74,10 @@ function ScopeCard({
   const [editTouched, setEditTouched] = useState<Record<string, boolean>>({});
   const [editSaving, setEditSaving] = useState(false);
   const [maintenanceScopes, setMaintenanceScopes] = useState<MaintenanceRecord[]>([]);
+  const selectedMaintenanceScope = maintenanceScopes.find(
+    (item) => item.id === (scopeEdit?.scopeMaintenanceId || scope.scopeMaintenanceId),
+  );
+  const budgetRequired = scopeRequiresBudget(selectedMaintenanceScope?.code);
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
 
   useEffect(() => {
@@ -103,7 +108,7 @@ function ScopeCard({
       name: scopeEdit.name,
       projectId: scope.projectId || "",
       budgetAllocated: Number(scopeEdit.budgetAllocated) || 0,
-    });
+    }, 0, budgetRequired);
 
     if (!validation.isValid) {
       setEditErrors(validation.errors);
@@ -257,6 +262,7 @@ function ScopeCard({
           scopeId={scope.id}
           scopeMaintenanceId={scope.scopeMaintenanceId}
           scopeBudget={Number(scope.budgetAllocated) || 0}
+          budgetRequired={budgetRequired}
           existingTasks={scope.tasks || []}
           taskInputs={taskInputs}
           setTaskInputs={setTaskInputs}
@@ -272,6 +278,7 @@ function ScopeCard({
               orderLabel={`${orderNumber}.${taskIndex + 1}`}
               isInvalidTask={invalidTaskIds.includes(String(task.id))}
               scopeBudget={Number(scope.budgetAllocated) || 0}
+              budgetRequired={budgetRequired}
               scopeMaintenanceId={scope.scopeMaintenanceId}
               subtaskInputs={subtaskInputs}
               setSubtaskInputs={setSubtaskInputs}
@@ -355,6 +362,7 @@ function ScopeCard({
                   sourceType: "MAINTENANCE",
                   scopeMaintenanceId: value,
                   name: selected?.name || scopeEdit?.name || "",
+                  budgetAllocated: scopeRequiresBudget(selected?.code) ? scopeEdit?.budgetAllocated : 0,
                 } : { ...scopeEdit, name: value });
               }}
               onBlur={() => handleEditFieldBlur("name")}
@@ -383,7 +391,7 @@ function ScopeCard({
               <Typography variant="subtitle2" fontWeight={600}>
                 Budget Allocation
               </Typography>
-              <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
+              {budgetRequired && <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />}
             </Box>
             <DecimalBudgetField
               fullWidth
@@ -400,6 +408,7 @@ function ScopeCard({
               variant="outlined"
               size="small"
               placeholder="0.00"
+              disabled={!budgetRequired}
               InputProps={{
                 startAdornment: "₱ ",
               }}

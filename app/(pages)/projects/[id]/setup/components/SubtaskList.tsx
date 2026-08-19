@@ -20,6 +20,7 @@ import SubtaskForm from "./SubtaskForm";
 
 interface SubtaskListProps {
   task: any;
+  budgetRequired?: boolean;
   taskOrderLabel: string;
   subtaskInputs: Record<string, any>;
   setSubtaskInputs: (inputs: any) => void;
@@ -60,6 +61,7 @@ function SortableCard({ id, disabled, children }: { id: string; disabled: boolea
 
 export default function SubtaskList({
   task,
+  budgetRequired = true,
   taskOrderLabel,
   subtaskInputs,
   setSubtaskInputs,
@@ -131,6 +133,7 @@ export default function SubtaskList({
                   orderLabel={`${taskOrderLabel}.${subtaskIndex + 1}`}
                   taskId={task.id}
                   taskBudget={task.budgetAllocated || 0}
+                  budgetRequired={budgetRequired}
                   isEditing={isEditing}
                   subtaskInputs={subtaskInputs}
                   setSubtaskInputs={setSubtaskInputs}
@@ -150,6 +153,7 @@ export default function SubtaskList({
           taskName={task.title}
           taskMaintenanceId={task.taskMaintenanceId}
           taskBudget={task.budgetAllocated || 0}
+          budgetRequired={budgetRequired}
           existingSubtasks={subtasks}
           subtaskInputs={subtaskInputs}
           setSubtaskInputs={setSubtaskInputs}

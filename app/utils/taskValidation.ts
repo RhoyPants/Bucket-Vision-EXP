@@ -26,9 +26,12 @@ export interface ValidationResult {
  */
 export const validateTaskForm = (
   form: Partial<TaskFormData>,
-  scopeBudget: number = 0
+  scopeBudget: number = 0,
+  budgetRequired: boolean = true
 ): ValidationResult => {
   const errors: ValidationError[] = [];
+  const budget = Number(form.budgetAllocated ?? 0);
+  const hasBudgetValue = form.budgetAllocated !== undefined && form.budgetAllocated !== null;
 
   //  Title validation
   if (!form.title || form.title.trim() === "") {
@@ -49,21 +52,22 @@ export const validateTaskForm = (
   }
 
   //  Budget Allocated validation
-  if (
-    form.budgetAllocated === undefined ||
-    form.budgetAllocated === null ||
-    form.budgetAllocated === 0
-  ) {
+  if (!budgetRequired && budget !== 0) {
+    errors.push({
+      field: "budgetAllocated",
+      message: "Tasks under Punchlisting must remain at ₱0.00",
+    });
+  } else if (budgetRequired && !hasBudgetValue) {
     errors.push({
       field: "budgetAllocated",
       message: "Budget allocation is required",
     });
-  } else if (form.budgetAllocated < 0) {
+  } else if (budgetRequired && budget <= 0) {
     errors.push({
       field: "budgetAllocated",
-      message: "Budget cannot be negative",
+      message: "Budget must be greater than ₱0.00",
     });
-  } else if (form.budgetAllocated > 999999999) {
+  } else if (budgetRequired && budget > 999999999) {
     errors.push({
       field: "budgetAllocated",
       message: "Budget exceeds maximum allowed value",
@@ -71,7 +75,7 @@ export const validateTaskForm = (
   }
 
   //  Budget validation against Scope budget
-  if (form.budgetAllocated !== undefined && form.budgetAllocated !== null && scopeBudget > 0 && form.budgetAllocated > scopeBudget) {
+  if (budgetRequired && hasBudgetValue && scopeBudget > 0 && budget > scopeBudget) {
     errors.push({
       field: "budgetAllocated",
       message: `Budget allocation (${form.budgetAllocated}) exceeds Scope budget (${scopeBudget})`,

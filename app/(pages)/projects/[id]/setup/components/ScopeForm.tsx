@@ -13,6 +13,7 @@ import {
   MaintenanceRecord,
 } from "@/app/api-service/workBreakdownMaintenanceService";
 import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
+import { scopeRequiresBudget } from "@/app/utils/budgetPolicy";
 
 interface ScopeFormProps {
   scopeForm: {
@@ -47,6 +48,10 @@ export default function ScopeForm({
   const availableMaintenanceScopes = maintenanceScopes.filter(
     (scope) => !selectedScopeMaintenanceIds.has(scope.id),
   );
+  const selectedMaintenanceScope = maintenanceScopes.find(
+    (scope) => scope.id === scopeForm.scopeMaintenanceId,
+  );
+  const budgetRequired = scopeRequiresBudget(selectedMaintenanceScope?.code);
 
   useEffect(() => {
     getMaintenanceRecords("scope")
@@ -63,7 +68,8 @@ export default function ScopeForm({
         projectId: "",
         budgetAllocated: Number(scopeForm.budgetAllocated) || 0,
       },
-      projectBudget
+      projectBudget,
+      budgetRequired
     );
 
     if (!validation.isValid) {
@@ -169,6 +175,7 @@ export default function ScopeForm({
                 sourceType: "MAINTENANCE",
                 scopeMaintenanceId: value,
                 name: selected?.name || "",
+                budgetAllocated: scopeRequiresBudget(selected?.code) ? scopeForm.budgetAllocated : "",
               });
             }}
             onBlur={() => handleFieldBlur("name")}
@@ -209,7 +216,7 @@ export default function ScopeForm({
             <Typography variant="caption" fontWeight={600}>
               Budget Allocation
             </Typography>
-            <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
+            {budgetRequired && <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />}
           </Box>
           <DecimalBudgetField
             fullWidth
@@ -226,6 +233,7 @@ export default function ScopeForm({
             helperText={touched.budgetAllocated && getFieldError("budgetAllocated", errors)}
             variant="outlined"
             size="small"
+            disabled={saving || !budgetRequired}
             InputProps={{
               startAdornment: "₱ ",
             }}

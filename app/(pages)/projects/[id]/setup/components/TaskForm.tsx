@@ -29,6 +29,7 @@ interface TaskFormProps {
   scopeId: string;
   scopeMaintenanceId?: string;
   scopeBudget: number;
+  budgetRequired?: boolean;
   existingTasks?: any[];
   taskInputs: Record<string, any>;
   setTaskInputs: (inputs: any) => void;
@@ -39,6 +40,7 @@ export default function TaskForm({
   scopeId,
   scopeMaintenanceId,
   scopeBudget,
+  budgetRequired = true,
   existingTasks = [],
   taskInputs,
   setTaskInputs,
@@ -105,7 +107,7 @@ export default function TaskForm({
   };
 
   const handleSubmit = async () => {
-    const validation = validateTaskForm(form, scopeBudget);
+    const validation = validateTaskForm(form, scopeBudget, budgetRequired);
 
     if (!validation.isValid) {
       setErrors(validation.errors);
@@ -217,7 +219,7 @@ export default function TaskForm({
           error={!!budgetError}
           helperText={budgetError || undefined}
           sx={{ flex: "0 1 200px" }}
-          disabled={saving}
+          disabled={saving || !budgetRequired}
       />
 
       <Typography

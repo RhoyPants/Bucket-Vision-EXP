@@ -41,6 +41,7 @@ interface SubtaskFormProps {
   taskName?: string;
   taskMaintenanceId?: string;
   taskBudget: number;
+  budgetRequired?: boolean;
   existingSubtasks?: any[];
   projectId?: string;
   subtaskInputs: Record<string, any>;
@@ -54,6 +55,7 @@ export default function SubtaskForm({
   taskName,
   taskMaintenanceId,
   taskBudget,
+  budgetRequired = true,
   existingSubtasks = [],
   projectId,
   subtaskInputs,
@@ -170,7 +172,8 @@ export default function SubtaskForm({
       formData,
       taskBudget,
       fullProject?.startDate,
-      fullProject?.expectedEndDate
+      fullProject?.expectedEndDate,
+      budgetRequired
     );
 
     if (!validation.isValid) {
@@ -394,7 +397,7 @@ export default function SubtaskForm({
           onBlur={() => handleBlur("budgetAllocated")}
           error={hasFieldError("budgetAllocated", errors)}
           helperText={getFieldError("budgetAllocated", errors) || " "}
-          disabled={saving}
+          disabled={saving || !budgetRequired}
         />
       </Box>
 

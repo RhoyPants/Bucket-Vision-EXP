@@ -26,9 +26,12 @@ export interface ValidationResult {
  */
 export const validateScopeForm = (
   form: Partial<ScopeFormData>,
-  projectBudget: number = 0
+  projectBudget: number = 0,
+  budgetRequired: boolean = true
 ): ValidationResult => {
   const errors: ValidationError[] = [];
+  const budget = Number(form.budgetAllocated ?? 0);
+  const hasBudgetValue = form.budgetAllocated !== undefined && form.budgetAllocated !== null;
 
   // ✅ Name validation
   if (!form.name || form.name.trim() === "") {
@@ -49,17 +52,22 @@ export const validateScopeForm = (
   }
 
   // ✅ Budget Allocated validation
-  if (form.budgetAllocated === undefined || form.budgetAllocated === null) {
+  if (!budgetRequired && budget !== 0) {
+    errors.push({
+      field: "budgetAllocated",
+      message: "Punchlisting is non-budgeted and must remain at ₱0.00",
+    });
+  } else if (budgetRequired && !hasBudgetValue) {
     errors.push({
       field: "budgetAllocated",
       message: "Budget allocation is required",
     });
-  } else if (form.budgetAllocated < 0) {
+  } else if (budgetRequired && budget <= 0) {
     errors.push({
       field: "budgetAllocated",
-      message: "Budget cannot be negative",
+      message: "Budget must be greater than ₱0.00",
     });
-  } else if (form.budgetAllocated > 999999999) {
+  } else if (budgetRequired && budget > 999999999) {
     errors.push({
       field: "budgetAllocated",
       message: "Budget exceeds maximum allowed value",
@@ -67,7 +75,7 @@ export const validateScopeForm = (
   }
 
   // ✅ Budget validation against project budget
-  if (form.budgetAllocated !== undefined && form.budgetAllocated !== null && projectBudget > 0 && form.budgetAllocated > projectBudget) {
+  if (budgetRequired && hasBudgetValue && projectBudget > 0 && budget > projectBudget) {
     errors.push({
       field: "budgetAllocated",
       message: `Budget allocation (₱${form.budgetAllocated}) exceeds project budget (₱${projectBudget})`,

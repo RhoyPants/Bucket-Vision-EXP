@@ -43,6 +43,7 @@ interface SubtaskCardProps {
   orderLabel: string;
   taskId: string;
   taskBudget: number;
+  budgetRequired?: boolean;
   isEditing: boolean;
   subtaskInputs: Record<string, any>;
   setSubtaskInputs: (inputs: any) => void;
@@ -58,6 +59,7 @@ function SubtaskCard({
   orderLabel,
   taskId,
   taskBudget,
+  budgetRequired = true,
   isEditing,
   subtaskInputs,
   setSubtaskInputs,
@@ -125,7 +127,7 @@ function SubtaskCard({
       userIds,
     };
 
-    const validation = validateSubtaskForm(formData, taskBudget);
+    const validation = validateSubtaskForm(formData, taskBudget, undefined, undefined, budgetRequired);
 
     if (!validation.isValid) {
       setErrors(validation.errors);
@@ -376,8 +378,8 @@ function SubtaskCard({
           onBlur={() => handleBlur("budgetAllocated")}
           error={hasFieldError("budgetAllocated", errors)}
           helperText={getFieldError("budgetAllocated", errors) || ""}
+          disabled={saving || !budgetRequired}
           sx={{ flex: "0 1 90px" }}
-          disabled={saving}
         />
       </Box>
 

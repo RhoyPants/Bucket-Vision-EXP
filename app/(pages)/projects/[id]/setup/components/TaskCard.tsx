@@ -33,6 +33,7 @@ interface TaskCardProps {
   orderLabel: string;
   isInvalidTask?: boolean;
   scopeBudget: number;
+  budgetRequired?: boolean;
   scopeMaintenanceId?: string;
   subtaskInputs: Record<string, any>;
   setSubtaskInputs: (inputs: any) => void;
@@ -52,6 +53,7 @@ function TaskCard({
   orderLabel,
   isInvalidTask = false,
   scopeBudget,
+  budgetRequired = true,
   scopeMaintenanceId,
   subtaskInputs,
   setSubtaskInputs,
@@ -119,7 +121,7 @@ function TaskCard({
   };
 
   const handleEditSubmit = async () => {
-    const validation = validateTaskForm(editForm, scopeBudget);
+    const validation = validateTaskForm(editForm, scopeBudget, budgetRequired);
 
     if (!validation.isValid) {
       setErrors(validation.errors);
@@ -240,7 +242,7 @@ function TaskCard({
                 onBlur={() => handleEditBlur("budgetAllocated")}
                 error={!!budgetError}
                 sx={{ width: "100%" }}
-                disabled={saving}
+                disabled={saving || !budgetRequired}
               />
             </Tooltip>
 
@@ -381,6 +383,7 @@ function TaskCard({
         {!isEditing && (
           <SubtaskList
             task={task}
+            budgetRequired={budgetRequired}
             taskOrderLabel={orderLabel}
             subtaskInputs={subtaskInputs}
             setSubtaskInputs={setSubtaskInputs}
