@@ -39,12 +39,14 @@ export default function SubtaskHealthKpi({
   bareSummary = false,
   showSummary = true,
   onSummaryChange,
+  onDataChange,
 }: {
   projectId: string;
   summaryOnly?: boolean;
   bareSummary?: boolean;
   showSummary?: boolean;
   onSummaryChange?: (summary: ComputedSubtaskKpi["summary"]) => void;
+  onDataChange?: (data: ComputedSubtaskKpi) => void;
 }) {
   const [data, setData] = useState<ComputedSubtaskKpi | null>(null);
   const [loading, setLoading] = useState(true);
@@ -69,6 +71,7 @@ export default function SubtaskHealthKpi({
       const result = await subtaskKpiService.get(projectId);
       setData(result);
       onSummaryChange?.(result.summary);
+      onDataChange?.(result);
       setCriticalBelow(String(result.config.criticalBelow));
       setHealthyAtOrAbove(String(result.config.healthyAtOrAbove));
     } catch (requestError) {
@@ -76,7 +79,7 @@ export default function SubtaskHealthKpi({
     } finally {
       setLoading(false);
     }
-  }, [onSummaryChange, projectId]);
+  }, [onDataChange, onSummaryChange, projectId]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {

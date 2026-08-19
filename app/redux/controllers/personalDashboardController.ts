@@ -1,6 +1,7 @@
 import { AppDispatch } from "../store";
 import {
   DashboardChartConfig,
+  KpiPayload,
   createDashboardKpi,
   createPersonalDashboard,
   deleteDashboardKpi,
@@ -192,22 +193,14 @@ export const fetchKpiSourceOptions = (dashboardId: string) => {
 
 export const fetchKpiSourcePreview = (
   dashboardId: string,
-  params: { scopeId?: string; taskId?: string; subtaskId?: string }
+  params: { scopeId?: string; taskId?: string; subtaskId?: string; field?: string; criticalBelow?: number; healthyAtOrAbove?: number }
 ) => {
   return async () => previewKpiSource(dashboardId, params);
 };
 
 export const createKpi = (
   dashboardId: string,
-  data: {
-    name: string;
-    description?: string;
-    scopeId?: string;
-    taskId?: string;
-    subtaskId?: string;
-    criticalBelow: number;
-    healthyAtOrAbove: number;
-  }
+  data: KpiPayload
 ) => {
   return async (dispatch: AppDispatch) => {
     try {
@@ -232,15 +225,7 @@ export const createKpi = (
 export const updateKpi = (
   dashboardId: string,
   kpiId: string,
-  data: {
-    name: string;
-    description?: string | null;
-    scopeId?: string | null;
-    taskId?: string | null;
-    subtaskId?: string | null;
-    criticalBelow: number;
-    healthyAtOrAbove: number;
-  }
+  data: KpiPayload
 ) => {
   return async (dispatch: AppDispatch) => {
     try {

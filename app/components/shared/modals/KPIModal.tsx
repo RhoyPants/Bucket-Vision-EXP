@@ -1,433 +1,127 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  MenuItem,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
-import {
-  PersonalDashboard,
-  PersonalDashboardKpi,
-  SourceOptions,
-  SourcePreview,
-} from "@/app/api-service/personalDashboardService";
+import { useEffect, useState } from "react";
+import { Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, InputAdornment, MenuItem, Slider, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import type { KpiTarget, PersonalDashboard, PersonalDashboardKpi, SourceOptions, SourcePreview } from "@/app/api-service/personalDashboardService";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
-import {
-  createKpi,
-  fetchKpiSourceOptions,
-  fetchKpiSourcePreview,
-  updateKpi,
-} from "@/app/redux/controllers/personalDashboardController";
+import { createKpi, fetchKpiSourceOptions, fetchKpiSourcePreview, updateKpi } from "@/app/redux/controllers/personalDashboardController";
 import { usePermissions } from "@/app/lib/usePermissions";
 
-const getErrorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback;
+type TargetForm = { key: string; id?: string; scopeId: string; taskId: string; subtaskId: string; field: string; unit: string; criticalBelow: string; healthyAtOrAbove: string };
+const makeTarget = (target?: KpiTarget): TargetForm => ({ key: target?.id ?? `${Date.now()}-${Math.random()}`, id: target?.id, scopeId: target?.scopeId ?? "", taskId: target?.taskId ?? "", subtaskId: target?.subtaskId ?? "", field: target?.field ?? "PROGRESS", unit: target?.unit ?? "%", criticalBelow: String(target?.thresholds.criticalBelow ?? -15), healthyAtOrAbove: String(target?.thresholds.healthyAtOrAbove ?? -5) });
+const sourceType = (target: TargetForm) => target.subtaskId ? "SUBTASK" : target.taskId ? "TASK" : target.scopeId ? "SCOPE" : "PROJECT";
+const sourceKey = (target: TargetForm, projectId?: string) => `${sourceType(target)}:${target.subtaskId || target.taskId || target.scopeId || projectId}:${target.field}`;
+const validTarget = (target: TargetForm) => { const critical = Number(target.criticalBelow); const healthy = Number(target.healthyAtOrAbove); return target.field === "PROGRESS" && target.unit === "%" && target.criticalBelow.trim() !== "" && target.healthyAtOrAbove.trim() !== "" && Number.isFinite(critical) && Number.isFinite(healthy) && critical >= -100 && critical <= 100 && healthy >= -100 && healthy <= 100 && critical < healthy; };
+const completeSource = (target: TargetForm) => Boolean(target.scopeId && target.taskId && target.subtaskId);
+const findSource = (options: SourceOptions | null, target: TargetForm) => { const scope = options?.scopes.find((item) => item.id === target.scopeId); return { scope, task: scope?.tasks?.find((item) => item.id === target.taskId) }; };
+const errorMessage = (error: unknown) => { const value = error as { response?: { data?: { message?: string } }; message?: string }; return value.response?.data?.message ?? value.message ?? "Failed to save KPI."; };
 
-const formatPreviewDate = (value?: string | null) => {
-  if (!value) return "No data";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  });
-};
+interface Props { open: boolean; onClose: () => void; onSaved: () => void | Promise<void>; dashboard: PersonalDashboard | null; editingKpi?: PersonalDashboardKpi | null }
 
-const detectSourceType = (scopeId: string, taskId: string, subtaskId: string) => {
-  if (subtaskId) return "SUBTASK";
-  if (taskId) return "TASK";
-  if (scopeId) return "SCOPE";
-  return "PROJECT";
-};
-
-const buildPreviewFromSourceOptions = (
-  sourceOptions: SourceOptions | null,
-  params: { scopeId: string; taskId: string; subtaskId: string; field: string; unit: string }
-): SourcePreview | null => {
-  if (!sourceOptions) return null;
-
-  const selectedScope = sourceOptions.scopes.find((scope) => scope.id === params.scopeId);
-  const selectedTask = selectedScope?.tasks?.find((task) => task.id === params.taskId);
-  const selectedSubtask = selectedTask?.subtasks?.find((subtask) => subtask.id === params.subtaskId);
-  const source = selectedSubtask ?? selectedTask ?? selectedScope ?? sourceOptions.project;
-
-  return {
-    sourceType: detectSourceType(params.scopeId, params.taskId, params.subtaskId),
-    field: params.field,
-    unit: params.unit,
-    currentProgress: source.progress,
-    currentValue: source.progress,
-    expectedStartDate: source.expectedStartDate ?? null,
-    expectedEndDate: source.expectedEndDate ?? null,
-  };
-};
-
-const getSimplifiedThresholds = (kpi?: PersonalDashboardKpi | null) => {
-  if (kpi?.thresholdConfig) {
-    return {
-      criticalBelow: String(kpi.thresholdConfig.criticalBelow),
-      healthyAtOrAbove: String(kpi.thresholdConfig.healthyAtOrAbove),
-    };
-  }
-  const critical = kpi?.thresholds?.find((threshold) => threshold.status === "CRITICAL");
-  const healthy = kpi?.thresholds?.find((threshold) => threshold.status === "HEALTHY");
-  return {
-    criticalBelow: critical?.value1 === undefined ? "30" : String(critical.value1),
-    healthyAtOrAbove: healthy?.value1 === undefined ? "70" : String(healthy.value1),
-  };
-};
-
-interface KPIModalProps {
-  open: boolean;
-  onClose: () => void;
-  onSaved: () => void;
-  dashboard: PersonalDashboard | null;
-  editingKpi?: PersonalDashboardKpi | null;
-}
-
-export default function KPIModal({
-  open,
-  onClose,
-  onSaved,
-  dashboard,
-  editingKpi,
-}: KPIModalProps) {
+export default function KPIModal({ open, onClose, onSaved, dashboard, editingKpi }: Props) {
   const dispatch = useAppDispatch();
   const { sourceOptions, sourceLoading } = useAppSelector((state) => state.personalDashboard);
   const { canCreate, canUpdate } = usePermissions();
   const isEdit = Boolean(editingKpi?.id);
-  const canSaveKpi = isEdit
-    ? canUpdate("projects")
-    : canCreate("projects");
-  const [preview, setPreview] = useState<SourcePreview | null>(null);
+  const allowed = isEdit ? canUpdate("project_dashboard") : canCreate("project_dashboard");
+  const [name, setName] = useState("");
+  const [targets, setTargets] = useState<TargetForm[]>([]);
+  const [draft, setDraft] = useState<TargetForm>(makeTarget());
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [deletedTargetIds, setDeletedTargetIds] = useState<string[]>([]);
+  const [previews, setPreviews] = useState<Record<string, SourcePreview | null>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({
-    name: "",
-    unit: "%",
-    description: "",
-    scopeId: "",
-    taskId: "",
-    subtaskId: "",
-    field: "PROGRESS",
-    criticalBelow: "30",
-    healthyAtOrAbove: "70",
-  });
-
-  const sourceType = useMemo(
-    () => detectSourceType(form.scopeId, form.taskId, form.subtaskId),
-    [form.scopeId, form.subtaskId, form.taskId]
-  );
-
-  const selectedScope = sourceOptions?.scopes.find((scope) => scope.id === form.scopeId);
-  const selectedTask = selectedScope?.tasks?.find((task) => task.id === form.taskId);
-  const fieldOptions = useMemo(
-    () =>
-      sourceOptions?.fieldOptions?.length
-        ? sourceOptions.fieldOptions
-        : [{ field: "PROGRESS", unit: "%", label: "Progress" }],
-    [sourceOptions?.fieldOptions]
-  );
-
-  const isValid = useMemo(() => {
-    if (form.name.trim().length < 2) return false;
-    if (!dashboard?.id) return false;
-    if (!form.field) return false;
-
-    const critical = Number(form.criticalBelow);
-    const healthy = Number(form.healthyAtOrAbove);
-    return (
-      form.criticalBelow.trim() !== "" &&
-      form.healthyAtOrAbove.trim() !== "" &&
-      Number.isFinite(critical) &&
-      Number.isFinite(healthy) &&
-      critical >= 0 &&
-      critical <= 100 &&
-      healthy >= 0 &&
-      healthy <= 100 &&
-      critical < healthy
-    );
-  }, [dashboard?.id, form.criticalBelow, form.field, form.healthyAtOrAbove, form.name]);
+  const [targetAttempted, setTargetAttempted] = useState(false);
+  const [saveAttempted, setSaveAttempted] = useState(false);
+  const committedKeys = targets.map((target) => sourceKey(target, dashboard?.projectId ?? dashboard?.id));
+  const hasDuplicates = new Set(committedKeys).size !== committedKeys.length;
+  const draftDuplicate = targets.some((target, index) => index !== editingIndex && sourceKey(target, dashboard?.projectId ?? dashboard?.id) === sourceKey(draft, dashboard?.projectId ?? dashboard?.id));
+  const canCommitDraft = completeSource(draft) && validTarget(draft) && !draftDuplicate;
+  const canSave = Boolean(dashboard?.id) && name.trim().length >= 2 && targets.length > 0 && targets.every((target) => completeSource(target) && validTarget(target)) && !hasDuplicates;
 
   useEffect(() => {
     if (!open || !dashboard?.id) return;
-    setError("");
-    setPreview(editingKpi?.preview ?? null);
-    const simplifiedThresholds = getSimplifiedThresholds(editingKpi);
-    setForm({
-      name: editingKpi?.name ?? "",
-      unit: editingKpi?.unit ?? "%",
-      description: editingKpi?.description ?? "",
-      scopeId: editingKpi?.scopeId ?? "",
-      taskId: editingKpi?.taskId ?? "",
-      subtaskId: editingKpi?.subtaskId ?? "",
-      field: editingKpi?.field ?? "PROGRESS",
-      ...simplifiedThresholds,
-    });
-
-    dispatch(fetchKpiSourceOptions(dashboard.id)).catch((err: unknown) =>
-      setError(getErrorMessage(err, "Failed to load KPI source options."))
-    );
+    setName(editingKpi?.name ?? "");
+    setTargets(editingKpi?.targets?.length ? editingKpi.targets.map(makeTarget) : []);
+    setDraft(makeTarget()); setEditingIndex(null); setDeletedTargetIds([]); setPreviews({}); setError(""); setTargetAttempted(false); setSaveAttempted(false);
+    dispatch(fetchKpiSourceOptions(dashboard.id)).catch((caught: unknown) => setError(errorMessage(caught)));
   }, [dashboard?.id, dispatch, editingKpi, open]);
 
   useEffect(() => {
-    if (!open || !dashboard?.id) return;
-    const selectedField = fieldOptions.find((option) => option.field === form.field);
-    if (selectedField?.unit && selectedField.unit !== form.unit) {
-      setForm((prev) => ({ ...prev, unit: selectedField.unit }));
-    }
+    if (!open || !dashboard?.id || sourceLoading) return;
+    const candidates = [...targets, draft];
+    const timer = window.setTimeout(() => candidates.forEach((target) => {
+      if (!validTarget(target)) return;
+      dispatch(fetchKpiSourcePreview(dashboard.id, { scopeId: target.scopeId || undefined, taskId: target.taskId || undefined, subtaskId: target.subtaskId || undefined, field: target.field, criticalBelow: Number(target.criticalBelow), healthyAtOrAbove: Number(target.healthyAtOrAbove) }))
+        .then((preview) => setPreviews((current) => ({ ...current, [target.key]: preview })))
+        .catch(() => setPreviews((current) => ({ ...current, [target.key]: null })));
+    }), 300);
+    return () => window.clearTimeout(timer);
+  }, [dashboard?.id, dispatch, draft, open, sourceLoading, targets]);
 
-    const derivedPreview = buildPreviewFromSourceOptions(sourceOptions, {
-      scopeId: form.scopeId,
-      taskId: form.taskId,
-      subtaskId: form.subtaskId,
-      field: form.field,
-      unit: selectedField?.unit ?? form.unit,
-    });
+  const commitDraft = () => {
+    setTargetAttempted(true);
+    if (!canCommitDraft) return;
+    if (editingIndex === null) setTargets((current) => [...current, draft]);
+    else setTargets((current) => current.map((target, index) => index === editingIndex ? draft : target));
+    setDraft(makeTarget()); setEditingIndex(null); setTargetAttempted(false);
+  };
+  const editTarget = (index: number) => { setDraft({ ...targets[index] }); setEditingIndex(index); };
+  const cancelEdit = () => { setDraft(makeTarget()); setEditingIndex(null); setTargetAttempted(false); };
+  const removeTarget = (index: number) => {
+    const removed = targets[index];
+    if (removed.id) setDeletedTargetIds((current) => [...current, removed.id!]);
+    setTargets((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    if (editingIndex === index) cancelEdit(); else if (editingIndex !== null && editingIndex > index) setEditingIndex(editingIndex - 1);
+  };
+  const labelFor = (target: TargetForm) => { const { scope, task } = findSource(sourceOptions, target); return target.subtaskId ? task?.subtasks?.find((item) => item.id === target.subtaskId)?.title ?? "Subtask" : target.taskId ? task?.title ?? "Task" : target.scopeId ? scope?.name ?? "Scope" : sourceOptions?.project.name ?? "Project"; };
 
-    if (derivedPreview) {
-      setPreview((prev) => ({ ...prev, ...derivedPreview }));
-    }
-
-    if (isEdit) return;
-
-    const timeout = window.setTimeout(() => {
-      dispatch(
-        fetchKpiSourcePreview(dashboard.id, {
-          scopeId: form.scopeId || undefined,
-          taskId: form.taskId || undefined,
-          subtaskId: form.subtaskId || undefined,
-        })
-      )
-        .then((data) => setPreview(data))
-        .catch(() => setPreview(null));
-    }, 250);
-
-    return () => window.clearTimeout(timeout);
-  }, [dashboard?.id, dispatch, fieldOptions, form.field, form.scopeId, form.subtaskId, form.taskId, form.unit, isEdit, open, sourceOptions]);
-
-  const handleSubmit = async () => {
-    if (!dashboard?.id || !isValid || !canSaveKpi) return;
-    try {
-      setSaving(true);
-      setError("");
-      const payload = {
-        name: form.name.trim(),
-        description: form.description.trim(),
-        scopeId: form.scopeId || null,
-        taskId: form.taskId || null,
-        subtaskId: form.subtaskId || null,
-        criticalBelow: Number(form.criticalBelow),
-        healthyAtOrAbove: Number(form.healthyAtOrAbove),
-      };
-
-      if (isEdit && editingKpi?.id) {
-        await dispatch(updateKpi(dashboard.id, editingKpi.id, payload));
-      } else {
-        await dispatch(
-          createKpi(dashboard.id, {
-            ...payload,
-            scopeId: form.scopeId || undefined,
-            taskId: form.taskId || undefined,
-            subtaskId: form.subtaskId || undefined,
-          })
-        );
-      }
-      onSaved();
-      onClose();
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, "Failed to save KPI."));
-    } finally {
-      setSaving(false);
-    }
+  const submit = async () => {
+    setSaveAttempted(true);
+    if (!dashboard?.id || !canSave || !allowed) return;
+    setSaving(true); setError("");
+    const payload = { name: name.trim(), description: editingKpi?.description ?? "", chartTypes: ["DONUT", "BAR"] as ("DONUT" | "BAR")[], targets: targets.map((target, index) => ({ id: target.id, scopeId: target.scopeId || null, taskId: target.taskId || null, subtaskId: target.subtaskId || null, field: target.field, unit: target.unit, criticalBelow: Number(target.criticalBelow), healthyAtOrAbove: Number(target.healthyAtOrAbove), sortOrder: index })), ...(isEdit ? { deletedTargetIds } : {}) };
+    try { if (isEdit && editingKpi?.id) await dispatch(updateKpi(dashboard.id, editingKpi.id, payload)); else await dispatch(createKpi(dashboard.id, payload)); await onSaved(); onClose(); }
+    catch (caught) { setError(errorMessage(caught)); } finally { setSaving(false); }
   };
 
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg">
-      <DialogTitle sx={{ fontWeight: 800 }}>{isEdit ? "Edit KPI" : "Create KPI"}</DialogTitle>
-      <DialogContent dividers sx={{ maxHeight: "calc(100vh - 230px)" }}>
-        <Stack spacing={3}>
-          {error && <Alert severity="error">{error}</Alert>}
-          {sourceLoading && (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-              <CircularProgress />
-            </Box>
-          )}
+  const selected = findSource(sourceOptions, draft);
+  const preview = previews[draft.key];
 
-          {!sourceLoading && (
-            <>
-              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>
-                <TextField
-                  label="KPI Name"
-                  required
-                  value={form.name}
-                  onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                  helperText="At least 2 characters"
-                />
-                <TextField label="Unit" value={form.unit} InputProps={{ readOnly: true }} />
-                <TextField
-                  label="Description"
-                  multiline
-                  rows={3}
-                  value={form.description}
-                  onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-                  sx={{ gridColumn: { xs: "auto", md: "1 / 3" } }}
-                />
-                <TextField label="Project" value={dashboard?.project?.name ?? sourceOptions?.project?.name ?? dashboard?.name ?? ""} InputProps={{ readOnly: true }} />
-                <TextField
-                  select
-                  label="Scope"
-                  disabled={isEdit || !dashboard?.id}
-                  value={form.scopeId}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, scopeId: event.target.value, taskId: "", subtaskId: "" }))
-                  }
-                >
-                  <MenuItem value="">Project level</MenuItem>
-                  {sourceOptions?.scopes.map((scope) => (
-                    <MenuItem key={scope.id} value={scope.id}>
-                      {scope.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  select
-                  label="Task"
-                  disabled={isEdit || !form.scopeId}
-                  value={form.taskId}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, taskId: event.target.value, subtaskId: "" }))
-                  }
-                >
-                  <MenuItem value="">Scope level</MenuItem>
-                  {selectedScope?.tasks?.map((task) => (
-                    <MenuItem key={task.id} value={task.id}>
-                      {task.title}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  select
-                  label="Subtask"
-                  disabled={isEdit || !form.taskId}
-                  value={form.subtaskId}
-                  onChange={(event) => setForm((prev) => ({ ...prev, subtaskId: event.target.value }))}
-                >
-                  <MenuItem value="">Task level</MenuItem>
-                  {selectedTask?.subtasks?.map((subtask) => (
-                    <MenuItem key={subtask.id} value={subtask.id}>
-                      {subtask.title}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField label="Detected Source Type" value={sourceType} InputProps={{ readOnly: true }} />
-                <TextField
-                  select
-                  label="Field"
-                  value={form.field}
-                  onChange={(event) => setForm((prev) => ({ ...prev, field: event.target.value }))}
-                >
-                  {fieldOptions.map((field) => (
-                    <MenuItem key={field.field} value={field.field}>
-                      {field.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
+  return <Dialog open={open} onClose={saving ? undefined : onClose} fullWidth maxWidth="xl" PaperProps={{ sx: { height: { md: "min(780px, calc(100vh - 32px))" } } }}>
+    <DialogTitle sx={{ fontWeight: 900 }}>{isEdit ? "Edit KPI" : "Create KPI"}</DialogTitle>
+    <DialogContent dividers sx={{ overflow: { xs: "auto", lg: "hidden" } }}><Stack spacing={2} sx={{ height: { lg: "100%" }, minHeight: 0 }}>
+      {error && <Alert severity="error">{error}</Alert>}
+      {sourceLoading ? <Box sx={{ py: 6, display: "grid", placeItems: "center" }}><CircularProgress /></Box> : <>
+        <TextField required label="KPI Name" value={name} onChange={(event) => setName(event.target.value)} error={saveAttempted && name.trim().length < 2} helperText={saveAttempted && !name.trim() ? "KPI name is required" : saveAttempted && name.trim().length < 2 ? "KPI name must contain at least 2 characters" : "At least 2 characters"} fullWidth />
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1.05fr) minmax(480px, .95fr)" }, gap: 2, alignItems: "stretch", flex: { lg: 1 }, minHeight: 0 }}>
+          <Box sx={{ border: "1px solid #DBEAFE", borderRadius: 2, bgcolor: "#F8FAFC", overflow: "hidden" }}>
+            <Box sx={{ px: 2, py: 1.15, bgcolor: "#EFF6FF" }}><Typography fontWeight={850}>{editingIndex === null ? "Add Target" : `Edit Target ${editingIndex + 1}`}</Typography><Typography sx={{ color: "#64748B", fontSize: 10 }}>Configure a target, then add it to the KPI.</Typography></Box>
+            <Stack spacing={2} sx={{ p: 2 }}>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" }, gap: 1.5 }}>
+                <TextField required select label="Scope" value={draft.scopeId} error={targetAttempted && !draft.scopeId} helperText={targetAttempted && !draft.scopeId ? "Scope is required" : " "} onChange={(event) => setDraft((current) => ({ ...current, scopeId: event.target.value, taskId: "", subtaskId: "" }))}><MenuItem value="">Select scope</MenuItem>{sourceOptions?.scopes.map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}</TextField>
+                <TextField required select label="Task" disabled={!draft.scopeId} value={draft.taskId} error={targetAttempted && !draft.taskId} helperText={targetAttempted && !draft.taskId ? draft.scopeId ? "Task is required" : "Select a scope first" : " "} onChange={(event) => setDraft((current) => ({ ...current, taskId: event.target.value, subtaskId: "" }))}><MenuItem value="">Select task</MenuItem>{selected.scope?.tasks?.map((item) => <MenuItem key={item.id} value={item.id}>{item.title}</MenuItem>)}</TextField>
+                <TextField required select label="Subtask" disabled={!draft.taskId} value={draft.subtaskId} error={targetAttempted && !draft.subtaskId} helperText={targetAttempted && !draft.subtaskId ? draft.taskId ? "Subtask is required" : "Select a task first" : " "} onChange={(event) => setDraft((current) => ({ ...current, subtaskId: event.target.value }))}><MenuItem value="">Select subtask</MenuItem>{selected.task?.subtasks?.map((item) => <MenuItem key={item.id} value={item.id}>{item.title}</MenuItem>)}</TextField>
               </Box>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(5, 1fr)" }, gap: 1 }}>{[["Source", preview?.sourceType ?? sourceType(draft)], ["Actual", preview?.actualProgress == null ? "No data" : `${preview.actualProgress}%`], ["Expected", preview?.expectedProgress == null ? "No data" : `${preview.expectedProgress}%`], ["Variance", preview?.variance == null ? "No data" : `${preview.variance > 0 ? "+" : ""}${preview.variance}%`], ["Status", preview?.previewStatus ?? "UNCLASSIFIED"]].map(([label, value]) => <Box key={String(label)} sx={{ p: 1, border: "1px solid #E2E8F0", bgcolor: "white", borderRadius: 1.5 }}><Typography sx={{ color: "#64748B", fontSize: 9, fontWeight: 700 }}>{label}</Typography><Typography sx={{ fontSize: 11, fontWeight: 850 }}>{value}</Typography></Box>)}</Box>
+              <Divider />
+              <Box><Typography fontWeight={850}>Variance Thresholds</Typography><Typography sx={{ color: "#64748B", fontSize: 11 }}>Status uses actual progress minus expected progress. Drag the handles or type an exact value below.</Typography><Box sx={{ px: 1.5, pt: 3.5, pb: 1 }}><Slider value={[Number(draft.criticalBelow) || 0, Number(draft.healthyAtOrAbove) || 0]} min={-100} max={100} step={0.01} disableSwap valueLabelDisplay="on" valueLabelFormat={(value) => `${value > 0 ? "+" : ""}${value}%`} marks={[{ value: -100, label: "-100%" }, { value: 0, label: "0%" }, { value: 100, label: "+100%" }]} onChange={(_, value) => { if (!Array.isArray(value)) return; setDraft((current) => ({ ...current, criticalBelow: String(value[0]), healthyAtOrAbove: String(value[1]) })); }} sx={{ color: "transparent", "& .MuiSlider-rail": { opacity: 1, background: "linear-gradient(90deg, #EF4444 0%, #F59E0B 50%, #10B981 100%)" }, "& .MuiSlider-track": { border: 0, bgcolor: "transparent" }, "& .MuiSlider-thumb": { bgcolor: "#FFF", border: "2px solid #334155" }, '& .MuiSlider-thumb[data-index="0"]': { borderColor: "#EF4444" }, '& .MuiSlider-thumb[data-index="1"]': { borderColor: "#10B981" }, "& .MuiSlider-valueLabel": { bgcolor: "#0F172A", fontSize: 10 }, "& .MuiSlider-markLabel": { color: "#64748B", fontSize: 9.5 } }} /></Box><Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" }, gap: 1 }}><Box sx={{ p: 1, borderRadius: 1.5, bgcolor: "#FEF2F2", border: "1px solid #FECACA" }}><Typography sx={{ color: "#B91C1C", fontSize: 9, fontWeight: 850 }}>CRITICAL BELOW</Typography><TextField required variant="standard" type="number" value={draft.criticalBelow} inputProps={{ min: -100, max: 100, step: 0.01 }} InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }} onChange={(event) => setDraft((current) => ({ ...current, criticalBelow: event.target.value }))} sx={{ mt: 0.1, width: "100%", "& input": { color: "#7F1D1D", fontSize: 14, fontWeight: 900 } }} /></Box><Box sx={{ p: 1, display: "flex", flexDirection: "column", justifyContent: "center", borderRadius: 1.5, bgcolor: "#FFFBEB", border: "1px solid #FDE68A", textAlign: "center" }}><Typography sx={{ color: "#B45309", fontSize: 9, fontWeight: 850 }}>IN FLOW</Typography><Typography sx={{ color: "#78350F", fontSize: 11, fontWeight: 800 }}>{draft.criticalBelow || "..."}% to below {draft.healthyAtOrAbove || "..."}%</Typography></Box><Box sx={{ p: 1, borderRadius: 1.5, bgcolor: "#ECFDF5", border: "1px solid #A7F3D0" }}><Typography sx={{ color: "#047857", fontSize: 9, fontWeight: 850 }}>HEALTHY AT OR ABOVE</Typography><TextField required variant="standard" type="number" value={draft.healthyAtOrAbove} inputProps={{ min: -100, max: 100, step: 0.01 }} InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }} onChange={(event) => setDraft((current) => ({ ...current, healthyAtOrAbove: event.target.value }))} sx={{ mt: 0.1, width: "100%", "& input": { color: "#065F46", fontSize: 14, fontWeight: 900 } }} /></Box></Box></Box>
+              {draftDuplicate && <Alert severity="warning">This source and field already exist in the target list.</Alert>}
+              {!validTarget(draft) && <Alert severity="warning">Thresholds must be from -100 to 100, and Critical must be lower than Healthy.</Alert>}
+              <Stack direction="row" justifyContent="flex-end" spacing={1}>{editingIndex !== null && <Button onClick={cancelEdit}>Cancel edit</Button>}<Button variant="contained" startIcon={editingIndex === null ? <AddIcon /> : undefined} onClick={commitDraft} sx={!canCommitDraft ? { bgcolor: "#CBD5E1", color: "#475569", "&:hover": { bgcolor: "#94A3B8" } } : undefined}>{editingIndex === null ? "Add Target" : "Update Target"}</Button></Stack>
+            </Stack>
+          </Box>
 
-              <Box sx={{ border: "1px solid #e5e7eb", borderRadius: 2, p: 2, backgroundColor: "#f9fafb" }}>
-                <Typography fontWeight={800} sx={{ mb: 1 }}>
-                  Source Preview
-                </Typography>
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" }, gap: 1.5 }}>
-                  {[
-                    ["Source Type", preview?.sourceType ?? sourceType],
-                    ["Field", preview?.field ?? form.field],
-                    ["Current Progress", preview?.currentProgress ?? preview?.currentValue ?? "No data"],
-                    ["Unit", preview?.unit ?? form.unit],
-                    ["Expected Start Date", formatPreviewDate(preview?.expectedStartDate ?? preview?.startDate)],
-                    ["Expected End Date", formatPreviewDate(preview?.expectedEndDate ?? preview?.endDate)],
-                  ].map(([label, value]) => (
-                    <Box key={String(label)} sx={{ backgroundColor: "#fff", border: "1px solid #e5e7eb", borderRadius: 1.5, p: 1.5 }}>
-                      <Typography variant="caption" sx={{ color: "#6b7280", fontWeight: 700 }}>
-                        {label}
-                      </Typography>
-                      <Typography fontWeight={800}>{String(value)}</Typography>
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
-
-              <Box sx={{ border: "1px solid #DBEAFE", borderRadius: 2, p: 2, bgcolor: "#F8FAFC" }}>
-                <Typography fontWeight={800}>Progress Thresholds</Typography>
-                <Typography sx={{ color: "#64748B", fontSize: 12, mt: 0.4, mb: 2 }}>
-                  Enter two values. Critical, In Flow, and Healthy rules are generated automatically.
-                </Typography>
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
-                  <TextField
-                    required
-                    type="number"
-                    label="Critical Below"
-                    value={form.criticalBelow}
-                    inputProps={{ min: 0, max: 100, step: "any" }}
-                    onChange={(event) => setForm((prev) => ({ ...prev, criticalBelow: event.target.value }))}
-                    helperText="Progress below this percentage is Critical"
-                  />
-                  <TextField
-                    required
-                    type="number"
-                    label="Healthy At or Above"
-                    value={form.healthyAtOrAbove}
-                    inputProps={{ min: 0, max: 100, step: "any" }}
-                    onChange={(event) => setForm((prev) => ({ ...prev, healthyAtOrAbove: event.target.value }))}
-                    helperText="Progress at or above this percentage is Healthy"
-                  />
-                </Box>
-                {form.criticalBelow.trim() !== "" && form.healthyAtOrAbove.trim() !== "" && (
-                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" }, gap: 1, mt: 2 }}>
-                    <Box sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "#FEF2F2", border: "1px solid #FECACA" }}>
-                      <Typography sx={{ color: "#B91C1C", fontSize: 11, fontWeight: 800 }}>CRITICAL</Typography>
-                      <Typography sx={{ color: "#7F1D1D", fontSize: 12 }}>Progress &lt; {form.criticalBelow}%</Typography>
-                    </Box>
-                    <Box sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "#FFFBEB", border: "1px solid #FDE68A" }}>
-                      <Typography sx={{ color: "#B45309", fontSize: 11, fontWeight: 800 }}>IN FLOW</Typography>
-                      <Typography sx={{ color: "#78350F", fontSize: 12 }}>From {form.criticalBelow}% to below {form.healthyAtOrAbove}%</Typography>
-                    </Box>
-                    <Box sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "#ECFDF5", border: "1px solid #BBF7D0" }}>
-                      <Typography sx={{ color: "#047857", fontSize: 11, fontWeight: 800 }}>HEALTHY</Typography>
-                      <Typography sx={{ color: "#065F46", fontSize: 12 }}>Progress ≥ {form.healthyAtOrAbove}%</Typography>
-                    </Box>
-                  </Box>
-                )}
-                {!isValid && form.name.trim().length >= 2 && (
-                  <Alert severity="warning" sx={{ mt: 2 }}>
-                    Thresholds must be between 0 and 100, and Critical Below must be lower than Healthy At or Above.
-                  </Alert>
-                )}
-              </Box>
-            </>
-          )}
-        </Stack>
-      </DialogContent>
-      <DialogActions sx={{ p: 2 }}>
-        <Button onClick={onClose}>Cancel</Button>
-        {canSaveKpi && (
-          <Button variant="contained" disabled={!isValid || saving} onClick={handleSubmit}>
-            {saving ? "Saving..." : isEdit ? "Update KPI" : "Create KPI"}
-          </Button>
-        )}
-      </DialogActions>
-    </Dialog>
-  );
+          <Box sx={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column", border: "1px solid #E2E8F0", borderRadius: 2, bgcolor: "#FFF", overflow: "hidden" }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" gap={2} sx={{ px: 1.5, py: 1.1, borderBottom: "1px solid #E2E8F0" }}><Box><Typography fontWeight={850}>Target fields</Typography><Typography sx={{ color: "#64748B", fontSize: 10 }}>Click a row to edit it. Changes are applied after Update Target.</Typography></Box><Box sx={{ textAlign: "right", flexShrink: 0 }}><Typography sx={{ color: "#0F172A", fontSize: 18, lineHeight: 1, fontWeight: 900 }}>{targets.length}</Typography><Typography sx={{ color: "#64748B", fontSize: 9 }}>Total targets</Typography></Box></Stack>
+            <TableContainer sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}><Table stickyHeader size="small"><TableHead><TableRow><TableCell sx={{ width: 32, fontWeight: 850 }}>#</TableCell><TableCell sx={{ fontWeight: 850 }}>Source</TableCell><TableCell align="right" sx={{ fontWeight: 850 }}>Critical</TableCell><TableCell align="right" sx={{ fontWeight: 850 }}>Healthy</TableCell><TableCell align="right" sx={{ fontWeight: 850 }}>Variance</TableCell><TableCell sx={{ fontWeight: 850 }}>Status</TableCell><TableCell sx={{ width: 38 }} /></TableRow></TableHead><TableBody>{targets.map((target, index) => { const targetPreview = previews[target.key]; const status = targetPreview?.previewStatus ?? "UNCLASSIFIED"; return <TableRow key={target.key} hover selected={index === editingIndex} onClick={() => editTarget(index)} sx={{ cursor: "pointer", "&.Mui-selected": { bgcolor: "#EFF6FF" } }}><TableCell>{index + 1}</TableCell><TableCell><Typography noWrap title={labelFor(target)} sx={{ maxWidth: 130, fontSize: 11, fontWeight: 750 }}>{labelFor(target)}</Typography><Typography sx={{ color: "#64748B", fontSize: 9 }}>{sourceType(target)} · {target.field}</Typography></TableCell><TableCell align="right" sx={{ fontSize: 11, color: "#DC2626", fontWeight: 800 }}>{target.criticalBelow}%</TableCell><TableCell align="right" sx={{ fontSize: 11, color: "#059669", fontWeight: 800 }}>{target.healthyAtOrAbove}%</TableCell><TableCell align="right" sx={{ fontSize: 11, fontWeight: 800 }}>{targetPreview?.variance == null ? "—" : `${targetPreview.variance > 0 ? "+" : ""}${targetPreview.variance}%`}</TableCell><TableCell><Chip size="small" label={status === "ONFLOW" ? "IN FLOW" : status} sx={{ height: 20, fontSize: 8, fontWeight: 800 }} /></TableCell><TableCell><Tooltip title="Remove target"><IconButton size="small" color="error" onClick={(event) => { event.stopPropagation(); removeTarget(index); }}><DeleteOutlineIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip></TableCell></TableRow>; })}{!targets.length && <TableRow><TableCell colSpan={7} align="center" sx={{ py: 5, color: "#64748B" }}>Add your first target using the form.</TableCell></TableRow>}</TableBody></Table></TableContainer>
+          </Box>
+        </Box>
+      </>}
+    </Stack></DialogContent>
+    <DialogActions sx={{ p: 2, borderTop: "1px solid #E2E8F0" }}>{saveAttempted && !targets.length && <Typography sx={{ mr: "auto", color: "#DC2626", fontSize: 12, fontWeight: 700 }}>Add at least one target before saving the KPI.</Typography>}{saveAttempted && targets.length > 0 && !canSave && <Typography sx={{ mr: "auto", color: "#DC2626", fontSize: 12, fontWeight: 700 }}>Review the KPI name and target validation errors.</Typography>}<Button onClick={onClose} disabled={saving}>Cancel</Button>{allowed && <Button variant="contained" disabled={saving} onClick={submit} sx={!canSave ? { bgcolor: "#CBD5E1", color: "#475569", "&:hover": { bgcolor: "#94A3B8" } } : undefined}>{saving ? "Saving..." : isEdit ? "Update KPI" : "Create KPI"}</Button>}</DialogActions>
+  </Dialog>;
 }

@@ -966,10 +966,10 @@ export default function ProgressCalendar({
                 variant="caption"
                 sx={{ display: "block", color: "#666", mb: 0.5 }}
               >
-                Total Progress
+                {editingLog ? "Resulting Total Progress" : "Total Progress"}
               </Typography>
               <Typography variant="h6" sx={{ color: "#1976d2" }}>
-                {formatPercent(cumulativeProgress)}% / 100%
+                {formatPercent(editingLog ? resultingProgress : cumulativeProgress)}% / 100%
               </Typography>
               <Typography variant="caption" sx={{ color: "#999" }}>
                 Remaining: {formatPercent(remainingProgress)}%
@@ -1408,7 +1408,7 @@ export default function ProgressCalendar({
           <Button
             onClick={() => handleSave()}
             variant="contained"
-            disabled={checkingCanAdd || isLoading || !dailyPercent || cumulativeProgress >= 100 || !canUpdateProgress || (isCompletingSubtask && incompleteChecklists.length > 0)}
+            disabled={checkingCanAdd || isLoading || !dailyPercent || (!editingLog && cumulativeProgress >= 100) || !canUpdateProgress || (isCompletingSubtask && incompleteChecklists.length > 0)}
           >
             {checkingCanAdd
               ? "Checking..."

@@ -1,22 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  IconButton,
-  Stack,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, CircularProgress, Stack, Typography } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import InsightsOutlinedIcon from "@mui/icons-material/InsightsOutlined";
 import KPIModal from "@/app/components/shared/modals/KPIModal";
 import DashboardCharts from "@/app/(pages)/personalDashboard/components/DashboardCharts";
@@ -25,43 +11,24 @@ import ProjectedActualTimelineChart from "@/app/(pages)/personalDashboard/compon
 import KpiStatusPieCard from "@/app/(pages)/personalDashboard/components/KpiStatusPieCard";
 import type { DashboardSummary, PersonalDashboardKpi } from "@/app/api-service/personalDashboardService";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
-import {
-  fetchDashboardChartData,
-  fetchDashboardReportTable,
-  fetchPersonalDashboardDetail,
-  removeKpi,
-} from "@/app/redux/controllers/personalDashboardController";
+import { fetchDashboardChartData, fetchDashboardReportTable, fetchPersonalDashboardDetail, removeKpi } from "@/app/redux/controllers/personalDashboardController";
 import { getProjectFull } from "@/app/redux/controllers/projectController";
 import SubtaskHealthKpi from "./SubtaskHealthKpi";
+import CustomKpiChart from "./CustomKpiChart";
 import type { ComputedSubtaskKpi } from "@/app/api-service/subtaskKpiService";
 import { notifySubtaskKpiRefresh } from "@/app/api-service/subtaskKpiService";
 
-const emptySummary = {
-  totalKpis: 0,
-  criticalKpis: 0,
-  onflowKpis: 0,
-  healthyKpis: 0,
-  unclassifiedKpis: 0,
-};
-
-const statusColor = {
-  CRITICAL: { color: "#B91C1C", bg: "#FEF2F2", border: "#FECACA" },
-  ONFLOW: { color: "#B45309", bg: "#FFFBEB", border: "#FDE68A" },
-  HEALTHY: { color: "#047857", bg: "#ECFDF5", border: "#BBF7D0" },
-  UNCLASSIFIED: { color: "#475569", bg: "#F8FAFC", border: "#CBD5E1" },
-};
+const emptySummary: DashboardSummary = { totalKpis: 0, criticalKpis: 0, onflowKpis: 0, healthyKpis: 0, unclassifiedKpis: 0 };
 
 export default function ProjectDashboardContent({ projectId }: { projectId: string }) {
   const dispatch = useAppDispatch();
-  const { selectedDashboard, chartData, reportTable, detailLoading, reportLoading, error } =
-    useAppSelector((state) => state.personalDashboard);
-  const fullProject = useAppSelector((state) =>
-    state.project.fullProjectsById[projectId] ??
-    (String(state.project.fullProject?.id || "") === projectId ? state.project.fullProject : null),
-  );
+  const state = useAppSelector((value) => value.personalDashboard);
+  const { selectedDashboard, chartData, reportTable, detailLoading, reportLoading, error } = state;
+  const fullProject = useAppSelector((value) => value.project.fullProjectsById[projectId] ?? (String(value.project.fullProject?.id || "") === projectId ? value.project.fullProject : null));
   const [kpiOpen, setKpiOpen] = useState(false);
   const [editingKpi, setEditingKpi] = useState<PersonalDashboardKpi | null>(null);
-  const [subtaskHealthSummary, setSubtaskHealthSummary] = useState<ComputedSubtaskKpi["summary"] | null>(null);
+  const [healthSummary, setHealthSummary] = useState<ComputedSubtaskKpi["summary"] | null>(null);
+  const [healthData, setHealthData] = useState<ComputedSubtaskKpi | null>(null);
 
   const refresh = useCallback(async () => {
     await Promise.all([
@@ -72,30 +39,28 @@ export default function ProjectDashboardContent({ projectId }: { projectId: stri
     ]);
   }, [dispatch, projectId]);
 
-  useEffect(() => {
-    refresh().catch(() => undefined);
-  }, [refresh]);
-
+  useEffect(() => { refresh().catch(() => undefined); }, [refresh]);
   const dashboard = selectedDashboard?.id === projectId ? selectedDashboard : null;
-  const summary: DashboardSummary = dashboard?.summary ?? emptySummary;
-  const pieSummary: DashboardSummary = subtaskHealthSummary
-    ? {
-        ...emptySummary,
-        total: subtaskHealthSummary.total,
-        critical: subtaskHealthSummary.critical,
-        onflow: subtaskHealthSummary.onflow,
-        healthy: subtaskHealthSummary.healthy,
-        unclassified: subtaskHealthSummary.unclassified,
-        subtasks: subtaskHealthSummary.subtasks,
-        configuredKpis: subtaskHealthSummary.configuredKpis,
-      }
-    : summary;
+  const dashboardSummary = dashboard?.summary ?? emptySummary;
+  const automatic = healthSummary ?? dashboardSummary.subtasks ?? (
+    dashboardSummary.total !== undefined
+      ? {
+          total: dashboardSummary.total,
+          critical: dashboardSummary.critical ?? 0,
+          onflow: dashboardSummary.onflow ?? 0,
+          healthy: dashboardSummary.healthy ?? 0,
+          unclassified: dashboardSummary.unclassified ?? 0,
+        }
+      : null
+  );
+  const pieSummary: DashboardSummary = automatic
+    ? { ...emptySummary, total: automatic.total, critical: automatic.critical, onflow: automatic.onflow, healthy: automatic.healthy, unclassified: automatic.unclassified, subtasks: automatic }
+    : emptySummary;
 
-  const handleDeleteKpi = async (kpi: PersonalDashboardKpi) => {
-    if (!window.confirm(`Delete KPI "${kpi.name}"?`)) return;
+  const handleDelete = async (kpi: PersonalDashboardKpi) => {
+    if (!window.confirm(`Delete KPI "${kpi.name}" and all of its targets?`)) return;
     await dispatch(removeKpi(projectId, kpi.id));
     await refresh();
-    notifySubtaskKpiRefresh();
   };
 
   return (
@@ -105,81 +70,39 @@ export default function ProjectDashboardContent({ projectId }: { projectId: stri
         <Box sx={{ minHeight: 360, display: "grid", placeItems: "center" }}><CircularProgress /></Box>
       ) : dashboard ? (
         <Stack spacing={2}>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", lg: "minmax(340px, 0.8fr) minmax(0, 1.2fr)" },
-              gap: 2,
-              alignItems: "stretch",
-            }}
-          >
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(340px, .8fr) minmax(0, 1.2fr)" }, gap: 2, alignItems: "stretch" }}>
             <Box sx={{ minWidth: 0, "& > *": { height: "100%" } }}>
-              <KpiStatusPieCard summary={pieSummary} />
+              <KpiStatusPieCard
+                summary={pieSummary}
+                details={(healthData?.subtasks ?? []).map((item) => ({
+                  id: item.id,
+                  title: item.title,
+                  context: `${item.scope.name} / ${item.task.title}`,
+                  value: `Actual ${item.actualProgress}% - Expected ${item.expectedProgress}% - Variance ${item.variance > 0 ? "+" : ""}${item.variance}%`,
+                  status: item.status,
+                }))}
+              />
             </Box>
-
-            <Card variant="outlined" sx={{ minWidth: 0, height: "100%", borderRadius: 2, borderColor: "#DBEAFE" }}>
+            <Card variant="outlined" sx={{ borderRadius: 2, borderColor: "#DBEAFE" }}>
               <CardContent>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1.5} sx={{ mb: 2 }}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <InsightsOutlinedIcon sx={{ color: "#2563EB" }} />
-                  <Typography sx={{ fontWeight: 900 }}>Configured KPIs</Typography>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1.5} sx={{ mb: 2 }}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <InsightsOutlinedIcon sx={{ color: "#2563EB" }} />
+                    <Box><Typography sx={{ fontWeight: 900 }}>Custom KPI Charts</Typography><Typography sx={{ color: "#64748B", fontSize: 10.5 }}>Each chart summarizes only its selected targets.</Typography></Box>
+                  </Stack>
+                  <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => { setEditingKpi(null); setKpiOpen(true); }} sx={{ textTransform: "none", fontWeight: 800, boxShadow: "none" }}>Create KPI</Button>
                 </Stack>
-                <Button
-                  size="small"
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={() => { setEditingKpi(null); setKpiOpen(true); }}
-                  sx={{ textTransform: "none", fontWeight: 800, boxShadow: "none" }}
-                >
-                  Create KPI
-                </Button>
-              </Stack>
-
-              {!dashboard.kpis?.length ? (
-                <Alert severity="info">No KPIs configured yet.</Alert>
-              ) : (
-                <Box sx={{
-                  display: "grid",
-                  gridTemplateColumns: {
-                    xs: "1fr",
-                    sm: "repeat(2, minmax(0, 1fr))",
-                    md: "repeat(4, minmax(0, 1fr))",
-                  },
-                  gap: 1,
-                }}>
-                  {dashboard.kpis.map((kpi) => {
-                    const tone = statusColor[kpi.status ?? "UNCLASSIFIED"];
-                    return (
-                      <Box key={kpi.id} sx={{ p: 1, minWidth: 0, borderRadius: 1.75, border: `1px solid ${tone.border}`, bgcolor: tone.bg }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
-                          <Box sx={{ minWidth: 0 }}>
-                            <Typography noWrap title={kpi.name} sx={{ fontSize: 11.5, fontWeight: 850 }}>{kpi.name}</Typography>
-                            <Typography noWrap title={kpi.sourceDetails?.title ?? kpi.sourceType ?? "PROJECT"} sx={{ color: "#64748B", fontSize: 9.5 }}>{kpi.sourceDetails?.title ?? kpi.sourceType ?? "PROJECT"}</Typography>
-                          </Box>
-                          <Chip label={kpi.status ?? "UNCLASSIFIED"} size="small" sx={{ height: 17, color: tone.color, bgcolor: "#FFF", fontSize: 7.5, fontWeight: 800, "& .MuiChip-label": { px: 0.65 } }} />
-                        </Stack>
-                        <Stack direction="row" alignItems="baseline" spacing={0.35} sx={{ mt: 0.65 }}>
-                          <Typography sx={{ color: tone.color, fontSize: 18, fontWeight: 900 }}>{kpi.currentValue ?? "—"}</Typography>
-                          <Typography sx={{ color: "#64748B", fontSize: 10 }}>{kpi.unit ?? "%"}</Typography>
-                        </Stack>
-                        <Stack direction="row" justifyContent="flex-end" sx={{ mt: -0.25 }}>
-                          <Tooltip title="Edit KPI">
-                            <IconButton size="small" sx={{ p: 0.45 }} onClick={() => { setEditingKpi(kpi); setKpiOpen(true); }}><EditOutlinedIcon sx={{ fontSize: 15 }} /></IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete KPI">
-                            <IconButton size="small" sx={{ p: 0.45 }} color="error" onClick={() => handleDeleteKpi(kpi)}><DeleteOutlineIcon sx={{ fontSize: 15 }} /></IconButton>
-                          </Tooltip>
-                        </Stack>
-                      </Box>
-                    );
-                  })}
-                </Box>
-              )}
+                {!dashboard.kpis?.length ? (
+                  <Alert severity="info">No custom KPIs configured yet.</Alert>
+                ) : (
+                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }, gap: 1.5 }}>
+                    {dashboard.kpis.map((kpi) => <CustomKpiChart key={kpi.id} kpi={kpi} onEdit={() => { setEditingKpi(kpi); setKpiOpen(true); }} onDelete={() => handleDelete(kpi)} />)}
+                  </Box>
+                )}
               </CardContent>
             </Card>
           </Box>
-
-          <SubtaskHealthKpi projectId={projectId} showSummary={false} onSummaryChange={setSubtaskHealthSummary} />
+          <SubtaskHealthKpi projectId={projectId} showSummary={false} onSummaryChange={setHealthSummary} onDataChange={setHealthData} />
           <DashboardCharts dashboard={dashboard} chartData={chartData} projectTree={fullProject} />
           <ProjectedActualTimelineChart reportTable={reportTable ?? chartData?.reportTable ?? null} projectTree={fullProject} loading={reportLoading} />
           <DashboardReportTable reportTable={reportTable ?? chartData?.reportTable ?? null} loading={reportLoading} />
@@ -187,17 +110,7 @@ export default function ProjectDashboardContent({ projectId }: { projectId: stri
       ) : (
         <Alert severity="info">Project dashboard data is not available.</Alert>
       )}
-
-      <KPIModal
-        open={kpiOpen}
-        onClose={() => setKpiOpen(false)}
-        onSaved={async () => {
-          await refresh();
-          notifySubtaskKpiRefresh();
-        }}
-        dashboard={dashboard}
-        editingKpi={editingKpi}
-      />
+      <KPIModal open={kpiOpen} onClose={() => setKpiOpen(false)} onSaved={async () => { await refresh(); notifySubtaskKpiRefresh(); }} dashboard={dashboard} editingKpi={editingKpi} />
     </Box>
   );
 }

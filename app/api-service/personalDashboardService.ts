@@ -5,6 +5,7 @@ export type KpiStatus = "CRITICAL" | "ONFLOW" | "HEALTHY" | "UNCLASSIFIED";
 export type KpiRuleStatus = "CRITICAL" | "ONFLOW" | "HEALTHY";
 export type ThresholdOperator = "LT" | "LTE" | "EQ" | "GTE" | "GT" | "BETWEEN";
 export type SourceType = "PROJECT" | "SCOPE" | "TASK" | "SUBTASK";
+export type KpiChartType = "DONUT" | "BAR";
 
 export interface DashboardSummary {
   totalKpis: number;
@@ -50,6 +51,8 @@ export interface PersonalDashboard {
   };
   summary?: DashboardSummary;
   kpis?: PersonalDashboardKpi[];
+  customKpis?: PersonalDashboardKpi[];
+  automaticSubtaskSummary?: DashboardSummary;
   charts?: DashboardChartConfig[];
 }
 
@@ -64,6 +67,11 @@ export interface PersonalDashboardKpi {
   dashboardId?: string;
   name: string;
   description?: string;
+  chartTypes: KpiChartType[];
+  summary: KpiSummary;
+  targets: KpiTarget[];
+  createdAt?: string;
+  updatedAt?: string;
   unit?: string;
   field?: string;
   sourceType?: SourceType;
@@ -90,6 +98,56 @@ export interface PersonalDashboardKpi {
   } | null;
 }
 
+export interface KpiSummary {
+  total: number;
+  critical: number;
+  onflow: number;
+  healthy: number;
+  unclassified: number;
+}
+
+export interface KpiTarget {
+  id: string;
+  kpiId?: string;
+  sourceType: SourceType;
+  scopeId?: string | null;
+  taskId?: string | null;
+  subtaskId?: string | null;
+  sourceDetails?: {
+    scopeName?: string;
+    taskTitle?: string;
+    title?: string;
+  } | null;
+  field: string;
+  unit: string;
+  actualProgress: number | null;
+  expectedProgress: number | null;
+  variance: number | null;
+  status: KpiStatus;
+  thresholds: { criticalBelow: number; healthyAtOrAbove: number };
+  sortOrder: number;
+}
+
+export interface KpiTargetInput {
+  id?: string;
+  scopeId?: string | null;
+  taskId?: string | null;
+  subtaskId?: string | null;
+  field?: string;
+  unit?: string;
+  criticalBelow?: number;
+  healthyAtOrAbove?: number;
+  sortOrder?: number;
+}
+
+export interface KpiPayload {
+  name: string;
+  description?: string | null;
+  chartTypes: KpiChartType[];
+  targets: KpiTargetInput[];
+  deletedTargetIds?: string[];
+}
+
 export interface KpiThreshold {
   id?: string;
   kpiId?: string;
@@ -114,6 +172,9 @@ export interface SourceOptions {
     field: string;
     unit: string;
     label: string;
+    evaluation?: "VARIANCE";
+    defaultCriticalBelow?: number;
+    defaultHealthyAtOrAbove?: number;
   }[];
   scopes: {
     id: string;
@@ -144,6 +205,10 @@ export interface SourcePreview {
   unit: string;
   currentProgress?: number;
   currentValue?: number;
+  actualProgress?: number | null;
+  expectedProgress?: number | null;
+  variance?: number | null;
+  previewStatus?: KpiStatus;
   startDate?: string | null;
   endDate?: string | null;
   expectedStartDate?: string | null;
@@ -263,6 +328,8 @@ export async function getPersonalDashboardDetail(id: string) {
     projectId: id,
     name: data.project?.name ?? "Project Dashboard",
     description: data.project?.description,
+    kpis: data.customKpis ?? data.kpis ?? [],
+    summary: data.automaticSubtaskSummary ?? data.summary,
   } as PersonalDashboard;
 }
 
@@ -286,25 +353,15 @@ export async function getKpiSourceOptions(id: string) {
 
 export async function previewKpiSource(
   id: string,
-  params: { scopeId?: string; taskId?: string; subtaskId?: string }
+  data: { scopeId?: string; taskId?: string; subtaskId?: string; field?: string; criticalBelow?: number; healthyAtOrAbove?: number }
 ) {
-  const response = await axiosApi.get(`/project-dashboards/${id}/source-preview`, {
-    params,
-  });
+  const response = await axiosApi.post(`/project-dashboards/${id}/source-preview`, data);
   return unwrapData<SourcePreview>(response);
 }
 
 export async function createDashboardKpi(
   id: string,
-  data: {
-    name: string;
-    description?: string;
-    scopeId?: string;
-    taskId?: string;
-    subtaskId?: string;
-    criticalBelow: number;
-    healthyAtOrAbove: number;
-  }
+  data: KpiPayload
 ) {
   const response = await axiosApi.post(`/project-dashboards/${id}/kpis`, data);
   return unwrapData<PersonalDashboardKpi>(response);
@@ -313,15 +370,7 @@ export async function createDashboardKpi(
 export async function updateDashboardKpi(
   id: string,
   kpiId: string,
-  data: {
-    name?: string;
-    description?: string | null;
-    scopeId?: string | null;
-    taskId?: string | null;
-    subtaskId?: string | null;
-    criticalBelow?: number;
-    healthyAtOrAbove?: number;
-  }
+  data: KpiPayload
 ) {
   const response = await axiosApi.put(`/project-dashboards/${id}/kpis/${kpiId}`, data);
   return unwrapData<PersonalDashboardKpi>(response);

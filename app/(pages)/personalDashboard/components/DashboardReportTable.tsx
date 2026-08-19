@@ -64,6 +64,13 @@ const formatDate = (date?: string | null) => {
   return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 };
 
+const formatColumnDate = (date?: string | null) => {
+  if (!date) return "";
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+};
+
 export default function DashboardReportTable({
   reportTable,
   loading,
@@ -206,7 +213,16 @@ export default function DashboardReportTable({
                         color: "#111827",
                       }}
                     >
-                      {column.label}
+                      <Tooltip title={formatDate(column.date)} arrow>
+                        <Box>
+                          <Typography component="div" sx={{ fontSize: 10, lineHeight: 1.1, fontWeight: 900 }}>
+                            {column.label}
+                          </Typography>
+                          <Typography component="div" sx={{ mt: 0.25, color: "#64748B", fontSize: 8, lineHeight: 1.1, fontWeight: 700 }}>
+                            {formatColumnDate(column.date)}
+                          </Typography>
+                        </Box>
+                      </Tooltip>
                     </TableCell>
                   ))}
                 </TableRow>
@@ -214,7 +230,7 @@ export default function DashboardReportTable({
                   <TableCell
                     sx={{
                       ...labelCellSx,
-                      top: 28,
+                      top: 40,
                       zIndex: 5,
                       bgcolor: "#f8fafc",
                     }}
