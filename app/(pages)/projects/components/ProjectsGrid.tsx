@@ -27,7 +27,6 @@ import ViewListIcon from "@mui/icons-material/ViewList";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import LayersIcon from "@mui/icons-material/Layers";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import ProjectCard, { getProjectVersionLabel } from "./ProjectCard";
 import { ProjectCardActions, ViewType } from "./types";
 import { usePermissions } from "@/app/lib/usePermissions";
@@ -57,7 +56,6 @@ interface ProjectsGridProps {
   legendItems?: Array<{ label: string; color: string }>;
   showActions?: boolean;
   showRequestTrackingColumns?: boolean;
-  canDeleteProjects?: boolean;
 }
 
 type ProjectGridItem = {
@@ -127,12 +125,11 @@ export default function ProjectsGrid({
   legendItems,
   showActions = true,
   showRequestTrackingColumns = false,
-  canDeleteProjects = false,
 }: ProjectsGridProps) {
   const { canCreate } = usePermissions();
   const canCreateProject = canCreate("projects");
   const approvalOnly = actionMode === "approval";
-  const showActionColumn = showActions && (canDeleteProjects || approvalOnly || projects.some((project) => project.status === "NEEDS_REVISION"));
+  const showActionColumn = showActions && (approvalOnly || projects.some((project) => project.status === "NEEDS_REVISION"));
 
   const formatDate = (value?: string) => {
     if (!value) return "-";
@@ -530,7 +527,6 @@ export default function ProjectsGrid({
                       className="project-action-cell"
                       sx={{ ...tableBodyCellSx, ...stickyActionCellSx }}
                     >
-                      <Stack direction="row" spacing={0.5} justifyContent="center">
                       {approvalOnly || project.status === "NEEDS_REVISION" ? (
                         <Tooltip title="View">
                           <IconButton
@@ -555,22 +551,6 @@ export default function ProjectsGrid({
                           </IconButton>
                         </Tooltip>
                       ) : null}
-                      {canDeleteProjects && !approvalOnly && (
-                        <Tooltip title="Delete project">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              actions.onDelete(project.id);
-                            }}
-                            aria-label={`Delete ${project.name || "project"}`}
-                          >
-                            <DeleteOutlineIcon sx={{ fontSize: 17 }} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      </Stack>
                     </TableCell>}
                   </TableRow>
                 );
@@ -644,7 +624,6 @@ export default function ProjectsGrid({
               viewType="card"
               actionMode={actionMode}
               showActions={showActions}
-              canDeleteProject={canDeleteProjects}
               nextApproverName={showRequestTrackingColumns ? nextApproverName(project) : undefined}
             />
           </Grid>

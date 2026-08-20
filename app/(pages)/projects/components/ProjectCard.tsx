@@ -17,7 +17,6 @@ import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import PlaceIcon from "@mui/icons-material/Place";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { ProjectCardActions, ViewType } from "./types";
 
 type ProjectCardProject = {
@@ -76,7 +75,6 @@ interface ProjectCardProps {
   actionMode?: "default" | "approval";
   showActions?: boolean;
   nextApproverName?: string;
-  canDeleteProject?: boolean;
 }
 
 export const formatLocation = (location?: ProjectCardProject["location"]): string => {
@@ -321,7 +319,6 @@ export default function ProjectCard({
   actionMode = "default",
   showActions = true,
   nextApproverName,
-  canDeleteProject = false,
 }: ProjectCardProps) {
   const isArchived = project.status === "ARCHIVED";
   const chipStyle = statusChipColor(project.status);
@@ -542,31 +539,6 @@ export default function ProjectCard({
               boxShadow: "0 2px 6px rgba(15, 23, 42, 0.08)",
             }}
           />
-          {showActions && canDeleteProject && !approvalOnly && (
-            <Tooltip title="Delete project">
-              <IconButton
-                size="small"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  actions.onDelete(project.id);
-                }}
-                aria-label={`Delete ${project.name || "project"}`}
-                sx={{
-                  color: "#B91C1C",
-                  position: "absolute",
-                  top: 12,
-                  right: 12,
-                  width: 26,
-                  height: 26,
-                  border: "1px solid #FECACA",
-                  backgroundColor: "#FEF2F2",
-                  "&:hover": { backgroundColor: "#FEE2E2" },
-                }}
-              >
-                <DeleteOutlineIcon sx={{ fontSize: 16 }} />
-              </IconButton>
-            </Tooltip>
-          )}
         </Box>
 
         <Box sx={{ mb: 1, px: 2, pt: 3, pb: 1.5 }}>

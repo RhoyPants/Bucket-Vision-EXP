@@ -334,7 +334,6 @@ export default function ProjectsPage() {
         <ProjectsGrid
           projects={projects || []}
           actions={actions}
-          canDeleteProjects={canDeleteProject}
           viewType={viewType}
           onViewTypeChange={setViewType}
           emptyMessage={canViewAllProjectStatuses ? "No projects found" : "No active projects"}
