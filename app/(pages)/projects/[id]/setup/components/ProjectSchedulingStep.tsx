@@ -18,7 +18,7 @@ import FitScreenIcon from "@mui/icons-material/FitScreen";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import dagre from "dagre";
 import {
-  CpmActivity, CpmData, CpmDependency, getProjectCpm, previewProjectCpm,
+  CpmActivity, CpmCalendar, CpmData, CpmDependency, getProjectCpm, previewProjectCpm,
   saveProjectCpmDependencies,
 } from "@/app/api-service/cpmService";
 
@@ -37,6 +37,32 @@ const formatDate = (value?: string | null, compact = false) => {
   return date.toLocaleDateString(undefined, compact
     ? { month: "short", day: "numeric" }
     : { month: "short", day: "numeric", year: "numeric" });
+};
+
+const shiftWorkingDate = (value: string, direction: 1 | -1, calendar: CpmCalendar) => {
+  const date = new Date(`${value.slice(0, 10)}T00:00:00Z`);
+  const workingDays = [calendar.sunday, calendar.monday, calendar.tuesday, calendar.wednesday, calendar.thursday, calendar.friday, calendar.saturday];
+  do date.setUTCDate(date.getUTCDate() + direction); while (!workingDays[date.getUTCDay()]);
+  return date.toISOString().slice(0, 10);
+};
+
+const completeWorkingDayDates = (maxDay: number, boundaries: Map<number, string>, calendar: CpmCalendar) => {
+  const dates = new Map(boundaries);
+  const anchors = [...boundaries.entries()].sort((a, b) => a[0] - b[0]);
+  if (!anchors.length) return dates;
+  const [anchorDay, anchorDate] = anchors[0];
+  let date = anchorDate;
+  for (let day = anchorDay - 1; day >= 1; day -= 1) {
+    date = shiftWorkingDate(date, -1, calendar);
+    dates.set(day, date);
+  }
+  date = dates.get(1) || anchorDate;
+  for (let day = 2; day <= maxDay; day += 1) {
+    if (boundaries.has(day)) date = boundaries.get(day)!;
+    else date = shiftWorkingDate(date, 1, calendar);
+    dates.set(day, date);
+  }
+  return dates;
 };
 
 const errorMessage = (error: unknown) => {
@@ -111,27 +137,26 @@ function Legend() {
   </Stack>;
 }
 
-function GanttOverview({ activities, duration, wbsById, showHierarchy, fullHeight = false }: { activities: CpmActivity[]; duration: number; wbsById: Map<string, WbsInfo>; showHierarchy: boolean; fullHeight?: boolean }) {
+function PanelZoomControls({ value, onChange, min = 0.4, max = 2 }: { value: number; onChange: (value: number) => void; min?: number; max?: number }) {
+  return <Stack direction="row" alignItems="center" spacing={0.2} sx={{ px: 0.35, border: "1px solid #d8dee9", borderRadius: 1.5, bgcolor: "#fff" }}>
+    <Tooltip title="Zoom out"><span><IconButton size="small" disabled={value <= min} onClick={() => onChange(Math.max(min, Number((value - 0.1).toFixed(1))))}><ZoomOutIcon sx={{ fontSize: 17 }} /></IconButton></span></Tooltip>
+    <Typography sx={{ width: 34, textAlign: "center", fontSize: 9.5, fontWeight: 800, color: "#526078" }}>{Math.round(value * 100)}%</Typography>
+    <Tooltip title="Zoom in"><span><IconButton size="small" disabled={value >= max} onClick={() => onChange(Math.min(max, Number((value + 0.1).toFixed(1))))}><ZoomInIcon sx={{ fontSize: 17 }} /></IconButton></span></Tooltip>
+    <Tooltip title="Reset zoom"><IconButton size="small" onClick={() => onChange(1)}><FitScreenIcon sx={{ fontSize: 17 }} /></IconButton></Tooltip>
+  </Stack>;
+}
+
+function GanttOverview({ activities, duration, calendar, wbsById, showHierarchy, fullHeight = false, zoom = 1 }: { activities: CpmActivity[]; duration: number; calendar: CpmCalendar; wbsById: Map<string, WbsInfo>; showHierarchy: boolean; fullHeight?: boolean; zoom?: number }) {
   const maxDay = Math.max(duration, 1);
-  const markerCount = Math.min(maxDay, 8);
   const boundaryDates = new Map<number, string>();
   activities.forEach((activity) => {
     if (activity.earlyStart != null && activity.calculatedStartDate) boundaryDates.set(activity.earlyStart, activity.calculatedStartDate);
     if (activity.earlyFinish != null && activity.calculatedFinishDate) boundaryDates.set(activity.earlyFinish, activity.calculatedFinishDate);
   });
-  const boundaryMarkers = [...boundaryDates.entries()].sort((a, b) => a[0] - b[0]);
-  const sampledBoundaries = boundaryMarkers.length <= 8
-    ? boundaryMarkers
-    : boundaryMarkers.filter((_, index) => index === 0 || index === boundaryMarkers.length - 1 || index % Math.ceil(boundaryMarkers.length / 8) === 0).slice(0, 8);
-  const markers = sampledBoundaries.length
-    ? sampledBoundaries.map(([day, date]) => ({ day, date }))
-    : Array.from({ length: markerCount }, (_, index) => ({
-        day: Math.max(1, Math.round((index * (maxDay - 1)) / Math.max(markerCount - 1, 1)) + 1),
-        date: null,
-      }));
+  const dayDates = completeWorkingDayDates(maxDay, boundaryDates, calendar);
   const rowHeight = 31;
   const barInset = 3;
-  const timelinePixelWidth = Math.max(430, maxDay * 24);
+  const timelinePixelWidth = Math.max(260, Math.round(Math.max(430, maxDay * 24) * zoom));
   const ganttColumns = `65px 260px 62px ${timelinePixelWidth}px`;
   const ganttLeftWidth = 387;
   const rows = buildTimelineRows(activities, wbsById).filter((row) => showHierarchy || row.type === "activity");
@@ -146,7 +171,7 @@ function GanttOverview({ activities, duration, wbsById, showHierarchy, fullHeigh
   return <Box sx={{ overflow: "auto", height: fullHeight ? "100%" : "auto", maxHeight: fullHeight ? "none" : 480 }}><Box sx={{ minWidth: ganttLeftWidth + timelinePixelWidth, minHeight: fullHeight ? "100%" : contentHeight }}>
     <Box sx={{ display: "grid", gridTemplateColumns: ganttColumns, position: "sticky", top: 0, zIndex: 8, bgcolor: "#fff", pb: 0.75, borderBottom: "1px solid #e4e9f0" }}>
       <Typography sx={{ ...headingSx, position: "sticky", left: 0, zIndex: 10, bgcolor: "#fff" }}>WBS</Typography><Typography sx={{ ...headingSx, position: "sticky", left: 65, zIndex: 10, bgcolor: "#fff" }}>Scope of work</Typography><Typography sx={headingSx}>Duration</Typography>
-      <Stack direction="row" justifyContent="space-between">{markers.map(({ day, date }, index) => <Box key={`${day}-${index}`} sx={{ textAlign: "center" }}><Typography sx={{ fontSize: 9, fontWeight: 750, color: "#697386" }}>D{day}</Typography>{date && <Typography sx={{ fontSize: 8.5, color: "#98a2b3", whiteSpace: "nowrap" }}>{formatDate(date, true)}</Typography>}</Box>)}</Stack>
+      <Box sx={{ display: "grid", gridTemplateColumns: `repeat(${maxDay}, minmax(0, 1fr))` }}>{Array.from({ length: maxDay }, (_, index) => { const day = index + 1; const date = dayDates.get(day); return <Box key={day} sx={{ minWidth: 0, textAlign: "center" }}><Typography sx={{ fontSize: 8, fontWeight: 750, color: "#697386" }}>D{day}</Typography>{date && <Typography sx={{ fontSize: 7.5, color: "#98a2b3", whiteSpace: "nowrap", overflow: "hidden" }}>{formatDate(date, true)}</Typography>}</Box>; })}</Box>
     </Box>
     <Box sx={{ position: "relative" }}>
       <Box sx={{ position: "absolute", left: ganttLeftWidth, width: timelinePixelWidth, top: 0, height: rows.length * rowHeight, zIndex: 1, pointerEvents: "none" }}>
@@ -155,6 +180,7 @@ function GanttOverview({ activities, duration, wbsById, showHierarchy, fullHeigh
             <marker id="gantt-arrow-critical" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="3.5" markerHeight="3.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill={COLORS.critical} /></marker>
             <marker id="gantt-arrow-normal" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="3.5" markerHeight="3.5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill={COLORS.normal} /></marker>
           </defs>
+          {Array.from({ length: maxDay + 1 }, (_, index) => <line key={`day-guide-${index}`} x1={(index / maxDay) * timelinePixelWidth} y1="0" x2={(index / maxDay) * timelinePixelWidth} y2={rows.length * rowHeight} stroke="#d8dee9" strokeWidth="1" strokeDasharray="3 4" opacity="0.9" />)}
           {connectors.map(({ predecessor, successor }) => {
             if (predecessor.earlyFinish == null || successor.earlyStart == null) return null;
             const predecessorRow = activityIndex.get(predecessor.subtaskId);
@@ -193,7 +219,7 @@ function GanttOverview({ activities, duration, wbsById, showHierarchy, fullHeigh
         <Typography noWrap title={row.wbs} sx={{ px: 0.75, position: "sticky", left: 0, zIndex: 4, alignSelf: "stretch", display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "#fff", fontSize: 9.5, color: COLORS.ink }}>{row.wbs}</Typography>
         <Typography title={activity.subtaskTitle} noWrap sx={{ pl: 2, pr: 1, position: "sticky", left: 65, zIndex: 4, alignSelf: "stretch", display: "flex", alignItems: "center", bgcolor: "#fff", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", fontSize: 10, color: COLORS.ink }}>{activity.subtaskTitle}</Typography>
         <Typography sx={{ fontSize: 10, color: "#657086" }}>{activity.durationDays}d</Typography>
-        <Box sx={{ height: 22, position: "relative", backgroundImage: "linear-gradient(to right, #e9edf4 1px, transparent 1px)", backgroundSize: "12.5% 100%" }}>
+        <Box sx={{ height: 22, position: "relative" }}>
           {start != null && <Box title={`Day ${start}–${finish}`} sx={{ position: "absolute", zIndex: 2, left: `calc(${left}% + ${barInset}px)`, width: `calc(${Math.max(width, 1.8)}% - ${barInset * 2}px)`, minWidth: 4, top: 6, height: 10, borderRadius: 0.75, bgcolor: activity.isCritical ? COLORS.critical : COLORS.normal, boxShadow: "0 1px 2px rgba(17,36,71,.25)" }} />}
         </Box>
       </Box>;
@@ -203,7 +229,7 @@ function GanttOverview({ activities, duration, wbsById, showHierarchy, fullHeigh
   </Box></Box>;
 }
 
-function BaselineTimeline({ activities, wbsById, showHierarchy, fullHeight = false }: { activities: CpmActivity[]; wbsById: Map<string, WbsInfo>; showHierarchy: boolean; fullHeight?: boolean }) {
+function BaselineTimeline({ activities, wbsById, showHierarchy, fullHeight = false, zoom = 1 }: { activities: CpmActivity[]; wbsById: Map<string, WbsInfo>; showHierarchy: boolean; fullHeight?: boolean; zoom?: number }) {
   const dated = activities.filter((activity) => activity.projectedStartDate && activity.projectedEndDate);
   const starts = dated.map((activity) => new Date(`${activity.projectedStartDate.slice(0, 10)}T00:00:00`).getTime());
   const finishes = dated.map((activity) => new Date(`${activity.projectedEndDate.slice(0, 10)}T00:00:00`).getTime());
@@ -213,19 +239,14 @@ function BaselineTimeline({ activities, wbsById, showHierarchy, fullHeight = fal
   const minDate = Math.min(...starts);
   const maxDate = Math.max(...finishes);
   const totalDays = Math.max(1, Math.round((maxDate - minDate) / dayMs) + 1);
-  const ticks = Array.from({ length: Math.min(totalDays, 6) }, (_, index) => {
-    const offset = Math.round((index * (totalDays - 1)) / Math.max(Math.min(totalDays, 6) - 1, 1));
-    return new Date(minDate + offset * dayMs).toISOString().slice(0, 10);
-  });
-
   const rows = buildTimelineRows(activities, wbsById).filter((row) => showHierarchy || row.type === "activity");
-  const baselineTimelineWidth = Math.max(430, totalDays * 24);
+  const baselineTimelineWidth = Math.max(260, Math.round(Math.max(430, totalDays * 24) * zoom));
   const baselineColumns = `65px 260px 62px ${baselineTimelineWidth}px`;
   const contentHeight = 38 + rows.length * 28;
   return <Box sx={{ overflow: "auto", height: fullHeight ? "100%" : "auto", maxHeight: fullHeight ? "none" : 480 }}><Box sx={{ minWidth: 387 + baselineTimelineWidth, minHeight: fullHeight ? "100%" : contentHeight }}>
     <Box sx={{ display: "grid", gridTemplateColumns: baselineColumns, position: "sticky", top: 0, zIndex: 8, bgcolor: "#fff", pb: 0.75, borderBottom: "1px solid #e4e9f0" }}>
       <Typography sx={{ ...headingSx, position: "sticky", left: 0, zIndex: 10, bgcolor: "#fff" }}>WBS</Typography><Typography sx={{ ...headingSx, position: "sticky", left: 65, zIndex: 10, bgcolor: "#fff" }}>Scope of work</Typography><Typography sx={headingSx}>Duration</Typography>
-      <Stack direction="row" justifyContent="space-between">{ticks.map((date) => <Typography key={date} sx={{ fontSize: 8.5, color: "#8791a5" }}>{formatDate(date, true)}</Typography>)}</Stack>
+      <Box sx={{ display: "grid", gridTemplateColumns: `repeat(${totalDays}, minmax(0, 1fr))` }}>{Array.from({ length: totalDays }, (_, index) => { const date = new Date(minDate + index * dayMs).toISOString().slice(0, 10); return <Box key={date} sx={{ minWidth: 0, textAlign: "center" }}><Typography sx={{ fontSize: 8, fontWeight: 750, color: "#697386" }}>D{index + 1}</Typography><Typography sx={{ fontSize: 7.5, color: "#98a2b3", whiteSpace: "nowrap", overflow: "hidden" }}>{formatDate(date, true)}</Typography></Box>; })}</Box>
     </Box>
     {rows.map((row) => {
       if (!row.activity) return <Box key={row.key} sx={{ display: "grid", gridTemplateColumns: baselineColumns, alignItems: "center", minHeight: 28, bgcolor: row.type === "scope" ? "#b8cce4" : "#d9eaf7", borderBottom: "1px solid #c7d5e5" }}>
@@ -242,7 +263,8 @@ function BaselineTimeline({ activities, wbsById, showHierarchy, fullHeight = fal
         <Typography noWrap title={row.wbs} sx={{ px: 0.75, position: "sticky", left: 0, zIndex: 4, alignSelf: "stretch", display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "#fff", fontSize: 9.5, color: COLORS.ink }}>{row.wbs}</Typography>
         <Typography noWrap title={activity.subtaskTitle} sx={{ pl: 2, pr: 1, position: "sticky", left: 65, zIndex: 4, alignSelf: "stretch", display: "flex", alignItems: "center", bgcolor: "#fff", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", fontSize: 10, color: COLORS.ink }}>{activity.subtaskTitle}</Typography>
         <Typography sx={{ fontSize: 9.5, color: "#657086" }}>{calendarDuration || "—"}d</Typography>
-        <Box sx={{ height: 20, position: "relative", backgroundImage: "linear-gradient(to right, #e9edf4 1px, transparent 1px)", backgroundSize: "20% 100%" }}>
+        <Box sx={{ height: 20, position: "relative" }}>
+          <Box aria-hidden sx={{ position: "absolute", inset: 0, display: "grid", gridTemplateColumns: `repeat(${totalDays}, minmax(0, 1fr))`, pointerEvents: "none" }}>{Array.from({ length: totalDays }, (_, index) => <Box key={index} sx={{ borderLeft: "1px dashed #d8dee9", ...(index === totalDays - 1 && { borderRight: "1px dashed #d8dee9" }) }} />)}</Box>
           {start != null && finish != null && <Box title={`${formatDate(activity.projectedStartDate)} – ${formatDate(activity.projectedEndDate)}`} sx={{ position: "absolute", left: `${(offset / totalDays) * 100}%`, width: `${Math.max((calendarDuration / totalDays) * 100, 1.8)}%`, top: 5, height: 10, borderRadius: 0.75, bgcolor: "#f59e0b", boxShadow: "0 1px 2px rgba(17,36,71,.2)" }} />}
         </Box>
       </Box>;
@@ -301,7 +323,7 @@ function NetworkDiagram({ activities, wbsById, expanded = false, zoom = 1, metri
   const byId = new Map(activities.map((item) => [item.subtaskId, item]));
 
   if (!activities.length) return <Typography sx={{ py: 5, textAlign: "center", color: "text.secondary" }}>No activities available.</Typography>;
-  return <Box sx={{ width: "100%", height: expanded ? "calc(100vh - 210px)" : "auto", overflow: "auto" }}><svg viewBox={`0 0 ${width} ${height}`} width={expanded ? Math.max(width * zoom, 760) : "100%"} height={expanded ? Math.max(height * zoom, 520) : undefined} style={{ minWidth: 340, maxHeight: expanded ? "none" : 300, display: "block" }}>
+  return <Box sx={{ width: "100%", height: expanded ? "calc(100vh - 210px)" : "auto", maxHeight: expanded ? "none" : 480, overflow: "auto" }}><svg viewBox={`0 0 ${width} ${height}`} width={expanded ? Math.max(width * zoom, 760) : `${zoom * 100}%`} height={expanded ? Math.max(height * zoom, 520) : undefined} style={{ minWidth: 340, display: "block" }}>
     <defs>
       <marker id="cpm-arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill={COLORS.critical} /></marker>
       <marker id="cpm-arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill={COLORS.normal} /></marker>
@@ -352,6 +374,11 @@ export default function ProjectSchedulingStep({ projectId, canUpdate, scopes }: 
   const [showHierarchy, setShowHierarchy] = useState(true);
   const [fullView, setFullView] = useState<"gantt" | "network" | null>(null);
   const [fullTimelineTab, setFullTimelineTab] = useState<"cpm" | "original">("cpm");
+  const [cpmPanelZoom, setCpmPanelZoom] = useState(1);
+  const [networkPanelZoom, setNetworkPanelZoom] = useState(1);
+  const [baselinePanelZoom, setBaselinePanelZoom] = useState(1);
+  const [editorNetworkZoom, setEditorNetworkZoom] = useState(1);
+  const [timelineZoom, setTimelineZoom] = useState(1);
   const [networkZoom, setNetworkZoom] = useState(1);
 
   const wbsById = useMemo(() => {
@@ -450,10 +477,10 @@ export default function ProjectSchedulingStep({ projectId, canUpdate, scopes }: 
     </CardContent></Card>
 
     <Grid container spacing={1.5}>
-      <Grid size={{ xs: 12, lg: canUpdate ? 7 : 12 }}><Card elevation={0} sx={panelSx}><CardContent><Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.25 }}><Typography sx={{ ...panelHeadingSx, mb: 0 }}>CPM calculated timeline</Typography><Stack direction="row" alignItems="center"><FormControlLabel control={<Checkbox size="small" checked={showHierarchy} onChange={(event) => setShowHierarchy(event.target.checked)} />} label="Show hierarchy" sx={{ mr: 0.5, "& .MuiFormControlLabel-label": { fontSize: 11, color: "#526078" } }} /><Tooltip title="View full timeline"><IconButton size="small" onClick={() => { setFullTimelineTab("cpm"); setFullView("gantt"); }}><FullscreenIcon fontSize="small" /></IconButton></Tooltip></Stack></Stack><GanttOverview activities={data.activities} duration={data.summary.projectDurationDays || 1} wbsById={wbsById} showHierarchy={showHierarchy} /><Divider sx={{ my: 1.25 }} /><Legend /></CardContent></Card></Grid>
-      <Grid size={{ xs: 12, lg: canUpdate ? 5 : 12 }}><Card elevation={0} sx={panelSx}><CardContent><Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.25 }}><Typography sx={{ ...panelHeadingSx, mb: 0 }}>Network diagram</Typography><Tooltip title="View full network"><IconButton size="small" onClick={() => setFullView("network")}><FullscreenIcon fontSize="small" /></IconButton></Tooltip></Stack><NetworkDiagram activities={data.activities} wbsById={wbsById} /></CardContent></Card></Grid>
-      <Grid size={{ xs: 12, md: canUpdate ? 7 : 12 }}><Card elevation={0} sx={panelSx}><CardContent><Stack direction="row" justifyContent="space-between" alignItems="center"><Typography sx={panelHeadingSx}>Original / baseline timeline</Typography><Tooltip title="View full timeline"><IconButton size="small" onClick={() => { setFullTimelineTab("original"); setFullView("gantt"); }}><FullscreenIcon fontSize="small" /></IconButton></Tooltip></Stack><Typography sx={{ mt: -0.75, mb: 1.25, fontSize: 10.5, color: "#697386" }}>Based on the projected dates entered in Project Structure.</Typography><BaselineTimeline activities={data.activities} wbsById={wbsById} showHierarchy={showHierarchy} /></CardContent></Card></Grid>
-      <Grid size={{ xs: 12, md: canUpdate ? 5 : 12 }}><Card elevation={0} sx={panelSx}><CardContent><Typography sx={panelHeadingSx}>Schedule summary</Typography>
+      <Grid size={12}><Card elevation={0} sx={panelSx}><CardContent><Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.25 }}><Typography sx={{ ...panelHeadingSx, mb: 0 }}>CPM calculated timeline</Typography><Stack direction="row" alignItems="center" spacing={0.5}><PanelZoomControls value={cpmPanelZoom} onChange={setCpmPanelZoom} /><FormControlLabel control={<Checkbox size="small" checked={showHierarchy} onChange={(event) => setShowHierarchy(event.target.checked)} />} label="Show hierarchy" sx={{ mr: 0.5, "& .MuiFormControlLabel-label": { fontSize: 11, color: "#526078" } }} /><Tooltip title="View full timeline"><IconButton size="small" onClick={() => { setFullTimelineTab("cpm"); setFullView("gantt"); }}><FullscreenIcon fontSize="small" /></IconButton></Tooltip></Stack></Stack><GanttOverview activities={data.activities} duration={data.summary.projectDurationDays || 1} calendar={data.calendar} wbsById={wbsById} showHierarchy={showHierarchy} zoom={cpmPanelZoom} /><Divider sx={{ my: 1.25 }} /><Legend /></CardContent></Card></Grid>
+      <Grid size={12}><Card elevation={0} sx={panelSx}><CardContent><Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.25 }}><Typography sx={{ ...panelHeadingSx, mb: 0 }}>Network diagram</Typography><Stack direction="row" alignItems="center" spacing={0.5}><PanelZoomControls value={networkPanelZoom} onChange={setNetworkPanelZoom} min={0.5} /><Tooltip title="View full network"><IconButton size="small" onClick={() => setFullView("network")}><FullscreenIcon fontSize="small" /></IconButton></Tooltip></Stack></Stack><NetworkDiagram activities={data.activities} wbsById={wbsById} zoom={networkPanelZoom} /></CardContent></Card></Grid>
+      <Grid size={12}><Card elevation={0} sx={panelSx}><CardContent><Stack direction="row" justifyContent="space-between" alignItems="center"><Typography sx={{ ...panelHeadingSx, mb: 0 }}>Original / baseline timeline</Typography><Stack direction="row" alignItems="center" spacing={0.5}><PanelZoomControls value={baselinePanelZoom} onChange={setBaselinePanelZoom} /><Tooltip title="View full timeline"><IconButton size="small" onClick={() => { setFullTimelineTab("original"); setFullView("gantt"); }}><FullscreenIcon fontSize="small" /></IconButton></Tooltip></Stack></Stack><Typography sx={{ mt: 0.5, mb: 1.25, fontSize: 10.5, color: "#697386" }}>Based on the projected dates entered in Project Structure.</Typography><BaselineTimeline activities={data.activities} wbsById={wbsById} showHierarchy={showHierarchy} zoom={baselinePanelZoom} /></CardContent></Card></Grid>
+      <Grid size={12}><Card elevation={0} sx={panelSx}><CardContent><Typography sx={panelHeadingSx}>Schedule summary</Typography>
         {[["Project start", formatDate(data.project.startDate)], ["Calculated finish", formatDate(data.summary.calculatedFinishDate)], ["Total duration", data.summary.projectDurationDays == null ? "—" : `${data.summary.projectDurationDays} days`], ["Critical activities", String(data.summary.criticalActivityCount)], ["Deadline variance", variance == null ? "—" : `${Math.abs(variance)} day(s) ${variance >= 0 ? "available" : "late"}`]].map(([label, value]) => <Stack key={label} direction="row" justifyContent="space-between" sx={{ py: 0.48 }}><Typography sx={{ fontSize: 10.5, color: "#657086" }}>{label}</Typography><Typography sx={{ fontSize: 10.5, fontWeight: 750, color: COLORS.ink }}>{value}</Typography></Stack>)}
         <Divider sx={{ my: 0.75 }} /><Chip size="small" color={data.summary.status === "CALCULATED" ? "success" : data.summary.status === "INVALID" ? "error" : "warning"} label={data.summary.status.replaceAll("_", " ")} />
       </CardContent></Card></Grid>
@@ -489,14 +516,21 @@ export default function ProjectSchedulingStep({ projectId, canUpdate, scopes }: 
         <Typography sx={{ fontSize: 16, fontWeight: 850, color: COLORS.ink }}>{fullView === "gantt" ? "Schedule Timeline" : "CPM Network Diagram"}</Typography>
         {fullView === "gantt" && <Tabs value={fullTimelineTab} onChange={(_, value: "cpm" | "original") => setFullTimelineTab(value)} sx={{ minHeight: 38, "& .MuiTab-root": { minHeight: 38, px: 2.5, fontSize: 12, fontWeight: 800, textTransform: "none" } }}><Tab value="cpm" label="CPM" /><Tab value="original" label="Original" /></Tabs>}
         <Stack direction="row" alignItems="center" spacing={1}>
+          {fullView === "gantt" && <Stack direction="row" alignItems="center" spacing={0.25} sx={{ px: 0.5, border: "1px solid #d8dee9", borderRadius: 2 }}>
+            <Tooltip title="Zoom out"><span><IconButton size="small" disabled={timelineZoom <= 0.4} onClick={() => setTimelineZoom((value) => Math.max(0.4, Number((value - 0.1).toFixed(1))))}><ZoomOutIcon fontSize="small" /></IconButton></span></Tooltip>
+            <Slider size="small" min={0.4} max={2} step={0.1} value={timelineZoom} onChange={(_, value) => setTimelineZoom(value as number)} sx={{ width: { xs: 70, sm: 110 } }} aria-label="Timeline zoom" />
+            <Typography sx={{ width: 38, textAlign: "center", fontSize: 10.5, fontWeight: 800, color: "#526078" }}>{Math.round(timelineZoom * 100)}%</Typography>
+            <Tooltip title="Zoom in"><span><IconButton size="small" disabled={timelineZoom >= 2} onClick={() => setTimelineZoom((value) => Math.min(2, Number((value + 0.1).toFixed(1))))}><ZoomInIcon fontSize="small" /></IconButton></span></Tooltip>
+            <Tooltip title="Reset zoom"><IconButton size="small" onClick={() => setTimelineZoom(1)}><FitScreenIcon fontSize="small" /></IconButton></Tooltip>
+          </Stack>}
           {fullView === "gantt" && <FormControlLabel control={<Checkbox size="small" checked={showHierarchy} onChange={(event) => setShowHierarchy(event.target.checked)} />} label="Show hierarchy" sx={{ mr: 0, "& .MuiFormControlLabel-label": { fontSize: 12 } }} />}
           <IconButton aria-label="Close full view" onClick={() => setFullView(null)}><CloseIcon /></IconButton>
         </Stack>
       </Box>
       <Box sx={{ flex: 1, minHeight: 0, overflow: "hidden", p: { xs: 1, md: 1.5 }, bgcolor: "#f6f8fc" }}>
         <Card elevation={0} sx={{ height: "100%", border: "1px solid #d8dee9", borderRadius: 2, overflow: "hidden" }}><CardContent sx={{ height: "100%", p: { xs: 1.25, md: 1.5 }, "&:last-child": { pb: { xs: 1.25, md: 1.5 } }, boxSizing: "border-box", overflow: "hidden" }}>
-          {fullView === "gantt" && fullTimelineTab === "cpm" && <Box sx={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column" }}><Box sx={{ flex: 1, minHeight: 0 }}><GanttOverview activities={data.activities} duration={data.summary.projectDurationDays || 1} wbsById={wbsById} showHierarchy={showHierarchy} fullHeight /></Box><Divider sx={{ my: 1.25 }} /><Legend /></Box>}
-          {fullView === "gantt" && fullTimelineTab === "original" && <Box sx={{ height: "100%", minHeight: 0 }}><BaselineTimeline activities={data.activities} wbsById={wbsById} showHierarchy={showHierarchy} fullHeight /></Box>}
+          {fullView === "gantt" && fullTimelineTab === "cpm" && <Box sx={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column" }}><Box sx={{ flex: 1, minHeight: 0 }}><GanttOverview activities={data.activities} duration={data.summary.projectDurationDays || 1} calendar={data.calendar} wbsById={wbsById} showHierarchy={showHierarchy} fullHeight zoom={timelineZoom} /></Box><Divider sx={{ my: 1.25 }} /><Legend /></Box>}
+          {fullView === "gantt" && fullTimelineTab === "original" && <Box sx={{ height: "100%", minHeight: 0 }}><BaselineTimeline activities={data.activities} wbsById={wbsById} showHierarchy={showHierarchy} fullHeight zoom={timelineZoom} /></Box>}
           {fullView === "network" && <Grid container sx={{ height: "100%", minHeight: 0 }}>
             <Grid size={{ xs: 12, md: 4 }} sx={{ minHeight: 0, borderRight: { md: "1px solid #d8dee9" }, borderBottom: { xs: "1px solid #d8dee9", md: 0 } }}>
               <Box sx={{ px: 1.25, py: 1, borderBottom: "1px solid #d8dee9", bgcolor: "#f8fafc" }}><Typography sx={{ fontSize: 11, fontWeight: 850, color: COLORS.ink, textTransform: "uppercase" }}>Activity reference</Typography></Box>
@@ -517,7 +551,13 @@ export default function ProjectSchedulingStep({ projectId, canUpdate, scopes }: 
       </Box>
     </Dialog>
 
-    <Dialog open={editorOpen} onClose={() => !saving && setEditorOpen(false)} maxWidth="lg" fullWidth>
+    <Dialog
+      open={editorOpen}
+      onClose={() => !saving && setEditorOpen(false)}
+      maxWidth={false}
+      fullWidth
+      PaperProps={{ sx: { width: "calc(100vw - 32px)", maxWidth: 1800, height: "94vh", m: 2 } }}
+    >
       <DialogTitle sx={{ fontWeight: 800 }}>Build dependency network</DialogTitle>
       <DialogContent dividers>
         <Typography sx={{ mb: 1.5, fontSize: 12.5, color: "#344054" }}>
@@ -527,7 +567,7 @@ export default function ProjectSchedulingStep({ projectId, canUpdate, scopes }: 
         {editorMessage && <Alert severity={editorMessage.includes("circular") ? "warning" : "info"} sx={{ mb: 1.5 }}>{editorMessage}</Alert>}
         <Grid container spacing={1.5}>
           <Grid size={{ xs: 12, lg: 6 }}>
-            <TableContainer sx={{ maxHeight: 470, overflowX: "hidden", border: "1px solid #d8dee9", borderRadius: 2 }}>
+            <TableContainer sx={{ height: { xs: 470, lg: "calc(94vh - 235px)" }, minHeight: 470, overflowX: "hidden", border: "1px solid #d8dee9", borderRadius: 2 }}>
               <Table stickyHeader size="small" sx={{ tableLayout: "fixed", width: "100%" }}>
                 <TableHead>
                   <TableRow>
@@ -553,12 +593,17 @@ export default function ProjectSchedulingStep({ projectId, canUpdate, scopes }: 
             </TableContainer>
           </Grid>
           <Grid size={{ xs: 12, lg: 6 }}>
-            <Stack direction="row" justifyContent="center" spacing={2} sx={{ mb: 0.75 }}>
-              <Typography sx={{ fontSize: 9.5, color: "#657086" }}>Top: ES | Activity | EF</Typography>
-              <Typography sx={{ fontSize: 9.5, color: "#657086" }}>Bottom: LS | Duration | LF</Typography>
-            </Stack>
-            <Box sx={{ minHeight: 470, display: "grid", placeItems: "center", border: "1px solid #d8dee9", borderRadius: 2, bgcolor: "#fbfcfe", p: 1 }}>
-              <NetworkDiagram activities={editorActivities} wbsById={wbsById} metricsValid={previewIsCurrent || !draftDirty} />
+            <Box sx={{ height: { xs: 470, lg: "calc(94vh - 235px)" }, minHeight: 470, display: "flex", flexDirection: "column", overflow: "hidden", border: "1px solid #d8dee9", borderRadius: 2, bgcolor: "#fbfcfe" }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ minHeight: 57, px: 1.25, borderBottom: "1px solid #d8dee9", bgcolor: "#f3f6fa" }}>
+                <Stack direction="row" spacing={2}>
+                  <Typography sx={{ fontSize: 9.5, color: "#657086" }}>Top: ES | Activity | EF</Typography>
+                  <Typography sx={{ fontSize: 9.5, color: "#657086" }}>Bottom: LS | Duration | LF</Typography>
+                </Stack>
+                <PanelZoomControls value={editorNetworkZoom} onChange={setEditorNetworkZoom} min={0.5} max={2.5} />
+              </Stack>
+              <Box sx={{ flex: 1, minHeight: 0, overflow: "hidden", display: "grid", placeItems: "center", p: 1 }}>
+                <NetworkDiagram activities={editorActivities} wbsById={wbsById} metricsValid={previewIsCurrent || !draftDirty} zoom={editorNetworkZoom} />
+              </Box>
             </Box>
           </Grid>
         </Grid>
