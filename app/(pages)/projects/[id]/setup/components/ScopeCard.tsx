@@ -4,6 +4,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import WarningIcon from "@mui/icons-material/Warning";
 import CloseIcon from "@mui/icons-material/Close";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import { calculateBudgetVariance } from "@/app/utils/formatters";
 import { scopeRequiresBudget } from "@/app/utils/budgetPolicy";
@@ -42,6 +43,14 @@ interface ScopeCardProps {
   onEditSubtask: (sub: any, taskId: string) => void;
   onAddSubtask: (taskId: string) => void;
   onReorderSubtasks: (taskId: string, draggedId: string, targetId: string) => Promise<void>;
+  onReorderTasks: (scopeId: string, orderedIds: string[]) => Promise<void>;
+  scopeDragActive?: boolean;
+  isDraggingScope?: boolean;
+  scopeDragHandleProps?: {
+    draggable?: boolean;
+    onDragStart?: React.DragEventHandler<HTMLButtonElement>;
+    onDragEnd?: React.DragEventHandler<HTMLButtonElement>;
+  };
 }
 
 function ScopeCard({
@@ -68,6 +77,10 @@ function ScopeCard({
   onEditSubtask,
   onAddSubtask,
   onReorderSubtasks,
+  onReorderTasks,
+  scopeDragActive = false,
+  isDraggingScope = false,
+  scopeDragHandleProps,
 }: ScopeCardProps) {
   const [editModalOpen, setEditModalOpen] = useState(scopeEdit?.id === scope.id);
   const [editErrors, setEditErrors] = useState<ValidationError[]>([]);
@@ -79,6 +92,21 @@ function ScopeCard({
   );
   const budgetRequired = scopeRequiresBudget(selectedMaintenanceScope?.code);
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+  const [orderedTasks, setOrderedTasks] = useState<any[]>(scope.tasks || []);
+
+  useEffect(() => setOrderedTasks(scope.tasks || []), [scope.tasks]);
+
+  const moveTask = async (taskId: string, direction: -1 | 1) => {
+    const from = orderedTasks.findIndex((item: any) => item.id === taskId);
+    const to = from + direction;
+    if (from < 0 || to < 0 || to >= orderedTasks.length) return;
+    const previous = orderedTasks;
+    const next = [...orderedTasks];
+    [next[from], next[to]] = [next[to], next[from]];
+    setOrderedTasks(next);
+    try { await onReorderTasks(scope.id, next.map((item: any) => String(item.id))); }
+    catch { setOrderedTasks(previous); }
+  };
 
   useEffect(() => {
     setMaintenanceLoading(true);
@@ -163,6 +191,7 @@ function ScopeCard({
           borderRadius: 2,
           position: "relative",
           transition: "all 0.2s",
+          opacity: isDraggingScope ? 0.55 : 1,
           boxShadow: isInvalidScope ? "0 0 0 3px rgba(239, 68, 68, 0.12)" : "none",
           "&:hover": {
             boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
@@ -190,6 +219,7 @@ function ScopeCard({
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Box>
             <Stack direction="row" spacing={1} alignItems="center">
+              <IconButton {...scopeDragHandleProps} size="small" aria-label={`Reorder scope ${scope.name}`} sx={{ p: 0.25, cursor: scopeDragActive ? "grabbing" : "grab", color: "#6d28d9" }}><DragIndicatorIcon fontSize="small" /></IconButton>
               <Chip label={`SCOPE ${orderNumber}`} size="small" sx={{ height: 22, bgcolor: "#ede9fe", color: "#4c1d95", fontSize: 10, fontWeight: 800 }} />
               <Typography variant="subtitle1" fontWeight={700}>{scope.name}</Typography>
             </Stack>
@@ -224,6 +254,7 @@ function ScopeCard({
           </Box>
         </Box>
 
+        {!scopeDragActive && <>
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={{ xs: 0.75, sm: 1.5 }}
@@ -271,7 +302,7 @@ function ScopeCard({
 
         {/* TASK LIST */}
         <Box mt={3}>
-          {scope.tasks?.map((task: any, taskIndex: number) => (
+          {orderedTasks.map((task: any, taskIndex: number) => (
             <TaskCard
               key={task.id}
               task={task}
@@ -291,9 +322,14 @@ function ScopeCard({
               onEditSubtask={onEditSubtask}
               onAddSubtask={onAddSubtask}
               onReorderSubtasks={onReorderSubtasks}
+              canMoveUp={taskIndex > 0}
+              canMoveDown={taskIndex < orderedTasks.length - 1}
+              onMoveUp={() => void moveTask(task.id, -1)}
+              onMoveDown={() => void moveTask(task.id, 1)}
             />
           ))}
         </Box>
+        </>}
       </Box>
 
       {/* EDIT SCOPE MODAL */}

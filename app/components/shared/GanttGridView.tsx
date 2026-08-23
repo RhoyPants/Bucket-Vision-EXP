@@ -183,6 +183,7 @@ const baseRows = useMemo(() => {
     const pad = Math.max(0, MIN_ROWS - baseRows.length);
     return [...baseRows, ...Array.from({ length: pad }, (_, i) => ({ type: "empty", _pad: i }))];
   }, [baseRows]);
+  const viewportHeight = Math.min(VIEWPORT_H, HDR_H + Math.max(baseRows.length, 4) * ROW_H + 10);
  const visStart = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
   const visEnd   = Math.min(rows.length, Math.ceil((scrollTop + VIEWPORT_H) / ROW_H) + OVERSCAN);
   const topSp    = visStart * ROW_H;
@@ -257,29 +258,38 @@ const wbs = (row: any) => {
   }
 
    return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 1, userSelect: "none", width: "100%", minWidth: 0 }}>
+    <Box sx={{ display: "flex", flexDirection: "column", userSelect: "none", width: "100%", minWidth: 0, overflow: "hidden", border: "1px solid #d8dee9", borderRadius: 2.5, bgcolor: "#fff" }}>
 
       {/* TOOLBAR */}
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ px: 0.5 }}>
-        <Typography variant="caption" fontWeight={700} color="text.secondary">Zoom:</Typography>
-        <ToggleButtonGroup
-          exclusive
-          value={zoom}
-          onChange={(_, v) => v && setZoom(v)}
-          size="small"
-          sx={{ "& .MuiToggleButton-root": { px: 2, py: 0.5, fontSize: 12, textTransform: "none" } }}
-        >
-          {(["month", "week", "day"] as ZoomLevel[]).map(z => (
-            <ToggleButton key={z} value={z}>{z.charAt(0).toUpperCase() + z.slice(1)}</ToggleButton>
-          ))}
-        </ToggleButtonGroup>
-        <Typography variant="caption" color="text.secondary">
-          {dates.length} days · {baseRows.length} rows
-        </Typography>
-      </Stack>
+      <Box sx={{ px: { xs: 1.25, sm: 2 }, py: 1.25, borderBottom: "1px solid #e4e9f0", bgcolor: "#fbfcfe" }}>
+        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", md: "center" }} gap={1.25}>
+          <Box>
+            <Typography sx={{ fontSize: 13, fontWeight: 850, color: "#17233c" }}>Original project timeline</Typography>
+            <Typography sx={{ mt: 0.15, fontSize: 10.5, color: "#697386" }}>Planned dates from the approved project structure.</Typography>
+          </Box>
+          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flexWrap: "wrap", rowGap: 0.75 }}>
+            <Typography variant="caption" fontWeight={750} color="text.secondary">View by</Typography>
+            <ToggleButtonGroup
+              exclusive
+              value={zoom}
+              onChange={(_, v) => v && setZoom(v)}
+              size="small"
+              sx={{ "& .MuiToggleButton-root": { minWidth: 58, px: 1.5, py: 0.45, fontSize: 10.5, fontWeight: 750, textTransform: "none" } }}
+            >
+              {(["month", "week", "day"] as ZoomLevel[]).map(z => (
+                <ToggleButton key={z} value={z}>{z.charAt(0).toUpperCase() + z.slice(1)}</ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+            <Typography variant="caption" color="text.secondary">{dates.length} days · {baseRows.length} items</Typography>
+          </Stack>
+        </Stack>
+        <Stack direction="row" spacing={1.75} useFlexGap sx={{ mt: 1, flexWrap: "wrap" }}>
+          {[["#5E35B1", "Scope"], ["#0D47A1", "Task"], ["#FFA726", "Not started"], ["#29B6F6", "In progress"], ["#00C853", "Completed"]].map(([color, label]) => <Stack key={label} direction="row" spacing={0.55} alignItems="center"><Box sx={{ width: 14, height: 5, borderRadius: 4, bgcolor: color }} /><Typography sx={{ fontSize: 9.5, color: "#526078" }}>{label}</Typography></Stack>)}
+        </Stack>
+      </Box>
 
       {/* WRAPPER - gives scroll container definite pixel dimensions */}
-      <Box sx={{ position: "relative", height: VIEWPORT_H, width: "100%", flexShrink: 0 }}>
+      <Box sx={{ position: "relative", height: viewportHeight, width: "100%", flexShrink: 0 }}>
       {/* MAIN SCROLL CONTAINER - fills wrapper exactly via position absolute */}
       <Box
         ref={containerRef}
@@ -292,8 +302,7 @@ const wbs = (row: any) => {
           position: "absolute",
           top: 0, left: 0, right: 0, bottom: 0,
           overflow: "auto",
-          border: "1px solid #DDE1E8",
-          borderRadius: 1,
+          border: 0,
           "&::-webkit-scrollbar": { width: 8, height: 8 },
           "&::-webkit-scrollbar-track": { bgcolor: "#f8f9fa" },
           "&::-webkit-scrollbar-thumb": { bgcolor: "#c8cdd4", borderRadius: 4 },
@@ -407,7 +416,7 @@ const wbs = (row: any) => {
             const { start, end } = getRowMs(row);
             const durDays  = start && end ? Math.round((end - start) / MS_DAY + 1) : 0;
             const progress = Math.round(row.progress ?? 0);
-            const rowBg    = isSc ? "#EEF1F8" : isTk ? "#FFFFFF" : "#FAFBFF";
+            const rowBg    = isSc ? "#f1effb" : isTk ? "#eef5ff" : "#ffffff";
             const leftPx   = getOffsetPx(start);
             const widthPx  = getDurPx(start, end);
             const color    = barColor(row);

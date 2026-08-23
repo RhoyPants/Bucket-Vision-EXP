@@ -168,7 +168,9 @@ axiosApi.interceptors.response.use(
 
       console.error("❌ API Error:", response.status, response.data);
       return Promise.reject(
-        response.data?.message || `HTTP Error: ${response.status}`
+        response.data?.error?.message ||
+          response.data?.message ||
+          `HTTP Error: ${response.status}`
       );
     }
 

@@ -12,21 +12,19 @@ import {
   Divider,
   IconButton,
   Stack,
-  ButtonGroup,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogContentText,
   DialogActions,
   TextField,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import CloseIcon from "@mui/icons-material/Close";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import BlockIcon from "@mui/icons-material/Block";
-import ViewWeekIcon from "@mui/icons-material/ViewWeek";
-import ViewAgendaIcon from "@mui/icons-material/ViewAgenda";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import DownloadIcon from "@mui/icons-material/Download";
 import LayersIcon from "@mui/icons-material/Layers";
 import HistoryIcon from "@mui/icons-material/History";
@@ -53,6 +51,7 @@ import ApprovalRejectDialog from "@/app/components/shared/modals/ApprovalModals/
 import GanttGridView from "@/app/components/shared/GanttGridView";
 import StructuredViewComponent from "./components/StructuredView";
 import DashboardCalendar from "@/app/components/shared/calendar/DashboardCalendar";
+import ProjectSchedulingStep from "@/app/(pages)/projects/[id]/setup/components/ProjectSchedulingStep";
 import {
   ApiAttachment,
   getAttachmentFileName,
@@ -60,7 +59,7 @@ import {
 } from "@/app/api-service/attachmentService";
 import type { Scope } from "./components/types";
 
-type ViewMode = "structured" | "gantt" | "calendar";
+type ApprovalTab = "info" | "structure" | "cpm" | "calendar" | "timeline";
 
 type ApiError = {
   response?: {
@@ -207,7 +206,7 @@ function ApprovalReviewPageContent() {
   const [project, setProject] = useState<ApprovalProject | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("structured");
+  const [activeTab, setActiveTab] = useState<ApprovalTab>("info");
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [approvalRemarks, setApprovalRemarks] = useState("");
@@ -494,7 +493,8 @@ function ApprovalReviewPageContent() {
         {/* LEFT PANEL */}
         <Box
           sx={{
-            width: { xs: "100%", md: "25%" },
+            width: { xs: "100%", md: "clamp(280px, 22vw, 340px)" },
+            flexShrink: 0,
             display: "flex",
             flexDirection: "column",
             gap: 0,
@@ -580,10 +580,26 @@ function ApprovalReviewPageContent() {
               bgcolor: "#ffffff",
             }}
           >
+          <Box sx={{ position: "sticky", top: 0, zIndex: 20, bgcolor: "#fff", borderBottom: "1px solid #e5e7eb" }}>
+            <Tabs
+              value={activeTab}
+              onChange={(_, value: ApprovalTab) => setActiveTab(value)}
+              variant="scrollable"
+              scrollButtons="auto"
+              sx={{ minHeight: 44, px: 1, "& .MuiTab-root": { minHeight: 44, px: { xs: 1.25, sm: 2 }, fontSize: { xs: 11, sm: 12 }, fontWeight: 800, textTransform: "none" } }}
+            >
+              <Tab value="info" label="Project Info" />
+              <Tab value="structure" label="Project Structure" />
+              <Tab value="cpm" label="CPM" />
+              <Tab value="calendar" label="Calendar" />
+              <Tab value="timeline" label="Timeline" />
+            </Tabs>
+          </Box>
           {/* PROJECT SUMMARY - IN UPPER PART */}
+          {activeTab === "info" && (
           <Box
             sx={{
-              p: { xs: 1.25, sm: 1.5 },
+              p: { xs: 1.25, sm: 1.5, xl: 2 },
               borderBottom: "1px solid #e5e7eb",
               "& > .project-info-grid > .MuiBox-root > .MuiTypography-root:first-of-type": {
                 fontSize: "10px",
@@ -1000,79 +1016,35 @@ function ApprovalReviewPageContent() {
               </Box>
             </Box>
           </Box>
+          )}
 
-          {/* VIEW TOGGLE */}
-          <Box
-            sx={{
-              display: "flex",
-              gap: 2,
-              alignItems: "center",
-              flexWrap: "wrap",
-              px: { xs: 1.5, sm: 2 },
-              py: 0.9,
-              borderBottom: "1px solid #e5e7eb",
-              bgcolor: "#ffffff",
-            }}
-          >
-            <Typography
-              sx={{
-                fontWeight: 600,
-                fontSize: { xs: "12px", sm: "14px" },
-                color: "#7D8693",
-              }}
-            >
-              View:
-            </Typography>
-            <ButtonGroup variant="outlined" size="small">
-              <Button
-                onClick={() => setViewMode("structured")}
-                variant={viewMode === "structured" ? "contained" : "outlined"}
-                startIcon={<ViewWeekIcon />}
-                sx={{ fontSize: { xs: "11px", sm: "12px" } }}
-              >
-                Structured
-              </Button>
-              <Button
-                onClick={() => setViewMode("gantt")}
-                variant={viewMode === "gantt" ? "contained" : "outlined"}
-                startIcon={<ViewAgendaIcon />}
-                sx={{ fontSize: { xs: "11px", sm: "12px" } }}
-              >
-                Timeline
-              </Button>
-              <Button
-                onClick={() => setViewMode("calendar")}
-                variant={viewMode === "calendar" ? "contained" : "outlined"}
-                startIcon={<CalendarMonthIcon />}
-                sx={{ fontSize: { xs: "11px", sm: "12px" } }}
-              >
-                Calendar
-              </Button>
-            </ButtonGroup>
-          </Box>
-
-          {/* CONTENT AREA - STRUCTURED OR GANTT VIEW */}
+          {/* TABBED CONTENT AREA */}
+          {activeTab !== "info" && (
           <Box
             sx={{
               display: "flex",
               flexDirection: "column",
-              p: { xs: 1.25, sm: 1.5 },
+              p: { xs: 1.25, sm: 1.5, xl: 2 },
               minHeight: { xs: "300px", sm: "400px" },
             }}
           >
-            {viewMode === "structured" && <StructuredView project={project} />}
-            {viewMode === "gantt" && (
+            {activeTab === "structure" && <StructuredView project={project} />}
+            {activeTab === "cpm" && (
+              <ProjectSchedulingStep projectId={projectId} canUpdate={false} scopes={project.scopes || []} />
+            )}
+            {activeTab === "timeline" && (
               <Box sx={{ overflowX: "auto" }}>
                 <GanttGridView projectId={projectId} project={project} />
               </Box>
             )}
-            {viewMode === "calendar" && (
+            {activeTab === "calendar" && (
               <DashboardCalendar
                 projectId={projectId}
                 projectStartDate={project.startDate ?? null}
               />
             )}
           </Box>
+          )}
           </Card>
         </Box>
       </Box>

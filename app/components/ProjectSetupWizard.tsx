@@ -22,6 +22,8 @@ import {
   Grid,
   Chip as MuiChip,
   IconButton,
+  Slider,
+  Tooltip,
 } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { usePathname, useRouter } from "next/navigation";
@@ -33,6 +35,9 @@ import AssignmentIcon from "@mui/icons-material/Assignment";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import DownloadIcon from "@mui/icons-material/Download";
+import ZoomInIcon from "@mui/icons-material/ZoomIn";
+import ZoomOutIcon from "@mui/icons-material/ZoomOut";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import {
   getProjectFull,
   updateProject,
@@ -86,9 +91,16 @@ import {
 import { usePermissions } from "@/app/lib/usePermissions";
 import ValidationModal from "@/app/components/shared/modals/ValidationModal";
 import DeleteStructureItemDialog, { StructureItemKind } from "@/app/components/shared/modals/DeleteStructureItemDialog";
+import ProjectSchedulingStep from "@/app/(pages)/projects/[id]/setup/components/ProjectSchedulingStep";
 
 
-const WIZARD_STEPS = ["Create Project", "Team Management", "Project Structure", "Confirmation & Summary"];
+const WIZARD_STEPS = [
+  "Create Project",
+  "Team Management",
+  "Project Structure",
+  "Project Scheduling",
+  "Confirmation & Summary",
+];
 
 type StructureValidationFeedback = {
   title: string;
@@ -123,6 +135,7 @@ export default function ProjectSetupWizard({
 
   // WIZARD STATE
   const [activeStep, setActiveStep] = useState(initialStep);
+  const [structureZoom, setStructureZoom] = useState(1);
   const [project, setProject] = useState<any>(initialData ?? null);
   const [loading, setLoading] = useState(!initialData && !!projectId);
   const [saving, setSaving] = useState(false);
@@ -815,6 +828,46 @@ export default function ProjectSetupWizard({
       orderedIds: items.map((item: any) => item.id),
     }));
     await refreshProject();
+  };
+
+  const handleReorderScopes = async (orderedIds: string[]) => {
+    const byId = new Map(sortedScopes.map((item: any) => [String(item.id), item]));
+    const items = orderedIds.map((id) => byId.get(id)).filter(Boolean);
+    setSaving(true);
+    try {
+      await Promise.all(items.map((scope: any, order: number) => dispatch(updateScope(scope.id, {
+        name: scope.name,
+        sourceType: scope.sourceType,
+        scopeMaintenanceId: scope.scopeMaintenanceId,
+        budgetAllocated: Number(scope.budgetAllocated) || 0,
+        budgetPercent: Number(scope.budgetPercent) || 0,
+        order,
+      }))));
+      await refreshProject();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReorderTasks = async (scopeId: string, orderedIds: string[]) => {
+    const scope = sortedScopes.find((item: any) => item.id === scopeId);
+    const byId = new Map((scope?.tasks || []).map((item: any) => [String(item.id), item]));
+    const items = orderedIds.map((id) => byId.get(id)).filter(Boolean);
+    setSaving(true);
+    try {
+      await Promise.all(items.map((task: any, order: number) => dispatch(updateTask(task.id, {
+        title: task.title,
+        sourceType: task.sourceType,
+        taskMaintenanceId: task.taskMaintenanceId,
+        description: task.description || "",
+        budgetAllocated: Number(task.budgetAllocated) || 0,
+        budgetPercent: Number(task.budgetPercent) || 0,
+        order,
+      }))));
+      await refreshProject();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const teamMemberCount = useMemo(() => {
@@ -1574,22 +1627,26 @@ export default function ProjectSetupWizard({
         {/* STEP 2: PROJECT STRUCTURE (scopes / tasks / subtasks) */}
         {activeStep === 2 && (
           <Box>
-            <Typography
-              variant="h6"
-              fontWeight={700}
-              mb={3}
-              sx={{ display: "flex", alignItems: "center", gap: 1, color: "#111827" }}
-            >
-              <AssignmentIcon /> Project Structure
-            </Typography>
-            <Typography sx={{ fontSize: 13, color: "#666", mb: 3 }}>
-              Define your project's scopes, tasks, and subtasks.
-            </Typography>
+            <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} gap={1} sx={{ mb: 2.5 }}>
+              <Box>
+                <Typography variant="h6" fontWeight={700} sx={{ display: "flex", alignItems: "center", gap: 1, color: "#111827" }}>
+                  <AssignmentIcon /> Project Structure
+                </Typography>
+                <Typography sx={{ mt: 0.4, fontSize: 13, color: "#666" }}>Define your project&apos;s scopes, tasks, and subtasks.</Typography>
+              </Box>
+              <Stack direction="row" spacing={0.25} alignItems="center" sx={{ px: 0.35, height: 32, border: "1px solid #CBD5E1", borderRadius: 1.5, bgcolor: "#fff" }}>
+                <Tooltip title="Zoom out"><span><IconButton size="small" disabled={structureZoom <= 0.4} onClick={() => setStructureZoom((value) => Math.max(0.4, Number((value - 0.1).toFixed(2))))} aria-label="Zoom project structure out"><ZoomOutIcon fontSize="small" /></IconButton></span></Tooltip>
+                <Slider size="small" min={0.4} max={1.25} step={0.05} value={structureZoom} onChange={(_, value) => setStructureZoom(value as number)} aria-label="Project structure zoom" sx={{ width: 72 }} />
+                <Typography sx={{ width: 36, textAlign: "center", fontSize: 10, fontWeight: 800, color: "#475467" }}>{Math.round(structureZoom * 100)}%</Typography>
+                <Tooltip title="Zoom in"><span><IconButton size="small" disabled={structureZoom >= 1.25} onClick={() => setStructureZoom((value) => Math.min(1.25, Number((value + 0.1).toFixed(2))))} aria-label="Zoom project structure in"><ZoomInIcon fontSize="small" /></IconButton></span></Tooltip>
+                <Tooltip title="Reset to 100%"><IconButton size="small" disabled={structureZoom === 1} onClick={() => setStructureZoom(1)} aria-label="Reset project structure zoom"><RestartAltIcon fontSize="small" /></IconButton></Tooltip>
+              </Stack>
+            </Stack>
 
             {/* PLACEHOLDER so the giant old block is replaced */}
             {/* Project structure section starts here */}
             {project && (
-              <Box>
+              <Box sx={{ zoom: structureZoom, width: "100%" }}>
                 {/* Scope Input */}
                 <ScopeForm
                   scopeForm={scopeForm}
@@ -1622,6 +1679,8 @@ export default function ProjectSetupWizard({
                   onDeleteTask={handleDeleteTask}
                   onAddSubtask={handleAddSubtask}
                   onReorderSubtasks={handleReorderSubtasks}
+                  onReorderScopes={handleReorderScopes}
+                  onReorderTasks={handleReorderTasks}
                   onUpdateSubtask={handleUpdateSubtask}
                   onDeleteSubtask={handleDeleteSubtask}
                   onEditSubtask={(sub: any, taskId: string) => {
@@ -1651,8 +1710,13 @@ export default function ProjectSetupWizard({
           </Box>
         )}
 
-        {/* STEP 3: CONFIRMATION & SUMMARY */}
-        {activeStep === 3 && (
+        {/* STEP 3: PROJECT SCHEDULING / CPM */}
+        {activeStep === 3 && currentProjectId && (
+          <ProjectSchedulingStep projectId={currentProjectId} canUpdate={canUpdateProject} scopes={project?.scopes || []} />
+        )}
+
+        {/* STEP 4: CONFIRMATION & SUMMARY */}
+        {activeStep === 4 && (
           <Stack spacing={1.25}>
             <Card sx={{ display: "none", backgroundColor: "#f0fdf4", borderLeft: "4px solid #22c55e" }}>
               <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>

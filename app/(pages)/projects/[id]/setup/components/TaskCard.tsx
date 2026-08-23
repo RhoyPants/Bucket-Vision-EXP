@@ -17,6 +17,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SaveIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import {
   validateTaskForm,
   calculateBudgetPercent,
@@ -46,6 +48,10 @@ interface TaskCardProps {
   onEditSubtask: (sub: any, taskId: string) => void;
   onAddSubtask: (taskId: string) => void;
   onReorderSubtasks: (taskId: string, draggedId: string, targetId: string) => Promise<void>;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
 function TaskCard({
@@ -66,6 +72,10 @@ function TaskCard({
   onEditSubtask,
   onAddSubtask,
   onReorderSubtasks,
+  canMoveUp = false,
+  canMoveDown = false,
+  onMoveUp,
+  onMoveDown,
 }: TaskCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -170,6 +180,7 @@ function TaskCard({
           position: "relative",
           transition: "all 0.2s ease",
           boxShadow: isInvalidTask ? "0 0 0 2px rgba(239, 68, 68, 0.12)" : undefined,
+          opacity: 1,
           "&:hover": {
             boxShadow: "0 2px 8px rgba(6, 182, 212, 0.15)",
             "& .task-actions": { opacity: 1 },
@@ -315,10 +326,24 @@ function TaskCard({
               sx={{
                 display: "flex",
                 gap: 0.5,
-                opacity: { xs: 1, sm: 0 },
+                opacity: 1,
                 transition: "opacity 0.2s ease",
               }}
             >
+              <Tooltip title="Move task up">
+                <span>
+                  <IconButton size="small" onClick={onMoveUp} disabled={!canMoveUp} aria-label={`Move ${task.title} up`}>
+                    <KeyboardArrowUpIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Move task down">
+                <span>
+                  <IconButton size="small" onClick={onMoveDown} disabled={!canMoveDown} aria-label={`Move ${task.title} down`}>
+                    <KeyboardArrowDownIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
               <IconButton
                 size="small"
                 onClick={handleEditStart}

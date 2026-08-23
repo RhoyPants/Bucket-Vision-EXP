@@ -10,6 +10,7 @@ import {
   CircularProgress,
   FormControlLabel,
   IconButton,
+  Slider,
   Stack,
   Table,
   TableBody,
@@ -23,6 +24,9 @@ import {
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
+import ZoomInIcon from "@mui/icons-material/ZoomIn";
+import ZoomOutIcon from "@mui/icons-material/ZoomOut";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import {
   DashboardReportTable,
   DashboardReportTableColumn,
@@ -360,6 +364,7 @@ export default function ProjectedActualTimelineChart({
   const [showActualPercent, setShowActualPercent] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [timelineZoom, setTimelineZoom] = useState(1);
 
   const project = useMemo(() => unwrapProject(projectTree), [projectTree]);
   const activeProject =
@@ -387,39 +392,50 @@ export default function ProjectedActualTimelineChart({
     }}>
       <CardContent sx={{ height: isFullscreen ? "100%" : "auto", display: "flex", flexDirection: "column" }}>
         <Stack
-          direction={{ xs: "column", lg: "row" }}
-          spacing={1.5}
-          alignItems={{ xs: "flex-start", lg: "center" }}
+          direction={{ xs: "column", md: "row" }}
+          spacing={1}
+          alignItems={{ xs: "flex-start", md: "center" }}
           justifyContent="space-between"
           sx={{ mb: 2 }}
         >
           <Box>
-            <Typography fontWeight={900}>Projected vs Actual Timeline</Typography>
+            <Typography noWrap sx={{ fontSize: 15, fontWeight: 900 }}>Projected vs Actual Timeline</Typography>
             <Typography sx={{ color: "#64748b", fontSize: 12 }}>
               START DATE: {getDateLabel(startDate)}
             </Typography>
           </Box>
-          <Stack direction="row" spacing={1.5} useFlexGap flexWrap="wrap">
+          <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap" justifyContent={{ md: "flex-end" }}>
             <FormControlLabel
               control={<Checkbox size="small" checked={showProjected} onChange={(event) => setShowProjected(event.target.checked)} />}
               label="Projected"
-              sx={{ "& .MuiFormControlLabel-label": { fontSize: 12, fontWeight: 800 } }}
+              sx={{ m: 0, "& .MuiCheckbox-root": { p: 0.5 }, "& .MuiFormControlLabel-label": { fontSize: 11, fontWeight: 800 } }}
             />
             <FormControlLabel
               control={<Checkbox size="small" checked={showActual} onChange={(event) => setShowActual(event.target.checked)} />}
               label="Actual"
-              sx={{ "& .MuiFormControlLabel-label": { fontSize: 12, fontWeight: 800 } }}
+              sx={{ m: 0, "& .MuiCheckbox-root": { p: 0.5 }, "& .MuiFormControlLabel-label": { fontSize: 11, fontWeight: 800 } }}
             />
             <FormControlLabel
               control={<Checkbox size="small" checked={showProjectedPercent} onChange={(event) => setShowProjectedPercent(event.target.checked)} />}
               label="Projected %"
-              sx={{ "& .MuiFormControlLabel-label": { fontSize: 12, fontWeight: 800 } }}
+              sx={{ m: 0, "& .MuiCheckbox-root": { p: 0.5 }, "& .MuiFormControlLabel-label": { fontSize: 11, fontWeight: 800 } }}
             />
             <FormControlLabel
               control={<Checkbox size="small" checked={showActualPercent} onChange={(event) => setShowActualPercent(event.target.checked)} />}
               label="Actual %"
-              sx={{ "& .MuiFormControlLabel-label": { fontSize: 12, fontWeight: 800 } }}
+              sx={{ m: 0, "& .MuiCheckbox-root": { p: 0.5 }, "& .MuiFormControlLabel-label": { fontSize: 11, fontWeight: 800 } }}
             />
+            <Stack direction="row" spacing={0.25} alignItems="center" sx={{ px: 0.35, height: 32, border: "1px solid #CBD5E1", borderRadius: 1.5, bgcolor: "#fff" }}>
+              <Tooltip title="Zoom out">
+                <span><IconButton size="small" disabled={timelineZoom <= 0.5} onClick={() => setTimelineZoom((value) => Math.max(0.5, Number((value - 0.1).toFixed(1))))} aria-label="Zoom timeline out"><ZoomOutIcon fontSize="small" /></IconButton></span>
+              </Tooltip>
+              <Slider size="small" min={0.5} max={2} step={0.1} value={timelineZoom} onChange={(_, value) => setTimelineZoom(value as number)} aria-label="Timeline zoom" sx={{ width: 64 }} />
+              <Typography sx={{ width: 34, textAlign: "center", fontSize: 10, fontWeight: 800, color: "#475467" }}>{Math.round(timelineZoom * 100)}%</Typography>
+              <Tooltip title="Zoom in">
+                <span><IconButton size="small" disabled={timelineZoom >= 2} onClick={() => setTimelineZoom((value) => Math.min(2, Number((value + 0.1).toFixed(1))))} aria-label="Zoom timeline in"><ZoomInIcon fontSize="small" /></IconButton></span>
+              </Tooltip>
+              <Tooltip title="Reset to 100%"><IconButton size="small" disabled={timelineZoom === 1} onClick={() => setTimelineZoom(1)} aria-label="Reset timeline zoom"><RestartAltIcon fontSize="small" /></IconButton></Tooltip>
+            </Stack>
             <Tooltip title="Download editable Excel report">
               <span>
                 <IconButton
@@ -444,7 +460,7 @@ export default function ProjectedActualTimelineChart({
                     }
                   }}
                   aria-label="Download dashboard report as Excel"
-                  sx={{ border: "1px solid #CBD5E1", borderRadius: 1.5 }}
+                  sx={{ width: 32, height: 32, border: "1px solid #CBD5E1", borderRadius: 1.5 }}
                 >
                   {exporting ? <CircularProgress size={18} /> : <DownloadOutlinedIcon />}
                 </IconButton>
@@ -455,7 +471,7 @@ export default function ProjectedActualTimelineChart({
                 size="small"
                 onClick={() => setIsFullscreen((current) => !current)}
                 aria-label={isFullscreen ? "Exit full screen" : "Show timeline full screen"}
-                sx={{ border: "1px solid #CBD5E1", borderRadius: 1.5 }}
+                sx={{ width: 32, height: 32, border: "1px solid #CBD5E1", borderRadius: 1.5 }}
               >
                 {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
               </IconButton>
@@ -478,6 +494,7 @@ export default function ProjectedActualTimelineChart({
               stickyHeader
               sx={{
                 minWidth: 740 + displayColumns.length * 30,
+                zoom: timelineZoom,
                 borderCollapse: "collapse",
                 "& .MuiTableCell-root": { fontFamily: "Arial, sans-serif" },
               }}

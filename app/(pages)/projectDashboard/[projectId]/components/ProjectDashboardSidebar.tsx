@@ -14,11 +14,9 @@ import {
 } from "@mui/material";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 import DirectionsRunOutlinedIcon from "@mui/icons-material/DirectionsRunOutlined";
-import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
-import SchemaOutlinedIcon from "@mui/icons-material/SchemaOutlined";
+import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
 import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
 import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
-import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import ArrowBackOutlinedIcon from "@mui/icons-material/ArrowBackOutlined";
@@ -62,19 +60,14 @@ export default function ProjectDashboardSidebar({
       icon: <DirectionsRunOutlinedIcon />,
     },
     {
-      label: "Project Team Organization",
-      href: `/projectDashboard/${projectId}?view=team-organization`,
-      icon: <AccountTreeOutlinedIcon />,
+      label: "CPM",
+      href: `/projectDashboard/${projectId}?view=cpm`,
+      icon: <TimelineOutlinedIcon />,
     },
     {
-      label: "Project Structure",
-      href: `/projectDashboard/${projectId}?view=project-structure`,
-      icon: <SchemaOutlinedIcon />,
-    },
-    {
-      label: "Project Versioning",
-      href: `/projectDashboard/${projectId}?view=project-versioning`,
-      icon: <HistoryOutlinedIcon />,
+      label: "Incident Reports",
+      href: `/projectDashboard/${projectId}?view=incident-reports`,
+      icon: <ReportProblemOutlinedIcon />,
     },
     {
       label: "Project Reports",
@@ -82,19 +75,14 @@ export default function ProjectDashboardSidebar({
       icon: <AssessmentOutlinedIcon />,
     },
     {
-      label: "Project Team Overview",
-      href: `/projectDashboard/${projectId}?view=team-overview`,
-      icon: <GroupsOutlinedIcon />,
+      label: "Project Versioning",
+      href: `/projectDashboard/${projectId}?view=project-versioning`,
+      icon: <HistoryOutlinedIcon />,
     },
     {
       label: "Project Info and Config",
       href: `/projectDashboard/${projectId}?view=project-info`,
       icon: <InfoOutlinedIcon />,
-    },
-    {
-      label: "Incident Report",
-      href: `/projectDashboard/${projectId}?view=incident-reports`,
-      icon: <ReportProblemOutlinedIcon />,
     },
   ];
 

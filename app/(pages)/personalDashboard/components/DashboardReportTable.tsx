@@ -9,6 +9,7 @@ import {
   Chip,
   CircularProgress,
   IconButton,
+  Slider,
   Stack,
   Table,
   TableBody,
@@ -21,6 +22,9 @@ import {
 } from "@mui/material";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
+import ZoomInIcon from "@mui/icons-material/ZoomIn";
+import ZoomOutIcon from "@mui/icons-material/ZoomOut";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import { DashboardReportTable as DashboardReportTableData } from "@/app/api-service/personalDashboardService";
 
 const labelCellSx = {
@@ -79,6 +83,7 @@ export default function DashboardReportTable({
   loading?: boolean;
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [tableZoom, setTableZoom] = useState(1);
   const summaryValuesByRow = useMemo(
     () =>
       new Map(
@@ -136,7 +141,7 @@ export default function DashboardReportTable({
               {reportTable?.project?.name ?? "Project progress, cash flow, and variance"}
             </Typography>
           </Box>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap" justifyContent={{ md: "flex-end" }}>
             {reportTable?.project?.totalBudget !== undefined && reportTable.project.totalBudget !== null && (
               <Chip
                 size="small"
@@ -154,6 +159,17 @@ export default function DashboardReportTable({
                 sx={{ fontWeight: 700, bgcolor: "#f8fafc", color: "#475569" }}
               />
             )}
+            <Stack direction="row" spacing={0.25} alignItems="center" sx={{ px: 0.35, height: 32, border: "1px solid #CBD5E1", borderRadius: 1.5, bgcolor: "#fff" }}>
+              <Tooltip title="Zoom out">
+                <span><IconButton size="small" disabled={tableZoom <= 0.25} onClick={() => setTableZoom((value) => Math.max(0.25, Number((value - 0.1).toFixed(2))))} aria-label="Zoom report table out"><ZoomOutIcon fontSize="small" /></IconButton></span>
+              </Tooltip>
+              <Slider size="small" min={0.25} max={1.25} step={0.05} value={tableZoom} onChange={(_, value) => setTableZoom(value as number)} aria-label="Report table zoom" sx={{ width: 64 }} />
+              <Typography sx={{ width: 34, textAlign: "center", fontSize: 10, fontWeight: 800, color: "#475467" }}>{Math.round(tableZoom * 100)}%</Typography>
+              <Tooltip title="Zoom in">
+                <span><IconButton size="small" disabled={tableZoom >= 1.25} onClick={() => setTableZoom((value) => Math.min(1.25, Number((value + 0.1).toFixed(2))))} aria-label="Zoom report table in"><ZoomInIcon fontSize="small" /></IconButton></span>
+              </Tooltip>
+              <Tooltip title="Reset to 100%"><IconButton size="small" disabled={tableZoom === 1} onClick={() => setTableZoom(1)} aria-label="Reset report table zoom"><RestartAltIcon fontSize="small" /></IconButton></Tooltip>
+            </Stack>
             <Tooltip title={isFullscreen ? "Exit full screen" : "Show full screen"}>
               <IconButton
                 size="small"
@@ -188,7 +204,7 @@ export default function DashboardReportTable({
               bgcolor: "#fff",
             }}
           >
-            <Table size="small" sx={{ minWidth: 260 + reportTable.columns.length * 58, mb: 1.5 }}>
+            <Table size="small" sx={{ minWidth: 260 + reportTable.columns.length * 58, mb: 1.5, zoom: tableZoom }}>
               <TableHead>
                 <TableRow>
                   <TableCell
