@@ -33,6 +33,11 @@ export interface MemberWorkload {
   }>;
 }
 
+const normalizeProgress = (value: unknown): number => {
+  const progress = Number(value ?? 0);
+  return Number.isFinite(progress) ? Math.min(100, Math.max(0, progress)) : 0;
+};
+
 /**
  * Gets status from progress percentage
  */
@@ -100,11 +105,11 @@ export const aggregateTeamStats = (
           if (task.subtasks) {
             task.subtasks.forEach((subtask: any) => {
               totalAssignedSubtasks++;
-              totalProgress += subtask.progress || 0;
+              totalProgress += normalizeProgress(subtask.progress);
               progressCount++;
 
               const status = getSubtaskStatus(
-                subtask.progress,
+                normalizeProgress(subtask.progress),
                 subtask.projectedEndDate
               );
 
@@ -197,14 +202,14 @@ export const aggregateMemberWorkload = (
 
                   const member = memberWorkload[userId];
                   const status = getSubtaskStatus(
-                    subtask.progress,
+                    normalizeProgress(subtask.progress),
                     subtask.projectedEndDate
                   );
 
                   const subtaskRecord = {
                     id: subtask.id,
                     title: subtask.title,
-                    progress: subtask.progress || 0,
+                    progress: normalizeProgress(subtask.progress),
                     status,
                     projectedEndDate: subtask.projectedEndDate,
                   };

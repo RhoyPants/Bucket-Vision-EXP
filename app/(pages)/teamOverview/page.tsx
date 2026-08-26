@@ -18,7 +18,6 @@ import {
 import OverviewStats from "./components/OverviewStats";
 import TeamMembers from "./components/TeamMembers";
 import TaskStatus from "./components/TaskStatus";
-import TeamRoles from "./components/TeamRoles";
 import TeamProgress from "./components/TeamProgress";
 import Layout from "@/app/components/shared/Layout";
 
@@ -59,14 +58,14 @@ export default function TeamOverviewPage() {
         dispatch(getProjectFull(proj.id) as any)
       );
 
-      Promise.all(loadPromises)
-        .then((results: any[]) => {
-          // Collect all non-null results
-          const validProjects = results.filter((p) => p !== null);
+      Promise.allSettled(loadPromises)
+        .then((results) => {
+          // Keep successful projects visible if a separate request fails.
+          const validProjects = results
+            .filter((result): result is PromiseFulfilledResult<any> => result.status === "fulfilled")
+            .map((result) => result.value)
+            .filter(Boolean);
           setAllProjectsData(validProjects);
-          setLoadingAllProjects(false);
-        })
-        .catch(() => {
           setLoadingAllProjects(false);
         });
     } else {

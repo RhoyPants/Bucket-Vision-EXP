@@ -126,7 +126,6 @@ export default function TeamMembers({ projectId, allProjectsData }: Props) {
                 memberId={member.userId}
                 name={member.memberName}
                 email={member.userEmail}
-                assigned={member.assigned}
                 completed={member.completed}
                 inProgress={member.inProgress}
                 pending={member.pending}

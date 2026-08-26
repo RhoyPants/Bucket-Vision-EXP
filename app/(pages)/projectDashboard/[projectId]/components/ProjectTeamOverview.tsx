@@ -5,7 +5,6 @@ import { Box, CircularProgress, Grid, Paper, Typography } from "@mui/material";
 import OverviewStats from "@/app/(pages)/teamOverview/components/OverviewStats";
 import TeamMembers from "@/app/(pages)/teamOverview/components/TeamMembers";
 import TaskStatus from "@/app/(pages)/teamOverview/components/TaskStatus";
-import TeamRoles from "@/app/(pages)/teamOverview/components/TeamRoles";
 import TeamProgress from "@/app/(pages)/teamOverview/components/TeamProgress";
 import { getProjectFull } from "@/app/redux/controllers/projectController";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
@@ -48,6 +47,8 @@ export default function ProjectTeamOverview({ projectId }: { projectId: string }
           Team capacity, assignments, task status, and project roles.
         </Typography>
       </Paper>
+
+      <OverviewStats projectId={projectId} allProjectsData={null} />
 
       <Grid container spacing={2} sx={{ mt: 0.25 }}>
         <Grid size={{ xs: 12, md: 8 }}>

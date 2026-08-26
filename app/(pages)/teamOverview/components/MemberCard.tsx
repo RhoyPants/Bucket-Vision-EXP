@@ -23,7 +23,6 @@ interface MemberProps {
   memberId: string;
   name: string;
   email?: string;
-  assigned: number;
   completed: number;
   inProgress: number;
   pending: number;
@@ -36,7 +35,6 @@ export default function MemberCard({
   projectId,
   memberId,
   name,
-  assigned,
   completed,
   inProgress,
   pending,
@@ -205,8 +203,8 @@ export default function MemberCard({
           }}
         >
           <Box>
-            <Typography variant="caption" color="text.secondary">Assigned</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700, color: "#4B2E83" }}>{assigned}</Typography>
+            <Typography variant="caption" color="text.secondary">Pending</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: "#9CA3AF" }}>{pending}</Typography>
           </Box>
           <Box>
             <Typography variant="caption" color="text.secondary">
@@ -227,17 +225,15 @@ export default function MemberCard({
           </Box>
 
           <Box>
-            <Typography variant="caption" color="text.secondary">
-              {overdue > 0 ? "Overdue" : "Pending"}
-            </Typography>
+            <Typography variant="caption" color="text.secondary">Overdue</Typography>
             <Typography
               variant="h6"
               sx={{
                 fontWeight: 700,
-                color: overdue > 0 ? "#EF4444" : "#9CA3AF",
+                color: "#EF4444",
               }}
             >
-              {overdue > 0 ? overdue : pending}
+              {overdue}
             </Typography>
           </Box>
         </Box>
