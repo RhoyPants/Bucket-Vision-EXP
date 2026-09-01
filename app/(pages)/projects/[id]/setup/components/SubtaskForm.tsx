@@ -30,7 +30,7 @@ import {
 } from "@/app/utils/subtaskValidation";
 import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import {
-  getSubtasksForTask,
+  getProjectMaintenanceHierarchy,
   createMaintenanceRecord,
   updateMaintenanceRecord,
   MaintenanceRecord,
@@ -92,22 +92,24 @@ export default function SubtaskForm({
   );
 
   const loadMaintenanceSubtasks = async () => {
-    if (!taskMaintenanceId) return [];
-    const items = await getSubtasksForTask(taskMaintenanceId);
+    if (!taskMaintenanceId || !projectId) return [];
+    const hierarchy = await getProjectMaintenanceHierarchy(projectId);
+    const items = hierarchy.flatMap((scope) => scope.tasks ?? []).find((task) => task.id === taskMaintenanceId)?.subtasks ?? [];
     setMaintenanceSubtasks(items);
     return items;
   };
 
   useEffect(() => {
-    if (!taskMaintenanceId) {
+    if (!taskMaintenanceId || !projectId) {
       setMaintenanceSubtasks([]);
       return;
     }
 
     let active = true;
     setMaintenanceLoading(true);
-    getSubtasksForTask(taskMaintenanceId)
-      .then((items) => {
+    getProjectMaintenanceHierarchy(projectId)
+      .then((hierarchy) => {
+        const items = hierarchy.flatMap((scope) => scope.tasks ?? []).find((task) => task.id === taskMaintenanceId)?.subtasks ?? [];
         if (active) setMaintenanceSubtasks(items);
       })
       .finally(() => {
@@ -116,7 +118,7 @@ export default function SubtaskForm({
     return () => {
       active = false;
     };
-  }, [taskMaintenanceId]);
+  }, [taskMaintenanceId, projectId]);
 
   // Include owner with engaged users
   const assignableUsers = useMemo(() => {
@@ -310,12 +312,6 @@ export default function SubtaskForm({
           value={form.subtaskMaintenanceId || ""}
           onChange={(e) => {
             const value = e.target.value;
-            if (value === "__add_new_subtask__") {
-              setMaintenanceDialogOpen(true);
-              setMaintenanceError("");
-              setMaintenanceSuccess("");
-              return;
-            }
             const selected = maintenanceSubtasks.find(
               (item) => item.id === value,
             );
@@ -344,12 +340,6 @@ export default function SubtaskForm({
               {subtask.name} ({subtask.code})
             </MenuItem>
           ))}
-          <MenuItem
-            value="__add_new_subtask__"
-            sx={{ color: "#312e81", fontWeight: 800, borderTop: "1px solid #e2e8f0" }}
-          >
-            + Add new subtask
-          </MenuItem>
         </TextField>
       ) : (
         <TextField

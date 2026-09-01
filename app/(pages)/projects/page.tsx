@@ -352,6 +352,9 @@ export default function ProjectsPage() {
             setLimit(nextLimit);
             setPage(1);
           }}
+          activeStatus={statusFilter}
+          onStatusLegendClick={canViewAllProjectStatuses ? (status) => { setStatusFilter(status); setPage(1); } : undefined}
+          isFiltered={Boolean(debouncedSearch || statusFilter !== "ALL" || businessUnitFilter !== "ALL")}
         />
 
         

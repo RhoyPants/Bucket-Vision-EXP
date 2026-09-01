@@ -17,6 +17,7 @@ import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import PlaceIcon from "@mui/icons-material/Place";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import DeleteForeverOutlinedIcon from "@mui/icons-material/DeleteForeverOutlined";
 import { ProjectCardActions, ViewType } from "./types";
 
 type ProjectCardProject = {
@@ -75,6 +76,7 @@ interface ProjectCardProps {
   actionMode?: "default" | "approval";
   showActions?: boolean;
   nextApproverName?: string;
+  showDeleteAction?: boolean;
 }
 
 export const formatLocation = (location?: ProjectCardProject["location"]): string => {
@@ -319,6 +321,7 @@ export default function ProjectCard({
   actionMode = "default",
   showActions = true,
   nextApproverName,
+  showDeleteAction = false,
 }: ProjectCardProps) {
   const isArchived = project.status === "ARCHIVED";
   const chipStyle = statusChipColor(project.status);
@@ -411,7 +414,18 @@ export default function ProjectCard({
         </Box>
 
         <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-          {showActions && (approvalOnly || project.status === "NEEDS_REVISION") ? (
+          {showDeleteAction && project.status === "CANCELLED" ? (
+            <Button
+              size="small"
+              color="error"
+              variant="outlined"
+              startIcon={<DeleteForeverOutlinedIcon sx={{ fontSize: 16 }} />}
+              onClick={(event) => { event.stopPropagation(); actions.onDelete(project.id); }}
+              sx={{ minWidth: 86, borderRadius: 1.5, textTransform: "none", fontWeight: 800 }}
+            >
+              Delete
+            </Button>
+          ) : showActions && (approvalOnly || project.status === "NEEDS_REVISION") ? (
             <Button
               size="small"
               variant="outlined"
@@ -637,6 +651,18 @@ export default function ProjectCard({
           onResubmit={() => actions.onSubmitForApproval(project)}
           nextApproverName={nextApproverName}
         />
+        {showDeleteAction && project.status === "CANCELLED" && (
+          <Button
+            fullWidth
+            color="error"
+            variant="outlined"
+            startIcon={<DeleteForeverOutlinedIcon />}
+            onClick={(event) => { event.stopPropagation(); actions.onDelete(project.id); }}
+            sx={{ mt: 1.25, borderRadius: 1.5, textTransform: "none", fontWeight: 800 }}
+          >
+            Delete Project
+          </Button>
+        )}
       </Box>
 
     </Card>

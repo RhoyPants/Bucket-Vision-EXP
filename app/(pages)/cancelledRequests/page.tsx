@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Box, InputAdornment, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Box, InputAdornment, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import { useRouter } from "next/navigation";
 import Layout from "@/app/components/shared/Layout";
@@ -9,19 +9,26 @@ import Guard from "@/app/components/shared/Guard";
 import ProjectsGrid from "@/app/(pages)/projects/components/ProjectsGrid";
 import { ProjectCardActions, ViewType } from "@/app/(pages)/projects/components/types";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
-import { getMyRequestsProjects } from "@/app/redux/controllers/projectController";
+import { deleteProject, getMyRequestsProjects } from "@/app/redux/controllers/projectController";
 import { brandColors } from "@/app/lib/theme";
+import ConfirmationModal from "@/app/components/shared/modals/ConfirmationModal";
+import { usePermissions } from "@/app/lib/usePermissions";
 
 const PAGE_LIMIT = 10;
 
 export default function CancelledRequestsPage() {
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const { canDelete } = usePermissions();
+  const canPermanentlyDelete = canDelete("projects");
   const { projects, pagination } = useAppSelector((state) => state.project);
   const [viewType, setViewType] = useState<ViewType>("list");
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [businessUnitFilter, setBusinessUnitFilter] = useState("ALL");
+  const [projectToDelete, setProjectToDelete] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const query = useMemo(() => ({ page, limit: PAGE_LIMIT, status: "CANCELLED", search: searchQuery.trim(), businessUnitId: businessUnitFilter, sortBy: "createdAt", sortOrder: "desc" as const }), [businessUnitFilter, page, searchQuery]);
   useEffect(() => { dispatch(getMyRequestsProjects(query)); }, [dispatch, query]);
@@ -39,7 +46,13 @@ export default function CancelledRequestsPage() {
   const actions: ProjectCardActions = {
     onOpenDashboard: (projectId) => router.push(`/projectDashboard/${projectId}`),
     onEdit: (project) => router.push(`/projects/${project.id}/setup`),
-    onDelete: () => undefined,
+    onDelete: (projectId) => {
+      if (!canPermanentlyDelete) return;
+      const project = (projects || []).find((item) => item.id === projectId);
+      if (!project || String(project.status).toUpperCase() !== "CANCELLED") return;
+      setDeleteError("");
+      setProjectToDelete(project);
+    },
     onSetup: (projectId) => router.push(`/projects/${projectId}/setup`),
     onViewApproval: (project) => router.push(`/approvals/${project.id}`),
     onSubmitForApproval: (project) => router.push(`/projects/${project.id}/setup`),
@@ -66,7 +79,32 @@ export default function CancelledRequestsPage() {
               </TextField>
             </Stack>
           </Paper>
-          <ProjectsGrid projects={projects || []} actions={actions} viewType={viewType} onViewTypeChange={setViewType} emptyMessage="No cancelled requests" emptySubtext="Cancelled project requests will appear here." pagination={pagination} onPageChange={setPage} legendItems={[{ label: "Cancelled", color: "#FB7185" }]} />
+          {deleteError && <Alert severity="error" sx={{ mb: 2 }}>{deleteError}</Alert>}
+          <ProjectsGrid projects={projects || []} actions={actions} viewType={viewType} onViewTypeChange={setViewType} emptyMessage="No cancelled requests" emptySubtext="Cancelled project requests will appear here." pagination={pagination} onPageChange={setPage} legendItems={[{ label: "Cancelled", color: "#FB7185" }]} showDeleteAction={canPermanentlyDelete} />
+          <ConfirmationModal
+            open={Boolean(projectToDelete)}
+            title="Permanently delete project?"
+            message={`Delete "${projectToDelete?.name || "this project"}" and all of its related data? This action cannot be undone or recovered.`}
+            confirmLabel="Delete permanently"
+            cancelLabel="Keep project"
+            danger
+            loading={deleting}
+            onClose={() => { if (!deleting) setProjectToDelete(null); }}
+            onConfirm={async () => {
+              if (!projectToDelete?.id || String(projectToDelete.status).toUpperCase() !== "CANCELLED") return;
+              setDeleting(true);
+              setDeleteError("");
+              try {
+                await dispatch(deleteProject(projectToDelete.id));
+                setProjectToDelete(null);
+                await dispatch(getMyRequestsProjects(query));
+              } catch (requestError) {
+                setDeleteError(requestError instanceof Error ? requestError.message : String(requestError || "Unable to delete the project."));
+              } finally {
+                setDeleting(false);
+              }
+            }}
+          />
         </Box>
       </Guard>
     </Layout>

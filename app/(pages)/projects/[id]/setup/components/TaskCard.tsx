@@ -27,7 +27,7 @@ import {
   ValidationError,
 } from "@/app/utils/taskValidation";
 import SubtaskList from "./SubtaskList";
-import { getTasksForScope, MaintenanceRecord } from "@/app/api-service/workBreakdownMaintenanceService";
+import { getProjectMaintenanceHierarchy, MaintenanceRecord } from "@/app/api-service/workBreakdownMaintenanceService";
 import { calculateBudgetVariance } from "@/app/utils/formatters";
 
 interface TaskCardProps {
@@ -52,6 +52,7 @@ interface TaskCardProps {
   canMoveDown?: boolean;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  reorderOnly?: boolean;
 }
 
 function TaskCard({
@@ -76,6 +77,7 @@ function TaskCard({
   canMoveDown = false,
   onMoveUp,
   onMoveDown,
+  reorderOnly = false,
 }: TaskCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -90,12 +92,12 @@ function TaskCard({
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
 
   useEffect(() => {
-    if (!scopeMaintenanceId) return;
+    if (!scopeMaintenanceId || !projectId) return;
     setMaintenanceLoading(true);
-    getTasksForScope(scopeMaintenanceId)
-      .then((items) => setMaintenanceTasks(items.filter((item) => item.isActive !== false)))
+    getProjectMaintenanceHierarchy(projectId)
+      .then((hierarchy) => setMaintenanceTasks((hierarchy.find((item) => item.id === scopeMaintenanceId)?.tasks ?? []).filter((item) => item.isActive !== false)))
       .finally(() => setMaintenanceLoading(false));
-  }, [scopeMaintenanceId]);
+  }, [scopeMaintenanceId, projectId]);
 
   const usesAvailableMaintenanceTask = Boolean(
     task.taskMaintenanceId && maintenanceTasks.some((item) => item.id === task.taskMaintenanceId),
@@ -258,7 +260,7 @@ function TaskCard({
             </Tooltip>
 
             <Box display="flex" gap={0.5} height={40} alignItems="center">
-              <IconButton
+              {!reorderOnly && <IconButton
                 size="small"
                 onClick={handleEditSubmit}
                 disabled={saving}
@@ -269,15 +271,15 @@ function TaskCard({
                 ) : (
                   <SaveIcon fontSize="small" />
                 )}
-              </IconButton>
-              <IconButton
+              </IconButton>}
+              {!reorderOnly && <IconButton
                 size="small"
                 onClick={handleEditCancel}
                 disabled={saving}
                 sx={{ color: "#6b7280" }}
               >
                 <CloseIcon fontSize="small" />
-              </IconButton>
+              </IconButton>}
             </Box>
           </Box>
         ) : (
@@ -344,7 +346,7 @@ function TaskCard({
                   </IconButton>
                 </span>
               </Tooltip>
-              <IconButton
+              {!reorderOnly && <IconButton
                 size="small"
                 onClick={handleEditStart}
                 sx={{
@@ -353,8 +355,8 @@ function TaskCard({
                 }}
               >
                 <EditIcon fontSize="small" />
-              </IconButton>
-              <IconButton
+              </IconButton>}
+              {!reorderOnly && <IconButton
                 size="small"
                 onClick={() => onDeleteTask(task.id)}
                 sx={{
@@ -363,7 +365,7 @@ function TaskCard({
                 }}
               >
                 <DeleteIcon fontSize="small" />
-              </IconButton>
+              </IconButton>}
             </Box>
           </Box>
         )}
@@ -419,6 +421,7 @@ function TaskCard({
             onEditSubtask={onEditSubtask}
             onAddSubtask={onAddSubtask}
             onReorderSubtasks={onReorderSubtasks}
+            reorderOnly={reorderOnly}
           />
         )}
       </Box>

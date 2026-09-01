@@ -8,6 +8,7 @@ import ProjectIncidentReports from "./components/ProjectIncidentReports";
 import ProjectReports from "./components/ProjectReports";
 import ProjectCpm from "./components/ProjectCpm";
 import ProjectInfoConfig from "./components/ProjectInfoConfig";
+import ProgressSyncGate from "./components/ProgressSyncGate";
 
 export default async function ProjectDashboardRoute({
   params,
@@ -21,6 +22,7 @@ export default async function ProjectDashboardRoute({
 
   return (
     <Box sx={{ minHeight: "100vh", width: "100%", backgroundColor: "#F8FAFC" }}>
+      <ProgressSyncGate projectId={projectId} />
       <ProjectDashboardHeader projectId={projectId} />
       <ProjectDashboardSidebar projectId={projectId} />
       <Box

@@ -20,6 +20,7 @@ import {
   addChecklistItemToNote, createNote, deleteNote, editChecklistItem, editNote,
   fetchNotes, removeChecklistItemFromNote,
 } from "@/app/redux/controllers/notesController";
+import DashboardMetricDrilldownModal, { DashboardDrilldownMetric } from "./DashboardMetricDrilldownModal";
 
 const notesKey = "global-dashboard";
 const primary = "#210E64";
@@ -149,6 +150,7 @@ export default function GlobalDashboardContent() {
   const [data, setData] = useState<GlobalDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [drilldownMetric, setDrilldownMetric] = useState<DashboardDrilldownMetric | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -206,15 +208,17 @@ export default function GlobalDashboardContent() {
         <Stack spacing={2} sx={{ minWidth: 0 }}>
           <Box>
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" }, gap: 0.8 }}>
-                {metricCards.map(([label, value, color, trend, improvementDirection]) => (
-                  <Box key={label} sx={{ minHeight: 142, px: 1.25, pt: 1, pb: 0.7, borderRadius: 1, bgcolor: "#24145D", borderTop: `3px solid ${color}`, boxShadow: "0 5px 14px rgba(36,20,93,.14)" }}>
+                {metricCards.map(([label, value, color, trend, improvementDirection]) => {
+                  const metric = label === "Critical" ? "CRITICAL" : label === "In Flow" ? "ONFLOW" : label === "Healthy" ? "HEALTHY" : "INCIDENTS";
+                  return (
+                  <Box key={label} component="button" type="button" onClick={() => setDrilldownMetric(metric)} aria-label={`View ${label} breakdown`} sx={{ minHeight: 142, px: 1.25, pt: 1, pb: 0.7, borderRadius: 1, bgcolor: "#24145D", border: 0, borderTop: `3px solid ${color}`, boxShadow: "0 5px 14px rgba(36,20,93,.14)", textAlign: "left", cursor: "pointer", "&:hover": { bgcolor: "#2B186C", transform: "translateY(-1px)" }, "&:focus-visible": { outline: "3px solid #A78BFA", outlineOffset: 2 }, transition: "all .15s ease" }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="baseline" gap={0.5}>
                       <Typography sx={{ color: "rgba(255,255,255,.82)", fontSize: 10, fontWeight: 850 }}>{label}</Typography>
                       <Typography sx={{ color: "#FFFFFF", fontSize: 24, fontWeight: 900, lineHeight: 1 }}>{value}</Typography>
                     </Stack>
                     <KpiTrend trend={trend} color={color} improvementDirection={improvementDirection} />
                   </Box>
-                ))}
+                )})}
               </Box>
           </Box>
 
@@ -439,6 +443,13 @@ export default function GlobalDashboardContent() {
           />
         </Stack>
       </Box>
+      <DashboardMetricDrilldownModal
+        open={Boolean(drilldownMetric)}
+        metric={drilldownMetric}
+        total={drilldownMetric === "CRITICAL" ? summary.critical : drilldownMetric === "ONFLOW" ? summary.onflow : drilldownMetric === "HEALTHY" ? summary.healthy : summary.incidentReports}
+        projects={data.topProjects}
+        onClose={() => setDrilldownMetric(null)}
+      />
     </Box>
   );
 }

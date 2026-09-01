@@ -8,7 +8,7 @@ import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import { calculateBudgetVariance } from "@/app/utils/formatters";
 import { scopeRequiresBudget } from "@/app/utils/budgetPolicy";
-import { getMaintenanceRecords, MaintenanceRecord } from "@/app/api-service/workBreakdownMaintenanceService";
+import { getProjectMaintenanceHierarchy, MaintenanceRecord } from "@/app/api-service/workBreakdownMaintenanceService";
 import TaskForm from "./TaskForm";
 import TaskCard from "./TaskCard";
 import {
@@ -46,11 +46,8 @@ interface ScopeCardProps {
   onReorderTasks: (scopeId: string, orderedIds: string[]) => Promise<void>;
   scopeDragActive?: boolean;
   isDraggingScope?: boolean;
-  scopeDragHandleProps?: {
-    draggable?: boolean;
-    onDragStart?: React.DragEventHandler<HTMLButtonElement>;
-    onDragEnd?: React.DragEventHandler<HTMLButtonElement>;
-  };
+  scopeDragHandleProps?: Record<string, any>;
+  reorderOnly?: boolean;
 }
 
 function ScopeCard({
@@ -81,6 +78,7 @@ function ScopeCard({
   scopeDragActive = false,
   isDraggingScope = false,
   scopeDragHandleProps,
+  reorderOnly = false,
 }: ScopeCardProps) {
   const [editModalOpen, setEditModalOpen] = useState(scopeEdit?.id === scope.id);
   const [editErrors, setEditErrors] = useState<ValidationError[]>([]);
@@ -110,10 +108,11 @@ function ScopeCard({
 
   useEffect(() => {
     setMaintenanceLoading(true);
-    getMaintenanceRecords("scope")
+    if (!projectId) { setMaintenanceScopes([]); setMaintenanceLoading(false); return; }
+    getProjectMaintenanceHierarchy(projectId)
       .then((items) => setMaintenanceScopes(items.filter((item) => item.isActive !== false)))
       .finally(() => setMaintenanceLoading(false));
-  }, []);
+  }, [projectId]);
 
   const usesAvailableMaintenanceScope = Boolean(
     scope.scopeMaintenanceId && maintenanceScopes.some((item) => item.id === scope.scopeMaintenanceId),
@@ -228,7 +227,7 @@ function ScopeCard({
             </Typography>
           </Box>
 
-          <Box
+          {!reorderOnly && <Box
             className="scope-actions"
             sx={{
               display: "flex",
@@ -251,7 +250,7 @@ function ScopeCard({
             >
               <DeleteIcon fontSize="small" />
             </IconButton>
-          </Box>
+          </Box>}
         </Box>
 
         {!scopeDragActive && <>
@@ -289,7 +288,7 @@ function ScopeCard({
         </Stack>
 
         {/* TASK INPUT */}
-        <TaskForm
+        {!reorderOnly && <TaskForm
           scopeId={scope.id}
           scopeMaintenanceId={scope.scopeMaintenanceId}
           scopeBudget={Number(scope.budgetAllocated) || 0}
@@ -298,7 +297,8 @@ function ScopeCard({
           taskInputs={taskInputs}
           setTaskInputs={setTaskInputs}
           onAddTask={onAddTask}
-        />
+          projectId={projectId}
+        />}
 
         {/* TASK LIST */}
         <Box mt={3}>
@@ -326,6 +326,7 @@ function ScopeCard({
               canMoveDown={taskIndex < orderedTasks.length - 1}
               onMoveUp={() => void moveTask(task.id, -1)}
               onMoveDown={() => void moveTask(task.id, 1)}
+              reorderOnly={reorderOnly}
             />
           ))}
         </Box>

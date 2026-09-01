@@ -255,6 +255,7 @@ export const deleteProject = (projectId: string) => {
       await axiosApi.delete(`/projects/${projectId}`);
 
       dispatch(deleteProjectLocal(projectId)); // 🔥 no reload
+      recentMyRequests.clear();
     } catch (err) {
       console.error("❌ Error deleting project:", err);
       throw err;

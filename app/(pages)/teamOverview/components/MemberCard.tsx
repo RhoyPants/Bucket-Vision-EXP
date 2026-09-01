@@ -17,6 +17,7 @@ import {
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import { useState } from "react";
 import { useAppSelector } from "@/app/redux/hook";
+import { getSubtaskStatus } from "@/app/utils/teamAggregation";
 
 interface MemberProps {
   projectId: string | null;
@@ -79,12 +80,16 @@ export default function MemberCard({
                     scopeName: scope.name,
                     projectName: project.name,
                     progress: subtask.progress,
-                    status:
-                      subtask.progress === 100
+                    status: (() => {
+                      const status = getSubtaskStatus(subtask.progress, subtask.projectedEndDate);
+                      return status === "completed"
                         ? "Completed"
-                        : subtask.progress > 0
+                        : status === "in-progress"
                           ? "In Progress"
-                          : "Pending",
+                          : status === "overdue"
+                            ? "Overdue"
+                            : "Pending";
+                    })(),
                     dueDate: subtask.projectedEndDate,
                   });
                 }
@@ -105,6 +110,8 @@ export default function MemberCard({
         return "#10B981";
       case "In Progress":
         return "#F59E0B";
+      case "Overdue":
+        return "#EF4444";
       case "Pending":
         return "#9CA3AF";
       default:

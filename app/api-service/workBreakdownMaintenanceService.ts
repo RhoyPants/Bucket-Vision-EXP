@@ -10,6 +10,7 @@ export interface MaintenanceRelation {
 
 export interface MaintenanceRecord {
   id: string;
+  maintenanceTableId?: string | null;
   code: string;
   name: string;
   description?: string | null;
@@ -35,13 +36,59 @@ export interface MaintenanceHierarchyScope extends MaintenanceRecord {
   tasks?: MaintenanceHierarchyTask[];
 }
 
+export type ProjectMaintenanceHierarchyStatus =
+  | "NO_ASSIGNED_WBS"
+  | "EMPTY_ASSIGNED_WBS"
+  | "AVAILABLE";
+
+export interface ProjectMaintenanceHierarchyMeta {
+  status: ProjectMaintenanceHierarchyStatus;
+  message: string | null;
+  counts: {
+    templates: number;
+    scopes: number;
+    tasks: number;
+    subtasks: number;
+  };
+}
+
+export interface ProjectMaintenanceHierarchyResult {
+  data: MaintenanceHierarchyScope[];
+  meta?: ProjectMaintenanceHierarchyMeta;
+}
+
 export interface MaintenancePayload {
+  maintenanceTableId?: string;
   code?: string;
   name?: string;
   description?: string;
   isActive?: boolean;
   scopeMaintenanceIds?: string[];
   taskMaintenanceIds?: string[];
+}
+
+export interface MaintenanceTableBusinessUnit {
+  businessUnitId: string;
+  businessUnit?: { id: string; code?: string; name?: string; isActive?: boolean };
+}
+
+export interface MaintenanceTable {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  businessUnits: MaintenanceTableBusinessUnit[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MaintenanceTablePayload {
+  code?: string;
+  name?: string;
+  description?: string;
+  isActive?: boolean;
+  businessUnitIds?: string[];
 }
 
 export interface BulkMaintenanceStatusPayload {
@@ -69,6 +116,7 @@ const pluralPath: Record<MaintenanceKind, string> = {
 const maintenanceListInFlight = new Map<MaintenanceKind, Promise<MaintenanceRecord[]>>();
 const relatedListInFlight = new Map<string, Promise<MaintenanceRecord[]>>();
 let hierarchyInFlight: Promise<MaintenanceHierarchyScope[]> | null = null;
+const projectHierarchyInFlight = new Map<string, Promise<ProjectMaintenanceHierarchyResult>>();
 
 const dedupeRelatedRequest = (key: string, request: () => Promise<MaintenanceRecord[]>) => {
   const existing = relatedListInFlight.get(key);
@@ -118,6 +166,39 @@ export async function getMaintenanceHierarchy() {
       hierarchyInFlight = null;
     });
   return hierarchyInFlight;
+}
+
+export async function getProjectMaintenanceHierarchyResult(projectId: string) {
+  const existing = projectHierarchyInFlight.get(projectId);
+  if (existing) return existing;
+  const request = axiosApi
+    .get(`${baseRoute}/hierarchy`, { params: { projectId } })
+    .then((response) => ({
+      data: unwrapList(response.data) as MaintenanceHierarchyScope[],
+      meta: response.data?.meta as ProjectMaintenanceHierarchyMeta | undefined,
+    }))
+    .finally(() => projectHierarchyInFlight.delete(projectId));
+  projectHierarchyInFlight.set(projectId, request);
+  return request;
+}
+
+export async function getProjectMaintenanceHierarchy(projectId: string) {
+  return (await getProjectMaintenanceHierarchyResult(projectId)).data;
+}
+
+export async function getMaintenanceTables() {
+  const response = await axiosApi.get(`${baseRoute}/tables`);
+  return unwrapList(response.data) as unknown as MaintenanceTable[];
+}
+
+export async function createMaintenanceTable(payload: MaintenanceTablePayload) {
+  const response = await axiosApi.post(`${baseRoute}/tables`, payload);
+  return (response.data?.data ?? response.data) as MaintenanceTable;
+}
+
+export async function updateMaintenanceTable(id: string, payload: MaintenanceTablePayload) {
+  const response = await axiosApi.patch(`${baseRoute}/tables/${id}`, payload);
+  return (response.data?.data ?? response.data) as MaintenanceTable;
 }
 
 export async function getTasksForScope(scopeMaintenanceId: string) {

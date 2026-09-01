@@ -115,6 +115,8 @@ interface ProjectSetupWizardProps {
   initialStep?: number;
   initialData?: any;
   mode?: "create" | "edit";
+  structureOnly?: boolean;
+  reorderOnly?: boolean;
 }
 
 export default function ProjectSetupWizard({
@@ -122,6 +124,8 @@ export default function ProjectSetupWizard({
   initialStep = 0,
   initialData,
   mode = "edit",
+  structureOnly = false,
+  reorderOnly = false,
 }: ProjectSetupWizardProps) {
   const dispatch = useAppDispatch();
   const router = useRouter();
@@ -833,41 +837,31 @@ export default function ProjectSetupWizard({
   const handleReorderScopes = async (orderedIds: string[]) => {
     const byId = new Map(sortedScopes.map((item: any) => [String(item.id), item]));
     const items = orderedIds.map((id) => byId.get(id)).filter(Boolean);
-    setSaving(true);
-    try {
-      await Promise.all(items.map((scope: any, order: number) => dispatch(updateScope(scope.id, {
-        name: scope.name,
-        sourceType: scope.sourceType,
-        scopeMaintenanceId: scope.scopeMaintenanceId,
-        budgetAllocated: Number(scope.budgetAllocated) || 0,
-        budgetPercent: Number(scope.budgetPercent) || 0,
-        order,
-      }))));
-      await refreshProject();
-    } finally {
-      setSaving(false);
-    }
+    await Promise.all(items.map((scope: any, order: number) => dispatch(updateScope(scope.id, {
+      name: scope.name,
+      sourceType: scope.sourceType,
+      scopeMaintenanceId: scope.scopeMaintenanceId,
+      budgetAllocated: Number(scope.budgetAllocated) || 0,
+      budgetPercent: Number(scope.budgetPercent) || 0,
+      order,
+    }))));
+    await refreshProject();
   };
 
   const handleReorderTasks = async (scopeId: string, orderedIds: string[]) => {
     const scope = sortedScopes.find((item: any) => item.id === scopeId);
     const byId = new Map((scope?.tasks || []).map((item: any) => [String(item.id), item]));
     const items = orderedIds.map((id) => byId.get(id)).filter(Boolean);
-    setSaving(true);
-    try {
-      await Promise.all(items.map((task: any, order: number) => dispatch(updateTask(task.id, {
-        title: task.title,
-        sourceType: task.sourceType,
-        taskMaintenanceId: task.taskMaintenanceId,
-        description: task.description || "",
-        budgetAllocated: Number(task.budgetAllocated) || 0,
-        budgetPercent: Number(task.budgetPercent) || 0,
-        order,
-      }))));
-      await refreshProject();
-    } finally {
-      setSaving(false);
-    }
+    await Promise.all(items.map((task: any, order: number) => dispatch(updateTask(task.id, {
+      title: task.title,
+      sourceType: task.sourceType,
+      taskMaintenanceId: task.taskMaintenanceId,
+      description: task.description || "",
+      budgetAllocated: Number(task.budgetAllocated) || 0,
+      budgetPercent: Number(task.budgetPercent) || 0,
+      order,
+    }))));
+    await refreshProject();
   };
 
   const teamMemberCount = useMemo(() => {
@@ -1323,18 +1317,18 @@ export default function ProjectSetupWizard({
   }
 
   return (
-    <Box sx={{ width: "100%", pb: 4 }}>
+    <Box sx={{ width: "100%", pb: structureOnly ? 0 : 4 }}>
       {/* WIZARD STEPPER */}
-      <Stepper activeStep={activeStep} sx={{ position: "sticky", top: 4, zIndex: 20, mb: 2, p: { xs: 1.25, sm: 1.75 }, bgcolor: "rgba(255,255,255,.96)", backdropFilter: "blur(10px)", border: "1px solid #E0DAE6", borderRadius: 2.5, boxShadow: "0 5px 16px rgba(33,14,100,.08)", "& .MuiStepLabel-label": { fontSize: { xs: 11, sm: 12.5 } }, "& .MuiStepIcon-root": { fontSize: { xs: 21, sm: 24 } } }}>
+      {!structureOnly && <Stepper activeStep={activeStep} sx={{ position: "sticky", top: 4, zIndex: 20, mb: 2, p: { xs: 1.25, sm: 1.75 }, bgcolor: "rgba(255,255,255,.96)", backdropFilter: "blur(10px)", border: "1px solid #E0DAE6", borderRadius: 2.5, boxShadow: "0 5px 16px rgba(33,14,100,.08)", "& .MuiStepLabel-label": { fontSize: { xs: 11, sm: 12.5 } }, "& .MuiStepIcon-root": { fontSize: { xs: 21, sm: 24 } } }}>
         {WIZARD_STEPS.map((label) => (
           <Step key={label}>
             <StepLabel>{label}</StepLabel>
           </Step>
         ))}
-      </Stepper>
+      </Stepper>}
 
       {/* PROJECT HEADER - Show if project exists */}
-      {(project || projectForm.name) && (
+      {!structureOnly && (project || projectForm.name) && (
         <>
         <Card elevation={0} sx={{ mb: 2, border: "1px solid #E0DAE6", borderRadius: 2.5, overflow: "hidden", bgcolor: "#FFFFFF" }}>
           <Box sx={{ height: 4, background: "linear-gradient(90deg, #210E64, #686AF3)" }} />
@@ -1632,7 +1626,9 @@ export default function ProjectSetupWizard({
                 <Typography variant="h6" fontWeight={700} sx={{ display: "flex", alignItems: "center", gap: 1, color: "#111827" }}>
                   <AssignmentIcon /> Project Structure
                 </Typography>
-                <Typography sx={{ mt: 0.4, fontSize: 13, color: "#666" }}>Define your project&apos;s scopes, tasks, and subtasks.</Typography>
+                <Typography sx={{ mt: 0.4, fontSize: 13, color: "#666" }}>
+                  {reorderOnly ? "Reorder scopes, tasks, and subtasks." : "Define your project's scopes, tasks, and subtasks."}
+                </Typography>
               </Box>
               <Stack direction="row" spacing={0.25} alignItems="center" sx={{ px: 0.35, height: 32, border: "1px solid #CBD5E1", borderRadius: 1.5, bgcolor: "#fff" }}>
                 <Tooltip title="Zoom out"><span><IconButton size="small" disabled={structureZoom <= 0.4} onClick={() => setStructureZoom((value) => Math.max(0.4, Number((value - 0.1).toFixed(2))))} aria-label="Zoom project structure out"><ZoomOutIcon fontSize="small" /></IconButton></span></Tooltip>
@@ -1648,15 +1644,16 @@ export default function ProjectSetupWizard({
             {project && (
               <Box sx={{ zoom: structureZoom, width: "100%" }}>
                 {/* Scope Input */}
-                <ScopeForm
+                {!reorderOnly && <ScopeForm
                   scopeForm={scopeForm}
                   setScopeForm={setScopeForm}
                   onAddScope={handleAddScope}
                   projectBudget={project?.totalBudget || 0}
                   existingScopes={project?.scopes || []}
-                />
+                  projectId={currentProjectId!}
+                />}
 
-                <Divider sx={{ my: 3 }} />
+                {!reorderOnly && <Divider sx={{ my: 3 }} />}
 
                 {/* Scope List with Tasks & Subtasks */}
                 <ScopeList
@@ -1681,6 +1678,7 @@ export default function ProjectSetupWizard({
                   onReorderSubtasks={handleReorderSubtasks}
                   onReorderScopes={handleReorderScopes}
                   onReorderTasks={handleReorderTasks}
+                  reorderOnly={reorderOnly}
                   onUpdateSubtask={handleUpdateSubtask}
                   onDeleteSubtask={handleDeleteSubtask}
                   onEditSubtask={(sub: any, taskId: string) => {
@@ -2294,7 +2292,7 @@ export default function ProjectSetupWizard({
       </Box>
 
       {/* WIZARD NAVIGATION */}
-      <Box
+      {!structureOnly && <Box
         sx={{
           display: "flex",
           justifyContent: "space-between",
@@ -2332,7 +2330,7 @@ export default function ProjectSetupWizard({
             {activeStep === WIZARD_STEPS.length - 1 ? "Submit for Approval" : "Next"}
           </Button>
         </Stack>
-      </Box>
+      </Box>}
 
       <DeleteStructureItemDialog
         open={Boolean(structureItemPendingDelete)}

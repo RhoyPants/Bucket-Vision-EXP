@@ -42,23 +42,24 @@ const normalizeProgress = (value: unknown): number => {
  * Gets status from progress percentage
  */
 export const getSubtaskStatus = (
-  progress: number,
+  progress: number | string | null | undefined,
   projectedEndDate?: string
 ): "pending" | "in-progress" | "completed" | "overdue" => {
+  const normalizedProgress = normalizeProgress(progress);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  if (progress === 100) return "completed";
+  if (normalizedProgress === 100) return "completed";
 
   if (projectedEndDate) {
     const dueDate = new Date(projectedEndDate);
     dueDate.setHours(0, 0, 0, 0);
-    if (dueDate < today && progress < 100) {
+    if (dueDate < today && normalizedProgress < 100) {
       return "overdue";
     }
   }
 
-  return progress > 0 ? "in-progress" : "pending";
+  return normalizedProgress > 0 ? "in-progress" : "pending";
 };
 
 /**

@@ -21,7 +21,7 @@ import {
   ValidationError,
 } from "@/app/utils/taskValidation";
 import {
-  getTasksForScope,
+  getProjectMaintenanceHierarchy,
   MaintenanceRecord,
 } from "@/app/api-service/workBreakdownMaintenanceService";
 
@@ -34,6 +34,7 @@ interface TaskFormProps {
   taskInputs: Record<string, any>;
   setTaskInputs: (inputs: any) => void;
   onAddTask: (scopeId: string) => void;
+  projectId?: string;
 }
 
 export default function TaskForm({
@@ -45,6 +46,7 @@ export default function TaskForm({
   taskInputs,
   setTaskInputs,
   onAddTask,
+  projectId,
 }: TaskFormProps) {
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -61,17 +63,18 @@ export default function TaskForm({
   );
 
   useEffect(() => {
-    if (!scopeMaintenanceId) {
+    if (!scopeMaintenanceId || !projectId) {
       setMaintenanceTasks([]);
       return;
     }
 
     let active = true;
     setMaintenanceLoading(true);
-    getTasksForScope(scopeMaintenanceId)
-      .then((items) => {
+    getProjectMaintenanceHierarchy(projectId)
+      .then((hierarchy) => {
         if (active) {
-          setMaintenanceTasks(items.filter((item) => item.isActive !== false));
+          const scope = hierarchy.find((item) => item.id === scopeMaintenanceId);
+          setMaintenanceTasks((scope?.tasks ?? []).filter((item) => item.isActive !== false));
         }
       })
       .finally(() => {
@@ -80,7 +83,7 @@ export default function TaskForm({
     return () => {
       active = false;
     };
-  }, [scopeMaintenanceId]);
+  }, [scopeMaintenanceId, projectId]);
 
   const handleChange = (field: string, value: any) => {
     setTaskInputs((prev: any) => ({

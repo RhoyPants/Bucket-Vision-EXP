@@ -43,6 +43,7 @@ import {
   updateMaintenanceRecord,
 } from "@/app/api-service/workBreakdownMaintenanceService";
 import { usePermissions } from "@/app/lib/usePermissions";
+import MaintenanceTableSelector from "./MaintenanceTableSelector";
 
 type FormState = {
   code: string;
@@ -158,6 +159,8 @@ export default function ProjectMaintenance() {
     canUpdate("settings_project_maintenance") ||
     canUpdate("settings_business_units");
   const [activeKind, setActiveKind] = useState<MaintenanceKind>("scope");
+  const [selectedTableId, setSelectedTableId] = useState("");
+  const canCreateHierarchyRecord = canCreateRecord && Boolean(selectedTableId) && selectedTableId !== "__legacy__";
   const [records, setRecords] = useState<
     Record<MaintenanceKind, MaintenanceRecord[]>
   >({ scope: [], task: [], subtask: [] });
@@ -181,12 +184,20 @@ export default function ProjectMaintenance() {
     useState<MaintenanceRecord | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const config = kindConfig[activeKind];
+  const handleTableSelect = (tableId: string) => {
+    setSelectedTableId(tableId);
+    setScopeFilterId("");
+    setRecords({ scope: [], task: [], subtask: [] });
+    setTasksByScope({});
+    setSubtasksByTask({});
+  };
 
   const loadRecords = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const scopes = await getMaintenanceHierarchy();
+      const allScopes = await getMaintenanceHierarchy();
+      const scopes = allScopes.filter((scope) => selectedTableId === "__legacy__" ? !scope.maintenanceTableId : scope.maintenanceTableId === selectedTableId);
       const taskMap = new Map<string, MaintenanceRecord>();
       const subtaskMap = new Map<string, MaintenanceRecord>();
       const groupedTasks: Record<string, MaintenanceRecord[]> = {};
@@ -213,11 +224,11 @@ export default function ProjectMaintenance() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedTableId]);
 
   useEffect(() => {
-    void loadRecords();
-  }, [loadRecords]);
+    if (selectedTableId) void loadRecords();
+  }, [loadRecords, selectedTableId]);
 
   const parentOptions = useMemo(() => {
     const parentKind = config.parentKind;
@@ -229,7 +240,7 @@ export default function ProjectMaintenance() {
     kind: MaintenanceKind = "scope",
     parentId?: string,
   ) => {
-    if (!canCreateRecord) return;
+    if (!canCreateHierarchyRecord) return;
     setActiveKind(kind);
     setEditingRecord(null);
     setForm({
@@ -266,7 +277,7 @@ export default function ProjectMaintenance() {
   };
 
   const handleSave = async () => {
-    const allowed = editingRecord ? canUpdateRecord : canCreateRecord;
+    const allowed = editingRecord ? canUpdateRecord : canCreateHierarchyRecord;
     if (!allowed) return;
 
     if (!form.code.trim() || !form.name.trim()) {
@@ -288,6 +299,9 @@ export default function ProjectMaintenance() {
         : {}),
       ...(activeKind === "subtask"
         ? { taskMaintenanceIds: form.parentIds }
+        : {}),
+      ...(activeKind === "scope" && selectedTableId !== "__legacy__"
+        ? { maintenanceTableId: selectedTableId }
         : {}),
     };
 
@@ -654,7 +668,7 @@ export default function ProjectMaintenance() {
             allowed relationships.
           </Typography>
         </Box>
-        {canCreateRecord ? (
+        {canCreateHierarchyRecord ? (
           <Button
             variant="contained"
             startIcon={<AddOutlinedIcon />}
@@ -672,6 +686,8 @@ export default function ProjectMaintenance() {
           </Button>
         ) : null}
       </Stack>
+
+      <MaintenanceTableSelector selectedId={selectedTableId} onSelect={handleTableSelect} canCreate={canCreateRecord} canUpdate={canUpdateRecord} />
 
       {error && !dialogOpen ? (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
@@ -819,7 +835,7 @@ export default function ProjectMaintenance() {
                         </IconButton>
                       </span>
                     </Tooltip>
-                    {canCreateRecord ? (
+                    {canCreateHierarchyRecord ? (
                       <Button
                         size="small"
                         startIcon={<AddOutlinedIcon />}
@@ -1052,7 +1068,7 @@ export default function ProjectMaintenance() {
                                 <Typography sx={{ color: "#64748B", fontSize: 10.5, fontWeight: 500 }}>
                                   SUBTASKS ({taskSubtasks.length})
                                 </Typography>
-                                {canCreateRecord ? (
+                                {canCreateHierarchyRecord ? (
                                   <Button
                                     size="small"
                                     startIcon={<AddOutlinedIcon />}

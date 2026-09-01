@@ -287,6 +287,10 @@ export default function MyRequestsPage() {
             onPageChange={setPage}
             showActions={false}
             showRequestTrackingColumns
+            activeStatus={statusFilter}
+            onStatusLegendClick={(status) => { setStatusFilter(status); setPage(1); }}
+            isFiltered={Boolean(debouncedSearch || statusFilter !== "ALL" || businessUnitFilter !== "ALL")}
+            filteredEmptyMessage="No requests match the selected filters."
           />
 
           <NeedsRevisionModal

@@ -52,6 +52,7 @@ interface SubtaskCardProps {
   onUpdate: (subId: string, taskId: string) => void;
   onDelete: (subId: string, taskId: string) => void;
   onEdit: () => void;
+  reorderOnly?: boolean;
 }
 
 function SubtaskCard({
@@ -68,6 +69,7 @@ function SubtaskCard({
   onUpdate,
   onDelete,
   onEdit,
+  reorderOnly = false,
 }: SubtaskCardProps) {
   const dispatch = useAppDispatch();
   const { engagedUsers } = useAppSelector((state) => state.projectMembers);
@@ -301,20 +303,20 @@ function SubtaskCard({
           gap={0.5}
           sx={{ opacity: { xs: 1, sm: 0 }, transition: "opacity 0.2s" }}
         >
-          <IconButton
+          {!reorderOnly && <IconButton
             size="small"
             onClick={onEdit}
             sx={{ color: "#6366f1", "&:hover": { backgroundColor: "#eef2ff" } }}
           >
             <EditIcon fontSize="small" />
-          </IconButton>
-          <IconButton
+          </IconButton>}
+          {!reorderOnly && <IconButton
             size="small"
             onClick={() => onDelete(sub.id, taskId)}
             sx={{ color: "#ef4444", "&:hover": { backgroundColor: "#fef2f2" } }}
           >
             <DeleteIcon fontSize="small" />
-          </IconButton>
+          </IconButton>}
         </Box>
       </Box>
     );

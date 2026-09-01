@@ -31,6 +31,7 @@ interface SubtaskListProps {
   onEditSubtask: (sub: any, taskId: string) => void;
   onAddSubtask: (taskId: string) => void;
   onReorderSubtasks: (taskId: string, draggedId: string, targetId: string) => Promise<void>;
+  reorderOnly?: boolean;
 }
 
 function SortableCard({ id, disabled, children }: { id: string; disabled: boolean; children: ReactNode }) {
@@ -72,6 +73,7 @@ export default function SubtaskList({
   onEditSubtask,
   onAddSubtask,
   onReorderSubtasks,
+  reorderOnly = false,
 }: SubtaskListProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [orderedSubtasks, setOrderedSubtasks] = useState<any[]>(task.subtasks || []);
@@ -142,13 +144,14 @@ export default function SubtaskList({
                   onUpdate={onUpdateSubtask}
                   onDelete={onDeleteSubtask}
                   onEdit={() => onEditSubtask(sub, task.id)}
+                  reorderOnly={reorderOnly}
                 />
               </SortableCard>
             );
           })}
         </SortableContext>
 
-        <SubtaskForm
+        {!reorderOnly && <SubtaskForm
           taskId={task.id}
           taskName={task.title}
           taskMaintenanceId={task.taskMaintenanceId}
@@ -160,7 +163,7 @@ export default function SubtaskList({
           members={members}
           projectId={projectId}
           onAddSubtask={onAddSubtask}
-        />
+        />}
       </Box>
 
       <DragOverlay dropAnimation={null}>

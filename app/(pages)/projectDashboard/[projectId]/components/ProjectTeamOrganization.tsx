@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert, Avatar, Box, Chip, CircularProgress, Stack, Tab, Tabs, Typography } from "@mui/material";
 import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
+import EditNoteOutlinedIcon from "@mui/icons-material/EditNoteOutlined";
 import ProjectTeamPanel from "@/app/(pages)/projects/[id]/setup/components/ProjectTeamPanel";
+import OrgChartBuilder from "./OrgChartBuilder";
 import axiosApi from "@/app/lib/axios";
 
 type OrgNode = {
@@ -112,13 +114,14 @@ export default function ProjectTeamOrganization({ projectId }: { projectId: stri
         >
           <Tab icon={<GroupsOutlinedIcon />} iconPosition="start" label="Team Management" />
           <Tab icon={<AccountTreeOutlinedIcon />} iconPosition="start" label="Organization Chart" />
+          <Tab icon={<EditNoteOutlinedIcon />} iconPosition="start" label="Org Chart Builder" />
         </Tabs>
 
         {activeTab === 0 ? (
           <Box sx={{ flex: 1, minHeight: 0, overflow: "auto", p: 1.5, "& .MuiTypography-body1": { fontSize: "12.5px" }, "& .MuiTypography-body2": { fontSize: "11px" }, "& .MuiButton-root": { fontSize: "11px" }, "& .MuiChip-root": { fontSize: "10px" } }}>
             <ProjectTeamPanel projectId={projectId} onTeamChanged={loadChart} />
           </Box>
-        ) : (
+        ) : activeTab === 1 ? (
           <Box sx={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={1} sx={{ px: 2, py: 1.25, borderBottom: "1px solid #E2E8F0" }}>
               <Box>
@@ -144,7 +147,7 @@ export default function ProjectTeamOrganization({ projectId }: { projectId: stri
               )}
             </Box>
           </Box>
-        )}
+        ) : <OrgChartBuilder projectId={projectId} />}
       </Box>
     </Box>
   );

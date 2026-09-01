@@ -112,6 +112,44 @@ export interface ActiveVersionResponse {
   };
 }
 
+export interface ProgressSyncItem {
+  sourceLogId?: string;
+  sourceSubtaskId?: string;
+  sourceSubtaskTitle: string;
+  targetSubtaskId?: string;
+  targetSubtaskTitle?: string;
+  date?: string;
+  dailyPercent?: number;
+  userId?: string;
+  reason?: "SOURCE_SUBTASK_REMOVED" | "TARGET_PROGRESS_ALREADY_EXISTS" | string;
+}
+
+export interface ProgressSyncStatus {
+  project: {
+    id: string;
+    name: string;
+    versionNumber: number;
+    status: string;
+    isActive: boolean;
+    parentProjectId?: string | null;
+    versionForkedAt?: string | null;
+    progressSyncedAt?: string | null;
+    parentProject?: { id: string; versionNumber: number } | null;
+  };
+  requiresSync: boolean;
+  eligible: ProgressSyncItem[];
+  unmatched: ProgressSyncItem[];
+  conflicts: ProgressSyncItem[];
+}
+
+export interface ProgressSyncResult {
+  syncedLogs: number;
+  syncedSubtasks: number;
+  requiresAttention: boolean;
+  unmatched: ProgressSyncItem[];
+  conflicts: ProgressSyncItem[];
+}
+
 // ============ VERSION ENDPOINTS ============
 
 /**
@@ -168,4 +206,14 @@ export async function deleteDraftVersion(projectId: string) {
 export async function getVersionDetail(projectId: string) {
   const response = await axiosApi.get(`/versioning/${projectId}/detail`);
   return response.data;
+}
+
+export async function getProgressSyncStatus(projectId: string): Promise<ProgressSyncStatus> {
+  const response = await axiosApi.get(`/versioning/${projectId}/progress-sync`);
+  return response.data.data;
+}
+
+export async function syncVersionProgress(projectId: string): Promise<ProgressSyncResult> {
+  const response = await axiosApi.post(`/versioning/${projectId}/progress-sync`);
+  return response.data.data;
 }

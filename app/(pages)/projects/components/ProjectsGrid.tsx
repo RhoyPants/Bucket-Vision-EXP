@@ -27,6 +27,7 @@ import ViewListIcon from "@mui/icons-material/ViewList";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import LayersIcon from "@mui/icons-material/Layers";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import DeleteForeverOutlinedIcon from "@mui/icons-material/DeleteForeverOutlined";
 import ProjectCard, { getProjectVersionLabel } from "./ProjectCard";
 import { ProjectCardActions, ViewType } from "./types";
 import { usePermissions } from "@/app/lib/usePermissions";
@@ -53,9 +54,14 @@ interface ProjectsGridProps {
   onPageChange?: (page: number) => void;
   onLimitChange?: (limit: 6 | 12 | 24 | 48) => void;
   actionMode?: "default" | "approval";
-  legendItems?: Array<{ label: string; color: string }>;
+  legendItems?: Array<{ label: string; color: string; value?: string }>;
   showActions?: boolean;
   showRequestTrackingColumns?: boolean;
+  showDeleteAction?: boolean;
+  activeStatus?: string;
+  onStatusLegendClick?: (status: string) => void;
+  isFiltered?: boolean;
+  filteredEmptyMessage?: string;
 }
 
 type ProjectGridItem = {
@@ -125,11 +131,16 @@ export default function ProjectsGrid({
   legendItems,
   showActions = true,
   showRequestTrackingColumns = false,
+  showDeleteAction = false,
+  activeStatus = "ALL",
+  onStatusLegendClick,
+  isFiltered = false,
+  filteredEmptyMessage = "No projects match the selected filters.",
 }: ProjectsGridProps) {
   const { canCreate } = usePermissions();
   const canCreateProject = canCreate("projects");
   const approvalOnly = actionMode === "approval";
-  const showActionColumn = showActions && (approvalOnly || projects.some((project) => project.status === "NEEDS_REVISION"));
+  const showActionColumn = showDeleteAction || (showActions && (approvalOnly || projects.some((project) => project.status === "NEEDS_REVISION")));
 
   const formatDate = (value?: string) => {
     if (!value) return "-";
@@ -251,14 +262,34 @@ export default function ProjectsGrid({
         Status
       </Typography>
       {(legendItems || [
-        { label: "Draft", color: "#A78BFA" },
-        { label: "For Review", color: "#FBBF24" },
-        { label: "For Approval", color: "#60A5FA" },
-        { label: "Needs Revision", color: "#FB7185" },
-        { label: "Active", color: "#34D399" },
-        { label: "Completed", color: "#818CF8" },
+        { label: "Draft", color: "#A78BFA", value: "DRAFT" },
+        { label: "For Review", color: "#FBBF24", value: "FOR_REVIEW" },
+        { label: "For Approval", color: "#60A5FA", value: "FOR_APPROVAL" },
+        { label: "Needs Revision", color: "#FB7185", value: "NEEDS_REVISION" },
+        { label: "Active", color: "#34D399", value: "ACTIVE" },
+        { label: "Completed", color: "#818CF8", value: "COMPLETED" },
       ]).map((item) => (
-        <Stack key={item.label} direction="row" spacing={0.5} alignItems="center">
+        <Stack
+          key={item.label}
+          component={onStatusLegendClick && item.value ? "button" : "div"}
+          type={onStatusLegendClick && item.value ? "button" : undefined}
+          direction="row"
+          spacing={0.5}
+          alignItems="center"
+          aria-pressed={onStatusLegendClick && item.value ? activeStatus === item.value : undefined}
+          onClick={onStatusLegendClick && item.value ? () => onStatusLegendClick(activeStatus === item.value ? "ALL" : item.value!) : undefined}
+          sx={{
+            p: 0.45,
+            mx: -0.45,
+            border: 0,
+            borderRadius: 1,
+            bgcolor: activeStatus === item.value ? "#F1F0FF" : "transparent",
+            cursor: onStatusLegendClick && item.value ? "pointer" : "default",
+            font: "inherit",
+            "&:hover": onStatusLegendClick && item.value ? { bgcolor: "#F8F7FF" } : undefined,
+            "&:focus-visible": { outline: "2px solid #686AF3", outlineOffset: 1 },
+          }}
+        >
           <Box
             sx={{
               width: 9,
@@ -269,7 +300,7 @@ export default function ProjectsGrid({
               flexShrink: 0,
             }}
           />
-          <Typography sx={{ fontSize: 11.25, lineHeight: 1.2, color: "#6B6880", fontWeight: 400, whiteSpace: "nowrap" }}>
+          <Typography sx={{ fontSize: 11.25, lineHeight: 1.2, color: activeStatus === item.value ? brandColors.deepTwilight : "#6B6880", fontWeight: activeStatus === item.value ? 750 : 400, whiteSpace: "nowrap" }}>
             {item.label}
           </Typography>
         </Stack>
@@ -312,7 +343,7 @@ export default function ProjectsGrid({
     </Stack>
   );
 
-  if (!projects || projects.length === 0) {
+  if ((!projects || projects.length === 0) && !isFiltered) {
     return (
       <Card sx={{ textAlign: "center", p: 5, border: "2px dashed #e5e7eb", boxShadow: "none" }}>
         <AssignmentIcon sx={{ fontSize: 48, color: "#d1d5db", mb: 2 }} />
@@ -324,7 +355,7 @@ export default function ProjectsGrid({
             {emptySubtext}
           </Typography>
         )}
-        {showCreateButton && canCreateProject && (
+        {!isFiltered && showCreateButton && canCreateProject && (
             <Button
               variant="contained"
               sx={{ backgroundColor: "#4B2E83", "&:hover": { backgroundColor: "#3d2363" } }}
@@ -337,7 +368,7 @@ export default function ProjectsGrid({
     );
   }
 
-  if (viewType === "list") {
+  if (viewType === "list" || (isFiltered && projects.length === 0)) {
     return (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
         {headerWithViewToggle}
@@ -427,6 +458,14 @@ export default function ProjectsGrid({
               </TableRow>
             </TableHead>
             <TableBody>
+              {projects.length === 0 && isFiltered && (
+                <TableRow>
+                  <TableCell colSpan={8 + (showRequestTrackingColumns ? 2 : 0) + (showActionColumn ? 1 : 0)} sx={{ py: 7, textAlign: "center", borderBottom: 0 }}>
+                    <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#64748B" }}>{filteredEmptyMessage}</Typography>
+                    <Typography sx={{ mt: 0.5, fontSize: 11.5, color: "#94A3B8" }}>Choose another status or clear the filters.</Typography>
+                  </TableCell>
+                </TableRow>
+              )}
               {projects.map((project) => {
                 const status = statusStyle(project.status);
                 return (
@@ -527,7 +566,18 @@ export default function ProjectsGrid({
                       className="project-action-cell"
                       sx={{ ...tableBodyCellSx, ...stickyActionCellSx }}
                     >
-                      {approvalOnly || project.status === "NEEDS_REVISION" ? (
+                      {showDeleteAction && project.status === "CANCELLED" ? (
+                        <Tooltip title="Permanently delete project">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={(event) => { event.stopPropagation(); actions.onDelete(project.id); }}
+                            sx={{ border: "1px solid #FECACA", bgcolor: "#FEF2F2", width: 30, height: 30, "&:hover": { bgcolor: "#FEE2E2" } }}
+                          >
+                            <DeleteForeverOutlinedIcon sx={{ fontSize: 17 }} />
+                          </IconButton>
+                        </Tooltip>
+                      ) : approvalOnly || project.status === "NEEDS_REVISION" ? (
                         <Tooltip title="View">
                           <IconButton
                             size="small"
@@ -625,6 +675,7 @@ export default function ProjectsGrid({
               actionMode={actionMode}
               showActions={showActions}
               nextApproverName={showRequestTrackingColumns ? nextApproverName(project) : undefined}
+              showDeleteAction={showDeleteAction}
             />
           </Grid>
         ))}

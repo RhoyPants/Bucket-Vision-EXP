@@ -33,7 +33,7 @@ const OVERSCAN   = 6;
 const MS_DAY     = 86_400_000;
 
 type ZoomLevel = "day" | "week" | "month";
-const ZOOM_PX: Record<ZoomLevel, number> = { day: 40, week: 10, month: 3 };
+const ZOOM_PX: Record<ZoomLevel, number> = { day: 30, week: 14, month: 7 };
 
 interface Props {
   projectId?: string | null;
@@ -72,6 +72,7 @@ export default function GanttGridView({ projectId, project: externalProject }: P
   const [expandedTasks,  setExpandedTasks]  = useState<Set<string>>(new Set());
   const [zoom,           setZoom]           = useState<ZoomLevel>("day");
   const [scrollTop,      setScrollTop]      = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   // Auto-expand everything when project data is loaded so timeline opens fully drilled down.
   useEffect(() => {
@@ -93,8 +94,6 @@ export default function GanttGridView({ projectId, project: externalProject }: P
 
   const rafRef    = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const pxPerDay = ZOOM_PX[zoom];
 const dates = useMemo<Date[]>(() => {
     if (!fullProject?.scopes) return [];
     const all: number[] = [];
@@ -115,6 +114,19 @@ const dates = useMemo<Date[]>(() => {
     while (cur.getTime() <= max) { out.push(new Date(cur)); cur.setDate(cur.getDate() + 1); }
     return out;
   }, [fullProject]);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+    const updateWidth = () => setContainerWidth(element.clientWidth);
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  const availableTimelineWidth = Math.max(0, containerWidth - LEFT_W);
+  const pxPerDay = Math.max(ZOOM_PX[zoom], dates.length ? availableTimelineWidth / dates.length : 0);
 
   const timelineW = Math.max(dates.length * pxPerDay, 200);
 const monthGroups = useMemo(() => {
@@ -309,7 +321,7 @@ const wbs = (row: any) => {
         }}
       >
         {/* INNER  sets total scrollable dimensions */}
-        <Box sx={{ minWidth: LEFT_W + timelineW, minHeight: HDR_H + rows.length * ROW_H }}>
+        <Box sx={{ width: LEFT_W + timelineW, minHeight: HDR_H + rows.length * ROW_H }}>
 
           {/* STICKY HEADER (top) ── */}
           <Box sx={{ position: "sticky", top: 0, zIndex: 30, display: "flex", height: HDR_H }}>
@@ -330,6 +342,7 @@ const wbs = (row: any) => {
 
             {/* Meta header — Start / End / Days / % — scrolls with timeline */}
             <Box sx={{
+              position: "sticky", left: STICKY_W, zIndex: 40,
               width: META_W, flexShrink: 0, height: HDR_H,
               display: "flex", alignItems: "center",
               background: "#F0F2F8",
@@ -344,16 +357,16 @@ const wbs = (row: any) => {
             </Box>
 
             {/* Right header */}
-            <Box sx={{ minWidth: timelineW }}>
+            <Box sx={{ width: timelineW, flexShrink: 0 }}>
               {/* Month row */}
               <Box sx={{ display: "flex", height: HDR_MONTH, bgcolor: "#E8EBF4", borderBottom: "1px solid #C8CDD8", overflow: "hidden" }}>
-                {monthGroups.map((m, i) => (
+                {(zoom === "day" ? dates.map((_, i) => ({ label: `D${i + 1}`, days: 1 })) : monthGroups).map((m, i) => (
                   <Box key={i} sx={{
                     width: m.days * pxPerDay, flexShrink: 0,
                     textAlign: "center", fontSize: 11, fontWeight: 700,
                     lineHeight: `${HDR_MONTH}px`,
                     borderRight: "1px solid #B0B8C8",
-                    color: "#4B2E83", overflow: "hidden", whiteSpace: "nowrap", px: 0.5,
+                    color: "#30415f", overflow: "hidden", whiteSpace: "nowrap", px: 0.25,
                   }}>
                     {m.label}
                   </Box>
@@ -364,7 +377,7 @@ const wbs = (row: any) => {
                 {zoom === "day" && dates.map((d, i) => (
                   <Box key={i} sx={{
                     width: pxPerDay, flexShrink: 0,
-                    textAlign: "center", fontSize: 10,
+                    textAlign: "center", fontSize: 8.5,
                     lineHeight: `${HDR_SUB}px`,
                     borderRight: "1px solid #E0E4EC",
                     bgcolor: isToday(d) ? "#FFE082" : isWeekend(d) ? "#E8EAEF" : "transparent",
@@ -372,7 +385,7 @@ const wbs = (row: any) => {
                     color: isToday(d) ? "#E65100" : isWeekend(d) ? "#AAA" : "#666",
                     overflow: "hidden",
                   }}>
-                    {pxPerDay >= 20 ? d.getDate() : ""}
+                    {pxPerDay >= 20 ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
                   </Box>
                 ))}
                 {zoom === "week" && weekGroups.map((w, i) => (
@@ -402,10 +415,10 @@ const wbs = (row: any) => {
 
             if (row.type === "empty") {
               return (
-                <Box key={`e-${absIdx}`} sx={{ display: "flex", height: ROW_H, minWidth: LEFT_W + timelineW }}>
+                <Box key={`e-${absIdx}`} sx={{ display: "flex", height: ROW_H, width: LEFT_W + timelineW }}>
                   <Box sx={{ position: "sticky", left: 0, zIndex: 8, width: STICKY_W, flexShrink: 0, height: ROW_H, bgcolor: "#fff", borderRight: "1px solid #C8CDD8", borderBottom: "1px solid #F2F2F2" }} />
-                  <Box sx={{ width: META_W, flexShrink: 0, height: ROW_H, bgcolor: "#fff", borderRight: "2px solid #C8CDD8", borderBottom: "1px solid #F2F2F2" }} />
-                  <Box sx={{ minWidth: timelineW, height: ROW_H, bgcolor: "#FAFBFF", borderBottom: "1px solid #F2F2F2" }} />
+                  <Box sx={{ position: "sticky", left: STICKY_W, zIndex: 8, width: META_W, flexShrink: 0, height: ROW_H, bgcolor: "#fff", borderRight: "2px solid #C8CDD8", borderBottom: "1px solid #F2F2F2" }} />
+                  <Box sx={{ width: timelineW, flexShrink: 0, height: ROW_H, bgcolor: "#FAFBFF", borderBottom: "1px solid #F2F2F2" }} />
                 </Box>
               );
             }
@@ -422,7 +435,7 @@ const wbs = (row: any) => {
             const color    = barColor(row);
 
             return (
-              <Box key={row.id ?? `r-${absIdx}`} sx={{ display: "flex", height: ROW_H, minWidth: LEFT_W + timelineW }}>
+              <Box key={row.id ?? `r-${absIdx}`} sx={{ display: "flex", height: ROW_H, width: LEFT_W + timelineW }}>
 
                 {/* LEFT CELL - sticky: WBS + Phase/Task only */}
                 <Box sx={{
@@ -466,6 +479,7 @@ const wbs = (row: any) => {
 
                 {/* META CELL - Start / End / Days / % - scrolls with timeline */}
                 <Box sx={{
+                  position: "sticky", left: STICKY_W, zIndex: 8,
                   width: META_W, flexShrink: 0, height: ROW_H,
                   display: "flex", alignItems: "center",
                   bgcolor: rowBg,
@@ -484,11 +498,15 @@ const wbs = (row: any) => {
 
                 {/* TIMELINE CELL */}
                 <Box sx={{
-                  minWidth: timelineW,
+                  width: timelineW,
+                  flexShrink: 0,
                   height: ROW_H,
                   position: "relative",
                   bgcolor: rowBg,
-                  backgroundImage: weekendBg,
+                  backgroundImage: [
+                    weekendBg,
+                    `repeating-linear-gradient(to right, transparent 0, transparent ${Math.max(pxPerDay - 1, 1)}px, rgba(148,163,184,.35) ${Math.max(pxPerDay - 1, 1)}px, rgba(148,163,184,.35) ${pxPerDay}px)`,
+                  ].filter(Boolean).join(", "),
                   backgroundRepeat: "no-repeat",
                   borderBottom: "1px solid #E8E8E8",
                 }}>
@@ -514,13 +532,13 @@ const wbs = (row: any) => {
                           position: "absolute",
                           left: leftPx,
                           width: Math.max(widthPx, 4),
-                          height: isSc ? 20 : isTk ? 16 : 13,
+                          height: isSc ? 16 : isTk ? 13 : 9,
                           top: "50%",
                           transform: "translateY(-50%)",
-                          borderRadius: isSc ? "3px" : "4px",
+                          borderRadius: 999,
                           bgcolor: color,
-                          border: isSc ? "2px solid #4527A0" : isTk ? "1.5px solid #0A3D91" : "1px solid rgba(0,0,0,0.12)",
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+                          border: 0,
+                          boxShadow: "0 1px 2px rgba(15,23,42,.18)",
                           zIndex: 2,
                           cursor: "default",
                           overflow: "hidden",
@@ -532,12 +550,12 @@ const wbs = (row: any) => {
                         )}
 
                         {/* Bar label (wide bars only) */}
-                        {widthPx > 50 && (
+                        {widthPx > 90 && isSc && (
                           <Typography noWrap sx={{
                             fontSize: 9,
                             color: "rgba(255,255,255,0.92)",
                             pl: 1,
-                            lineHeight: `${isSc ? 20 : isTk ? 16 : 13}px`,
+                            lineHeight: "16px",
                             pointerEvents: "none",
                           }}>
                             {row.name || row.title}

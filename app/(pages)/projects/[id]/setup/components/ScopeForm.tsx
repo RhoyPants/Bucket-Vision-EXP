@@ -1,4 +1,4 @@
-import { Box, Button, TextField, Alert, Typography, Chip, Backdrop, CircularProgress, Stack, MenuItem } from "@mui/material";
+import { Box, Button, TextField, Alert, Typography, Chip, Backdrop, CircularProgress, Stack, MenuItem, Dialog, DialogActions, DialogContent, DialogTitle } from "@mui/material";
 import { useEffect, useState } from "react";
 import WarningIcon from "@mui/icons-material/Warning";
 import {
@@ -9,8 +9,9 @@ import {
   ValidationError,
 } from "@/app/utils/scopeValidation";
 import {
-  getMaintenanceRecords,
+  getProjectMaintenanceHierarchyResult,
   MaintenanceRecord,
+  ProjectMaintenanceHierarchyMeta,
 } from "@/app/api-service/workBreakdownMaintenanceService";
 import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import { scopeRequiresBudget } from "@/app/utils/budgetPolicy";
@@ -26,6 +27,7 @@ interface ScopeFormProps {
   onAddScope: () => void;
   projectBudget?: number;
   existingScopes?: any[];
+  projectId: string;
 }
 
 export default function ScopeForm({
@@ -34,12 +36,15 @@ export default function ScopeForm({
   onAddScope,
   projectBudget = 0,
   existingScopes = [],
+  projectId,
 }: ScopeFormProps) {
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [maintenanceScopes, setMaintenanceScopes] = useState<MaintenanceRecord[]>([]);
   const [maintenanceLoading, setMaintenanceLoading] = useState(true);
+  const [maintenanceMeta, setMaintenanceMeta] = useState<ProjectMaintenanceHierarchyMeta | undefined>();
+  const [noAssignedWbsOpen, setNoAssignedWbsOpen] = useState(false);
   const selectedScopeMaintenanceIds = new Set(
     (existingScopes || [])
       .map((scope) => scope.scopeMaintenanceId)
@@ -54,12 +59,14 @@ export default function ScopeForm({
   const budgetRequired = scopeRequiresBudget(selectedMaintenanceScope?.code);
 
   useEffect(() => {
-    getMaintenanceRecords("scope")
-      .then((items) =>
-        setMaintenanceScopes(items.filter((item) => item.isActive !== false)),
-      )
+    getProjectMaintenanceHierarchyResult(projectId)
+      .then((result) => {
+        setMaintenanceMeta(result.meta);
+        setMaintenanceScopes(result.data.filter((item) => item.isActive !== false));
+        setNoAssignedWbsOpen(result.meta?.status === "NO_ASSIGNED_WBS");
+      })
       .finally(() => setMaintenanceLoading(false));
-  }, []);
+  }, [projectId]);
 
   const handleSubmit = async () => {
     const validation = validateScopeForm(
@@ -119,6 +126,9 @@ export default function ScopeForm({
       </Typography>
 
       {/* ERROR ALERT */}
+      {maintenanceMeta?.status === "EMPTY_ASSIGNED_WBS" && (
+        <Alert severity="info" sx={{ mb: 2 }}>{maintenanceMeta.message || "The assigned WBS template has no active structure entries."}</Alert>
+      )}
       {errors.length > 0 && errors.some((e) => e.field === "submit") && (
         <Alert severity="error" sx={{ mb: 2 }} icon={<WarningIcon />}>
           <Typography fontWeight={600}>
@@ -299,6 +309,14 @@ export default function ScopeForm({
           </Typography>
         </Stack>
       </Backdrop>
+      <Dialog open={noAssignedWbsOpen} onClose={() => setNoAssignedWbsOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontSize: 18, fontWeight: 800 }}>No WBS template assigned</DialogTitle>
+        <DialogContent dividers>
+          <Typography sx={{ fontSize: 13, lineHeight: 1.65, color: "#475569" }}>{maintenanceMeta?.message || "No WBS template is assigned to this project's Business Unit. Contact an administrator to assign one."}</Typography>
+          <Alert severity="info" sx={{ mt: 2, fontSize: 11.5 }}>An administrator can assign a WBS template from Settings → Project Maintenance.</Alert>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}><Button variant="contained" onClick={() => setNoAssignedWbsOpen(false)} sx={{ bgcolor: "#24106F", textTransform: "none", fontWeight: 700 }}>Understood</Button></DialogActions>
+      </Dialog>
     </Box>
   );
 }
