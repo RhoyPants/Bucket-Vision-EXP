@@ -45,6 +45,8 @@ export default function SSORegisterPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
   const [loading, setLoading] = useState(false);
+  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [optionsReloadKey, setOptionsReloadKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -84,12 +86,15 @@ export default function SSORegisterPage() {
 
     // Fetch roles and business units from backend
     const fetchData = async () => {
-      try {
-        const [rolesData, buData] = await Promise.all([
-          getRoles(),
-          getBusinessUnitsDropdown(),
-        ]);
+      setOptionsLoading(true);
+      setError(null);
+      const [rolesResult, businessUnitsResult] = await Promise.allSettled([
+        getRoles(),
+        getBusinessUnitsDropdown(),
+      ]);
 
+      if (rolesResult.status === "fulfilled") {
+        const rolesData = rolesResult.value;
         // Extract roles from response
         const rolesList = rolesData?.data || rolesData || [];
         setRoles(
@@ -98,6 +103,10 @@ export default function SSORegisterPage() {
             : Object.values(rolesList)
         );
 
+      }
+
+      if (businessUnitsResult.status === "fulfilled") {
+        const buData = businessUnitsResult.value;
         // Extract business units from response
         const buList = buData || [];
         const normalizedBu = Array.isArray(buList) ? buList : Object.values(buList);
@@ -120,14 +129,26 @@ export default function SSORegisterPage() {
             }));
           }
         }
-      } catch (err) {
-        console.error("Failed to fetch roles or business units:", err);
-        setError("Failed to load form options. Please try again.");
       }
+
+      if (rolesResult.status === "rejected") {
+        console.error("Failed to fetch roles:", rolesResult.reason);
+      }
+      if (businessUnitsResult.status === "rejected") {
+        console.error("Failed to fetch business units:", businessUnitsResult.reason);
+      }
+      if (rolesResult.status === "rejected" || businessUnitsResult.status === "rejected") {
+        setError(
+          businessUnitsResult.status === "rejected"
+            ? "Business Unit options could not be loaded because the registration lookup was unauthorized. Please retry after the public dropdown endpoint is enabled."
+            : "Role options could not be loaded. Please try again.",
+        );
+      }
+      setOptionsLoading(false);
     };
 
-    fetchData();
-  }, []);
+    void fetchData();
+  }, [optionsReloadKey]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>
@@ -228,7 +249,20 @@ export default function SSORegisterPage() {
         </Typography>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
+          <Alert
+            severity="error"
+            sx={{ mb: 3 }}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                disabled={optionsLoading}
+                onClick={() => setOptionsReloadKey((value) => value + 1)}
+              >
+                Retry
+              </Button>
+            }
+          >
             {error}
           </Alert>
         )}
@@ -280,7 +314,8 @@ export default function SSORegisterPage() {
             name="businessUnitId"
             value={formData.businessUnitId}
             onChange={handleChange}
-            disabled
+            disabled={optionsLoading || businessUnits.length === 0}
+            helperText={optionsLoading ? "Loading Business Units..." : undefined}
             sx={{ mb: 2 }}
           >
             <MenuItem value="">-- Select Business Unit --</MenuItem>
@@ -310,6 +345,7 @@ export default function SSORegisterPage() {
             value={formData.requestedRoleId}
             onChange={handleChange}
             required
+            disabled={optionsLoading || roles.length === 0}
             sx={{ mb: 2 }}
           >
             <MenuItem value="">-- Select Role --</MenuItem>
@@ -336,7 +372,12 @@ export default function SSORegisterPage() {
             fullWidth
             variant="contained"
             type="submit"
-            disabled={loading}
+            disabled={
+              loading ||
+              optionsLoading ||
+              !formData.businessUnitId ||
+              !formData.requestedRoleId
+            }
             sx={{ mb: 2 }}
           >
             {loading ? "Submitting..." : "Submit Registration"}

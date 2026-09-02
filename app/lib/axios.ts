@@ -144,17 +144,20 @@ axiosApi.interceptors.response.use(
       console.error("❌ API Error 401: Unauthorized — token expired");
       console.log("🔵 Current pathname:", typeof window !== "undefined" ? window.location.pathname : "(server)");
 
-      // Skip redirect on SSO callback page - let it finish processing
-      const isCallback = typeof window !== "undefined" && window.location.pathname === "/sso/callback";
+      // Registration users do not have a Bucket Vision access token yet.
+      // Keep lookup failures inside the SSO flow instead of redirecting it.
+      const isSsoFlow =
+        typeof window !== "undefined" &&
+        window.location.pathname.startsWith("/sso/");
       
-      console.log("🔵 Is callback page?", isCallback);
+      console.log("🔵 Is SSO flow?", isSsoFlow);
       
-      if (!isCallback && typeof window !== "undefined") {
+      if (!isSsoFlow && typeof window !== "undefined") {
         console.log("🔴 Redirecting to /");
         localStorage.removeItem("token");
         window.location.href = "/";
       } else {
-        console.log("🟢 Skipping redirect because on /sso/callback");
+        console.log("🟢 Skipping redirect because an SSO flow is active");
       }
 
       return Promise.reject(new Error("Unauthorized - Token expired"));
