@@ -28,8 +28,7 @@ export interface ProgressLog {
   location?: string;
 
   remarks?: string;
-  dayNumber?: number; // Backend currently uses this as progress update count.
-  updateCount?: number;
+  dayNumber?: number; // Legacy backend field; no longer used by the progress flow.
 
   createdAt?: string;
   updatedAt?: string;

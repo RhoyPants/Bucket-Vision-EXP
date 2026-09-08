@@ -9,7 +9,7 @@ import {
   Typography,
   Backdrop,
   Stack,
-  MenuItem,
+  Autocomplete,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
@@ -24,6 +24,7 @@ import {
   getProjectMaintenanceHierarchy,
   MaintenanceRecord,
 } from "@/app/api-service/workBreakdownMaintenanceService";
+import AnchoredDropdownPopper from "@/app/components/shared/selectors/AnchoredDropdownPopper";
 
 interface TaskFormProps {
   scopeId: string;
@@ -35,6 +36,7 @@ interface TaskFormProps {
   setTaskInputs: (inputs: any) => void;
   onAddTask: (scopeId: string) => void;
   projectId?: string;
+  wbsBusinessUnitIds?: string[];
 }
 
 export default function TaskForm({
@@ -47,6 +49,7 @@ export default function TaskForm({
   setTaskInputs,
   onAddTask,
   projectId,
+  wbsBusinessUnitIds = [],
 }: TaskFormProps) {
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -70,7 +73,7 @@ export default function TaskForm({
 
     let active = true;
     setMaintenanceLoading(true);
-    getProjectMaintenanceHierarchy(projectId)
+    getProjectMaintenanceHierarchy(projectId, wbsBusinessUnitIds)
       .then((hierarchy) => {
         if (active) {
           const scope = hierarchy.find((item) => item.id === scopeMaintenanceId);
@@ -83,7 +86,7 @@ export default function TaskForm({
     return () => {
       active = false;
     };
-  }, [scopeMaintenanceId, projectId]);
+  }, [scopeMaintenanceId, projectId, wbsBusinessUnitIds]);
 
   const handleChange = (field: string, value: any) => {
     setTaskInputs((prev: any) => ({
@@ -159,40 +162,24 @@ export default function TaskForm({
       }}
     >
       {scopeMaintenanceId ? (
-          <TextField
-            select
+          <Autocomplete
             size="small"
-            label="Task"
-            value={form.taskMaintenanceId || ""}
-            onChange={(e) => {
-              const value = e.target.value;
-              const selected = maintenanceTasks.find(
-                (item) => item.id === value,
-              );
-              handleChange("sourceType", "MAINTENANCE");
-              handleChange("taskMaintenanceId", value);
+            options={availableMaintenanceTasks}
+            value={availableMaintenanceTasks.find((task) => task.id === form.taskMaintenanceId) || null}
+            getOptionLabel={(task) => `${task.name} (${task.code})`}
+            isOptionEqualToValue={(option, selected) => option.id === selected.id}
+            onChange={(_, selected) => {
+              handleChange("sourceType", selected ? "MAINTENANCE" : "");
+              handleChange("taskMaintenanceId", selected?.id || "");
               handleChange("title", selected?.name || "");
             }}
             onBlur={() => handleBlur("title")}
-            error={!!titleError}
             sx={{ flex: "0 1 300px", minWidth: 110 }}
             disabled={saving || maintenanceLoading}
-            SelectProps={{
-              MenuProps: {
-                PaperProps: { sx: { maxHeight: 280 } },
-              },
-            }}
-            helperText="Select a task allowed under this scope."
-          >
-            <MenuItem value="" disabled>
-              Select task
-            </MenuItem>
-            {availableMaintenanceTasks.map((task) => (
-              <MenuItem key={task.id} value={task.id}>
-                {task.name} ({task.code})
-              </MenuItem>
-            ))}
-          </TextField>
+            slots={{ popper: AnchoredDropdownPopper }}
+            slotProps={{ listbox: { sx: { maxHeight: 280, "& .MuiAutocomplete-option": { fontSize: 12, "&:hover": { bgcolor: "#E8E1F8" }, "&.Mui-focused": { bgcolor: "#DED3F5" }, '&[aria-selected="true"]': { bgcolor: "#D4C6F0", color: "#24106F", fontWeight: 700 } } } } }}
+            renderInput={(params) => <TextField {...params} label="Task" error={!!titleError} helperText="Select a task allowed under this scope." />}
+          />
         ) : (
           <TextField
             size="small"

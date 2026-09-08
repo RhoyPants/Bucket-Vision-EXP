@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, InputAdornment, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Box, InputAdornment, MenuItem, Paper, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import { useRouter } from "next/navigation";
 
@@ -15,6 +15,7 @@ import {
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { getMyApprovalsProjects } from "@/app/redux/controllers/projectController";
 import { brandColors } from "@/app/lib/theme";
+import ProgressUpdateRequestsPanel from "./ProgressUpdateRequestsPanel";
 
 export default function MyApprovalsPage() {
   const dispatch = useAppDispatch();
@@ -24,12 +25,14 @@ export default function MyApprovalsPage() {
     (state) => state.project,
   );
   const { pagination } = useAppSelector((state) => state.project);
+  const approvalCounts = useAppSelector((state) => state.notificationCounts);
 
   const [viewType, setViewType] = useState<ViewType>("list");
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [businessUnitFilter, setBusinessUnitFilter] = useState("ALL");
+  const [activeTab, setActiveTab] = useState<"projects" | "progress">("projects");
   const pageLimit = 10;
   const query = useMemo(
     () => ({
@@ -76,10 +79,53 @@ export default function MyApprovalsPage() {
     onCreateProject: () => router.push("/projects/new/setup"),
   };
 
+  const tabLabel = (label: string, count: number) => (
+    <Stack component="span" direction="row" spacing={0.75} alignItems="center">
+      <Box component="span">{label}</Box>
+      {count > 0 && (
+        <Box
+          component="span"
+          sx={{
+            minWidth: 18,
+            height: 18,
+            px: 0.55,
+            borderRadius: 999,
+            bgcolor: "#EF4444",
+            color: "#FFFFFF",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 10,
+            fontWeight: 900,
+            lineHeight: 1,
+            flexShrink: 0,
+          }}
+        >
+          {count > 99 ? "99+" : count}
+        </Box>
+      )}
+    </Stack>
+  );
+
   return (
     <Layout>
       <Guard module="PROJECTS" action="READ">
         <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1600, mx: "auto" }}>
+          <Paper elevation={0} sx={{ mb: 2, border: `1px solid ${brandColors.lavender}`, borderRadius: 3, overflow: "hidden" }}>
+            <Tabs
+              value={activeTab}
+              onChange={(_, value: "projects" | "progress") => setActiveTab(value)}
+              variant="scrollable"
+              scrollButtons="auto"
+              sx={{ px: 1, "& .MuiTab-root": { minHeight: 54, textTransform: "none", fontWeight: 800 } }}
+            >
+              <Tab value="projects" label={tabLabel("Project Approvals", approvalCounts.projectApprovals)} />
+              <Tab value="progress" label={tabLabel("Progress Updates", approvalCounts.progressUpdates)} />
+            </Tabs>
+          </Paper>
+
+          {activeTab === "projects" ? (
+          <>
           <Paper
             elevation={0}
             sx={{
@@ -160,6 +206,10 @@ export default function MyApprovalsPage() {
               { label: "For Approval", color: "#60A5FA" },
             ]}
           />
+          </>
+          ) : (
+            <ProgressUpdateRequestsPanel />
+          )}
         </Box>
       </Guard>
     </Layout>

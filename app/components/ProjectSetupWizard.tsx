@@ -24,6 +24,12 @@ import {
   IconButton,
   Slider,
   Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Checkbox,
+  ListItemText,
 } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { usePathname, useRouter } from "next/navigation";
@@ -178,6 +184,9 @@ export default function ProjectSetupWizard({
   const [cities, setCities] = useState<any[]>([]);
   const [barangays, setBarangays] = useState<any[]>([]);
   const [businessUnits, setBusinessUnits] = useState<any[]>([]);
+  const [wbsBusinessUnitIds, setWbsBusinessUnitIds] = useState<string[]>([]);
+  const [savingWbsBusinessUnits, setSavingWbsBusinessUnits] = useState(false);
+  const [wbsBusinessUnitError, setWbsBusinessUnitError] = useState("");
   const [entities, setEntities] = useState<string[]>(["GVI", "GVE", "HULMA"]);
   const isHydratingLocationRef = useRef(false);
 
@@ -323,6 +332,13 @@ export default function ProjectSetupWizard({
     if (!project) return;
 
     isHydratingLocationRef.current = true;
+    setWbsBusinessUnitIds(
+      Array.isArray(project.wbsBusinessUnitIds)
+        ? project.wbsBusinessUnitIds
+        : Array.isArray(project.wbsBusinessUnits)
+          ? project.wbsBusinessUnits.map((unit: any) => unit.id).filter(Boolean)
+          : [],
+    );
 
     setProjectForm({
       name: project.name || "",
@@ -389,6 +405,24 @@ export default function ProjectSetupWizard({
 
     hydrateLocationHierarchy();
   }, [project]);
+
+  const handleWbsBusinessUnitsChange = async (nextIds: string[]) => {
+    if (!currentProjectId || savingWbsBusinessUnits) return;
+    const previousIds = wbsBusinessUnitIds;
+    setWbsBusinessUnitIds(nextIds);
+    setWbsBusinessUnitError("");
+    setSavingWbsBusinessUnits(true);
+    try {
+      const updated = await dispatch(updateProject(currentProjectId, { wbsBusinessUnitIds: nextIds }));
+      setProject((current: any) => ({ ...(current || {}), ...(updated || {}), wbsBusinessUnitIds: nextIds }));
+      setScopeForm((current) => ({ ...current, name: "", scopeMaintenanceId: "" }));
+    } catch (requestError: any) {
+      setWbsBusinessUnitIds(previousIds);
+      setWbsBusinessUnitError(requestError?.response?.data?.message || requestError?.message || "Unable to save the WBS Business Units.");
+    } finally {
+      setSavingWbsBusinessUnits(false);
+    }
+  };
 
   const refreshProjectAttachments = useCallback(async (projectIdArg?: string) => {
     const id = projectIdArg || currentProjectId;
@@ -1643,6 +1677,35 @@ export default function ProjectSetupWizard({
             {/* Project structure section starts here */}
             {project && (
               <Box sx={{ zoom: structureZoom, width: "100%" }}>
+                {!reorderOnly && (
+                  <Card elevation={0} sx={{ mb: 2, border: "1px solid #E0DAE6", borderRadius: 2 }}>
+                    <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+                      <Typography sx={{ fontSize: 14, fontWeight: 800, color: "#111827" }}>WBS Business Units</Typography>
+                      <Typography sx={{ mt: 0.35, mb: 1.5, fontSize: 12, color: "#667085" }}>
+                        Select one or more Business Units whose WBS templates will supply the Scope, Task, and Subtask LOVs.
+                      </Typography>
+                      {wbsBusinessUnitError && <Alert severity="error" sx={{ mb: 1.5 }}>{wbsBusinessUnitError}</Alert>}
+                      <FormControl fullWidth size="small" disabled={savingWbsBusinessUnits}>
+                        <InputLabel>WBS Business Units</InputLabel>
+                        <Select
+                          multiple
+                          value={wbsBusinessUnitIds}
+                          label="WBS Business Units"
+                          onChange={(event) => void handleWbsBusinessUnitsChange(typeof event.target.value === "string" ? event.target.value.split(",") : event.target.value)}
+                          renderValue={(ids) => ids.map((id) => businessUnits.find((unit) => unit.id === id)?.code || businessUnits.find((unit) => unit.id === id)?.name || id).join(", ")}
+                        >
+                          {businessUnits.map((unit) => (
+                            <MenuItem key={unit.id} value={unit.id}>
+                              <Checkbox checked={wbsBusinessUnitIds.includes(unit.id)} />
+                              <ListItemText primary={unit.name || unit.code} secondary={unit.code && unit.name ? unit.code : undefined} />
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      {savingWbsBusinessUnits && <Typography sx={{ mt: 1, fontSize: 11.5, color: "#667085" }}>Saving WBS selection…</Typography>}
+                    </CardContent>
+                  </Card>
+                )}
                 {/* Scope Input */}
                 {!reorderOnly && <ScopeForm
                   scopeForm={scopeForm}
@@ -1651,6 +1714,7 @@ export default function ProjectSetupWizard({
                   projectBudget={project?.totalBudget || 0}
                   existingScopes={project?.scopes || []}
                   projectId={currentProjectId!}
+                  wbsBusinessUnitIds={wbsBusinessUnitIds}
                 />}
 
                 {!reorderOnly && <Divider sx={{ my: 3 }} />}
@@ -1668,6 +1732,7 @@ export default function ProjectSetupWizard({
                   setSubtaskInputs={setSubtaskInputs}
                   members={members}
                   projectId={currentProjectId!}
+                  wbsBusinessUnitIds={wbsBusinessUnitIds}
                   onEditScope={(scope: any) => setScopeEdit(scope)}
                   onDeleteScope={handleDeleteScope}
                   onUpdateScope={handleUpdateScope}

@@ -90,6 +90,21 @@ const getResponseTotal = (response: unknown) => {
   );
 };
 
+const getApprovalCounts = (response: unknown) => {
+  const payload = response as {
+    approvalCounts?: { projectApprovals?: number; progressUpdates?: number; total?: number };
+    data?: { approvalCounts?: { projectApprovals?: number; progressUpdates?: number; total?: number } };
+  } | null;
+  const counts = payload?.approvalCounts || payload?.data?.approvalCounts;
+  const projectApprovals = Math.max(0, Number(counts?.projectApprovals ?? getResponseTotal(response)) || 0);
+  const progressUpdates = Math.max(0, Number(counts?.progressUpdates ?? 0) || 0);
+  return {
+    projectApprovals,
+    progressUpdates,
+    total: Math.max(0, Number(counts?.total ?? projectApprovals + progressUpdates) || 0),
+  };
+};
+
 export default function Sidebar() {
   const dispatch = useAppDispatch();
   const router = useRouter();
@@ -160,8 +175,11 @@ export default function Sidebar() {
     notificationCountsRequest
         .then(([approvals, requests]) => {
           if (cancelled) return;
+          const approvalCounts = getApprovalCounts(approvals);
           dispatch(setNotificationCounts({
-            approvals: getResponseTotal(approvals),
+            approvals: approvalCounts.total,
+            projectApprovals: approvalCounts.projectApprovals,
+            progressUpdates: approvalCounts.progressUpdates,
             needsRevision: getResponseTotal(requests),
           }));
         })
@@ -221,9 +239,10 @@ export default function Sidebar() {
             src="/images/LOGO.png"
             width={130}
             height={42}
+            sizes="130px"
             priority
             alt="GVI Logo"
-            style={{ display: "block", width: 130, height: "auto"}}
+            style={{ display: "block", width: 130, height: 42, objectFit: "contain" }}
           />
         )}
       </Box>

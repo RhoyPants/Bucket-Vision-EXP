@@ -183,16 +183,19 @@ export function VersioningPageContent({
     return [...source].sort((a, b) => Number(b.versionNumber || 0) - Number(a.versionNumber || 0));
   }, [allVersions, versionHistory]);
 
+  const latestVersion = versions[0] || null;
   const activeVersion =
-    versions.find((version) => version.status === "ACTIVE" || version.isActive || version.isLatestVersion) ||
-    versions[0] ||
-    null;
+    versions.find((version) => version.status === "ACTIVE" || version.isActive) ||
+    latestVersion;
 
   const listedProject = projects?.find((item) => item.id === projectId);
   const projectStatus = String(
-    project?.status || listedProject?.status || activeVersion?.status || "",
+    latestVersion?.status || project?.status || listedProject?.status || "",
   ).toUpperCase();
   const canCreateVersion = projectStatus === "ACTIVE";
+  const createVersionTooltip = canCreateVersion
+    ? ""
+    : `The latest version must be active before creating another version${projectStatus ? ` (current status: ${projectStatus.replaceAll("_", " ")})` : ""}.`;
   const openCreateVersionModal = () => {
     if (!canCreateVersion) return;
     setCreateVersionModalOpen(true);
@@ -281,7 +284,7 @@ export function VersioningPageContent({
               </Stack>
             </Box>
             <Guard permissionKey="versioning" action="create">
-              <Tooltip title={canCreateVersion ? "" : "New versions can only be created for active projects."} arrow>
+              <Tooltip title={createVersionTooltip} arrow>
                 <span>
                   <Button
                     variant="contained"
@@ -333,7 +336,7 @@ export function VersioningPageContent({
 
           <Stack direction="row" spacing={1.25} alignItems="center">
             <Guard permissionKey="versioning" action="create">
-              <Tooltip title={canCreateVersion ? "" : "New versions can only be created for active projects."} arrow>
+              <Tooltip title={createVersionTooltip} arrow>
                 <span>
                   <Button
                     variant="contained"

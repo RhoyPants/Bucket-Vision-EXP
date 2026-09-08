@@ -184,13 +184,13 @@ export default function ProjectMaintenance() {
     useState<MaintenanceRecord | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const config = kindConfig[activeKind];
-  const handleTableSelect = (tableId: string) => {
+  const handleTableSelect = useCallback((tableId: string) => {
     setSelectedTableId(tableId);
     setScopeFilterId("");
     setRecords({ scope: [], task: [], subtask: [] });
     setTasksByScope({});
     setSubtasksByTask({});
-  };
+  }, []);
 
   const loadRecords = useCallback(async () => {
     try {
@@ -653,10 +653,8 @@ export default function ProjectMaintenance() {
   return (
     <Box sx={{ p: { xs: 0, md: 1 } }}>
       <Stack
-        direction={{ xs: "column", sm: "row" }}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", sm: "center" }}
-        spacing={1.5}
+        direction="column"
+        alignItems="stretch"
         sx={{ mb: 2 }}
       >
         <Box>
@@ -668,23 +666,6 @@ export default function ProjectMaintenance() {
             allowed relationships.
           </Typography>
         </Box>
-        {canCreateHierarchyRecord ? (
-          <Button
-            variant="contained"
-            startIcon={<AddOutlinedIcon />}
-            onClick={() => openCreateDialog("scope")}
-            disabled={loading || saving}
-            sx={{
-              bgcolor: "#4B2E83",
-              textTransform: "none",
-              fontWeight: 500,
-              boxShadow: "none",
-              "&:hover": { bgcolor: "#3D236B", boxShadow: "none" },
-            }}
-          >
-            New {config.singular}
-          </Button>
-        ) : null}
       </Stack>
 
       <MaintenanceTableSelector selectedId={selectedTableId} onSelect={handleTableSelect} canCreate={canCreateRecord} canUpdate={canUpdateRecord} />
@@ -704,12 +685,13 @@ export default function ProjectMaintenance() {
         </Alert>
       ) : null}
 
-      {!loading && sortedScopes.length > 0 ? (
+      {!loading ? (
         <Paper variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: "#FAFAFC" }}>
           <Stack
             direction={{ xs: "column", sm: "row" }}
             spacing={1.5}
             alignItems={{ xs: "stretch", sm: "center" }}
+            justifyContent="space-between"
           >
             <TextField
               select
@@ -717,6 +699,7 @@ export default function ProjectMaintenance() {
               label="Filter by scope"
               value={scopeFilterId}
               onChange={(event) => setScopeFilterId(event.target.value)}
+              disabled={sortedScopes.length === 0}
               sx={{ minWidth: { xs: "100%", sm: 320 } }}
             >
               <MenuItem value="">All scopes ({sortedScopes.length})</MenuItem>
@@ -729,6 +712,26 @@ export default function ProjectMaintenance() {
             <Typography sx={{ color: "#64748B", fontSize: 12 }}>
               Showing {visibleScopes.length} of {sortedScopes.length} scopes
             </Typography>
+            {canCreateHierarchyRecord ? (
+              <Button
+                variant="contained"
+                startIcon={<AddOutlinedIcon />}
+                onClick={() => openCreateDialog("scope")}
+                disabled={saving}
+                sx={{
+                  width: { xs: "100%", sm: "auto" },
+                  marginLeft: { sm: "auto !important" },
+                  bgcolor: "#4B2E83",
+                  textTransform: "none",
+                  whiteSpace: "nowrap",
+                  fontWeight: 500,
+                  boxShadow: "none",
+                  "&:hover": { bgcolor: "#3D236B", boxShadow: "none" },
+                }}
+              >
+                New Scope
+              </Button>
+            ) : null}
           </Stack>
         </Paper>
       ) : null}
@@ -770,6 +773,20 @@ export default function ProjectMaintenance() {
                     py: 1.5,
                     bgcolor: scope.isActive ? "#F7F3FC" : "#F8FAFC",
                     borderBottom: "1px solid #E2E8F0",
+                    "& .scope-add-button": {
+                      opacity: 0,
+                      pointerEvents: "none",
+                      transform: "translateX(4px)",
+                      transition: "opacity 160ms ease, transform 160ms ease",
+                    },
+                    "&:hover .scope-add-button, &:focus-within .scope-add-button": {
+                      opacity: 1,
+                      pointerEvents: "auto",
+                      transform: "translateX(0)",
+                    },
+                    "@media (hover: none)": {
+                      "& .scope-add-button": { opacity: 1, pointerEvents: "auto", transform: "none" },
+                    },
                   }}
                 >
                   <Box sx={{ minWidth: 0 }}>
@@ -837,6 +854,7 @@ export default function ProjectMaintenance() {
                     </Tooltip>
                     {canCreateHierarchyRecord ? (
                       <Button
+                        className="scope-add-button"
                         size="small"
                         startIcon={<AddOutlinedIcon />}
                         onClick={() => openCreateDialog("task", scope.id)}
@@ -848,7 +866,7 @@ export default function ProjectMaintenance() {
                           "&.Mui-disabled": { color: "#94A3B8" },
                         }}
                       >
-                        Add Task
+                        Task
                       </Button>
                     ) : null}
                     {canUpdateRecord ? (
@@ -921,6 +939,20 @@ export default function ProjectMaintenance() {
                               borderRadius: 1.5,
                               overflow: "hidden",
                               opacity: task.isActive ? 1 : 0.7,
+                              "& .subtask-add-button": {
+                                opacity: 0,
+                                pointerEvents: "none",
+                                transform: "translateX(4px)",
+                                transition: "opacity 160ms ease, transform 160ms ease",
+                              },
+                              "&:hover .subtask-add-button, &:focus-within .subtask-add-button": {
+                                opacity: 1,
+                                pointerEvents: "auto",
+                                transform: "translateX(0)",
+                              },
+                              "@media (hover: none)": {
+                                "& .subtask-add-button": { opacity: 1, pointerEvents: "auto", transform: "none" },
+                              },
                             }}
                           >
                             <Box
@@ -1070,6 +1102,7 @@ export default function ProjectMaintenance() {
                                 </Typography>
                                 {canCreateHierarchyRecord ? (
                                   <Button
+                                    className="subtask-add-button"
                                     size="small"
                                     startIcon={<AddOutlinedIcon />}
                                     onClick={() => openCreateDialog("subtask", task.id)}
@@ -1082,7 +1115,7 @@ export default function ProjectMaintenance() {
                                       "&.Mui-disabled": { color: "#94A3B8" },
                                     }}
                                   >
-                                    Add Subtask
+                                    Subtask
                                   </Button>
                                 ) : null}
                               </Stack>

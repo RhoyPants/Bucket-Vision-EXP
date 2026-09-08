@@ -45,6 +45,15 @@ import { joinApiUrl, normalizeApiUrl } from "@/app/lib/apiUrl";
 import { RootState } from "@/app/redux/store";
 import { ProgressAttachment } from "@/app/redux/slices/progressSlice";
 import { usePermissions } from "@/app/lib/usePermissions";
+import ConfirmationModal from "@/app/components/shared/modals/ConfirmationModal";
+import WorkflowResultModal from "@/app/components/shared/modals/WorkflowResultModal";
+import { notifyProgressUpdate } from "@/app/utils/progressUpdateEmailNotification";
+import {
+  cancelProgressUpdateRequest,
+  getSubtaskProgressUpdateRequests,
+  ProgressUpdateRequest,
+} from "@/app/api-service/progressUpdateRequestService";
+import ProgressActivityTimeline from "@/app/components/shared/progress/ProgressActivityTimeline";
 
 import { Viewer, Worker } from "@react-pdf-viewer/core";
 import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
@@ -56,19 +65,18 @@ import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MAX_PROGRESS_UPDATE_COUNT = 2;
 const formatPercent = (value: unknown) => {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue.toFixed(2) : "0.00";
 };
 const roundPercent = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
-const getProgressUpdateCount = (log: any) => Number(log?.updateCount ?? log?.dayNumber ?? 0);
 
 interface ProgressCalendarProps {
   subtaskId: string;
   isTaskBoard?: boolean;
   projectedStartDate?: string;
   projectedEndDate?: string;
+  initialDate?: string;
   onSuccess?: () => void;
 }
 
@@ -83,6 +91,7 @@ export default function ProgressCalendar({
   isTaskBoard = false,
   projectedStartDate,
   projectedEndDate,
+  initialDate,
   onSuccess,
 }: ProgressCalendarProps) {
   const dispatch = useDispatch<any>();
@@ -124,8 +133,9 @@ export default function ProgressCalendar({
   // =========================
   // STATE
   // =========================
-  const [currentMonth, setCurrentMonth] = useState(dayjs());
-  const [selectedDate, setSelectedDate] = useState(dayjs());
+  const initialCalendarDate = initialDate ? dayjs(initialDate) : dayjs();
+  const [currentMonth, setCurrentMonth] = useState(initialCalendarDate);
+  const [selectedDate, setSelectedDate] = useState(initialCalendarDate);
   const [selectedLog, setSelectedLog] = useState<any>(null);
 
   const [dailyPercent, setDailyPercent] = useState("");
@@ -138,19 +148,26 @@ export default function ProgressCalendar({
   const [subtaskChecklists, setSubtaskChecklists] = useState<SubtaskChecklistItem[]>([]);
   const [range, setRange] = useState<any>(null);
   const [loadingSubtask, setLoadingSubtask] = useState(false);
+  const [decreaseApproverName, setDecreaseApproverName] = useState("");
   const [checkingCanAdd, setCheckingCanAdd] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [savedProgressFeedback, setSavedProgressFeedback] = useState<{
-    mode: "add" | "edit";
+    mode: "add" | "edit" | "pending";
     value: number;
+    approverName?: string;
   } | null>(null);
   const [showProgressFormModal, setShowProgressFormModal] = useState(false);
   const [completionConfirmOpen, setCompletionConfirmOpen] = useState(false);
   const [showExistingLogModal, setShowExistingLogModal] = useState(false);
   const [editingLog, setEditingLog] = useState<any>(null);
   const [removedAttachmentIds, setRemovedAttachmentIds] = useState<string[]>([]);
+  const [pendingDecreaseRequests, setPendingDecreaseRequests] = useState<ProgressUpdateRequest[]>([]);
+  const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null);
+  const [cancelRequestTarget, setCancelRequestTarget] = useState<ProgressUpdateRequest | null>(null);
+  const [decreaseConfirmOpen, setDecreaseConfirmOpen] = useState(false);
+  const [requestResult, setRequestResult] = useState<"submitted" | "cancelled" | null>(null);
   const [blockDialog, setBlockDialog] = useState<{
     open: boolean;
     reason: string | null;
@@ -169,6 +186,19 @@ export default function ProgressCalendar({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const logsForSelectedDate = logs[selectedDate.format("YYYY-MM-DD")] || [];
+  const pendingRequestsForSelectedDate = pendingDecreaseRequests.filter(
+    (request) =>
+      request.progressLog?.date &&
+      dayjs(request.progressLog.date).isSame(selectedDate, "day"),
+  );
+  const hasPendingRequestForSelectedDate =
+    pendingRequestsForSelectedDate.length > 0;
+  const selectedLogHasPendingRequest = Boolean(
+    selectedLogForDetails?.id &&
+      pendingDecreaseRequests.some(
+        (request) => request.progressLogId === selectedLogForDetails.id,
+      ),
+  );
 
   const getAttachmentUrl = useCallback((att?: ProgressAttachment | null) => {
     if (!att) return "";
@@ -229,6 +259,48 @@ export default function ProgressCalendar({
     dispatch(getProgressLogs(subtaskId));
   }, [canViewProgress, dispatch, subtaskId]);
 
+  const refreshPendingDecreaseRequests = useCallback(async () => {
+    if (!canViewProgress) return;
+    try {
+      setPendingDecreaseRequests(
+        await getSubtaskProgressUpdateRequests(subtaskId, "PENDING"),
+      );
+    } catch (requestError) {
+      console.warn("Unable to load pending progress decrease requests:", requestError);
+      setPendingDecreaseRequests([]);
+    }
+  }, [canViewProgress, subtaskId]);
+
+  useEffect(() => {
+    void refreshPendingDecreaseRequests();
+  }, [refreshPendingDecreaseRequests]);
+
+  const cancelPendingDecrease = useCallback(async (request: ProgressUpdateRequest) => {
+    if (request.canCancel !== true) return;
+    setCancellingRequestId(request.id);
+    setError("");
+    try {
+      const actionResult = await cancelProgressUpdateRequest(request.id);
+      try {
+        await notifyProgressUpdate("CANCELLED", { ...request, ...(actionResult?.data || actionResult || {}) });
+      } catch (emailError) {
+        console.warn("Progress cancellation email notification failed:", emailError);
+      }
+      await refreshPendingDecreaseRequests();
+      setCancelRequestTarget(null);
+      setRequestResult("cancelled");
+      setSuccess(true);
+      // Notify parent to refresh progress update requests list
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (requestError: any) {
+      setError(requestError?.response?.data?.message || requestError?.message || "Unable to cancel the pending request.");
+    } finally {
+      setCancellingRequestId(null);
+    }
+  }, [refreshPendingDecreaseRequests, onSuccess]);
+
   useEffect(() => {
     if (!canViewProgress) return;
 
@@ -243,6 +315,13 @@ export default function ProgressCalendar({
         });
         setCurrentProgress(data.progress || 0);
         setSubtaskChecklists(data.checklists || data.checklist || []);
+        setDecreaseApproverName(
+          data.assignedApprover?.name ||
+          data.task?.scope?.project?.businessUnitDetails?.buHead?.name ||
+          data.task?.scope?.project?.businessUnitDetails?.buHead ||
+          data.task?.scope?.project?.businessUnit?.buHead?.name ||
+          "",
+        );
       } catch (err: any) {
         console.error(" Error loading subtask:", err);
         setError("Failed to load subtask details");
@@ -417,6 +496,9 @@ export default function ProgressCalendar({
   }, [cumulativeProgress, dailyPercent, editingLog]);
 
   const isCompletingSubtask = resultingProgress >= 100;
+  const isDecreaseRequest = Boolean(
+    editingLog && Number(dailyPercent) < Number(editingLog.dailyPercent || 0),
+  );
 
   const openExistingLogDetails = useCallback(
     (existingLog: any) => {
@@ -441,12 +523,16 @@ export default function ProgressCalendar({
     if (!canUpdateProgress) return;
     if (!log?.id) return;
 
-    const updateCount = getProgressUpdateCount(log);
-    if (updateCount >= MAX_PROGRESS_UPDATE_COUNT) {
+    const pendingRequest = pendingDecreaseRequests.find(
+      (request) => request.progressLogId === log.id,
+    );
+    if (pendingRequest) {
+      setShowExistingLogModal(false);
       setBlockDialog({
         open: true,
-        reason: "UPDATE_LIMIT_REACHED",
-        message: "This progress log already reached the maximum of 2 updates.",
+        reason: "PROGRESS_UPDATE_PENDING",
+        message:
+          "This progress entry already has a pending change request. Cancel it or wait for the BU Head decision before editing it again.",
         existingLog: log,
       });
       return;
@@ -462,7 +548,7 @@ export default function ProgressCalendar({
     setSelectedAttachmentIndex(null);
     setShowExistingLogModal(false);
     setShowProgressFormModal(true);
-  }, [canUpdateProgress]);
+  }, [canUpdateProgress, pendingDecreaseRequests]);
 
   const checkCanAddForSelectedDate = useCallback(async () => {
     const date = selectedDate.format("YYYY-MM-DD");
@@ -511,13 +597,23 @@ export default function ProgressCalendar({
   // =========================
   // SAVE HANDLER WITH LOADING
   // =========================
-  const handleSave = useCallback(async (completionConfirmed = false) => {
+  const handleSave = useCallback(async (completionConfirmed = false, decreaseConfirmed = false) => {
     if (!canUpdateProgress) {
       setError("You don't have access to update progress.");
       return;
     }
 
     if (!validateProgress()) return;
+
+    if (isDecreaseRequest && !remarks.trim()) {
+      setError("Remarks are required when requesting a progress decrease.");
+      return;
+    }
+
+    if (isDecreaseRequest && !decreaseConfirmed) {
+      setDecreaseConfirmOpen(true);
+      return;
+    }
 
     if (isCompletingSubtask && incompleteChecklists.length > 0) {
       setBlockDialog({
@@ -551,15 +647,32 @@ export default function ProgressCalendar({
       setSavedProgressFeedback({ mode: feedbackMode, value });
 
       if (editingLog?.id) {
-        await dispatch(
+        const updateResult = await dispatch(
           updateProgressLog(editingLog.id, {
             subtaskId,
             dailyPercent: value,
             remarks,
-            files: attachments.length ? attachments : undefined,
-            removeAttachmentIds: removedAttachmentIds,
+            files: isDecreaseRequest || !attachments.length ? undefined : attachments,
+            removeAttachmentIds: isDecreaseRequest ? undefined : removedAttachmentIds,
           }),
         );
+        if (updateResult?.data?.request?.status === "PENDING") {
+          const request = updateResult.data.request;
+          setSavedProgressFeedback({
+            mode: "pending",
+            value,
+            approverName:
+              request.assignedApprover?.name ||
+              request.assignedBuHead?.name,
+          });
+          setSaveModalOpen(false);
+          setRequestResult("submitted");
+          try {
+            await notifyProgressUpdate("SUBMITTED", request);
+          } catch (emailError) {
+            console.warn("Progress request email notification failed:", emailError);
+          }
+        }
       } else {
         //  saveProgressLog now handles ALL refresh logic internally
         await dispatch(
@@ -615,10 +728,10 @@ export default function ProgressCalendar({
       const errorCode = err.response?.data?.error;
       const message = err.response?.data?.message || "Failed to save progress";
 
-      if (errorCode === "UPDATE_LIMIT_REACHED") {
+      if (errorCode === "PROGRESS_UPDATE_PENDING") {
         setBlockDialog({
           open: true,
-          reason: "UPDATE_LIMIT_REACHED",
+          reason: "PROGRESS_UPDATE_PENDING",
           message,
           existingLog: editingLog,
         });
@@ -647,6 +760,7 @@ export default function ProgressCalendar({
     removedAttachmentIds,
     isCompletingSubtask,
     incompleteChecklists,
+    isDecreaseRequest,
   ]);
 
   const remainingProgress = 100 - cumulativeProgress;
@@ -663,6 +777,11 @@ export default function ProgressCalendar({
       {error && (
         <Alert severity="error" sx={{ gridColumn: "1/-1" }}>
           {error}
+        </Alert>
+      )}
+      {success && !saveModalOpen && (
+        <Alert severity="success" onClose={() => setSuccess(false)} sx={{ gridColumn: "1/-1" }}>
+          Pending progress decrease request cancelled. Applied progress was unchanged.
         </Alert>
       )}
       {loadingSubtask && (
@@ -705,6 +824,9 @@ export default function ProgressCalendar({
             const logsForDate = logs[key] || [];
             const isSelected = selectedDate.isSame(date, "day");
             const firstLog = logsForDate[0];
+            const pendingForDate = pendingDecreaseRequests.some(
+              (request) => request.progressLog?.date && dayjs(request.progressLog.date).isSame(date, "day"),
+            );
 
             return (
               <Box
@@ -715,7 +837,7 @@ export default function ProgressCalendar({
                 sx={{
                   height: 100,
                   minWidth: 0,
-                  border: "1px solid #ddd",
+                  border: pendingForDate ? "2px solid #ED6C02" : "1px solid #ddd",
                   p: 1,
                   cursor: "pointer",
                   backgroundColor: getBackgroundColor(date, logsForDate, isSelected),
@@ -731,6 +853,15 @@ export default function ProgressCalendar({
                 <Typography fontSize={12} fontWeight="bold">
                   {date.date()}
                 </Typography>
+
+                {pendingForDate && (
+                  <Chip
+                    label="Pending approval"
+                    size="small"
+                    color="warning"
+                    sx={{ height: 18, mt: 0.4, maxWidth: "100%", fontSize: 8.5, "& .MuiChip-label": { px: 0.6, overflow: "hidden", textOverflow: "ellipsis" } }}
+                  />
+                )}
 
                 {logsForDate.length > 0 && (
                   <>
@@ -953,6 +1084,51 @@ export default function ProgressCalendar({
         </Typography>
         <Divider sx={{ my: 2 }} />
 
+        {pendingRequestsForSelectedDate.length > 0 && (
+          <Stack spacing={1} sx={{ mb: 2 }}>
+            {pendingRequestsForSelectedDate.map((request) => (
+              <Box
+                key={request.id}
+                sx={{
+                  p: 1.5,
+                  border: "1px solid #ed6c02",
+                  borderRadius: 2,
+                  backgroundColor: "#fff7ed",
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                  <Typography sx={{ fontWeight: 700, fontSize: 13, color: "#9a3412" }}>
+                    Update pending approval
+                  </Typography>
+                  <Chip label="PENDING" color="warning" size="small" />
+                </Stack>
+                <Typography sx={{ mt: 1, fontWeight: 700, fontSize: 18 }}>
+                  {formatPercent(request.currentPercent)}% → {formatPercent(request.requestedPercent)}%
+                </Typography>
+                <Typography variant="caption" sx={{ display: "block", mt: 0.5, color: "#6b4f3a" }}>
+                  Approver: {request.assignedApprover?.name || request.assignedBuHead?.name || "Assigned BU Head"}
+                </Typography>
+                <Typography variant="caption" sx={{ display: "block", mt: 0.5, color: "#6b4f3a" }}>
+                  Editing is locked. Current progress remains {formatPercent(request.currentPercent)}% until a decision is made.
+                </Typography>
+                {request.canCancel === true && (
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    size="small"
+                    fullWidth
+                    sx={{ mt: 1.5 }}
+                    disabled={cancellingRequestId === request.id}
+                    onClick={() => setCancelRequestTarget(request)}
+                  >
+                    {cancellingRequestId === request.id ? "Cancelling..." : "Cancel request"}
+                  </Button>
+                )}
+              </Box>
+            ))}
+          </Stack>
+        )}
+
         {/* Cumulative Progress Info - ALWAYS VISIBLE */}
             <Box
               sx={{
@@ -1036,7 +1212,7 @@ export default function ProgressCalendar({
         )}
 
         {/* Submit Progress Button */}
-        {canUpdateProgress && (
+        {canUpdateProgress && !hasPendingRequestForSelectedDate && (
         <Button
           variant="contained"
           fullWidth
@@ -1051,6 +1227,15 @@ export default function ProgressCalendar({
               : "Submit Progress"}
         </Button>
         )}
+
+        {/* Recent Activities Timeline */}
+        <Box sx={{ mt: 4 }}>
+          <Divider sx={{ mb: 2 }} />
+          <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: "bold", display: "flex", alignItems: "center", gap: 1 }}>
+            📊 Recent Activities
+          </Typography>
+          <ProgressActivityTimeline key={`${subtaskId}-${logsArray.length}`} subtaskId={subtaskId} limit={8} />
+        </Box>
       </Paper>
 
       <Dialog
@@ -1073,8 +1258,8 @@ export default function ProgressCalendar({
               ? "Checklist Not Complete"
             : blockDialog.reason === "NOT_ASSIGNED"
               ? "Not Assigned"
-              : blockDialog.reason === "UPDATE_LIMIT_REACHED"
-                ? "Update Limit Reached"
+              : blockDialog.reason === "PROGRESS_UPDATE_PENDING"
+                ? "Decrease Already Pending"
                 : "Unable to Add Progress"}
         </DialogTitle>
         <DialogContent dividers>
@@ -1241,16 +1426,25 @@ export default function ProgressCalendar({
 
             {/* Remarks */}
             <TextField
-              label="Remarks"
+              label={isDecreaseRequest ? "Reason for decrease" : "Remarks"}
               multiline
               rows={3}
               fullWidth
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
+              required={isDecreaseRequest}
+              error={isDecreaseRequest && !remarks.trim()}
+              helperText={isDecreaseRequest ? "Required for BU Head approval" : undefined}
               sx={{ mt: 2 }}
             />
 
-            {editingLog?.attachments?.length ? (
+            {isDecreaseRequest && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                Decreasing this entry will submit a request to the assigned BU Head. The current progress remains unchanged until it is approved. Attachments cannot be changed in a decrease request.
+              </Alert>
+            )}
+
+            {!isDecreaseRequest && editingLog?.attachments?.length ? (
               <Box sx={{ mt: 2 }}>
                 <Typography variant="caption" sx={{ color: "#666" }}>
                   Existing Attachments
@@ -1306,7 +1500,7 @@ export default function ProgressCalendar({
             ) : null}
 
             {/* Attachments Upload */}
-            {canUpdateProgress && (
+            {canUpdateProgress && !isDecreaseRequest && (
             <Box sx={{ mt: 2 }}>
               <input
                 accept="*/*"
@@ -1471,7 +1665,9 @@ export default function ProgressCalendar({
               <>
                 <CircularProgress size={60} sx={{ mb: 2 }} />
                 <Typography sx={{ mt: 2, color: "#666" }}>
-                  {savedProgressFeedback?.mode === "edit"
+                  {savedProgressFeedback?.mode === "pending"
+                    ? "Submitting approval request..."
+                    : savedProgressFeedback?.mode === "edit"
                     ? "Updating progress..."
                     : "Adding progress to your subtask..."}
                 </Typography>
@@ -1484,10 +1680,14 @@ export default function ProgressCalendar({
                 <Typography
                   sx={{ fontWeight: "bold", color: "#2E7D32", fontSize: 18 }}
                 >
-                  Progress Saved Successfully! ✔
+                  {savedProgressFeedback?.mode === "pending"
+                    ? "Decrease Submitted for Approval"
+                    : "Progress Saved Successfully! ✔"}
                 </Typography>
                 <Typography sx={{ mt: 1, color: "#666" }}>
-                  {savedProgressFeedback?.mode === "edit"
+                  {savedProgressFeedback?.mode === "pending"
+                    ? `Requested change to ${formatPercent(savedProgressFeedback.value)}%. Current progress is unchanged pending approval by ${savedProgressFeedback.approverName || "the assigned BU Head"}.`
+                    : savedProgressFeedback?.mode === "edit"
                     ? `Progress updated to ${formatPercent(savedProgressFeedback.value)}%`
                     : `+${formatPercent(savedProgressFeedback?.value ?? 0)}% added to your progress`}
                 </Typography>
@@ -1521,16 +1721,16 @@ export default function ProgressCalendar({
           </Typography>
 
           <Stack direction="row" spacing={1} alignItems="center">
-            {canUpdateProgress && selectedLogForDetails?.id ? (
+            {canUpdateProgress && selectedLogForDetails?.id && !selectedLogHasPendingRequest ? (
               <Button
                 variant="outlined"
-                disabled={getProgressUpdateCount(selectedLogForDetails) >= MAX_PROGRESS_UPDATE_COUNT}
                 onClick={() => openEditProgressForm(selectedLogForDetails)}
               >
-                {getProgressUpdateCount(selectedLogForDetails) >= MAX_PROGRESS_UPDATE_COUNT
-                  ? "Update Limit Reached"
-                  : "Edit / Resubmit"}
+                Edit / Resubmit
               </Button>
+            ) : null}
+            {selectedLogHasPendingRequest ? (
+              <Chip label="Pending approval · Editing locked" color="warning" />
             ) : null}
             <Button
               variant="contained"
@@ -1592,14 +1792,21 @@ export default function ProgressCalendar({
                     </Typography>
                   </Box>
 
-                  <Box>
-                    <Typography variant="caption" sx={{ color: "#666" }}>
-                      Updates Used
-                    </Typography>
-                    <Typography variant="body2">
-                      {getProgressUpdateCount(selectedLogForDetails)} / {MAX_PROGRESS_UPDATE_COUNT}
-                    </Typography>
-                  </Box>
+                  {pendingDecreaseRequests
+                    .filter((request) => request.progressLogId === selectedLogForDetails.id)
+                    .map((request) => (
+                      <Alert
+                        key={request.id}
+                        severity="warning"
+                        action={request.canCancel === true ? (
+                          <Button color="inherit" size="small" disabled={cancellingRequestId === request.id} onClick={() => setCancelRequestTarget(request)}>
+                            Cancel request
+                          </Button>
+                        ) : undefined}
+                      >
+                        A decrease to {formatPercent(request.requestedPercent)}% is awaiting BU Head approval. Applied progress is still {formatPercent(request.currentPercent)}%.
+                      </Alert>
+                    ))}
 
                   {selectedLogForDetails.location && (
                     <Box>
@@ -2034,6 +2241,37 @@ export default function ProgressCalendar({
           )}
         </DialogContent>
       </Dialog>
+      <ConfirmationModal
+        open={decreaseConfirmOpen}
+        title="Submit progress decrease request?"
+        message={`Changing this entry from ${formatPercent(editingLog?.dailyPercent)}% to ${formatPercent(dailyPercent)}% requires approval by ${decreaseApproverName || "the assigned BU Head"}. Current progress will remain unchanged until it is approved.`}
+        confirmLabel="Submit request"
+        loading={checkingCanAdd || saveModalOpen}
+        onClose={() => setDecreaseConfirmOpen(false)}
+        onConfirm={() => {
+          setDecreaseConfirmOpen(false);
+          void handleSave(false, true);
+        }}
+      />
+      <ConfirmationModal
+        open={Boolean(cancelRequestTarget)}
+        title="Cancel progress request?"
+        message="The pending decrease request will be cancelled. Applied progress will remain unchanged, and the assigned BU Head will be notified."
+        confirmLabel="Cancel request"
+        danger
+        loading={Boolean(cancellingRequestId)}
+        onClose={() => setCancelRequestTarget(null)}
+        onConfirm={() => { if (cancelRequestTarget) void cancelPendingDecrease(cancelRequestTarget); }}
+      />
+      <WorkflowResultModal
+        open={Boolean(requestResult)}
+        title={requestResult === "submitted" ? "Progress Request Submitted" : "Progress Request Cancelled"}
+        message={requestResult === "submitted" ? "Your progress decrease request was successfully submitted." : "Your progress decrease request was successfully cancelled."}
+        helperText={requestResult === "submitted" ? `Current progress remains unchanged while waiting for approval by ${decreaseApproverName || "the assigned BU Head"}.` : "Existing progress remains unchanged. The assigned BU Head has been notified."}
+        buttonLabel="Back to Progress Calendar"
+        tone={requestResult === "submitted" ? "warning" : "neutral"}
+        onClose={() => setRequestResult(null)}
+      />
     </Box>
   );
 }

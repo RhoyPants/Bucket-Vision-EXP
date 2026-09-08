@@ -5,6 +5,7 @@ import {
   accessDeniedEventName,
   AccessDeniedDetail,
 } from "@/app/lib/accessDeniedEvent";
+import { publishApiError } from "@/app/lib/apiErrorEvent";
 
 // Verify API base URL is configured
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -96,6 +97,32 @@ const notifyAccessDenied = (response: { config?: { method?: string; url?: string
   window.dispatchEvent(new CustomEvent(accessDeniedEventName, { detail }));
 };
 
+const responseMessage = (data: any, fallback: string) => {
+  if (typeof data?.message === "string" && data.message.trim()) return data.message;
+  if (typeof data?.error === "string" && data.error.trim()) return data.error;
+  if (typeof data?.error?.message === "string" && data.error.message.trim()) return data.error.message;
+  return fallback;
+};
+
+const notifyApiError = (detail: {
+  status?: number;
+  data?: any;
+  method?: string;
+  url?: string;
+  title?: string;
+  redirectTo?: string;
+  fallback: string;
+}) => {
+  publishApiError({
+    title: detail.title || "Request failed",
+    message: responseMessage(detail.data, detail.fallback),
+    status: detail.status,
+    method: detail.method?.toUpperCase(),
+    path: normalizeRequestPath(detail.url),
+    redirectTo: detail.redirectTo,
+  });
+};
+
 // 🔐 Auto-attach token from Redux before every request
 axiosApi.interceptors.request.use(
   (config) => {
@@ -139,6 +166,7 @@ axiosApi.interceptors.response.use(
           response.data?.error ||
           response.data?.message ||
           "Unauthorized request. The API route may be missing authentication middleware.";
+        notifyApiError({ status: 401, data: response.data, method: response.config.method, url: response.config.url, title: "Unauthorized", fallback: String(message) });
         return Promise.reject(new Error(message));
       }
       console.error("❌ API Error 401: Unauthorized — token expired");
@@ -155,8 +183,9 @@ axiosApi.interceptors.response.use(
       if (!isSsoFlow && typeof window !== "undefined") {
         console.log("🔴 Redirecting to /");
         localStorage.removeItem("token");
-        window.location.href = "/";
+        notifyApiError({ status: 401, data: response.data, method: response.config.method, url: response.config.url, title: "Session expired", fallback: "Your session has expired. Please sign in again.", redirectTo: "/" });
       } else {
+        notifyApiError({ status: 401, data: response.data, method: response.config.method, url: response.config.url, title: "Unable to continue", fallback: "This request requires authorization." });
         console.log("🟢 Skipping redirect because an SSO flow is active");
       }
 
@@ -165,8 +194,16 @@ axiosApi.interceptors.response.use(
 
     // Handle other error statuses
     if (response.status >= 400) {
-      if (response.status === 403) {
+      if (response.status === 403 && mutatingMethods.has(response.config.method?.toLowerCase() || "")) {
         notifyAccessDenied(response);
+      } else {
+        notifyApiError({
+          status: response.status,
+          data: response.data,
+          method: response.config.method,
+          url: response.config.url,
+          fallback: `The server returned HTTP ${response.status}.`,
+        });
       }
 
       console.error("❌ API Error:", response.status, response.data);
@@ -189,22 +226,27 @@ axiosApi.interceptors.response.use(
       baseURL: error.config?.baseURL,
     });
 
+    if (error.code === "ERR_CANCELED") return Promise.reject(error);
+
     // Network-level error handling
     if (error.code === "ECONNABORTED") {
       const msg = "❌ Request timeout - Server not responding in time";
       console.error(msg);
+      notifyApiError({ method: error.config?.method, url: error.config?.url, title: "Request timed out", fallback: "The server did not respond in time. Please try again." });
       return Promise.reject(new Error(msg));
     }
 
     if (error.code === "ERR_NETWORK") {
       const msg = "❌ Network error - Check CORS, API base URL, or server connection";
       console.error(msg);
+      notifyApiError({ method: error.config?.method, url: error.config?.url, title: "Connection problem", fallback: "The server could not be reached. Check your connection and try again." });
       return Promise.reject(new Error(msg));
     }
 
     if (error.message === "Network Error") {
       const msg = "❌ Network Error - Server unreachable or CORS issue. Check API base URL in .env.local";
       console.error(msg);
+      notifyApiError({ method: error.config?.method, url: error.config?.url, title: "Connection problem", fallback: "The server could not be reached. Check your connection and try again." });
       return Promise.reject(new Error(msg));
     }
 

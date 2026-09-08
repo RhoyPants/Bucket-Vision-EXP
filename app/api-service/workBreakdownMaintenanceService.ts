@@ -34,6 +34,19 @@ export interface MaintenanceHierarchyTask extends MaintenanceRecord {
 
 export interface MaintenanceHierarchyScope extends MaintenanceRecord {
   tasks?: MaintenanceHierarchyTask[];
+  templateId?: string;
+  templateName?: string;
+  templateCode?: string;
+  templateBusinessUnits?: WbsBusinessUnit[];
+}
+
+export interface WbsBusinessUnit { id: string; code?: string; name?: string }
+export interface MaintenanceHierarchyGroup {
+  templateId: string;
+  templateName: string;
+  templateCode?: string;
+  businessUnits: WbsBusinessUnit[];
+  scopes: MaintenanceHierarchyScope[];
 }
 
 export type ProjectMaintenanceHierarchyStatus =
@@ -54,6 +67,8 @@ export interface ProjectMaintenanceHierarchyMeta {
 
 export interface ProjectMaintenanceHierarchyResult {
   data: MaintenanceHierarchyScope[];
+  groups?: MaintenanceHierarchyGroup[];
+  unassignedBusinessUnits?: WbsBusinessUnit[];
   meta?: ProjectMaintenanceHierarchyMeta;
 }
 
@@ -117,6 +132,8 @@ const maintenanceListInFlight = new Map<MaintenanceKind, Promise<MaintenanceReco
 const relatedListInFlight = new Map<string, Promise<MaintenanceRecord[]>>();
 let hierarchyInFlight: Promise<MaintenanceHierarchyScope[]> | null = null;
 const projectHierarchyInFlight = new Map<string, Promise<ProjectMaintenanceHierarchyResult>>();
+const projectHierarchyCache = new Map<string, { value: ProjectMaintenanceHierarchyResult; expiresAt: number }>();
+const PROJECT_HIERARCHY_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const dedupeRelatedRequest = (key: string, request: () => Promise<MaintenanceRecord[]>) => {
   const existing = relatedListInFlight.get(key);
@@ -168,22 +185,42 @@ export async function getMaintenanceHierarchy() {
   return hierarchyInFlight;
 }
 
-export async function getProjectMaintenanceHierarchyResult(projectId: string) {
-  const existing = projectHierarchyInFlight.get(projectId);
+export async function getProjectMaintenanceHierarchyResult(projectId?: string, businessUnitIds?: string[]) {
+  const key = businessUnitIds?.length ? `bu:${[...businessUnitIds].sort().join(",")}` : `project:${projectId || ""}`;
+  const cached = projectHierarchyCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  if (cached) projectHierarchyCache.delete(key);
+  const existing = projectHierarchyInFlight.get(key);
   if (existing) return existing;
   const request = axiosApi
-    .get(`${baseRoute}/hierarchy`, { params: { projectId } })
-    .then((response) => ({
-      data: unwrapList(response.data) as MaintenanceHierarchyScope[],
-      meta: response.data?.meta as ProjectMaintenanceHierarchyMeta | undefined,
-    }))
-    .finally(() => projectHierarchyInFlight.delete(projectId));
-  projectHierarchyInFlight.set(projectId, request);
+    .get(`${baseRoute}/hierarchy`, { params: businessUnitIds?.length ? { businessUnitIds: businessUnitIds.join(",") } : { projectId } })
+    .then((response) => {
+      const raw = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.data)
+          ? response.data.data
+          : [];
+      const grouped = raw.length > 0 && Array.isArray(raw[0]?.scopes);
+      const groups = grouped ? raw as MaintenanceHierarchyGroup[] : undefined;
+      const data = groups
+        ? groups.flatMap((group) => (group.scopes || []).map((scope) => ({ ...scope, templateId: group.templateId, templateName: group.templateName, templateCode: group.templateCode, templateBusinessUnits: group.businessUnits || [] })))
+        : unwrapList(response.data) as MaintenanceHierarchyScope[];
+      const result = {
+        data,
+        groups,
+        unassignedBusinessUnits: (Array.isArray(response.data) ? undefined : response.data?.unassignedBusinessUnits) as WbsBusinessUnit[] | undefined,
+        meta: response.data?.meta as ProjectMaintenanceHierarchyMeta | undefined,
+      };
+      projectHierarchyCache.set(key, { value: result, expiresAt: Date.now() + PROJECT_HIERARCHY_CACHE_TTL_MS });
+      return result;
+    })
+    .finally(() => projectHierarchyInFlight.delete(key));
+  projectHierarchyInFlight.set(key, request);
   return request;
 }
 
-export async function getProjectMaintenanceHierarchy(projectId: string) {
-  return (await getProjectMaintenanceHierarchyResult(projectId)).data;
+export async function getProjectMaintenanceHierarchy(projectId?: string, businessUnitIds?: string[]) {
+  return (await getProjectMaintenanceHierarchyResult(projectId, businessUnitIds)).data;
 }
 
 export async function getMaintenanceTables() {

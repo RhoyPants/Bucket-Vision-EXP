@@ -24,6 +24,7 @@ import {
 } from "@/app/api-service/projectService";
 import {
   setApprovalCount,
+  setApprovalCounts,
   setNeedsRevisionCount,
 } from "../slices/notificationCountSlice";
 
@@ -284,7 +285,16 @@ export const getMyApprovalsProjects = (params?: ProjectListQuery) => {
 
       dispatch(setProjects(projectsData));
       dispatch(setProjectPagination(meta));
-      dispatch(setApprovalCount(meta.total));
+      const approvalCounts = response?.approvalCounts || response?.data?.approvalCounts;
+      if (approvalCounts) {
+        dispatch(setApprovalCounts({
+          projectApprovals: Number(approvalCounts.projectApprovals ?? meta.total) || 0,
+          progressUpdates: Number(approvalCounts.progressUpdates ?? 0) || 0,
+          total: Number(approvalCounts.total ?? meta.total) || 0,
+        }));
+      } else {
+        dispatch(setApprovalCount(meta.total));
+      }
 
       return projectsData;
     } catch (err) {

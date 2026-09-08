@@ -26,6 +26,7 @@ interface SubtaskListProps {
   setSubtaskInputs: (inputs: any) => void;
   members: any[];
   projectId?: string;
+  wbsBusinessUnitIds?: string[];
   onUpdateSubtask: (subId: string, taskId: string) => void;
   onDeleteSubtask: (subId: string, taskId: string) => void;
   onEditSubtask: (sub: any, taskId: string) => void;
@@ -68,6 +69,7 @@ export default function SubtaskList({
   setSubtaskInputs,
   members,
   projectId,
+  wbsBusinessUnitIds = [],
   onUpdateSubtask,
   onDeleteSubtask,
   onEditSubtask,
@@ -152,6 +154,7 @@ export default function SubtaskList({
         </SortableContext>
 
         {!reorderOnly && <SubtaskForm
+          wbsBusinessUnitIds={wbsBusinessUnitIds}
           taskId={task.id}
           taskName={task.title}
           taskMaintenanceId={task.taskMaintenanceId}

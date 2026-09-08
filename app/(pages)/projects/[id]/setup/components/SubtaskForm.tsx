@@ -14,6 +14,7 @@ import {
   IconButton,
   Alert,
   Switch,
+  Autocomplete,
 } from "@mui/material";
 import { useAppSelector } from "@/app/redux/hook";
 import AssignUsersSelect from "@/app/components/shared/selectors/AssignUsersSelect";
@@ -35,6 +36,7 @@ import {
   updateMaintenanceRecord,
   MaintenanceRecord,
 } from "@/app/api-service/workBreakdownMaintenanceService";
+import AnchoredDropdownPopper from "@/app/components/shared/selectors/AnchoredDropdownPopper";
 
 interface SubtaskFormProps {
   taskId: string;
@@ -44,6 +46,7 @@ interface SubtaskFormProps {
   budgetRequired?: boolean;
   existingSubtasks?: any[];
   projectId?: string;
+  wbsBusinessUnitIds?: string[];
   subtaskInputs: Record<string, any>;
   setSubtaskInputs: (inputs: any) => void;
   members?: any[];
@@ -58,6 +61,7 @@ export default function SubtaskForm({
   budgetRequired = true,
   existingSubtasks = [],
   projectId,
+  wbsBusinessUnitIds = [],
   subtaskInputs,
   setSubtaskInputs,
   members,
@@ -93,7 +97,7 @@ export default function SubtaskForm({
 
   const loadMaintenanceSubtasks = async () => {
     if (!taskMaintenanceId || !projectId) return [];
-    const hierarchy = await getProjectMaintenanceHierarchy(projectId);
+    const hierarchy = await getProjectMaintenanceHierarchy(projectId, wbsBusinessUnitIds);
     const items = hierarchy.flatMap((scope) => scope.tasks ?? []).find((task) => task.id === taskMaintenanceId)?.subtasks ?? [];
     setMaintenanceSubtasks(items);
     return items;
@@ -107,7 +111,7 @@ export default function SubtaskForm({
 
     let active = true;
     setMaintenanceLoading(true);
-    getProjectMaintenanceHierarchy(projectId)
+    getProjectMaintenanceHierarchy(projectId, wbsBusinessUnitIds)
       .then((hierarchy) => {
         const items = hierarchy.flatMap((scope) => scope.tasks ?? []).find((task) => task.id === taskMaintenanceId)?.subtasks ?? [];
         if (active) setMaintenanceSubtasks(items);
@@ -118,7 +122,7 @@ export default function SubtaskForm({
     return () => {
       active = false;
     };
-  }, [taskMaintenanceId, projectId]);
+  }, [taskMaintenanceId, projectId, wbsBusinessUnitIds]);
 
   // Include owner with engaged users
   const assignableUsers = useMemo(() => {
@@ -305,42 +309,23 @@ export default function SubtaskForm({
 
       {/* Title */}
       {taskMaintenanceId ? (
-        <TextField
-          select
+        <Autocomplete
           size="small"
-          label="Title"
-          value={form.subtaskMaintenanceId || ""}
-          onChange={(e) => {
-            const value = e.target.value;
-            const selected = maintenanceSubtasks.find(
-              (item) => item.id === value,
-            );
-            handleChange("sourceType", "MAINTENANCE");
-            handleChange("subtaskMaintenanceId", value);
+          options={availableMaintenanceSubtasks}
+          value={availableMaintenanceSubtasks.find((subtask) => subtask.id === form.subtaskMaintenanceId) || null}
+          getOptionLabel={(subtask) => `${subtask.name} (${subtask.code})`}
+          isOptionEqualToValue={(option, selected) => option.id === selected.id}
+          onChange={(_, selected) => {
+            handleChange("sourceType", selected ? "MAINTENANCE" : "");
+            handleChange("subtaskMaintenanceId", selected?.id || "");
             handleChange("title", selected?.name || "");
           }}
           onBlur={() => handleBlur("title")}
-          error={hasFieldError("title", errors)}
-          helperText={
-            getFieldError("title", errors) ||
-            "Select a subtask allowed under this task."
-          }
           disabled={saving || maintenanceLoading}
-          SelectProps={{
-            MenuProps: {
-              PaperProps: { sx: { maxHeight: 280 } },
-            },
-          }}
-        >
-          <MenuItem value="" disabled>
-            Select subtask
-          </MenuItem>
-          {availableMaintenanceSubtasks.map((subtask) => (
-            <MenuItem key={subtask.id} value={subtask.id}>
-              {subtask.name} ({subtask.code})
-            </MenuItem>
-          ))}
-        </TextField>
+          slots={{ popper: AnchoredDropdownPopper }}
+          slotProps={{ listbox: { sx: { maxHeight: 280, "& .MuiAutocomplete-option": { fontSize: 12, "&:hover": { bgcolor: "#E8E1F8" }, "&.Mui-focused": { bgcolor: "#DED3F5" }, '&[aria-selected="true"]': { bgcolor: "#D4C6F0", color: "#24106F", fontWeight: 700 } } } } }}
+          renderInput={(params) => <TextField {...params} label="Title" error={hasFieldError("title", errors)} helperText={getFieldError("title", errors) || "Select a subtask allowed under this task."} />}
+        />
       ) : (
         <TextField
           size="small"

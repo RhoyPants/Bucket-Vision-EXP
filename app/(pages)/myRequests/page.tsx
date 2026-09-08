@@ -10,6 +10,8 @@ import {
   TextField,
   MenuItem,
   InputAdornment,
+  Tab,
+  Tabs,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import SearchIcon from "@mui/icons-material/Search";
@@ -26,6 +28,7 @@ import { usePermissions } from "@/app/lib/usePermissions";
 import NeedsRevisionModal from "@/app/components/shared/modals/NeedsRevisionModal";
 import { brandColors } from "@/app/lib/theme";
 import axiosApi from "@/app/lib/axios";
+import ProgressUpdateRequestHistory from "./ProgressUpdateRequestHistory";
 
 type MyRequestProject = {
   id: string;
@@ -55,6 +58,7 @@ export default function MyRequestsPage() {
   const [businessUnitFilter, setBusinessUnitFilter] = useState("ALL");
   const [needsRevisionOpen, setNeedsRevisionOpen] = useState(false);
   const [needsRevisionInfo, setNeedsRevisionInfo] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<"projects" | "progress">("projects");
 
   const openNeedsRevisionModal = async (project: any) => {
     try {
@@ -179,6 +183,14 @@ export default function MyRequestsPage() {
     <Layout>
       <Guard module="PROJECTS" action="READ">
         <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1600, mx: "auto" }}>
+          <Paper elevation={0} sx={{ mb: 2, border: `1px solid ${brandColors.lavender}`, borderRadius: 3, overflow: "hidden" }}>
+            <Tabs value={activeTab} onChange={(_, value: "projects" | "progress") => setActiveTab(value)} variant="scrollable" scrollButtons="auto" sx={{ px: 1, "& .MuiTab-root": { minHeight: 54, textTransform: "none", fontWeight: 800 } }}>
+              <Tab value="projects" label="Project Requests" />
+              <Tab value="progress" label="Progress Updates" />
+            </Tabs>
+          </Paper>
+
+          {activeTab === "projects" ? <>
           <Paper
             elevation={0}
             sx={{
@@ -292,6 +304,7 @@ export default function MyRequestsPage() {
             isFiltered={Boolean(debouncedSearch || statusFilter !== "ALL" || businessUnitFilter !== "ALL")}
             filteredEmptyMessage="No requests match the selected filters."
           />
+          </> : <ProgressUpdateRequestHistory />}
 
           <NeedsRevisionModal
             open={needsRevisionOpen}

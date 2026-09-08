@@ -22,6 +22,7 @@ interface Props {
   // 🔥 OPTIONAL (pass from subtask if available)
   expectedStart?: string;
   expectedEnd?: string;
+  initialDate?: string;
 }
 
 export default function ProgressCalendarModal({
@@ -32,18 +33,20 @@ export default function ProgressCalendarModal({
   isTaskBoard = false,
   expectedStart,
   expectedEnd,
+  initialDate,
 }: Props) {
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-        <DialogTitle>📅 Progress Calendar</DialogTitle>
+    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth sx={{ "& .MuiDialog-paper": { minHeight: "80vh" } }}>
+        <DialogTitle sx={{ fontWeight: 700 }}>📅 Progress Calendar</DialogTitle>
 
-        <DialogContent>
+        <DialogContent dividers>
           <Box sx={{ mt: 1 }}>
             <ProgressCalendar
               subtaskId={subtaskId}
               isTaskBoard={isTaskBoard}
               projectedStartDate={expectedStart}
               projectedEndDate={expectedEnd}
+              initialDate={initialDate}
               onSuccess={onSuccess}
             />
           </Box>

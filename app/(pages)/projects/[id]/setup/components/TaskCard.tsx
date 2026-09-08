@@ -41,6 +41,7 @@ interface TaskCardProps {
   setSubtaskInputs: (inputs: any) => void;
   members: any[];
   projectId?: string;
+  wbsBusinessUnitIds?: string[];
   onDeleteTask: (taskId: string) => void;
   onUpdateTask: (taskId: string, updates: any) => void;
   onUpdateSubtask: (subId: string, taskId: string) => void;
@@ -66,6 +67,7 @@ function TaskCard({
   setSubtaskInputs,
   members,
   projectId,
+  wbsBusinessUnitIds = [],
   onDeleteTask,
   onUpdateTask,
   onUpdateSubtask,
@@ -94,10 +96,10 @@ function TaskCard({
   useEffect(() => {
     if (!scopeMaintenanceId || !projectId) return;
     setMaintenanceLoading(true);
-    getProjectMaintenanceHierarchy(projectId)
+    getProjectMaintenanceHierarchy(projectId, wbsBusinessUnitIds)
       .then((hierarchy) => setMaintenanceTasks((hierarchy.find((item) => item.id === scopeMaintenanceId)?.tasks ?? []).filter((item) => item.isActive !== false)))
       .finally(() => setMaintenanceLoading(false));
-  }, [scopeMaintenanceId, projectId]);
+  }, [scopeMaintenanceId, projectId, wbsBusinessUnitIds]);
 
   const usesAvailableMaintenanceTask = Boolean(
     task.taskMaintenanceId && maintenanceTasks.some((item) => item.id === task.taskMaintenanceId),
@@ -409,6 +411,7 @@ function TaskCard({
         {/* SUBTASK SECTION */}
         {!isEditing && (
           <SubtaskList
+            wbsBusinessUnitIds={wbsBusinessUnitIds}
             task={task}
             budgetRequired={budgetRequired}
             taskOrderLabel={orderLabel}

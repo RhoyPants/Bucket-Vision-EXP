@@ -98,7 +98,6 @@ export const saveProgressLog = (data: {
   file?: File;
   remarks?: string;
   location?: string;
-  dayNumber?: number;
 }) => {
   return async (dispatch: AppDispatch, getState: any) => {
     try {
@@ -147,10 +146,6 @@ export const saveProgressLog = (data: {
 
       if (data.location) {
         formData.append("location", data.location);
-      }
-
-      if (data.dayNumber) {
-        formData.append("dayNumber", String(data.dayNumber));
       }
 
       const uniqueFiles = data.files?.filter(

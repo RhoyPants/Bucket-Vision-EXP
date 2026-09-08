@@ -1,5 +1,5 @@
-import { Box, Button, TextField, Alert, Typography, Chip, Backdrop, CircularProgress, Stack, MenuItem, Dialog, DialogActions, DialogContent, DialogTitle } from "@mui/material";
-import { useEffect, useState } from "react";
+import { Box, Button, TextField, Alert, Typography, Chip, Backdrop, CircularProgress, Stack, Autocomplete, Paper } from "@mui/material";
+import { useEffect, useMemo, useState } from "react";
 import WarningIcon from "@mui/icons-material/Warning";
 import {
   validateScopeForm,
@@ -10,11 +10,12 @@ import {
 } from "@/app/utils/scopeValidation";
 import {
   getProjectMaintenanceHierarchyResult,
-  MaintenanceRecord,
+  MaintenanceHierarchyScope,
   ProjectMaintenanceHierarchyMeta,
 } from "@/app/api-service/workBreakdownMaintenanceService";
 import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import { scopeRequiresBudget } from "@/app/utils/budgetPolicy";
+import AnchoredDropdownPopper from "@/app/components/shared/selectors/AnchoredDropdownPopper";
 
 interface ScopeFormProps {
   scopeForm: {
@@ -28,6 +29,7 @@ interface ScopeFormProps {
   projectBudget?: number;
   existingScopes?: any[];
   projectId: string;
+  wbsBusinessUnitIds: string[];
 }
 
 export default function ScopeForm({
@@ -37,21 +39,34 @@ export default function ScopeForm({
   projectBudget = 0,
   existingScopes = [],
   projectId,
+  wbsBusinessUnitIds,
 }: ScopeFormProps) {
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
-  const [maintenanceScopes, setMaintenanceScopes] = useState<MaintenanceRecord[]>([]);
+  const [maintenanceScopes, setMaintenanceScopes] = useState<MaintenanceHierarchyScope[]>([]);
   const [maintenanceLoading, setMaintenanceLoading] = useState(true);
   const [maintenanceMeta, setMaintenanceMeta] = useState<ProjectMaintenanceHierarchyMeta | undefined>();
-  const [noAssignedWbsOpen, setNoAssignedWbsOpen] = useState(false);
+  const [unassignedBusinessUnits, setUnassignedBusinessUnits] = useState<Array<{ id: string; code?: string; name?: string }>>([]);
+  const [activeTemplateId, setActiveTemplateId] = useState("");
   const selectedScopeMaintenanceIds = new Set(
     (existingScopes || [])
       .map((scope) => scope.scopeMaintenanceId)
       .filter(Boolean),
   );
-  const availableMaintenanceScopes = maintenanceScopes.filter(
-    (scope) => !selectedScopeMaintenanceIds.has(scope.id),
+  // Keep every backend-returned LOV visible. Existing project scopes are
+  // disabled instead of removed so a valid BU/template never looks empty.
+  const availableMaintenanceScopes = maintenanceScopes;
+  const scopeGroups = useMemo(() => {
+    const groups = new Map<string, { id: string; label: string }>();
+    maintenanceScopes.forEach((scope) => {
+      const id = scope.templateId || scope.maintenanceTableId || "default";
+      if (!groups.has(id)) groups.set(id, { id, label: scope.templateBusinessUnits?.map((unit) => unit.code || unit.name).join(", ") || "Selected BU" });
+    });
+    return [...groups.values()];
+  }, [maintenanceScopes]);
+  const visibleMaintenanceScopes = availableMaintenanceScopes.filter(
+    (scope) => (scope.templateId || scope.maintenanceTableId || "default") === activeTemplateId,
   );
   const selectedMaintenanceScope = maintenanceScopes.find(
     (scope) => scope.id === scopeForm.scopeMaintenanceId,
@@ -59,14 +74,26 @@ export default function ScopeForm({
   const budgetRequired = scopeRequiresBudget(selectedMaintenanceScope?.code);
 
   useEffect(() => {
-    getProjectMaintenanceHierarchyResult(projectId)
+    if (!wbsBusinessUnitIds.length) {
+      setMaintenanceScopes([]);
+      setMaintenanceLoading(false);
+      return;
+    }
+    setMaintenanceLoading(true);
+    getProjectMaintenanceHierarchyResult(projectId, wbsBusinessUnitIds)
       .then((result) => {
         setMaintenanceMeta(result.meta);
         setMaintenanceScopes(result.data.filter((item) => item.isActive !== false));
-        setNoAssignedWbsOpen(result.meta?.status === "NO_ASSIGNED_WBS");
+        setUnassignedBusinessUnits(result.unassignedBusinessUnits || []);
       })
       .finally(() => setMaintenanceLoading(false));
-  }, [projectId]);
+  }, [projectId, wbsBusinessUnitIds]);
+
+  useEffect(() => {
+    if (!scopeGroups.some((group) => group.id === activeTemplateId)) {
+      setActiveTemplateId(scopeGroups[0]?.id || "");
+    }
+  }, [activeTemplateId, scopeGroups]);
 
   const handleSubmit = async () => {
     const validation = validateScopeForm(
@@ -129,6 +156,8 @@ export default function ScopeForm({
       {maintenanceMeta?.status === "EMPTY_ASSIGNED_WBS" && (
         <Alert severity="info" sx={{ mb: 2 }}>{maintenanceMeta.message || "The assigned WBS template has no active structure entries."}</Alert>
       )}
+      {!wbsBusinessUnitIds.length && <Alert severity="info" sx={{ mb: 2 }}>Select at least one WBS Business Unit to load the available scope LOV.</Alert>}
+      {unassignedBusinessUnits.length > 0 && <Alert severity="warning" sx={{ mb: 2 }}>No active WBS template: {unassignedBusinessUnits.map((unit) => unit.code || unit.name).join(", ")}. Other selected templates remain available.</Alert>}
       {errors.length > 0 && errors.some((e) => e.field === "submit") && (
         <Alert severity="error" sx={{ mb: 2 }} icon={<WarningIcon />}>
           <Typography fontWeight={600}>
@@ -170,54 +199,77 @@ export default function ScopeForm({
             </Typography>
             <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
           </Box>
-          <TextField
-            select
+          <Autocomplete
             fullWidth
-            label="Scope Name"
-            value={scopeForm.scopeMaintenanceId || ""}
-            onChange={(e) => {
-              const value = e.target.value;
-              const selected = maintenanceScopes.find(
-                (item) => item.id === value,
-              );
+            options={visibleMaintenanceScopes}
+            value={visibleMaintenanceScopes.find((scope) => scope.id === scopeForm.scopeMaintenanceId) || null}
+            getOptionLabel={(scope) => `${scope.name} (${scope.code})`}
+            isOptionEqualToValue={(option, selected) => option.id === selected.id}
+            getOptionDisabled={(scope) => selectedScopeMaintenanceIds.has(scope.id)}
+            onChange={(_, selected) => {
               setScopeForm({
                 ...scopeForm,
-                sourceType: "MAINTENANCE",
-                scopeMaintenanceId: value,
+                sourceType: selected ? "MAINTENANCE" : "",
+                scopeMaintenanceId: selected?.id || "",
                 name: selected?.name || "",
                 budgetAllocated: scopeRequiresBudget(selected?.code) ? scopeForm.budgetAllocated : "",
               });
             }}
             onBlur={() => handleFieldBlur("name")}
-            error={touched.name && hasFieldError("name", errors)}
-            helperText={
-              (touched.name && getFieldError("name", errors)) ||
-              "Select a scope from Project Maintenance."
-            }
-            variant="outlined"
             size="small"
             disabled={saving || maintenanceLoading}
-            SelectProps={{
-              MenuProps: {
-                PaperProps: { sx: { maxHeight: 280 } },
+            noOptionsText="No scopes available for the selected Business Units"
+            slots={{
+              popper: AnchoredDropdownPopper,
+              paper: (paperProps: any) => {
+                const { children, ownerState: _ownerState, ...rest } = paperProps;
+                return (
+                  <Paper {...rest}>
+                    {scopeGroups.length > 0 && (
+                      <Box
+                        onMouseDown={(event) => event.preventDefault()}
+                        sx={{ position: "sticky", top: 0, zIndex: 2, display: "flex", flexWrap: "wrap", gap: 0.75, p: 1.25, bgcolor: "#F7F5FC", borderBottom: "1px solid #E5E0F0" }}
+                      >
+                        <Typography sx={{ width: "100%", fontSize: 10.5, fontWeight: 700, color: "#667085" }}>Browse scopes under</Typography>
+                        {scopeGroups.map((group) => (
+                          <Chip
+                            key={group.id}
+                            label={group.label}
+                            size="small"
+                            clickable
+                            onClick={() => {
+                              setActiveTemplateId(group.id);
+                              setScopeForm({ ...scopeForm, name: "", scopeMaintenanceId: "", sourceType: "" });
+                            }}
+                            sx={{ bgcolor: activeTemplateId === group.id ? "#4B2E83" : "#E8E1F8", color: activeTemplateId === group.id ? "#fff" : "#24106F", fontWeight: 800, "&:hover": { bgcolor: activeTemplateId === group.id ? "#3D246B" : "#DDD3F2" } }}
+                          />
+                        ))}
+                      </Box>
+                    )}
+                    {children}
+                  </Paper>
+                );
               },
             }}
-            sx={{
-              "& .MuiOutlinedInput-root": {
-                borderRadius: 1.5,
-                backgroundColor: "white",
-              },
+            slotProps={{
+              paper: { sx: { maxHeight: 420 } },
+              listbox: { sx: { maxHeight: 340, "& .MuiAutocomplete-option": { fontSize: 12, "&:hover": { bgcolor: "#E8E1F8" }, "&.Mui-focused": { bgcolor: "#DED3F5" }, '&[aria-selected="true"]': { bgcolor: "#D4C6F0", color: "#24106F", fontWeight: 700 } } } },
             }}
-          >
-            <MenuItem value="" disabled>
-              Select scope
-            </MenuItem>
-            {availableMaintenanceScopes.map((scope) => (
-              <MenuItem key={scope.id} value={scope.id}>
-                {scope.name} ({scope.code})
-              </MenuItem>
-            ))}
-          </TextField>
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Scope Name"
+                error={touched.name && hasFieldError("name", errors)}
+                helperText={(touched.name && getFieldError("name", errors)) || "Select or search a scope from the selected Business Units."}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: 1.5, backgroundColor: "white" } }}
+              />
+            )}
+            renderOption={(props, scope) => {
+              const { key, ...optionProps } = props;
+              const alreadyAdded = selectedScopeMaintenanceIds.has(scope.id);
+              return <Box component="li" key={key} {...optionProps} sx={{ display: "flex", justifyContent: "space-between", gap: 1, fontSize: 12, "&:hover": { bgcolor: "#E8E1F8 !important" }, "&.Mui-focused": { bgcolor: "#DED3F5 !important" } }}><span>{scope.name} ({scope.code})</span>{alreadyAdded && <Chip label="Already added" size="small" sx={{ height: 18, fontSize: 9 }} />}</Box>;
+            }}
+          />
         </Box>
 
         {/* BUDGET ALLOCATED */}
@@ -309,14 +361,6 @@ export default function ScopeForm({
           </Typography>
         </Stack>
       </Backdrop>
-      <Dialog open={noAssignedWbsOpen} onClose={() => setNoAssignedWbsOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontSize: 18, fontWeight: 800 }}>No WBS template assigned</DialogTitle>
-        <DialogContent dividers>
-          <Typography sx={{ fontSize: 13, lineHeight: 1.65, color: "#475569" }}>{maintenanceMeta?.message || "No WBS template is assigned to this project's Business Unit. Contact an administrator to assign one."}</Typography>
-          <Alert severity="info" sx={{ mt: 2, fontSize: 11.5 }}>An administrator can assign a WBS template from Settings → Project Maintenance.</Alert>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}><Button variant="contained" onClick={() => setNoAssignedWbsOpen(false)} sx={{ bgcolor: "#24106F", textTransform: "none", fontWeight: 700 }}>Understood</Button></DialogActions>
-      </Dialog>
     </Box>
   );
 }

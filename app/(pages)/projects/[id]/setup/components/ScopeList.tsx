@@ -26,6 +26,7 @@ interface ScopeListProps {
   setSubtaskInputs: (inputs: any) => void;
   members: any[];
   projectId?: string;
+  wbsBusinessUnitIds?: string[];
   onEditScope: (scope: any) => void;
   onDeleteScope: (scopeId: string) => void;
   onUpdateScope: () => void;
@@ -54,6 +55,7 @@ export default function ScopeList({
   setSubtaskInputs,
   members,
   projectId,
+  wbsBusinessUnitIds = [],
   onEditScope,
   onDeleteScope,
   onUpdateScope,
@@ -112,6 +114,7 @@ export default function ScopeList({
           setSubtaskInputs={setSubtaskInputs}
           members={members}
           projectId={projectId}
+          wbsBusinessUnitIds={wbsBusinessUnitIds}
           onEditScope={onEditScope}
           onDeleteScope={onDeleteScope}
           onUpdateScope={onUpdateScope}

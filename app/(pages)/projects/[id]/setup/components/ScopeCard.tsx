@@ -32,6 +32,7 @@ interface ScopeCardProps {
   setSubtaskInputs: (inputs: any) => void;
   members: any[];
   projectId?: string;
+  wbsBusinessUnitIds?: string[];
   onEditScope: (scope: any) => void;
   onDeleteScope: (scopeId: string) => void;
   onUpdateScope: () => void;
@@ -63,6 +64,7 @@ function ScopeCard({
   setSubtaskInputs,
   members,
   projectId,
+  wbsBusinessUnitIds = [],
   onEditScope,
   onDeleteScope,
   onUpdateScope,
@@ -109,10 +111,10 @@ function ScopeCard({
   useEffect(() => {
     setMaintenanceLoading(true);
     if (!projectId) { setMaintenanceScopes([]); setMaintenanceLoading(false); return; }
-    getProjectMaintenanceHierarchy(projectId)
+    getProjectMaintenanceHierarchy(projectId, wbsBusinessUnitIds)
       .then((items) => setMaintenanceScopes(items.filter((item) => item.isActive !== false)))
       .finally(() => setMaintenanceLoading(false));
-  }, [projectId]);
+  }, [projectId, wbsBusinessUnitIds]);
 
   const usesAvailableMaintenanceScope = Boolean(
     scope.scopeMaintenanceId && maintenanceScopes.some((item) => item.id === scope.scopeMaintenanceId),
@@ -289,6 +291,7 @@ function ScopeCard({
 
         {/* TASK INPUT */}
         {!reorderOnly && <TaskForm
+          wbsBusinessUnitIds={wbsBusinessUnitIds}
           scopeId={scope.id}
           scopeMaintenanceId={scope.scopeMaintenanceId}
           scopeBudget={Number(scope.budgetAllocated) || 0}
@@ -304,6 +307,7 @@ function ScopeCard({
         <Box mt={3}>
           {orderedTasks.map((task: any, taskIndex: number) => (
             <TaskCard
+              wbsBusinessUnitIds={wbsBusinessUnitIds}
               key={task.id}
               task={task}
               orderLabel={`${orderNumber}.${taskIndex + 1}`}
