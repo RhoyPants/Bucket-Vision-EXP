@@ -98,6 +98,7 @@ import { usePermissions } from "@/app/lib/usePermissions";
 import ValidationModal from "@/app/components/shared/modals/ValidationModal";
 import DeleteStructureItemDialog, { StructureItemKind } from "@/app/components/shared/modals/DeleteStructureItemDialog";
 import ProjectSchedulingStep from "@/app/(pages)/projects/[id]/setup/components/ProjectSchedulingStep";
+import { scopeRequiresBudget } from "@/app/utils/budgetPolicy";
 
 
 const WIZARD_STEPS = [
@@ -795,7 +796,10 @@ export default function ProjectSetupWizard({
 
       await dispatch(
         updateSubtask(id, {
-          title: data.title,
+          sourceType: data.subtaskMaintenanceId ? "MAINTENANCE" : "CUSTOM",
+          ...(data.subtaskMaintenanceId
+            ? { subtaskMaintenanceId: data.subtaskMaintenanceId }
+            : { subtaskMaintenanceId: null, title: data.title }),
           description: data.description || "",
           priority: data.priority,
           budgetAllocated: Number(data.budgetAllocated) || 0,
@@ -1281,6 +1285,77 @@ export default function ProjectSetupWizard({
       };
     }
 
+    if (isBudgetedProject) {
+      const budgetTargets: string[] = [];
+      const nearlyEqual = (left: number, right: number) => Math.abs(left - right) < 0.01;
+
+      if (proposedBudget <= 0) {
+        budgetTargets.push("Project total budget must be greater than zero.");
+      }
+
+      for (const scope of project.scopes) {
+        const scopeName = scope?.name || "Unnamed scope";
+        const scopeCodeOrName = scope?.scopeMaintenance?.code || scope?.maintenanceCode || scope?.code || scopeName;
+        if (!scopeRequiresBudget(scopeCodeOrName)) continue;
+
+        const scopeBudget = Number(scope?.budgetAllocated) || 0;
+        const tasks = scope?.tasks || [];
+        if (scopeBudget <= 0) {
+          budgetTargets.push(`Scope: ${scopeName} — enter a budget greater than zero.`);
+          continue;
+        }
+
+        const taskTotal = tasks.reduce((total: number, task: any) => total + (Number(task?.budgetAllocated) || 0), 0);
+        if (!nearlyEqual(taskTotal, scopeBudget)) {
+          budgetTargets.push(`Scope: ${scopeName} — task budgets must total ₱${formatBudget(scopeBudget)}.`);
+        }
+
+        for (const task of tasks) {
+          const taskName = task?.title || "Unnamed task";
+          const taskBudget = Number(task?.budgetAllocated) || 0;
+          if (taskBudget <= 0) {
+            budgetTargets.push(`Task: ${taskName} — enter a budget greater than zero.`);
+            continue;
+          }
+
+          const subtaskTotal = (task?.subtasks || []).reduce(
+            (total: number, subtask: any) => total + (Number(subtask?.budgetAllocated) || 0),
+            0,
+          );
+          if (!nearlyEqual(subtaskTotal, taskBudget)) {
+            budgetTargets.push(`Task: ${taskName} — subtask budgets must total ₱${formatBudget(taskBudget)}.`);
+          }
+
+          for (const subtask of task?.subtasks || []) {
+            if ((Number(subtask?.budgetAllocated) || 0) <= 0) {
+              budgetTargets.push(`Subtask: ${subtask?.title || "Unnamed subtask"} — enter a budget greater than zero.`);
+            }
+          }
+        }
+      }
+
+      const scopeTotal = project.scopes.reduce(
+        (total: number, scope: any) => total + (Number(scope?.budgetAllocated) || 0),
+        0,
+      );
+      if (proposedBudget > 0 && !nearlyEqual(scopeTotal, proposedBudget)) {
+        budgetTargets.unshift(`Scope budgets must total the project budget of ₱${formatBudget(proposedBudget)}.`);
+      }
+
+      if (budgetTargets.length) {
+        return {
+          title: "Budget Allocation Required",
+          details: [
+            "A budgeted project cannot proceed with zero-weight structure items.",
+            "Allocate the full budget from project to scopes, tasks, and subtasks, then click Next again.",
+          ],
+          targets: budgetTargets,
+          invalidScopeIds: [],
+          invalidTaskIds: [],
+        };
+      }
+    }
+
     return null;
   };
 
@@ -1714,6 +1789,8 @@ export default function ProjectSetupWizard({
                       ...prev,
                       [taskId]: {
                         editId: sub.id,
+                        sourceType: sub.subtaskMaintenanceId ? "MAINTENANCE" : "CUSTOM",
+                        subtaskMaintenanceId: sub.subtaskMaintenanceId || "",
                         title: sub.title,
                         description: sub.description || "",
                         priority: sub.priority || "",

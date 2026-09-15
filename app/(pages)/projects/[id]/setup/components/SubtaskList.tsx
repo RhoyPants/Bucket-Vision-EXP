@@ -143,6 +143,9 @@ export default function SubtaskList({
                   setSubtaskInputs={setSubtaskInputs}
                   members={members}
                   projectId={projectId}
+                  taskMaintenanceId={task.taskMaintenanceId}
+                  wbsBusinessUnitIds={wbsBusinessUnitIds}
+                  existingSubtasks={subtasks}
                   onUpdate={onUpdateSubtask}
                   onDelete={onDeleteSubtask}
                   onEdit={() => onEditSubtask(sub, task.id)}
@@ -156,7 +159,6 @@ export default function SubtaskList({
         {!reorderOnly && <SubtaskForm
           wbsBusinessUnitIds={wbsBusinessUnitIds}
           taskId={task.id}
-          taskName={task.title}
           taskMaintenanceId={task.taskMaintenanceId}
           taskBudget={task.budgetAllocated || 0}
           budgetRequired={budgetRequired}

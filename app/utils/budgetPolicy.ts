@@ -1,4 +1,8 @@
-const NON_BUDGETED_SCOPE_CODES = new Set(["PL-SOLARIUM"]);
+const NON_BUDGETED_SCOPE_CODES = new Set([
+  "PL-SOLARIUM",
+  "PUNCHLISTING",
+  "PUNCH-LISTING",
+]);
 
 const normalizeScopeCode = (value?: string | null) =>
   (value || "")

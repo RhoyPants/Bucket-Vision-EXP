@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -10,6 +10,8 @@ import {
   CircularProgress,
   FormHelperText,
   FormControl,
+  Autocomplete,
+  Stack,
 } from "@mui/material";
 import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
@@ -37,6 +39,15 @@ import {
   formatDateForInput,
   ValidationError,
 } from "@/app/utils/subtaskValidation";
+import { getProjectMaintenanceHierarchy, MaintenanceRecord } from "@/app/api-service/workBreakdownMaintenanceService";
+import AnchoredDropdownPopper from "@/app/components/shared/selectors/AnchoredDropdownPopper";
+
+const CUSTOM_SUBTASK_OPTION: MaintenanceRecord = {
+  id: "__custom_subtask__",
+  code: "CUSTOM",
+  name: "Custom title",
+  isActive: true,
+};
 
 interface SubtaskCardProps {
   sub: any;
@@ -49,6 +60,9 @@ interface SubtaskCardProps {
   setSubtaskInputs: (inputs: any) => void;
   members: any[];
   projectId?: string;
+  taskMaintenanceId?: string;
+  wbsBusinessUnitIds?: string[];
+  existingSubtasks?: any[];
   onUpdate: (subId: string, taskId: string) => void;
   onDelete: (subId: string, taskId: string) => void;
   onEdit: () => void;
@@ -66,6 +80,9 @@ function SubtaskCard({
   setSubtaskInputs,
   members,
   projectId,
+  taskMaintenanceId,
+  wbsBusinessUnitIds = [],
+  existingSubtasks = [],
   onUpdate,
   onDelete,
   onEdit,
@@ -80,8 +97,40 @@ function SubtaskCard({
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [checklistsLocal, setChecklistsLocal] = useState<any[]>(sub.checklists || []);
+  const [maintenanceSubtasks, setMaintenanceSubtasks] = useState<MaintenanceRecord[]>([]);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
 
   const form = subtaskInputs[taskId] || {};
+  const isCustomTitle = form.sourceType === "CUSTOM";
+  const selectedByOtherSubtasks = new Set(
+    existingSubtasks
+      .filter((item) => item.id !== sub.id)
+      .map((item) => item.subtaskMaintenanceId)
+      .filter(Boolean),
+  );
+  const availableMaintenanceSubtasks = maintenanceSubtasks.filter(
+    (item) => item.isActive !== false && !selectedByOtherSubtasks.has(item.id),
+  );
+
+  useEffect(() => {
+    if (!isEditing || !taskMaintenanceId || !projectId) {
+      setMaintenanceSubtasks([]);
+      return;
+    }
+    let active = true;
+    setMaintenanceLoading(true);
+    getProjectMaintenanceHierarchy(projectId, wbsBusinessUnitIds)
+      .then((hierarchy) => {
+        const items = hierarchy.flatMap((scope) => scope.tasks ?? []).find((task) => task.id === taskMaintenanceId)?.subtasks ?? [];
+        if (active) setMaintenanceSubtasks(items);
+      })
+      .finally(() => {
+        if (active) setMaintenanceLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isEditing, projectId, taskMaintenanceId, wbsBusinessUnitIds]);
 
   // Include owner with engaged users
   const assignableUsers = useMemo(() => {
@@ -154,7 +203,9 @@ function SubtaskCard({
     return (
       <Box
         sx={{
-          minWidth: 240,
+          width: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
           borderRadius: 1,
           p: 2,
           backgroundColor: "#f5f3ff",
@@ -326,7 +377,9 @@ function SubtaskCard({
   return (
     <Box
       sx={{
-        minWidth: 280,
+        width: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
         borderRadius: 1,
         p: 2,
         backgroundColor: "#f5f3ff",
@@ -342,16 +395,55 @@ function SubtaskCard({
       </Typography>
 
       {/* Title */}
-      <TextField
-        size="small"
-        label="Title"
-        value={form.title || ""}
-        onChange={(e) => handleChange("title", e.target.value)}
-        onBlur={() => handleBlur("title")}
-        error={hasFieldError("title", errors)}
-        helperText={getFieldError("title", errors) || ""}
-        disabled={saving}
-      />
+      {taskMaintenanceId ? (
+        <Stack spacing={1}>
+          <Autocomplete
+            size="small"
+            options={[...availableMaintenanceSubtasks, CUSTOM_SUBTASK_OPTION]}
+            value={isCustomTitle ? CUSTOM_SUBTASK_OPTION : availableMaintenanceSubtasks.find((item) => item.id === form.subtaskMaintenanceId) || null}
+            getOptionLabel={(item) => item.id === CUSTOM_SUBTASK_OPTION.id ? "Custom title" : `${item.name} (${item.code})`}
+            isOptionEqualToValue={(option, selected) => option.id === selected.id}
+            onChange={(_, selected) => {
+              if (selected?.id === CUSTOM_SUBTASK_OPTION.id) {
+                handleChange("sourceType", "CUSTOM");
+                handleChange("subtaskMaintenanceId", "");
+                handleChange("title", "");
+                return;
+              }
+              handleChange("sourceType", selected ? "MAINTENANCE" : "");
+              handleChange("subtaskMaintenanceId", selected?.id || "");
+              handleChange("title", selected?.name || "");
+            }}
+            disabled={saving || maintenanceLoading}
+            slots={{ popper: AnchoredDropdownPopper }}
+            renderOption={(props, item) => {
+              const { key, ...optionProps } = props;
+              const isCustom = item.id === CUSTOM_SUBTASK_OPTION.id;
+              return (
+                <Box
+                  component="li"
+                  key={key}
+                  {...optionProps}
+                  sx={isCustom ? { mt: 0.5, borderTop: "1px solid #C4B5FD", bgcolor: "#F5F3FF", color: "#5B21B6", fontWeight: 800 } : undefined}
+                >
+                  <Typography component="span" sx={{ flex: 1, fontSize: 12, fontWeight: isCustom ? 800 : 500 }}>
+                    {isCustom ? "Create a custom title" : `${item.name} (${item.code})`}
+                  </Typography>
+                  {isCustom && (
+                    <Box component="span" sx={{ ml: 1, px: 0.75, py: 0.2, borderRadius: 999, bgcolor: "#7C3AED", color: "#FFF", fontSize: 8.5, fontWeight: 900, letterSpacing: 0.5 }}>
+                      CUSTOM
+                    </Box>
+                  )}
+                </Box>
+              );
+            }}
+            renderInput={(params) => <TextField {...params} label="Title" error={!isCustomTitle && hasFieldError("title", errors)} helperText={!isCustomTitle ? getFieldError("title", errors) : undefined} />}
+          />
+          {isCustomTitle && <TextField autoFocus size="small" label="Custom subtask title" placeholder="Enter the subtask title" value={form.title || ""} onChange={(event) => handleChange("title", event.target.value)} onBlur={() => handleBlur("title")} error={hasFieldError("title", errors)} helperText={getFieldError("title", errors)} disabled={saving} />}
+        </Stack>
+      ) : (
+        <TextField size="small" label="Custom subtask title" value={form.title || ""} onChange={(event) => handleChange("title", event.target.value)} onBlur={() => handleBlur("title")} error={hasFieldError("title", errors)} helperText={getFieldError("title", errors) || ""} disabled={saving} />
+      )}
 
       {/* Priority & Budget */}
       <Box display="flex" gap={1}>

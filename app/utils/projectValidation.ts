@@ -216,10 +216,10 @@ export const validateProjectForm = (form: Partial<ProjectFormData>): ValidationR
       field: "totalBudget",
       message: "Total Budget is required",
     });
-  } else if (form.isBudgeted !== false && Number(form.totalBudget) < 0) {
+  } else if (form.isBudgeted !== false && Number(form.totalBudget) <= 0) {
     errors.push({
       field: "totalBudget",
-      message: "Budget cannot be negative",
+      message: "Budget must be greater than zero for a budgeted project",
     });
   } else if (form.isBudgeted !== false && Number(form.totalBudget) > 999999999) {
     errors.push({

@@ -8,18 +8,11 @@ import {
   CircularProgress,
   Backdrop,
   Stack,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  IconButton,
-  Alert,
-  Switch,
   Autocomplete,
 } from "@mui/material";
 import { useAppSelector } from "@/app/redux/hook";
 import AssignUsersSelect from "@/app/components/shared/selectors/AssignUsersSelect";
 import AddIcon from "@mui/icons-material/Add";
-import CloseIcon from "@mui/icons-material/Close";
 import {
   validateSubtaskForm,
   calculateBudgetPercent,
@@ -32,15 +25,19 @@ import {
 import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import {
   getProjectMaintenanceHierarchy,
-  createMaintenanceRecord,
-  updateMaintenanceRecord,
   MaintenanceRecord,
 } from "@/app/api-service/workBreakdownMaintenanceService";
 import AnchoredDropdownPopper from "@/app/components/shared/selectors/AnchoredDropdownPopper";
 
+const CUSTOM_SUBTASK_OPTION: MaintenanceRecord = {
+  id: "__custom_subtask__",
+  code: "CUSTOM",
+  name: "Custom title",
+  isActive: true,
+};
+
 interface SubtaskFormProps {
   taskId: string;
-  taskName?: string;
   taskMaintenanceId?: string;
   taskBudget: number;
   budgetRequired?: boolean;
@@ -55,7 +52,6 @@ interface SubtaskFormProps {
 
 export default function SubtaskForm({
   taskId,
-  taskName,
   taskMaintenanceId,
   taskBudget,
   budgetRequired = true,
@@ -78,14 +74,10 @@ export default function SubtaskForm({
     MaintenanceRecord[]
   >([]);
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
-  const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
-  const [maintenanceSaving, setMaintenanceSaving] = useState(false);
-  const [maintenanceError, setMaintenanceError] = useState("");
-  const [maintenanceSuccess, setMaintenanceSuccess] = useState("");
-  const [maintenanceForm, setMaintenanceForm] = useState({ code: "", name: "", description: "" });
 
   const isOpen = subtaskInputs[taskId]?.open;
   const form = subtaskInputs[taskId] || {};
+  const isCustomTitle = form.sourceType === "CUSTOM";
   const selectedSubtaskMaintenanceIds = new Set(
     existingSubtasks
       .map((subtask) => subtask.subtaskMaintenanceId)
@@ -94,14 +86,6 @@ export default function SubtaskForm({
   const availableMaintenanceSubtasks = maintenanceSubtasks.filter(
     (subtask) => subtask.isActive !== false && !selectedSubtaskMaintenanceIds.has(subtask.id),
   );
-
-  const loadMaintenanceSubtasks = async () => {
-    if (!taskMaintenanceId || !projectId) return [];
-    const hierarchy = await getProjectMaintenanceHierarchy(projectId, wbsBusinessUnitIds);
-    const items = hierarchy.flatMap((scope) => scope.tasks ?? []).find((task) => task.id === taskMaintenanceId)?.subtasks ?? [];
-    setMaintenanceSubtasks(items);
-    return items;
-  };
 
   useEffect(() => {
     if (!taskMaintenanceId || !projectId) {
@@ -201,62 +185,15 @@ export default function SubtaskForm({
     }
   };
 
-  const closeMaintenanceDialog = () => {
-    if (maintenanceSaving) return;
-    setMaintenanceDialogOpen(false);
-    setMaintenanceError("");
-    setMaintenanceSuccess("");
-    setMaintenanceForm({ code: "", name: "", description: "" });
-  };
-
-  const handleCreateMaintenanceSubtask = async () => {
-    if (!taskMaintenanceId) return;
-    if (!maintenanceForm.code.trim() || !maintenanceForm.name.trim()) {
-      setMaintenanceError("Code and name are required.");
-      return;
-    }
-
-    try {
-      setMaintenanceSaving(true);
-      setMaintenanceError("");
-      setMaintenanceSuccess("");
-      await createMaintenanceRecord("subtask", {
-        code: maintenanceForm.code.trim(),
-        name: maintenanceForm.name.trim(),
-        description: maintenanceForm.description.trim(),
-        taskMaintenanceIds: [taskMaintenanceId],
-      });
-      await loadMaintenanceSubtasks();
-      setMaintenanceForm({ code: "", name: "", description: "" });
-      setMaintenanceSuccess("Subtask created and added to the dropdown. You can create another one or close this window.");
-    } catch (requestError: any) {
-      setMaintenanceError(requestError?.response?.data?.message || requestError?.message || "Unable to create subtask maintenance.");
-    } finally {
-      setMaintenanceSaving(false);
-    }
-  };
-
-  const handleReactivateMaintenanceSubtask = async (subtask: MaintenanceRecord) => {
-    try {
-      setMaintenanceSaving(true);
-      setMaintenanceError("");
-      setMaintenanceSuccess("");
-      await updateMaintenanceRecord("subtask", subtask.id, { isActive: true });
-      await loadMaintenanceSubtasks();
-      setMaintenanceSuccess(`${subtask.name} is now active and available in the dropdown.`);
-    } catch (requestError: any) {
-      setMaintenanceError(requestError?.response?.data?.message || requestError?.message || "Unable to activate this subtask.");
-    } finally {
-      setMaintenanceSaving(false);
-    }
-  };
-
   if (!isOpen) {
     return (
       <Box
         sx={{
-          minWidth: 200,
+          width: "100%",
+          minWidth: 0,
           minHeight: 270,
+          alignSelf: "start",
+          boxSizing: "border-box",
           borderRadius: 1,
           border: "2px dashed #6366f1",
           p: 2,
@@ -292,7 +229,10 @@ export default function SubtaskForm({
   return (
     <Box
       sx={{
-        minWidth: 280,
+        width: "100%",
+        minWidth: 0,
+        alignSelf: "start",
+        boxSizing: "border-box",
         borderRadius: 1,
         border: "2px solid #6366f1",
         p: 2,
@@ -309,37 +249,82 @@ export default function SubtaskForm({
 
       {/* Title */}
       {taskMaintenanceId ? (
-        <Autocomplete
-          size="small"
-          options={availableMaintenanceSubtasks}
-          value={availableMaintenanceSubtasks.find((subtask) => subtask.id === form.subtaskMaintenanceId) || null}
-          getOptionLabel={(subtask) => `${subtask.name} (${subtask.code})`}
-          isOptionEqualToValue={(option, selected) => option.id === selected.id}
-          onChange={(_, selected) => {
-            handleChange("sourceType", selected ? "MAINTENANCE" : "");
-            handleChange("subtaskMaintenanceId", selected?.id || "");
-            handleChange("title", selected?.name || "");
-          }}
-          onBlur={() => handleBlur("title")}
-          disabled={saving || maintenanceLoading}
-          slots={{ popper: AnchoredDropdownPopper }}
-          slotProps={{ listbox: { sx: { maxHeight: 280, "& .MuiAutocomplete-option": { fontSize: 12, "&:hover": { bgcolor: "#E8E1F8" }, "&.Mui-focused": { bgcolor: "#DED3F5" }, '&[aria-selected="true"]': { bgcolor: "#D4C6F0", color: "#24106F", fontWeight: 700 } } } } }}
-          renderInput={(params) => <TextField {...params} label="Title" error={hasFieldError("title", errors)} helperText={getFieldError("title", errors) || "Select a subtask allowed under this task."} />}
-        />
+        <Stack spacing={1}>
+          <Autocomplete
+            size="small"
+            options={[...availableMaintenanceSubtasks, CUSTOM_SUBTASK_OPTION]}
+            value={isCustomTitle ? CUSTOM_SUBTASK_OPTION : availableMaintenanceSubtasks.find((subtask) => subtask.id === form.subtaskMaintenanceId) || null}
+            getOptionLabel={(subtask) => subtask.id === CUSTOM_SUBTASK_OPTION.id ? "Custom title" : `${subtask.name} (${subtask.code})`}
+            isOptionEqualToValue={(option, selected) => option.id === selected.id}
+            onChange={(_, selected) => {
+              if (selected?.id === CUSTOM_SUBTASK_OPTION.id) {
+                handleChange("sourceType", "CUSTOM");
+                handleChange("subtaskMaintenanceId", "");
+                handleChange("title", "");
+                return;
+              }
+              handleChange("sourceType", selected ? "MAINTENANCE" : "");
+              handleChange("subtaskMaintenanceId", selected?.id || "");
+              handleChange("title", selected?.name || "");
+            }}
+            onBlur={() => {
+              if (!isCustomTitle) handleBlur("title");
+            }}
+            disabled={saving || maintenanceLoading}
+            slots={{ popper: AnchoredDropdownPopper }}
+            slotProps={{ listbox: { sx: { maxHeight: 280, "& .MuiAutocomplete-option": { fontSize: 12, "&:hover": { bgcolor: "#E8E1F8" }, "&.Mui-focused": { bgcolor: "#DED3F5" }, '&[aria-selected="true"]': { bgcolor: "#D4C6F0", color: "#24106F", fontWeight: 700 } } } } }}
+            renderOption={(props, subtask) => {
+              const { key, ...optionProps } = props;
+              const isCustom = subtask.id === CUSTOM_SUBTASK_OPTION.id;
+              return (
+                <Box
+                  component="li"
+                  key={key}
+                  {...optionProps}
+                  sx={isCustom ? { mt: 0.5, borderTop: "1px solid #C4B5FD", bgcolor: "#F5F3FF", color: "#5B21B6", fontWeight: 800 } : undefined}
+                >
+                  <Typography component="span" sx={{ flex: 1, fontSize: 12, fontWeight: isCustom ? 800 : 500 }}>
+                    {isCustom ? "Create a custom title" : `${subtask.name} (${subtask.code})`}
+                  </Typography>
+                  {isCustom && (
+                    <Box component="span" sx={{ ml: 1, px: 0.75, py: 0.2, borderRadius: 999, bgcolor: "#7C3AED", color: "#FFF", fontSize: 8.5, fontWeight: 900, letterSpacing: 0.5 }}>
+                      CUSTOM
+                    </Box>
+                  )}
+                </Box>
+              );
+            }}
+            renderInput={(params) => <TextField {...params} label="Title" error={!isCustomTitle && hasFieldError("title", errors)} helperText={!isCustomTitle ? getFieldError("title", errors) || "Select a standard subtask or choose Custom title." : "Custom title selected."} />}
+          />
+          {isCustomTitle && (
+            <TextField
+              autoFocus
+              size="small"
+              label="Custom subtask title"
+              placeholder="Enter the subtask title"
+              value={form.title || ""}
+              onChange={(event) => handleChange("title", event.target.value)}
+              onBlur={() => handleBlur("title")}
+              error={hasFieldError("title", errors)}
+              helperText={getFieldError("title", errors) || "This title applies only to this project."}
+              disabled={saving}
+            />
+          )}
+        </Stack>
       ) : (
         <TextField
           size="small"
-          label="Title"
-          placeholder="Subtask name"
+          label="Custom subtask title"
+          placeholder="Enter the subtask title"
           value={form.title || ""}
-          onChange={(e) => {
+          onChange={(event) => {
             handleChange("sourceType", "CUSTOM");
             handleChange("subtaskMaintenanceId", "");
-            handleChange("title", e.target.value);
+            handleChange("title", event.target.value);
           }}
           onBlur={() => handleBlur("title")}
           error={hasFieldError("title", errors)}
-          helperText={getFieldError("title", errors) || "Legacy custom task"}
+          helperText={getFieldError("title", errors) || "Enter a title for this project subtask."}
           disabled={saving}
         />
       )}
@@ -510,133 +495,6 @@ export default function SubtaskForm({
           Cancel
         </Button>
       </Box>
-
-      <Dialog
-        open={maintenanceDialogOpen}
-        disableEscapeKeyDown
-        maxWidth="md"
-        fullWidth
-        onClose={(_event, reason) => {
-          if (reason !== "backdropClick") closeMaintenanceDialog();
-        }}
-      >
-        <DialogTitle sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 2, borderBottom: "1px solid #e2e8f0", p: 2.5 }}>
-          <Box>
-            <Typography sx={{ color: "#111827", fontSize: 18, fontWeight: 800 }}>
-              Manage Subtask Maintenance
-            </Typography>
-            <Typography sx={{ mt: 0.35, color: "#64748b", fontSize: 12.5 }}>
-              Task: <Box component="span" sx={{ color: "#1e3a8a", fontWeight: 800 }}>{taskName || "Current task"}</Box>
-            </Typography>
-          </Box>
-          <IconButton
-            aria-label="Close subtask maintenance"
-            onClick={closeMaintenanceDialog}
-            disabled={maintenanceSaving}
-            sx={{
-              color: "#dc2626",
-              bgcolor: "#fee2e2",
-              border: "1px solid #fecaca",
-              "&:hover": { bgcolor: "#fecaca" },
-              "&.Mui-disabled": { color: "#fca5a5", bgcolor: "#fef2f2" },
-            }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent sx={{ p: 2.5 }}>
-          {maintenanceError && <Alert severity="error" sx={{ mb: 2 }}>{maintenanceError}</Alert>}
-          {maintenanceSuccess && <Alert severity="success" sx={{ mb: 2 }}>{maintenanceSuccess}</Alert>}
-
-          <Box sx={{ mb: 2, px: 1.5, py: 1.25, border: "1px solid #bfdbfe", borderRadius: 1.25, bgcolor: "#eff6ff", textAlign: "left" }}>
-            <Typography sx={{ color: "#334155", fontSize: 12, fontWeight: 400, lineHeight: 1.55 }}>
-              Create or activate the subtasks needed under this task. New and activated records are automatically added to the subtask dropdown.
-            </Typography>
-            <Typography sx={{ mt: 0.5, color: "#475569", fontSize: 11.5, fontWeight: 400, lineHeight: 1.55 }}>
-              After customizing the list, close this window using the red X, then select the needed subtask from the dropdown to continue creating the project subtask.
-            </Typography>
-          </Box>
-
-          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "minmax(0, .9fr) minmax(0, 1.1fr)" }, border: "1px solid #e2e8f0", borderRadius: 1.5, overflow: "hidden" }}>
-            <Box sx={{ p: 2, bgcolor: "#f8faff", borderRight: { md: "1px solid #e2e8f0" }, borderBottom: { xs: "1px solid #e2e8f0", md: 0 } }}>
-              <Typography sx={{ color: "#312e81", fontSize: 14, fontWeight: 800 }}>Add New Subtask</Typography>
-              <Typography sx={{ mt: 0.25, mb: 2, color: "#64748b", fontSize: 11.5 }}>
-                Create a maintenance record related to {taskName || "the current task"}.
-              </Typography>
-
-              <Stack spacing={1.5}>
-                <TextField autoFocus size="small" required label="Subtask code" placeholder="e.g. GR-GENERAL-REQ-NEW" value={maintenanceForm.code} onChange={(event) => setMaintenanceForm((current) => ({ ...current, code: event.target.value }))} disabled={maintenanceSaving} />
-                <TextField size="small" required label="Subtask name" placeholder="Enter the maintenance subtask name" value={maintenanceForm.name} onChange={(event) => setMaintenanceForm((current) => ({ ...current, name: event.target.value }))} disabled={maintenanceSaving} />
-                <TextField size="small" label="Description (optional)" placeholder="Describe when this subtask should be used" multiline minRows={3} value={maintenanceForm.description} onChange={(event) => setMaintenanceForm((current) => ({ ...current, description: event.target.value }))} disabled={maintenanceSaving} />
-                <Button fullWidth variant="contained" startIcon={maintenanceSaving ? <CircularProgress size={14} color="inherit" /> : <AddIcon />} onClick={() => void handleCreateMaintenanceSubtask()} disabled={maintenanceSaving} sx={{ textTransform: "none", minHeight: 40 }}>
-                  {maintenanceSaving ? "Creating..." : "Create Subtask"}
-                </Button>
-              </Stack>
-            </Box>
-
-            <Box sx={{ p: 2, bgcolor: "#fff", minWidth: 0 }}>
-              <Typography sx={{ color: "#334155", fontSize: 14, fontWeight: 800 }}>
-                Existing Subtasks ({maintenanceSubtasks.length})
-              </Typography>
-              <Typography sx={{ mt: 0.25, color: "#64748b", fontSize: 11.5 }}>
-                Active records are locked. Only inactive records can be switched on.
-              </Typography>
-
-              <Stack
-                spacing={0.75}
-                sx={{
-                  mt: 2,
-                  maxHeight: 330,
-                  overflowY: "auto",
-                  pr: 0.75,
-                  scrollbarWidth: "thin",
-                  scrollbarColor: "#94a3b8 #f1f5f9",
-                  "&::-webkit-scrollbar": { width: 8 },
-                  "&::-webkit-scrollbar-track": { bgcolor: "#f1f5f9", borderRadius: 999 },
-                  "&::-webkit-scrollbar-thumb": { bgcolor: "#94a3b8", borderRadius: 999 },
-                }}
-              >
-                {maintenanceSubtasks.length ? maintenanceSubtasks.map((subtask) => {
-                  const isActive = subtask.isActive !== false;
-                  return (
-                    <Stack key={subtask.id} direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ p: 1.25, border: "1px solid #e2e8f0", borderRadius: 1.25, bgcolor: isActive ? "#f0fdf4" : "#f8fafc" }}>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography noWrap sx={{ color: "#1e293b", fontSize: 12.5, fontWeight: 700 }}>{subtask.name}</Typography>
-                        <Typography noWrap sx={{ color: "#64748b", fontSize: 10.5 }}>{subtask.code} · {isActive ? "Active" : "Inactive"}</Typography>
-                      </Box>
-                      <Stack direction="row" alignItems="center" spacing={0.25} sx={{ flexShrink: 0 }}>
-                        <Typography sx={{ color: isActive ? "#166534" : "#475569", fontSize: 10.5, fontWeight: 800 }}>
-                          {isActive ? "Active" : "Activate"}
-                        </Typography>
-                        <Switch
-                          size="small"
-                          checked={isActive}
-                          disabled={isActive || maintenanceSaving}
-                          onChange={(event) => {
-                            if (!isActive && event.target.checked) void handleReactivateMaintenanceSubtask(subtask);
-                          }}
-                          inputProps={{ "aria-label": `${isActive ? "Active" : "Activate"} ${subtask.name}` }}
-                          sx={{
-                            "& .MuiSwitch-switchBase.Mui-checked": { color: "#16a34a" },
-                            "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { bgcolor: "#22c55e", opacity: 1 },
-                            "& .MuiSwitch-switchBase.Mui-disabled.Mui-checked": { color: "#16a34a", opacity: 1 },
-                            "& .MuiSwitch-switchBase.Mui-disabled.Mui-checked + .MuiSwitch-track": { bgcolor: "#22c55e", opacity: 1 },
-                          }}
-                        />
-                      </Stack>
-                    </Stack>
-                  );
-                }) : (
-                  <Box sx={{ p: 2, border: "1px dashed #cbd5e1", borderRadius: 1.25, textAlign: "center" }}>
-                    <Typography sx={{ color: "#64748b", fontSize: 12 }}>No subtasks are currently related to this task.</Typography>
-                  </Box>
-                )}
-              </Stack>
-            </Box>
-          </Box>
-        </DialogContent>
-      </Dialog>
 
       {/* LOADING MODAL */}
       <Backdrop
