@@ -170,7 +170,7 @@ export default function SubtaskForm({
       priority: form.priority,
       projectedStartDate: form.projectedStartDate,
       projectedEndDate: form.projectedEndDate,
-      budgetAllocated: form.budgetAllocated,
+      budgetAllocated: budgetRequired ? form.budgetAllocated : 0,
       userIds,
     };
 
@@ -345,7 +345,7 @@ export default function SubtaskForm({
       )}
 
       {/* Priority & Budget in row */}
-      <Box display="grid" gridTemplateColumns="minmax(0, 1fr) minmax(0, 1fr)" gap={1} alignItems="start">
+      <Box display="grid" gridTemplateColumns={budgetRequired ? "minmax(0, 1fr) minmax(0, 1fr)" : "minmax(0, 1fr)"} gap={1} alignItems="start">
         <TextField
           select
           size="small"
@@ -363,7 +363,7 @@ export default function SubtaskForm({
           <MenuItem value="LOW">LOW</MenuItem>
         </TextField>
 
-        <DecimalBudgetField
+        {budgetRequired && <DecimalBudgetField
           size="small"
           label="Budget"
           placeholder="0"
@@ -373,11 +373,11 @@ export default function SubtaskForm({
           error={hasFieldError("budgetAllocated", errors)}
           helperText={getFieldError("budgetAllocated", errors) || " "}
           disabled={saving || !budgetRequired}
-        />
+        />}
       </Box>
 
       {/* Budget Percent Display */}
-      {form.budgetAllocated && (
+      {budgetRequired && form.budgetAllocated && (
         <Typography
           variant="caption"
           sx={{

@@ -49,7 +49,8 @@ export interface Projects {
   startDate?: string;
   expectedEndDate?: string;
 
-  totalBudget?: number;
+  isBudgeted?: boolean;
+  totalBudget?: number | null;
   priority?: string;
 
   // 🔥 APPROVAL METADATA (for my-approvals)

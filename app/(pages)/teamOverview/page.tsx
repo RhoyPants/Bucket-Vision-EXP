@@ -95,7 +95,7 @@ export default function TeamOverviewPage() {
 
   return (
     <Layout>
-      <Box sx={{ maxWidth: 1200, mx: "auto" }}>
+      <Box sx={{ minWidth: 0, mx: "auto" }}>
         {/* Project Selector */}
         <Paper
           elevation={0}

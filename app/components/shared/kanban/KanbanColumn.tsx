@@ -25,7 +25,7 @@ export default function KanbanColumn({
 }: {
   id: string | number;
   title: string;
-  items: any[];
+  items: KanbanSubtask[];
   activeId: string | null;
   parentTaskId?: string | null;
   taskBudget?: number;
@@ -48,33 +48,33 @@ export default function KanbanColumn({
   );
 
   const columnTheme = String(id) === "1"
-    ? { accent: "#686AF3", soft: "#F1F0FF", label: "In progress" }
+    ? { accent: "#2563EB", soft: "#EAF2FF", surface: "#F5F8FF", divider: "#C9DBFF", label: "In progress", description: "Work underway" }
     : String(id) === "2"
-      ? { accent: "#2FC99A", soft: "#ECFBF6", label: "Completed" }
-      : { accent: "#9A8AF0", soft: "#F5F3FF", label: "Not started" };
+      ? { accent: "#16875D", soft: "#E9F8F0", surface: "#F3FBF7", divider: "#BEE8D2", label: "Completed", description: "Finished work" }
+      : { accent: "#667085", soft: "#EEF1F5", surface: "#F6F7F9", divider: "#D8DDE5", label: "Not started", description: "Ready to begin" };
 
   return (
     <Box
       ref={setNodeRef}
       sx={{
-        backgroundColor: showHierarchy ? "#FAFAFD" : "#f7f7fb",
-        borderRadius: 2,
-        p: 1.25,
-        minHeight: 260,
+        backgroundColor: showHierarchy ? columnTheme.surface : "#f7f7fb",
+        borderRadius: 3,
+        p: showHierarchy ? 1.75 : 1.25,
+        minHeight: showHierarchy ? 420 : 260,
         transition: "all 0.25s ease",
-        border: isOver ? `2px dashed ${columnTheme.accent}` : "1px solid #E8E5EF",
+        border: isOver ? `2px dashed ${columnTheme.accent}` : "none",
         boxShadow: isOver
           ? "0 0 8px rgba(25, 118, 210, 0.4)"
-          : "inset 0 1px 0 rgba(0,0,0,0.02)",
+          : "none",
       }}
     >
       {/* TITLE */}
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.25, px: .25 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: .8 }}>
-          <Box sx={{ width: 9, height: 9, borderRadius: "50%", bgcolor: columnTheme.accent }} />
-          <Typography sx={{ fontWeight: 800, fontSize: 13, color: "#19152A" }}>{columnTheme.label}</Typography>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.75, mx: showHierarchy ? -1.75 : -1.25, mt: showHierarchy ? -1.75 : -1.25, px: showHierarchy ? 1.75 : 1.25, py: 1.5, bgcolor: columnTheme.soft, borderBottom: `1px solid ${columnTheme.divider}`, borderRadius: "12px 12px 0 0" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: columnTheme.accent }} />
+          <Box><Typography sx={{ fontWeight: 850, fontSize: 14, lineHeight: 1.2, color: "#0F172A" }}>{columnTheme.label}</Typography><Typography sx={{ mt: 0.25, fontSize: 11, color: "#667085" }}>{columnTheme.description}</Typography></Box>
         </Box>
-        <Box sx={{ minWidth: 25, height: 25, px: .75, display: "grid", placeItems: "center", borderRadius: "8px", bgcolor: columnTheme.soft, color: columnTheme.accent, fontSize: 12, fontWeight: 800 }}>
+        <Box sx={{ minWidth: 28, height: 28, px: 1, display: "grid", placeItems: "center", borderRadius: "999px", bgcolor: columnTheme.soft, color: columnTheme.accent, fontSize: 12, fontWeight: 800 }}>
           {sortedItems.length}
         </Box>
       </Box>

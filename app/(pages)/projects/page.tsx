@@ -244,7 +244,7 @@ export default function ProjectsPage() {
 
   return (
     <Layout>
-      <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1600, mx: "auto" }}>
+      <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0, mx: "auto" }}>
         <Paper
           elevation={0}
           sx={{

@@ -60,7 +60,7 @@ export default function MyDraftsPage() {
   return (
     <Layout>
       <Guard module="PROJECTS" action="READ">
-        <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1600, mx: "auto" }}>
+        <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0, mx: "auto" }}>
           <Paper elevation={0} sx={{ p: { xs: 2, md: 2.5 }, mb: 2.5, border: `1px solid ${brandColors.lavender}`, borderRadius: 3 }}>
             <Typography sx={{ color: brandColors.deepTwilight, fontSize: 16, fontWeight: 700 }}>Draft directory</Typography>
             <Typography sx={{ color: "#6B6880", fontSize: 13, mt: 0.25 }}>

@@ -313,7 +313,7 @@ export default function TaskBoardPage() {
   // ========================================
   return (
     <Layout>
-      <Container maxWidth="xl" sx={{ py: { xs: 2, md: 3 }, px: { xs: 1.5, sm: 2.5 } }}>
+      <Container maxWidth={false} sx={{ py: { xs: 2, md: 3 }, px: { xs: 1.5, sm: 2.5 } }}>
       
 
         {/* Error Alert */}

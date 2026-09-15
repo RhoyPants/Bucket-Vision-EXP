@@ -1,352 +1,196 @@
-"use client";
+﻿"use client";
 
-import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions,
-  DialogContent, DialogTitle, Divider, FormControl, InputAdornment, InputLabel, MenuItem,
-  Select, Stack, TextField, Typography,
-} from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import AttachFileIcon from "@mui/icons-material/AttachFile";
-import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
-import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
-import SwapVertOutlinedIcon from "@mui/icons-material/SwapVertOutlined";
-import { incidentService, Incident, IncidentPayload, IncidentSeverity } from "@/app/api-service/incidentService";
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Autocomplete, Box, Button, Card, CardActionArea, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Add, ArrowForward, AttachFile, LocationOnOutlined } from "@mui/icons-material";
+import { Incident, IncidentSeverity, incidentService } from "@/app/api-service/incidentService";
+import { IncidentType, selectableIncidentTypes, workflowError } from "@/app/api-service/incidentManagementService";
 import { getProjectFull } from "@/app/redux/controllers/projectController";
 import { useAppDispatch } from "@/app/redux/hook";
+import { manilaInput, manilaTimestamp } from "@/app/utils/incidentCase";
+import IncidentCaseDetail from "./IncidentCaseDetail";
+import { incidentDate } from "./IncidentEscalationPanel";
+import { useRouter, useSearchParams } from "next/navigation";
+import type { IncidentDetailTab } from "./IncidentCaseDetail";
+import ConfirmationModal from "@/app/components/shared/modals/ConfirmationModal";
 
-type HierarchySubtask = { id: string; title: string };
-type HierarchyTask = { id: string; title: string; subtasks?: HierarchySubtask[] };
-type HierarchyScope = { id: string; name: string; tasks?: HierarchyTask[] };
-
-const severityTone = {
-  LOW: { color: "#0369A1", bg: "#E0F2FE" },
-  MEDIUM: { color: "#A16207", bg: "#FEF9C3" },
-  HIGH: { color: "#C2410C", bg: "#FFEDD5" },
-  CRITICAL: { color: "#B91C1C", bg: "#FEE2E2" },
-};
-const statusTone = {
-  PENDING: { color: "#B45309", bg: "#FFFBEB" },
-  RESOLVED: { color: "#047857", bg: "#ECFDF5" },
-  CANCELLED: { color: "#64748B", bg: "#F1F5F9" },
-};
-const emptyForm: IncidentPayload = { title: "", description: "", severity: "MEDIUM", remarks: "", scopeId: "", taskId: "", subtaskId: "" };
-const messageOf = (error: unknown) => {
-  const candidate = error as { response?: { data?: { message?: string } }; message?: string };
-  return candidate.response?.data?.message || candidate.message || "Something went wrong.";
-};
-const displayDate = (value?: string | null) => value ? new Date(value).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" }) : "—";
+type Scope = { id: string; name: string; tasks?: { id: string; title: string; subtasks?: { id: string; title: string }[] }[] };
+const emptyForm = { incidentTypeId: "", title: "", description: "", occurredAt: "", location: "", immediateActionTaken: "", reportRecipient: "", scopeId: "", taskId: "", subtaskId: "" };
 
 export default function ProjectIncidentReports({ projectId }: { projectId: string }) {
   const dispatch = useAppDispatch();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const linkedIncidentId = searchParams.get("incidentId") || "";
+  const requestedTab = searchParams.get("incidentTab");
+  const initialTab: IncidentDetailTab = requestedTab === "investigation" || requestedTab === "actions" || requestedTab === "workflow" || requestedTab === "history" ? requestedTab : "overview";
+  const initialActionId = searchParams.get("actionId") || undefined;
   const [incidents, setIncidents] = useState<Incident[]>([]);
-  const [scopes, setScopes] = useState<HierarchyScope[]>([]);
+  const [scopes, setScopes] = useState<Scope[]>([]);
+  const [selected, setSelected] = useState<Incident | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [openingId, setOpeningId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [severity, setSeverity] = useState("");
   const [search, setSearch] = useState("");
-  const [dateOrder, setDateOrder] = useState<"newest" | "oldest">("newest");
-  const [selected, setSelected] = useState<Incident | null>(null);
+  const [dateOrder, setDateOrder] = useState("newest");
   const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Incident | null>(null);
-  const [form, setForm] = useState<IncidentPayload>(emptyForm);
+  const [form, setForm] = useState(emptyForm);
   const [files, setFiles] = useState<File[]>([]);
-  const [action, setAction] = useState<"resolve" | "cancel" | null>(null);
-  const [actionText, setActionText] = useState("");
-
+  const [types, setTypes] = useState<IncidentType[]>([]);
+  const [typesLoading, setTypesLoading] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
+  const [fields, setFields] = useState<Record<string, string>>({});
+  const listScrollPosition = useRef(0);
+  const dismissedLinkedIncident = useRef("");
   const load = useCallback(async () => {
     setLoading(true);
-    setError("");
     try {
-      const [list, project] = await Promise.all([
+      const results = await Promise.allSettled([
         incidentService.list(projectId, { status: status || undefined, severity: severity || undefined }),
         dispatch(getProjectFull(projectId, { preferCache: true })),
       ]);
-      setIncidents(list.incidents);
-      setScopes((project?.scopes ?? []) as unknown as HierarchyScope[]);
-    } catch (requestError) {
-      setError(messageOf(requestError));
-    } finally {
-      setLoading(false);
-    }
-  }, [dispatch, projectId, severity, status]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const tasks = useMemo(() => scopes.find((scope) => scope.id === form.scopeId)?.tasks ?? [], [form.scopeId, scopes]);
-  const subtasks = useMemo(() => tasks.find((task) => task.id === form.taskId)?.subtasks ?? [], [form.taskId, tasks]);
-  const visibleIncidents = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase();
-    return incidents
-      .filter((incident) => {
-        if (!query) return true;
-        return [
-          incident.incidentNumber,
-          incident.title,
-          incident.description,
-          incident.reportedBy?.name,
-          incident.scope?.name,
-          incident.task?.title,
-          incident.subtask?.title,
-        ].some((value) => value?.toLocaleLowerCase().includes(query));
-      })
-      .sort((left, right) => {
-        const leftDate = new Date(left.dateRaised).getTime();
-        const rightDate = new Date(right.dateRaised).getTime();
-        return dateOrder === "newest" ? rightDate - leftDate : leftDate - rightDate;
-      });
-  }, [dateOrder, incidents, search]);
-
-  const openCreate = () => {
-    setEditing(null);
-    setForm({ ...emptyForm, projectId });
-    setFiles([]);
-    setFormOpen(true);
-  };
-  const openEdit = (incident: Incident) => {
-    setEditing(incident);
-    setForm({
-      title: incident.title, description: incident.description, severity: incident.severity,
-      remarks: incident.remarks ?? "",
-      scopeId: incident.scopeId ?? "", taskId: incident.taskId ?? "", subtaskId: incident.subtaskId ?? "",
+      const [list, project] = results;
+      if (list.status === "fulfilled") setIncidents(list.value.incidents);
+      if (project.status === "fulfilled") setScopes((project.value?.scopes || []) as unknown as Scope[]);
+      const failures = results.filter((item) => item.status === "rejected");
+      setError(failures.map((item) => workflowError(item.reason).message).join(" "));
+    } finally { setLoading(false); }
+  }, [projectId, dispatch, status, severity]);
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!linkedIncidentId || dismissedLinkedIncident.current === linkedIncidentId || selected?.id === linkedIncidentId) return;
+    let alive = true;
+    void incidentService.get(linkedIncidentId).then((incident) => {
+      if (alive) setSelected(incident);
+    }).catch((err) => {
+      if (alive) setError(workflowError(err).message);
     });
-    setFiles([]);
-    setFormOpen(true);
+    return () => { alive = false; };
+  }, [linkedIncidentId, selected?.id]);
+  useEffect(() => {
+    let alive = true;
+    if (!formOpen) return;
+    setTypesLoading(true); setTypes([]);
+    selectableIncidentTypes(projectId).then((items) => { if (alive) setTypes(items); }).catch((err) => { if (alive) setError(workflowError(err).message); }).finally(() => { if (alive) setTypesLoading(false); });
+    return () => { alive = false; };
+  }, [projectId, formOpen, retry]);
+  const tasks = scopes.find((scope) => scope.id === form.scopeId)?.tasks || [];
+  const subtasks = tasks.find((task) => task.id === form.taskId)?.subtasks || [];
+  const visible = useMemo(() => incidents.filter((incident) => [incident.title, incident.description, incident.incidentNumber, incident.reportedBy?.name, incident.location].some((value) => value?.toLowerCase().includes(search.toLowerCase()))).sort((a, b) => (dateOrder === "newest" ? -1 : 1) * (new Date(a.dateRaised).getTime() - new Date(b.dateRaised).getTime())), [incidents, search, dateOrder]);
+  const validate = () => {
+    const validation: Record<string, string> = {};
+    if (!types.some((type) => type.id === form.incidentTypeId)) validation.incidentTypeId = "Select an available incident type.";
+    if (form.title.trim().length < 3) validation.title = "Enter at least three characters.";
+    if (form.description.trim().length < 5) validation.description = "Enter at least five characters.";
+    if (!form.location.trim()) validation.location = "Enter the incident location.";
+    let occurredAt = "";
+    try { occurredAt = manilaTimestamp(form.occurredAt); } catch { validation.occurredAt = "Enter a valid incident date and time."; }
+    setFields(validation);
+    return { valid: Object.keys(validation).length === 0, occurredAt };
+  };
+  const requestSubmit = () => {
+    const result = validate();
+    if (!result.valid) return;
+    setConfirmSubmitOpen(true);
   };
   const save = async () => {
-    if (form.title.trim().length < 1 || form.description.trim().length < 5) {
-      setError("Please enter a title and a description of at least five characters.");
-      return;
-    }
-    setSaving(true);
-    setError("");
+    const { valid, occurredAt } = validate();
+    if (!valid) { setConfirmSubmitOpen(false); return; }
+    setSaving(true); setError("");
     try {
-      if (editing) {
-        await incidentService.update(editing.id, form);
-        if (files.length) await incidentService.upload(editing.id, files);
-      } else {
-        await incidentService.create({ ...form, projectId, dateRaised: new Date().toISOString() }, files);
-      }
-      setFormOpen(false);
-      await load();
-    } catch (requestError) {
-      setError(messageOf(requestError));
-    } finally {
-      setSaving(false);
-    }
-  };
-  const openDetail = async (incident: Incident) => {
-    try { setSelected(await incidentService.get(incident.id)); }
-    catch (requestError) { setError(messageOf(requestError)); }
-  };
-  const performAction = async () => {
-    if (!selected || !action) return;
-    setSaving(true);
-    try {
-      if (action === "resolve") await incidentService.resolve(selected.id, { remarks: actionText || undefined });
-      else await incidentService.cancel(selected.id, actionText);
-      setAction(null); setActionText(""); setSelected(null);
-      await load();
-    } catch (requestError) { setError(messageOf(requestError)); }
+      const created = await incidentService.create({
+        projectId, incidentTypeId: form.incidentTypeId, title: form.title.trim(), description: form.description.trim(),
+        occurredAt, location: form.location.trim(), immediateActionTaken: form.immediateActionTaken.trim() || undefined, reportRecipient: form.reportRecipient.trim() || undefined,
+        scopeId: form.scopeId || null, taskId: form.taskId || null, subtaskId: form.subtaskId || null,
+      }, files);
+      setConfirmSubmitOpen(false); setFormOpen(false); setSelected(created); await load();
+    } catch (err) { const failure = workflowError(err); setConfirmSubmitOpen(false); setError(failure.message); setFields(failure.fields); }
     finally { setSaving(false); }
   };
-  const remove = async () => {
-    if (!selected || !window.confirm(`Delete ${selected.incidentNumber}? This cannot be undone.`)) return;
-    try { await incidentService.remove(selected.id); setSelected(null); await load(); }
-    catch (requestError) { setError(messageOf(requestError)); }
+  const openDetail = async (id: string) => {
+    if (openingId) return;
+    listScrollPosition.current = window.scrollY;
+    setOpeningId(id); setError("");
+    try { setSelected(await incidentService.get(id)); } catch (err) { setError(workflowError(err).message); }
+    finally { setOpeningId(null); }
   };
-  const fileChange = (event: ChangeEvent<HTMLInputElement>) => setFiles(Array.from(event.target.files ?? []).slice(0, 10));
-  const removeEditAttachment = async (attachmentId: string) => {
-    if (!editing || !window.confirm("Delete this attachment?")) return;
-    try {
-      await incidentService.removeAttachment(attachmentId);
-      setEditing(await incidentService.get(editing.id));
-    } catch (requestError) {
-      setError(messageOf(requestError));
+  const chooseFiles = (e: ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (selectedFiles.length > 10) { setError("An incident can have at most ten attachments."); return; }
+    setFiles(selectedFiles);
+  };
+  if (selected) return <Box sx={{ p: { xs: 1.5, md: 2.5 }, minWidth: 0, mx: "auto" }}><IncidentCaseDetail key={`${selected.id}-${initialTab}-${initialActionId || ""}`} initial={selected} initialTab={initialTab} initialActionId={initialActionId} onClose={(latest) => {
+    setIncidents((items) => items.map((item) => item.id === latest.id ? { ...item, ...latest } : item));
+    setSelected(null);
+    if (linkedIncidentId) {
+      dismissedLinkedIncident.current = linkedIncidentId;
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("incidentId"); params.delete("incidentTab"); params.delete("actionId");
+      router.replace(`?${params.toString()}`, { scroll: false });
     }
-  };
+    requestAnimationFrame(() => window.scrollTo({ top: listScrollPosition.current, behavior: "instant" }));
+  }} onUpdated={(updated) => { setSelected(updated); setIncidents((items) => items.map((item) => item.id === updated.id ? updated : item)); }} /></Box>;
 
-  return (
-    <Box sx={{ p: { xs: 1.25, md: 2 }, maxWidth: 1500, mx: "auto" }}>
-      <Card variant="outlined" sx={{ borderRadius: 2, borderColor: "#CBD5E1", mb: 2 }}>
-        <CardContent>
-          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} gap={1.5}>
-            <Box>
-              <Typography sx={{ fontSize: 18, fontWeight: 900 }}>Incident Reports</Typography>
-              <Typography sx={{ color: "#64748B", fontSize: 12 }}>Record, monitor, and close project incidents.</Typography>
-            </Box>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ textTransform: "none", fontWeight: 800, boxShadow: "none" }}>Report Incident</Button>
-          </Stack>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} sx={{ mt: 2, alignItems: { sm: "center" } }}>
-            <TextField
-              size="small"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search incident number, title, reporter…"
-              aria-label="Search incident reports"
-              sx={{ flex: 1, minWidth: { sm: 260 } }}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchOutlinedIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
-            <FormControl size="small" sx={{ minWidth: 150 }}><InputLabel>Status</InputLabel><Select label="Status" value={status} onChange={(e) => setStatus(e.target.value)}><MenuItem value="">All statuses</MenuItem><MenuItem value="PENDING">Pending</MenuItem><MenuItem value="RESOLVED">Resolved</MenuItem><MenuItem value="CANCELLED">Cancelled</MenuItem></Select></FormControl>
-            <FormControl size="small" sx={{ minWidth: 150 }}><InputLabel>Severity</InputLabel><Select label="Severity" value={severity} onChange={(e) => setSeverity(e.target.value)}><MenuItem value="">All severities</MenuItem>{(["LOW", "MEDIUM", "HIGH", "CRITICAL"] as IncidentSeverity[]).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</Select></FormControl>
-            <FormControl size="small" sx={{ minWidth: 165 }}>
-              <InputLabel>Sort by date</InputLabel>
-              <Select
-                label="Sort by date"
-                value={dateOrder}
-                onChange={(event) => setDateOrder(event.target.value as "newest" | "oldest")}
-                startAdornment={<InputAdornment position="start"><SwapVertOutlinedIcon fontSize="small" /></InputAdornment>}
-              >
-                <MenuItem value="newest">Newest first</MenuItem>
-                <MenuItem value="oldest">Oldest first</MenuItem>
-              </Select>
-            </FormControl>
-          </Stack>
-          {!loading && (
-            <Typography sx={{ mt: 1, color: "#64748B", fontSize: 10.5 }}>
-              Showing {visibleIncidents.length} of {incidents.length} incident{incidents.length === 1 ? "" : "s"}
-            </Typography>
-          )}
-        </CardContent>
-      </Card>
-
-      {error && <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>{error}</Alert>}
-      {loading ? <Box sx={{ minHeight: 300, display: "grid", placeItems: "center" }}><CircularProgress /></Box> :
-        visibleIncidents.length === 0 ? <Alert severity="info">No incident reports match your search and selected filters.</Alert> :
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(3, minmax(0, 1fr))" }, gap: 1.5 }}>
-          {visibleIncidents.map((incident) => (
-            <Card key={incident.id} variant="outlined" onClick={() => openDetail(incident)} sx={{ cursor: "pointer", borderRadius: 2, borderColor: "#E2E8F0", "&:hover": { borderColor: "#93C5FD", boxShadow: "0 4px 14px rgba(15,23,42,.07)" } }}>
-              <CardContent>
-                <Stack direction="row" justifyContent="space-between" gap={1}>
-                  <Typography sx={{ color: "#2563EB", fontSize: 11, fontWeight: 800 }}>{incident.incidentNumber}</Typography>
-                  <Stack direction="row" spacing={0.5}><Chip size="small" label={incident.severity} sx={{ height: 20, fontSize: 9, fontWeight: 800, ...severityTone[incident.severity] }} /><Chip size="small" label={incident.status} sx={{ height: 20, fontSize: 9, fontWeight: 800, ...statusTone[incident.status] }} /></Stack>
-                </Stack>
-                <Typography sx={{ mt: 1, fontSize: 14, fontWeight: 850 }}>{incident.title}</Typography>
-                <Typography sx={{ mt: 0.5, color: "#64748B", fontSize: 11.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{incident.description}</Typography>
-                <Divider sx={{ my: 1.25 }} />
-                <Stack direction="row" justifyContent="space-between"><Typography sx={{ color: "#64748B", fontSize: 10.5 }}>{incident.reportedBy?.name ?? "Unknown reporter"}</Typography><Typography sx={{ color: "#64748B", fontSize: 10.5 }}>{displayDate(incident.dateRaised)}</Typography></Stack>
+  return <Box sx={{ p: { xs: 1, md: 2 }, minWidth: 0, mx: "auto" }}>
+    <Stack spacing={2}>
+      <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={2}>
+        <Box><Typography variant="h5" fontWeight={700}>Incident Reports</Typography><Typography variant="body2" color="text.secondary">Report incidents, investigate findings, and track corrective actions.</Typography></Box>
+        <Button variant="contained" startIcon={<Add />} onClick={() => { setForm({ ...emptyForm, occurredAt: manilaInput(new Date().toISOString()) }); setFiles([]); setFields({}); setError(""); setFormOpen(true); }}>Report Incident</Button>
+      </Stack>
+      <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+        <TextField fullWidth size="small" label="Search incidents" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <TextField select size="small" label="Status" sx={{ minWidth: 160 }} value={status} onChange={(e) => setStatus(e.target.value)}><MenuItem value="">All statuses</MenuItem>{["PENDING", "RESOLVED", "CANCELLED"].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}</TextField>
+        <TextField select size="small" label="Criticality" sx={{ minWidth: 160 }} value={severity} onChange={(e) => setSeverity(e.target.value)}><MenuItem value="">All criticalities</MenuItem>{(["LOW", "MEDIUM", "HIGH", "CRITICAL"] as IncidentSeverity[]).map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}</TextField>
+        <TextField select size="small" label="Sort by date" sx={{ minWidth: 160 }} value={dateOrder} onChange={(e) => setDateOrder(e.target.value)}><MenuItem value="newest">Newest first</MenuItem><MenuItem value="oldest">Oldest first</MenuItem></TextField>
+      </Stack>
+      {error && !formOpen && <Alert severity="error" action={<Button onClick={load}>Retry</Button>}>{error}</Alert>}
+      {loading ? <Box sx={{ p: 5, textAlign: "center" }}><CircularProgress /></Box> : !visible.length ? <Alert severity="info">No incidents match your filters.</Alert> : <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(3, minmax(0, 1fr))" }, gap: 2 }}>
+        {visible.map((incident) => {
+          const isOpening = openingId === incident.id;
+          return <Card key={incident.id} variant="outlined" sx={{ borderRadius: 2.5, overflow: "hidden", transition: "border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease", "&:hover": { borderColor: "primary.main", boxShadow: 3, transform: "translateY(-2px)" }, "&:focus-within": { borderColor: "primary.main", boxShadow: 3 } }}>
+            <CardActionArea disabled={Boolean(openingId)} onClick={() => void openDetail(incident.id)} sx={{ height: "100%", alignItems: "stretch", textAlign: "left", "& .MuiCardActionArea-focusHighlight": { bgcolor: "primary.main" } }}>
+              <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", gap: 1.25, p: 2, "&:last-child": { pb: 2 } }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}><Typography variant="caption" fontWeight={700} color="primary.main">{incident.incidentNumber}</Typography><Chip size="small" label={incident.status} color={incident.status === "RESOLVED" ? "success" : incident.status === "PENDING" ? "warning" : "default"} /></Stack>
+                <Box><Typography variant="subtitle1" fontWeight={800} color="text.primary" lineHeight={1.25}>{incident.title}</Typography>{incident.incidentType?.name && <Typography variant="caption" color="primary.main">{incident.incidentType.name}</Typography>}</Box>
+                <Typography variant="body2" color="text.secondary" sx={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", minHeight: 40 }}>{incident.description}</Typography>
+                {incident.location && <Stack direction="row" gap={0.5} alignItems="center"><LocationOnOutlined sx={{ fontSize: 16, color: "text.secondary" }} /><Typography variant="caption" color="text.secondary" noWrap>{incident.location}</Typography></Stack>}
+                <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap"><Chip size="small" variant="outlined" label={incident.severity} />{incident.actionSummary && <Typography variant="caption" color="text.secondary">{incident.actionSummary.completed}/{incident.actionSummary.total} actions completed</Typography>}</Stack>
+                <Box sx={{ flexGrow: 1 }} />
+                <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1} pt={1} borderTop="1px solid" borderColor="divider"><Typography variant="caption" color="text.secondary">{incident.reportedBy?.name || "Reporter"} · {incidentDate(incident.dateRaised)}</Typography><Stack direction="row" alignItems="center" gap={0.5} color="primary.main">{isOpening ? <CircularProgress size={16} /> : <><Typography variant="caption" fontWeight={800}>View details</Typography><ArrowForward sx={{ fontSize: 16 }} /></>}</Stack></Stack>
               </CardContent>
-            </Card>
-          ))}
-        </Box>}
-
-      <Dialog open={formOpen} onClose={() => !saving && setFormOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle sx={{ fontWeight: 900 }}>{editing ? "Edit Incident" : "Report an Incident"}</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2} sx={{ pt: 0.5 }}>
-            <TextField label="Title" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-            <TextField label="Description" required multiline minRows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-            <TextField select label="Severity" value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value as IncidentSeverity })}>{(["LOW", "MEDIUM", "HIGH", "CRITICAL"] as IncidentSeverity[]).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField>
-            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 1.5 }}>
-              <TextField select label="Scope" value={form.scopeId ?? ""} onChange={(e) => setForm({ ...form, scopeId: e.target.value, taskId: "", subtaskId: "" })}><MenuItem value="">None</MenuItem>{scopes.map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}</TextField>
-              <TextField select label="Task" disabled={!form.scopeId} value={form.taskId ?? ""} onChange={(e) => setForm({ ...form, taskId: e.target.value, subtaskId: "" })}><MenuItem value="">None</MenuItem>{tasks.map((item) => <MenuItem key={item.id} value={item.id}>{item.title}</MenuItem>)}</TextField>
-              <TextField select label="Subtask" disabled={!form.taskId} value={form.subtaskId ?? ""} onChange={(e) => setForm({ ...form, subtaskId: e.target.value })}><MenuItem value="">None</MenuItem>{subtasks.map((item) => <MenuItem key={item.id} value={item.id}>{item.title}</MenuItem>)}</TextField>
-            </Box>
-            <TextField label="Remarks" multiline minRows={2} value={form.remarks ?? ""} onChange={(e) => setForm({ ...form, remarks: e.target.value })} />
-            <Button component="label" variant="outlined" startIcon={<AttachFileIcon />} sx={{ alignSelf: "flex-start", textTransform: "none" }}>Attach files<input hidden type="file" multiple onChange={fileChange} /></Button>
-            {files.length > 0 && (
-              <Stack spacing={0.5}>
-                <Typography sx={{ color: "#64748B", fontSize: 11, fontWeight: 800 }}>Files to upload</Typography>
-                {files.map((file) => (
-                  <Stack key={`${file.name}-${file.size}-${file.lastModified}`} direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography noWrap sx={{ minWidth: 0, fontSize: 12 }}>{file.name}</Typography>
-                    <Button
-                      size="small"
-                      color="error"
-                      onClick={() => setFiles((current) => current.filter((item) => item !== file))}
-                    >
-                      Remove
-                    </Button>
-                  </Stack>
-                ))}
-              </Stack>
-            )}
-            {editing?.attachments && editing.attachments.length > 0 && (
-              <Stack spacing={0.5}>
-                <Typography sx={{ color: "#64748B", fontSize: 11, fontWeight: 800 }}>Uploaded attachments</Typography>
-                {editing.attachments.map((attachment) => (
-                  <Stack key={attachment.id} direction="row" justifyContent="space-between" alignItems="center" gap={1}>
-                    <Typography noWrap sx={{ minWidth: 0, fontSize: 12 }}>{attachment.fileName}</Typography>
-                    <Stack direction="row">
-                      <Button size="small" startIcon={<DownloadOutlinedIcon />} onClick={() => incidentService.downloadAttachment(attachment)}>Download</Button>
-                      <Button size="small" color="error" onClick={() => removeEditAttachment(attachment.id)}>Delete</Button>
-                    </Stack>
-                  </Stack>
-                ))}
-              </Stack>
-            )}
-          </Stack>
-        </DialogContent>
-        <DialogActions><Button onClick={() => setFormOpen(false)}>Cancel</Button><Button variant="contained" disabled={saving} onClick={save}>{saving ? "Saving…" : editing ? "Save Changes" : "Submit Incident"}</Button></DialogActions>
-      </Dialog>
-
-      <Dialog open={Boolean(selected)} onClose={() => setSelected(null)} fullWidth maxWidth="md">
-        {selected && <>
-          <DialogTitle><Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}><Box><Typography sx={{ fontWeight: 900 }}>{selected.title}</Typography><Typography sx={{ color: "#2563EB", fontSize: 11, fontWeight: 800 }}>{selected.incidentNumber}</Typography></Box><Stack direction="row" spacing={0.5}><Chip label={selected.severity} size="small" sx={{ ...severityTone[selected.severity], fontWeight: 800 }} /><Chip label={selected.status} size="small" sx={{ ...statusTone[selected.status], fontWeight: 800 }} /></Stack></Stack></DialogTitle>
-          <DialogContent dividers>
-            <Stack spacing={2}>
-              <Box><Typography sx={{ color: "#64748B", fontSize: 11, fontWeight: 800 }}>DESCRIPTION</Typography><Typography sx={{ mt: 0.5, fontSize: 13 }}>{selected.description}</Typography></Box>
-              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" }, gap: 1.5 }}>
-                <Box><Typography sx={{ color: "#64748B", fontSize: 11 }}>Reported by</Typography><Typography sx={{ fontSize: 13, fontWeight: 700 }}>{selected.reportedBy?.name ?? "—"}</Typography></Box>
-                <Box><Typography sx={{ color: "#64748B", fontSize: 11 }}>Date raised</Typography><Typography sx={{ fontSize: 13, fontWeight: 700 }}>{displayDate(selected.dateRaised)}</Typography></Box>
-                <Box><Typography sx={{ color: "#64748B", fontSize: 11 }}>Location in project</Typography><Typography sx={{ fontSize: 13, fontWeight: 700 }}>{[selected.scope?.name, selected.task?.title, selected.subtask?.title].filter(Boolean).join(" / ") || "Project level"}</Typography></Box>
-                <Box><Typography sx={{ color: "#64748B", fontSize: 11 }}>Remarks</Typography><Typography sx={{ fontSize: 13, fontWeight: 700 }}>{selected.remarks || "—"}</Typography></Box>
-              </Box>
-              <Divider />
-              <Typography sx={{ fontWeight: 850 }}>Attachments ({selected.attachments?.length ?? 0})</Typography>
-              {!selected.attachments?.length ? <Typography sx={{ color: "#64748B", fontSize: 12 }}>No attachments.</Typography> :
-                selected.attachments.map((attachment) => (
-                  <Button
-                    key={attachment.id}
-                    variant="text"
-                    size="small"
-                    startIcon={<AttachFileIcon />}
-                    onClick={async () => {
-                      try {
-                        await incidentService.viewAttachment(attachment);
-                      } catch (requestError) {
-                        setError(messageOf(requestError));
-                      }
-                    }}
-                    sx={{ alignSelf: "flex-start", maxWidth: "100%", px: 0, justifyContent: "flex-start", textTransform: "none" }}
-                  >
-                    <Typography component="span" noWrap sx={{ fontSize: 12 }}>{attachment.fileName}</Typography>
-                  </Button>
-                ))}
-              {selected.status === "CANCELLED" && <Alert severity="info">Cancellation reason: {selected.cancellationReason}</Alert>}
-            </Stack>
-          </DialogContent>
-          <DialogActions sx={{ flexWrap: "wrap" }}>
-            {selected.status === "PENDING" && <>
-              <Button startIcon={<EditOutlinedIcon />} onClick={() => { setSelected(null); openEdit(selected); }}>Edit</Button>
-              <Button color="error" startIcon={<DeleteOutlineIcon />} onClick={remove}>Delete</Button>
-              <Button color="warning" startIcon={<CancelOutlinedIcon />} onClick={() => setAction("cancel")}>Cancel Incident</Button>
-              <Button variant="contained" color="success" startIcon={<TaskAltOutlinedIcon />} onClick={() => setAction("resolve")}>Resolve</Button>
-            </>}
-            <Button onClick={() => setSelected(null)}>Close</Button>
-          </DialogActions>
-        </>}
-      </Dialog>
-
-      <Dialog open={Boolean(action)} onClose={() => setAction(null)} fullWidth maxWidth="sm">
-        <DialogTitle sx={{ fontWeight: 900 }}>{action === "resolve" ? "Resolve Incident" : "Cancel Incident"}</DialogTitle>
-        <DialogContent><TextField autoFocus fullWidth multiline minRows={3} sx={{ mt: 1 }} required={action === "cancel"} label={action === "resolve" ? "Resolution remarks (optional)" : "Cancellation reason"} value={actionText} onChange={(e) => setActionText(e.target.value)} /></DialogContent>
-        <DialogActions><Button onClick={() => setAction(null)}>Back</Button><Button variant="contained" color={action === "resolve" ? "success" : "warning"} disabled={saving || (action === "cancel" && actionText.trim().length < 3)} onClick={performAction}>{action === "resolve" ? "Mark Resolved" : "Cancel Incident"}</Button></DialogActions>
-      </Dialog>
-    </Box>
-  );
+            </CardActionArea>
+          </Card>;
+        })}
+      </Box>}
+    </Stack>
+    <Dialog open={formOpen} fullWidth maxWidth="md" onClose={() => !saving && setFormOpen(false)}><DialogTitle>Report an Incident</DialogTitle><DialogContent dividers><Stack spacing={2}>
+      {error && <Alert severity="error">{error}</Alert>}
+      <Autocomplete options={types} loading={typesLoading} disabled={saving || typesLoading} getOptionLabel={(type) => type.name} isOptionEqualToValue={(a, b) => a.id === b.id} value={types.find((type) => type.id === form.incidentTypeId) || null} onChange={(_, type) => setForm({ ...form, incidentTypeId: type?.id || "" })} renderInput={(params) => <TextField {...params} required label="Incident Type" error={Boolean(fields.incidentTypeId)} helperText={fields.incidentTypeId} />} />
+      {!typesLoading && !types.length && <Alert severity="info" action={<Button onClick={() => setRetry((value) => value + 1)}>Reload</Button>}>No active incident types are available for this project.</Alert>}
+      {form.incidentTypeId && <Alert severity="info">Criticality: {types.find((type) => type.id === form.incidentTypeId)?.defaultCriticality}. Responsibility and SLA are assigned automatically upon submission.</Alert>}
+      {([["title", "Title"], ["description", "Description"], ["occurredAt", "Incident date/time · Asia/Manila"], ["location", "Location"], ["immediateActionTaken", "Immediate action taken (optional)"], ["reportRecipient", "Report recipient (optional)"]] as const).map(([key, label]) => <TextField key={key} label={label} value={form[key]} disabled={saving} required={["title", "description", "occurredAt", "location"].includes(key)} type={key === "occurredAt" ? "datetime-local" : "text"} slotProps={key === "occurredAt" ? { inputLabel: { shrink: true } } : undefined} multiline={["description", "immediateActionTaken"].includes(key)} minRows={key === "description" ? 3 : undefined} onChange={(e) => setForm({ ...form, [key]: e.target.value })} error={Boolean(fields[key])} helperText={fields[key]} />)}
+      <Typography variant="body2" color="text.secondary">Related work breakdown (optional)</Typography>
+      <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+        <TextField fullWidth select label="Scope" value={form.scopeId} disabled={saving} onChange={(e) => setForm({ ...form, scopeId: e.target.value, taskId: "", subtaskId: "" })}><MenuItem value="">None</MenuItem>{scopes.map((scope) => <MenuItem key={scope.id} value={scope.id}>{scope.name}</MenuItem>)}</TextField>
+        <TextField fullWidth select label="Task" value={form.taskId} disabled={saving || !form.scopeId} onChange={(e) => setForm({ ...form, taskId: e.target.value, subtaskId: "" })}><MenuItem value="">None</MenuItem>{tasks.map((task) => <MenuItem key={task.id} value={task.id}>{task.title}</MenuItem>)}</TextField>
+        <TextField fullWidth select label="Subtask" value={form.subtaskId} disabled={saving || !form.taskId} onChange={(e) => setForm({ ...form, subtaskId: e.target.value })}><MenuItem value="">None</MenuItem>{subtasks.map((task) => <MenuItem key={task.id} value={task.id}>{task.title}</MenuItem>)}</TextField>
+      </Stack>
+      <Button component="label" startIcon={<AttachFile />} variant="outlined" disabled={saving} sx={{ alignSelf: "flex-start" }}>Attach evidence<input hidden type="file" multiple onChange={chooseFiles} /></Button>
+      {files.map((file, index) => <Stack key={index} direction="row" justifyContent="space-between"><Typography variant="body2">{file.name}</Typography><Button disabled={saving} onClick={() => setFiles((items) => items.filter((_, i) => i !== index))}>Remove</Button></Stack>)}
+    </Stack></DialogContent><DialogActions><Button disabled={saving} onClick={() => setFormOpen(false)}>Cancel</Button><Button variant="contained" disabled={saving || typesLoading || !form.incidentTypeId} onClick={requestSubmit}>Submit Incident</Button></DialogActions></Dialog>
+    <ConfirmationModal
+      open={confirmSubmitOpen}
+      title="Submit incident report?"
+      message={`Submit “${form.title.trim()}” as an incident report? The backend will assign its criticality, workflow resolver, and SLA. ${files.length ? `${files.length} attachment${files.length === 1 ? "" : "s"} will be included.` : "No initial evidence is attached."}`}
+      confirmLabel="Submit incident"
+      loading={saving}
+      onClose={() => setConfirmSubmitOpen(false)}
+      onConfirm={save}
+    />
+  </Box>;
 }

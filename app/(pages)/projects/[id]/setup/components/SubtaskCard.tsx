@@ -125,7 +125,7 @@ function SubtaskCard({
       priority: form.priority,
       projectedStartDate: form.projectedStartDate,
       projectedEndDate: form.projectedEndDate,
-      budgetAllocated: form.budgetAllocated,
+      budgetAllocated: budgetRequired ? form.budgetAllocated : 0,
       userIds,
     };
 
@@ -192,7 +192,7 @@ function SubtaskCard({
         </Box>
 
         {/* Budget & Percent */}
-        <Box display="flex" gap={1} mb={1} alignItems="center">
+        {budgetRequired && <Box display="flex" gap={1} mb={1} alignItems="center">
           <Typography variant="caption" fontWeight={600} color="#6b7280">
             ₱{sub.budgetAllocated?.toLocaleString() || 0}
           </Typography>
@@ -206,7 +206,7 @@ function SubtaskCard({
               fontWeight: 600,
             }}
           />
-        </Box>
+        </Box>}
 
         {/* Dates */}
         <Box fontSize={11} color="#6b7280" mb={1} display="flex" gap={1} flexWrap="wrap">
@@ -372,7 +372,7 @@ function SubtaskCard({
           )}
         </FormControl>
 
-        <DecimalBudgetField
+        {budgetRequired && <DecimalBudgetField
           size="small"
           label="Budget"
           value={form.budgetAllocated}
@@ -382,7 +382,7 @@ function SubtaskCard({
           helperText={getFieldError("budgetAllocated", errors) || ""}
           disabled={saving || !budgetRequired}
           sx={{ flex: "0 1 90px" }}
-        />
+        />}
       </Box>
 
       {/* Dates */}

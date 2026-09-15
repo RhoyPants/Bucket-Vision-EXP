@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Box,
   Paper,
   TextField,
   Select,
@@ -63,10 +62,10 @@ export default function TaskBoardFilters({
       sx={{
         p: { xs: 1.5, md: 2 },
         borderRadius: "16px",
-        border: "1px solid #E0DAE6",
+        border: "none",
         background: "#FFFFFF",
         mb: 2,
-        boxShadow: "0 4px 16px rgba(17, 9, 71, 0.04)",
+        boxShadow: "0 3px 14px rgba(15, 23, 42, 0.06)",
       }}
     >
       <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} alignItems={{ md: "center" }}>
@@ -77,7 +76,7 @@ export default function TaskBoardFilters({
           value={filters.searchQuery}
           onChange={(e) => onFilterChange({ ...filters, searchQuery: e.target.value })}
           disabled={isLoading}
-          sx={{ flex: { md: 1.5 }, "& .MuiOutlinedInput-root": { borderRadius: "10px", background: "#F8F7FC" } }}
+          sx={{ flex: { md: 1.5 }, "& .MuiOutlinedInput-root": { borderRadius: "10px", background: "#F8FAFC" } }}
           InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: "#77718A", fontSize: 20 }} /> }}
         />
         {/* Project Filter */}
@@ -95,7 +94,7 @@ export default function TaskBoardFilters({
               })
             }
             sx={{
-              background: "#F8F7FC", borderRadius: "10px",
+              background: "#F8FAFC", borderRadius: "10px",
 
               "&.Mui-focused": {
                 background: "#FFFFFF",
@@ -126,7 +125,7 @@ export default function TaskBoardFilters({
               })
             }
             sx={{
-              background: "#F8F7FC", borderRadius: "10px",
+              background: "#F8FAFC", borderRadius: "10px",
 
               "&.Mui-focused": {
                 background: "#FFFFFF",
@@ -157,7 +156,7 @@ export default function TaskBoardFilters({
               })
             }
             sx={{
-              background: "#F8F7FC", borderRadius: "10px",
+              background: "#F8FAFC", borderRadius: "10px",
 
               "&.Mui-focused": {
                 background: "#FFFFFF",

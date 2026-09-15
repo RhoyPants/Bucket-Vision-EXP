@@ -202,7 +202,7 @@ export default function GlobalDashboardContent() {
   ] as const;
 
   return (
-    <Box sx={{ p: { xs: 1.25, md: 2 }, maxWidth: 1600, mx: "auto" }}>
+    <Box sx={{ p: { xs: 1.25, md: 2 }, minWidth: 0, mx: "auto" }}>
       {error && <Alert severity="warning" onClose={() => setError("")} sx={{ mb: 1.5 }}>{error}</Alert>}
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1fr) 340px" }, gap: 1.5, alignItems: "start" }}>
         <Stack spacing={2} sx={{ minWidth: 0 }}>

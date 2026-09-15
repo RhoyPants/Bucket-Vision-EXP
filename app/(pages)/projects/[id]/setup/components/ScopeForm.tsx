@@ -27,6 +27,7 @@ interface ScopeFormProps {
   setScopeForm: (form: any) => void;
   onAddScope: () => void;
   projectBudget?: number;
+  isBudgeted?: boolean;
   existingScopes?: any[];
   projectId: string;
   wbsBusinessUnitIds: string[];
@@ -37,6 +38,7 @@ export default function ScopeForm({
   setScopeForm,
   onAddScope,
   projectBudget = 0,
+  isBudgeted = true,
   existingScopes = [],
   projectId,
   wbsBusinessUnitIds,
@@ -103,7 +105,7 @@ export default function ScopeForm({
         budgetAllocated: Number(scopeForm.budgetAllocated) || 0,
       },
       projectBudget,
-      budgetRequired
+      isBudgeted && budgetRequired
     );
 
     if (!validation.isValid) {
@@ -273,7 +275,7 @@ export default function ScopeForm({
         </Box>
 
         {/* BUDGET ALLOCATED */}
-        <Box>
+        {isBudgeted && <Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
             <Typography variant="caption" fontWeight={600}>
               Budget Allocation
@@ -311,11 +313,11 @@ export default function ScopeForm({
               {budgetPercent.toFixed(2)}% of project budget
             </Typography>
           )}
-        </Box>
+        </Box>}
       </Box>
 
       {/* BUDGET INFO */}
-      {projectBudget > 0 && (
+      {isBudgeted && projectBudget > 0 && (
         <Box sx={{ mt: 2, p: 1.5, bgcolor: "#f9fafb", borderRadius: 1.5, border: "1px solid #e5e7eb" }}>
           <Typography variant="caption" fontWeight={600} display="block">
             Budget Summary

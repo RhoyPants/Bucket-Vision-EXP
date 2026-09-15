@@ -1555,7 +1555,7 @@ export function ReportsContent({
 
   const reportContent = (
       <Box sx={{ minHeight: "100%", bgcolor: embedded ? "transparent" : "#F4F7FB", p: { xs: 1.5, md: embedded ? 2 : 3 } }}>
-        <Box sx={{ maxWidth: 1500, mx: "auto" }}>
+        <Box sx={{ minWidth: 0, mx: "auto" }}>
           <Stack
             direction={{ xs: "column", md: "row" }}
             justifyContent="space-between"

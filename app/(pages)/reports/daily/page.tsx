@@ -143,7 +143,7 @@ export default function DailyReportsPage() {
 
   return (
     <Layout>
-      <Box sx={{ maxWidth: 1400, mx: "auto" }}>
+      <Box sx={{ minWidth: 0, mx: "auto" }}>
         {/* Header with Back Button */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3.5 }}>
           <IconButton

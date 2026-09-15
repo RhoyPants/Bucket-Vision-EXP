@@ -18,6 +18,7 @@ import {
   FormHelperText,
   Typography,
   Chip,
+  Switch,
 } from "@mui/material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -89,6 +90,7 @@ export default function ProjectModal({
     expectedEndDate: "",
     pin: "",
     priority: "Medium",
+    isBudgeted: true,
     totalBudget: 0,
   });
 
@@ -127,6 +129,7 @@ export default function ProjectModal({
           expectedEndDate: data.expectedEndDate?.slice(0, 10) ?? "",
           pin: data.pin ?? "",
           priority: data.priority ?? "Medium",
+          isBudgeted: data.isBudgeted ?? true,
           businessUnit: data.businessUnit ?? "",
           entity: data.entity ?? "",
           totalBudget: data.totalBudget ?? 0,
@@ -157,6 +160,7 @@ export default function ProjectModal({
         expectedEndDate: "",
         pin: "",
         priority: "Medium",
+        isBudgeted: true,
         totalBudget: 0,
       });
     }
@@ -282,11 +286,14 @@ export default function ProjectModal({
       setSaving(true);
       setErrors([]);
 
+      const payload = { ...form };
+      if (payload.isBudgeted === false) delete payload.totalBudget;
+
       if (mode === "edit") {
-        await dispatch(updateProject(project.id, form));
+        await dispatch(updateProject(project.id, payload));
         onClose();
       } else {
-        const createdProject = await dispatch(createProject(form));
+        const createdProject = await dispatch(createProject(payload));
         onClose();
         // Navigate to setup wizard after creating project
         if (createdProject?.id) {
@@ -610,9 +617,19 @@ export default function ProjectModal({
                     <Typography variant="subtitle2" fontWeight={600}>
                       Total Budget
                     </Typography>
-                    <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
+                    {form.isBudgeted !== false && <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />}
+                    <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <Typography variant="caption" fontWeight={700}>{form.isBudgeted !== false ? "Budgeted" : "Non-budgeted"}</Typography>
+                      <Switch
+                        size="small"
+                        checked={form.isBudgeted !== false}
+                        disabled={mode === "edit" && (form.status || project?.status) !== "DRAFT"}
+                        inputProps={{ "aria-label": "Budgeted project" }}
+                        onChange={(event) => setForm({ ...form, isBudgeted: event.target.checked })}
+                      />
+                    </Box>
                   </Box>
-                  <DecimalBudgetField
+                  {form.isBudgeted !== false ? <DecimalBudgetField
                     fullWidth
                     placeholder="0"
                     value={form.totalBudget}
@@ -631,7 +648,7 @@ export default function ProjectModal({
                         backgroundColor: "white",
                       },
                     }}
-                  />
+                  /> : <Typography variant="body2" color="text.secondary">Progress weights will be calculated automatically from subtasks.</Typography>}
                 </Box>
               </Grid>
 

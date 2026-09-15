@@ -135,7 +135,7 @@ function TaskCard({
   };
 
   const handleEditSubmit = async () => {
-    const validation = validateTaskForm(editForm, scopeBudget, budgetRequired);
+    const validation = validateTaskForm({ ...editForm, budgetAllocated: budgetRequired ? editForm.budgetAllocated : 0 }, scopeBudget, budgetRequired);
 
     if (!validation.isValid) {
       setErrors(validation.errors);
@@ -213,7 +213,7 @@ function TaskCard({
               display: "grid",
               gridTemplateColumns: {
                 xs: "minmax(0, 1fr)",
-                sm: "minmax(240px, 300px) minmax(160px, 200px) auto",
+                sm: budgetRequired ? "minmax(240px, 300px) minmax(160px, 200px) auto" : "minmax(240px, 360px) auto",
               },
               gap: 1,
               alignItems: "start",
@@ -248,7 +248,7 @@ function TaskCard({
               </TextField>
             </Tooltip>
 
-            <Tooltip title={budgetError || ""} open={!!budgetError}>
+            {budgetRequired && <Tooltip title={budgetError || ""} open={!!budgetError}>
               <DecimalBudgetField
                 size="small"
                 label="Budget"
@@ -259,7 +259,7 @@ function TaskCard({
                 sx={{ width: "100%" }}
                 disabled={saving || !budgetRequired}
               />
-            </Tooltip>
+            </Tooltip>}
 
             <Box display="flex" gap={0.5} height={40} alignItems="center">
               {!reorderOnly && <IconButton
@@ -302,7 +302,7 @@ function TaskCard({
                   {task.title}
                 </Typography>
               </Box>
-              <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+              {budgetRequired && <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
                 <Typography
                   variant="caption"
                   sx={{ color: "#0c4a6e", fontWeight: 500 }}
@@ -322,7 +322,7 @@ function TaskCard({
                 >
                   {budgetPercent.toFixed(1)}%
                 </Typography>
-              </Box>
+              </Box>}
             </Box>
 
             <Box
@@ -372,7 +372,7 @@ function TaskCard({
           </Box>
         )}
 
-        {!isEditing && (
+        {!isEditing && budgetRequired && (
           <Box
             sx={{
               display: "flex",

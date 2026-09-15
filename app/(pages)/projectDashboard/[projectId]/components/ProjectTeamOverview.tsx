@@ -29,7 +29,7 @@ export default function ProjectTeamOverview({ projectId }: { projectId: string }
   }
 
   return (
-    <Box sx={{ p: { xs: 1.25, md: 2 }, maxWidth: 1400, mx: "auto" }}>
+    <Box sx={{ p: { xs: 1.25, md: 2 }, minWidth: 0, mx: "auto" }}>
       <Paper
         variant="outlined"
         sx={{

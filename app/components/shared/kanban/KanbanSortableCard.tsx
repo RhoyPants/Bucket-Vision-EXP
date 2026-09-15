@@ -130,23 +130,26 @@ export default function KanbanSortableCard({
     if (priority === "High") {
       return {
         headerBg: "#FFFFFF",
-        border: "#EF5350",
-        accent: "#DC2626",
+        border: "#E11D48",
+        accent: "#9F1239",
+        soft: "#FFF1F2",
       };
     }
 
     if (priority === "Low") {
       return {
         headerBg: "#FFFFFF",
-        border: "#2FC99A",
-        accent: "#16A34A",
+        border: "#22A06B",
+        accent: "#166534",
+        soft: "#F0FDF4",
       };
     }
 
     return {
       headerBg: "#FFFFFF",
-      border: "#F6B719",
-      accent: "#F59E0B",
+      border: "#D97706",
+      accent: "#92400E",
+      soft: "#FFFBEB",
     };
   };
 
@@ -184,7 +187,7 @@ export default function KanbanSortableCard({
       addChecklist({
         subtaskId: subtask.id,
         title: input,
-      }) as any,
+      }),
     );
 
     setInput("");
@@ -200,6 +203,12 @@ export default function KanbanSortableCard({
     setTaskBoardMenuAnchor(null);
   };
 
+  const handleOpenDetails = () => {
+    handleCloseTaskBoardMenu();
+    setSubtaskModalMode("view");
+    setOpenSubtaskModal(true);
+  };
+
   const handleOpenProgressFromMenu = () => {
     handleCloseTaskBoardMenu();
     if (!canViewProgress) return;
@@ -212,11 +221,11 @@ export default function KanbanSortableCard({
   };
 
   const handleToggle = async (checklistId: string) => {
-    await dispatch(toggleChecklist(checklistId, isTaskBoardCard ? undefined : subtask.parentTaskId) as any);
+    await dispatch(toggleChecklist(checklistId, isTaskBoardCard ? undefined : subtask.parentTaskId));
   };
 
   const handleDelete = async (id: string) => {
-    await dispatch(deleteChecklist(id) as any);
+    await dispatch(deleteChecklist(id));
   };
 
   return (
@@ -230,17 +239,16 @@ export default function KanbanSortableCard({
         <Box
           sx={{
             position: "relative",
-            borderRadius: compact ? 1.25 : isTaskBoardCard ? 1 : 3,
-            p: compact ? 1 : isTaskBoardCard ? 1.25 : 2,
-            mb: compact ? 0.8 : isTaskBoardCard ? 1 : 2,
+            borderRadius: compact ? 1.25 : isTaskBoardCard ? 2 : 3,
+            p: compact ? 1 : isTaskBoardCard ? 1.5 : 2,
+            mb: compact ? 0.8 : isTaskBoardCard ? 1.5 : 2,
             backgroundColor: isDropTarget
               ? "#e7fbe7"
               : isDragging
                 ? "#e3f2fd"
                 : "#fff",
-            border: isTaskBoardCard ? "1px solid #E4E1EA" : "1px solid #eee",
-            borderTop: isTaskBoardCard ? `3px solid ${priorityTheme.border}` : undefined,
-            boxShadow: isTaskBoardCard ? "0 4px 12px rgba(33,14,100,0.055)" : "0 2px 8px rgba(0,0,0,0.06)",
+            border: isTaskBoardCard ? "none" : "1px solid #eee",
+            boxShadow: isTaskBoardCard ? "0 3px 12px rgba(15,23,42,0.07)" : "0 2px 8px rgba(0,0,0,0.06)",
             transition: "all 0.2s ease",
             overflow: "hidden",
             ...(compact && {
@@ -252,7 +260,7 @@ export default function KanbanSortableCard({
 
             "&:hover": {
               boxShadow: isTaskBoardCard
-                ? "0 6px 14px rgba(15,23,42,0.08)"
+                ? "0 10px 24px rgba(15,23,42,0.11)"
                 : "0 6px 16px rgba(0,0,0,0.1)",
             },
 
@@ -359,13 +367,13 @@ export default function KanbanSortableCard({
             gap={1}
             mb={isTaskBoardCard ? 1 : 1}
             sx={{
-              mx: isTaskBoardCard ? -1.25 : 0,
-              mt: isTaskBoardCard ? -1.25 : 0,
-              px: isTaskBoardCard ? 1.25 : 0,
-              py: isTaskBoardCard ? 0.9 : 0,
+              mx: isTaskBoardCard ? -1.5 : 0,
+              mt: isTaskBoardCard ? -1.5 : 0,
+              px: isTaskBoardCard ? 1.5 : 0,
+              py: isTaskBoardCard ? 1.25 : 0,
               pr: isTaskBoardCard ? 7 : 0,
               backgroundColor: "transparent",
-              borderBottom: isTaskBoardCard ? "1px solid #EEEAF2" : "none",
+              borderBottom: "none",
               position: "relative",
             }}
           >
@@ -373,7 +381,7 @@ export default function KanbanSortableCard({
               <Typography
                 fontWeight={700}
                 sx={{
-                  fontSize: isTaskBoardCard ? 13 : "inherit",
+                  fontSize: isTaskBoardCard ? 14 : "inherit",
                   lineHeight: 1.25,
                   minHeight: isTaskBoardCard ? "auto" : "2.5em",
                   display: "-webkit-box",
@@ -382,7 +390,10 @@ export default function KanbanSortableCard({
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   wordBreak: "break-word",
+                  cursor: isTaskBoardCard ? "pointer" : "inherit",
+                  "&:hover": isTaskBoardCard ? { color: "#312E81", textDecoration: "underline" } : undefined,
                 }}
+                onClick={isTaskBoardCard ? handleOpenDetails : undefined}
               >
                 {subtask.title}
               </Typography>
@@ -397,7 +408,7 @@ export default function KanbanSortableCard({
                     px: 0.75,
                     py: 0.2,
                     borderRadius: "999px",
-                    bgcolor: `${priorityTheme.border}14`,
+                    bgcolor: priorityTheme.soft,
                     color: priorityTheme.accent,
                     fontSize: 9.5,
                     lineHeight: 1.4,
@@ -436,7 +447,7 @@ export default function KanbanSortableCard({
               sx={{
                 mb: isTaskBoardCard ? 1 : 1.5,
                 pb: isTaskBoardCard ? 1 : 1.5,
-                borderBottom: "1px solid #e5e7eb",
+                borderBottom: isTaskBoardCard ? "none" : "1px solid #e5e7eb",
               }}
             >
               {isTaskBoardCard ? (
@@ -460,16 +471,16 @@ export default function KanbanSortableCard({
                     <Chip
                       size="small"
                       icon={<AccountTreeOutlinedIcon />}
-                      label="Source"
+                        label={sourceLabel[0] || "Project"}
                       sx={{
-                        height: 22,
+                        height: 26,
                         borderRadius: 0.75,
-                        bgcolor: "#EEF2FF",
-                        border: "1px solid #C7D2FE",
-                        color: "#3730A3",
-                        fontSize: 10,
+                        bgcolor: "#F1F5F9",
+                        border: "none",
+                        color: "#334155",
+                        fontSize: 11,
                         fontWeight: 700,
-                        "& .MuiChip-icon": { fontSize: 14, color: "#4F46E5" },
+                        "& .MuiChip-icon": { fontSize: 14, color: "#64748B" },
                       }}
                     />
                   </SourceTooltip>
@@ -571,7 +582,7 @@ export default function KanbanSortableCard({
               sx={{
                 mb: compact ? 0.75 : isTaskBoardCard ? 1 : 1.5,
                 pb: compact ? 0.75 : isTaskBoardCard ? 1 : 1.5,
-                borderBottom: "1px solid #e5e7eb",
+                borderBottom: isTaskBoardCard ? "none" : "1px solid #e5e7eb",
               }}
             >
               <Stack direction="row" alignItems="center" sx={{ pl: 0.25 }}>
@@ -852,6 +863,14 @@ export default function KanbanSortableCard({
             },
           }}
         >
+          <MenuItem onClick={handleOpenDetails} sx={{ fontSize: 13, gap: 1 }}>
+            <ListItemIcon sx={{ minWidth: "28px !important" }}>
+              <InfoOutlinedIcon sx={{ fontSize: 18, color: "#475569" }} />
+            </ListItemIcon>
+            <ListItemText primaryTypographyProps={{ fontSize: 13, fontWeight: 650 }}>
+              View details
+            </ListItemText>
+          </MenuItem>
           {canViewProgress && (
             <MenuItem onClick={handleOpenProgressFromMenu} sx={{ fontSize: 13, gap: 1 }}>
               <ListItemIcon sx={{ minWidth: "28px !important" }}>
@@ -876,7 +895,7 @@ export default function KanbanSortableCard({
       <SubtaskModal
         open={openSubtaskModal}
         onClose={() => setOpenSubtaskModal(false)}
-        mode="view"
+        mode={subtaskModalMode}
         subtask={
           {
             id: subtask.id,
@@ -891,7 +910,7 @@ export default function KanbanSortableCard({
             remarks: subtask.remarks,
             userIds: subtask.userIds || [],
             assignees: subtask.assignees || [], //IMPORTANT: Pass assignees with user data
-          } as any
+          }
         }
         taskBudget={taskBudget}
         projectId={projectId}

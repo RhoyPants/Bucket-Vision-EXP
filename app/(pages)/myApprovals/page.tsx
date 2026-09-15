@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Box, InputAdornment, MenuItem, Paper, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import Layout from "@/app/components/shared/Layout";
 import Guard from "@/app/components/shared/Guard";
@@ -20,6 +20,7 @@ import ProgressUpdateRequestsPanel from "./ProgressUpdateRequestsPanel";
 export default function MyApprovalsPage() {
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const { projects: approvalProjects } = useAppSelector(
     (state) => state.project,
@@ -32,7 +33,7 @@ export default function MyApprovalsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [businessUnitFilter, setBusinessUnitFilter] = useState("ALL");
-  const [activeTab, setActiveTab] = useState<"projects" | "progress">("projects");
+  const [activeTab, setActiveTab] = useState<"projects" | "progress">(() => searchParams.get("tab") === "progress" ? "progress" : "projects");
   const pageLimit = 10;
   const query = useMemo(
     () => ({
@@ -110,7 +111,7 @@ export default function MyApprovalsPage() {
   return (
     <Layout>
       <Guard module="PROJECTS" action="READ">
-        <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1600, mx: "auto" }}>
+        <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0, mx: "auto" }}>
           <Paper elevation={0} sx={{ mb: 2, border: `1px solid ${brandColors.lavender}`, borderRadius: 3, overflow: "hidden" }}>
             <Tabs
               value={activeTab}

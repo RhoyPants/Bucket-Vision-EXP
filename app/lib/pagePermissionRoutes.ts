@@ -15,6 +15,7 @@ export const protectedPageRoutes: PagePermissionRoute[] = [
   { key: "my_drafts", name: "My Drafts", path: "/myDrafts" },
   { key: "my_drafts", name: "Cancelled Requests", path: "/cancelledRequests" },
   { key: "task_board", name: "Task Board", path: "/taskboard" },
+  { key: "projects", name: "Incident Reports", path: "/incidentReports" },
   { key: "team_overview", name: "Team Overview", path: "/teamOverview" },
   { key: "reports", name: "Reports", path: "/reports" },
   { key: "daily_reports", name: "Daily Reports", path: "/reports/daily" },

@@ -9,6 +9,7 @@ import {
   Chip,
   Checkbox,
   FormControlLabel,
+  Switch,
   Alert,
 } from "@mui/material";
 import type { ReactNode } from "react";
@@ -40,6 +41,7 @@ interface CreateProjectProps {
   businessUnits: any[];
   entities: any[];
   attachmentsSection?: ReactNode;
+  budgetTypeLocked?: boolean;
 }
 
 const DAYS = [
@@ -76,6 +78,7 @@ export default function CreateProject({
   businessUnits,
   entities,
   attachmentsSection,
+  budgetTypeLocked = false,
 }: CreateProjectProps) {
   return (
     <Box
@@ -269,9 +272,13 @@ export default function CreateProject({
           <Box sx={{ mb: 2.5 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
               <Typography variant="subtitle2" fontWeight={600}>Total Budget</Typography>
-              <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />
+              {form.isBudgeted !== false && <Chip label="*" size="small" variant="outlined" sx={{ height: 20 }} />}
+              <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Typography variant="caption" fontWeight={700}>{form.isBudgeted !== false ? "Budgeted" : "Non-budgeted"}</Typography>
+                <Switch size="small" checked={form.isBudgeted !== false} disabled={budgetTypeLocked} inputProps={{ "aria-label": "Budgeted project" }} onChange={(event) => setForm({ ...form, isBudgeted: event.target.checked })} />
+              </Box>
             </Box>
-            <DecimalBudgetField
+            {form.isBudgeted !== false ? <DecimalBudgetField
               fullWidth
               placeholder="0"
               value={form.totalBudget}
@@ -283,7 +290,7 @@ export default function CreateProject({
               size="small"
               InputProps={{ startAdornment: "₱ " }}
               sx={{ "& .MuiOutlinedInput-root": { borderRadius: 1.5 } }}
-            />
+            /> : <Typography variant="body2" color="text.secondary">Progress weights will be calculated automatically from subtasks.</Typography>}
           </Box>
         </Grid>
 

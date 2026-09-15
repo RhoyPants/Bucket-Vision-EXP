@@ -290,8 +290,8 @@ export default function ProgressUpdateRequestHistory() {
         </Paper>
       )}
       {progressTarget && <ProgressCalendarModal open subtaskId={progressTarget.subtaskId} initialDate={progressTarget.date} onClose={() => setProgressTarget(null)} onSuccess={() => void load(page)} />}
-      <ConfirmationModal open={Boolean(cancelTarget)} title="Cancel progress request?" message="The pending decrease request will be cancelled. Applied progress will remain unchanged, and the assigned BU Head will be notified." confirmLabel="Cancel request" danger loading={Boolean(cancellingId)} onClose={() => setCancelTarget(null)} onConfirm={() => { if (cancelTarget) void cancel(cancelTarget); }} />
-      <WorkflowResultModal open={cancelledResultOpen} title="Progress Request Cancelled" message="The progress decrease request was successfully cancelled." helperText="Existing progress remains unchanged. The assigned BU Head has been notified." buttonLabel="Back to My Requests" tone="neutral" onClose={() => setCancelledResultOpen(false)} />
+      <ConfirmationModal open={Boolean(cancelTarget)} title="Cancel progress request?" message="The pending decrease request will be cancelled. Applied progress will remain unchanged." confirmLabel="Cancel request" danger loading={Boolean(cancellingId)} onClose={() => setCancelTarget(null)} onConfirm={() => { if (cancelTarget) void cancel(cancelTarget); }} />
+      <WorkflowResultModal open={cancelledResultOpen} title="Progress Request Cancelled" message="The progress decrease request was successfully cancelled." helperText="Existing progress remains unchanged." buttonLabel="Back to My Requests" tone="neutral" onClose={() => setCancelledResultOpen(false)} />
     </Box>
   );
 }

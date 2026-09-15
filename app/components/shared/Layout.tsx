@@ -16,12 +16,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </Suspense>
 
       {/* Main Area */}
-      <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
         {/* Header */}
         <Header />
 
         {/* Page Content */}
-        <Box sx={{ flexGrow: 1, overflowY: "auto", overflowX: "hidden", padding: 0.2, minWidth: 0, backgroundColor: "#f8fafc" }}>
+        <Box sx={{ flexGrow: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", padding: 0.2, minWidth: 0, backgroundColor: "#f8fafc" }}>
           <RouteGuard>{children}</RouteGuard>
         </Box>
       </Box>

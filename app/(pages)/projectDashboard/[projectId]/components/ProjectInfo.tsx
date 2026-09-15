@@ -96,6 +96,14 @@ type ApprovalAuditRecord = {
   } | null;
 };
 
+type VersionApprovalHistory = {
+  projectId: string;
+  versionNumber: number;
+  versionLabel: string;
+  isCurrent: boolean;
+  audit: ApprovalAuditRecord[];
+};
+
 type ApprovalFlowSummary = {
   name?: string;
   description?: string;
@@ -152,6 +160,22 @@ type ProjectInfoData = {
   approvalEnabled?: boolean;
   approvalFlow?: ApprovalFlowSummary | null;
   currentApprovalFlow?: ApprovalFlowSummary | null;
+  versionNumber?: number;
+  versionLabel?: string;
+};
+
+const extractArray = (response: any): any[] => {
+  const data = response?.data?.data ?? response?.data;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.versions)) return data.versions;
+  if (Array.isArray(response?.data?.versions)) return response.data.versions;
+  return [];
+};
+
+const extractAudit = (response: any): ApprovalAuditRecord[] => {
+  const data = response?.data?.data ?? response?.data;
+  if (Array.isArray(data)) return data;
+  return Array.isArray(data?.auditTrail) ? data.auditTrail : [];
 };
 
 const emptyValue = "Not recorded";
@@ -349,6 +373,7 @@ export default function ProjectInfo({ projectId }: { projectId: string }) {
   const [attachments, setAttachments] = useState<ApiAttachment[]>([]);
   const [approvals, setApprovals] = useState<ApprovalRecord[]>([]);
   const [approvalAudit, setApprovalAudit] = useState<ApprovalAuditRecord[]>([]);
+  const [versionApprovalHistory, setVersionApprovalHistory] = useState<VersionApprovalHistory[]>([]);
   const [approvalFlow, setApprovalFlow] = useState<ApprovalFlowSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -410,6 +435,32 @@ export default function ProjectInfo({ projectId }: { projectId: string }) {
               ? auditData.auditTrail
               : [],
         );
+        const currentAudit = extractAudit(auditResponse);
+        const currentVersionNumber = Number(projectData?.versionNumber || 1);
+        setVersionApprovalHistory([{ projectId, versionNumber: currentVersionNumber, versionLabel: projectData?.versionLabel || `v${currentVersionNumber}`, isCurrent: true, audit: currentAudit }]);
+
+        if (projectData?.pin) {
+          axiosApi.get(`/versioning/pin/${encodeURIComponent(projectData.pin)}`)
+            .then(async (versionsResponse) => {
+              const histories = await Promise.all(extractArray(versionsResponse).map(async (version: any): Promise<VersionApprovalHistory> => {
+                const versionId = String(version.id);
+                let audit = versionId === projectId ? currentAudit : [];
+                if (versionId !== projectId) {
+                  try {
+                    audit = extractAudit(await axiosApi.get(`/approvals/${versionId}/audit`));
+                  } catch {
+                    // Keep versions with no recorded approval events visible.
+                  }
+                }
+                const versionNumber = Number(version.versionNumber || 1);
+                return { projectId: versionId, versionNumber, versionLabel: version.versionLabel || `v${versionNumber}`, isCurrent: versionId === projectId, audit };
+              }));
+              if (active) setVersionApprovalHistory(histories.sort((a, b) => b.versionNumber - a.versionNumber));
+            })
+            .catch(() => {
+              // The current version remains visible if the version list is unavailable.
+            });
+        }
         const selectedFlow =
           configData?.currentApprovalFlow ||
           approvalData?.approvalFlow ||
@@ -668,7 +719,7 @@ export default function ProjectInfo({ projectId }: { projectId: string }) {
   };
 
   return (
-    <Box sx={{ p: { xs: 1.5, md: 2.5 }, maxWidth: 1320, mx: "auto" }}>
+    <Box sx={{ p: { xs: 1.5, md: 2.5 }, minWidth: 0, mx: "auto" }}>
       <Stack spacing={2}>
         <Box>
           <Stack
@@ -930,7 +981,7 @@ export default function ProjectInfo({ projectId }: { projectId: string }) {
 
         <Section
           title="Project approval history"
-          subtitle="The approval flow assigned to this project and its recorded decisions."
+          subtitle="The approval flow and recorded decisions from the first project version through the current version."
         >
           <Box
             sx={{
@@ -1143,14 +1194,36 @@ export default function ProjectInfo({ projectId }: { projectId: string }) {
             <Alert severity="info">No approval records are available for this project.</Alert>
           )}
 
-          {sortedApprovalAudit.length ? (
+          {versionApprovalHistory.length ? (
             <>
               <Divider sx={{ my: 2 }} />
               <Typography sx={{ mb: 1.25, color: "#475569", fontSize: 13, fontWeight: 500 }}>
-                Approval audit history
+                Approval audit history · current to v1
               </Typography>
-              <Stack spacing={1.25}>
-                {[...sortedApprovalAudit].reverse().map((log) => (
+              <Stack
+                spacing={1.5}
+                sx={{
+                  maxHeight: 520,
+                  overflowY: "auto",
+                  p: 1.5,
+                  bgcolor: "#FFFFFF",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: 1.5,
+                  scrollbarGutter: "stable",
+                }}
+              >
+                {versionApprovalHistory.map((version, versionIndex) => (
+                  <Box key={version.projectId}>
+                    {versionIndex > 0 ? <Divider sx={{ mb: 1.5 }} /> : null}
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.25 }}>
+                      <Typography sx={{ color: "#334155", fontSize: 12.5, fontWeight: 600 }}>{version.versionLabel}</Typography>
+                      {version.isCurrent ? <Chip label="Current" size="small" color="primary" sx={{ height: 20, fontSize: 10 }} /> : null}
+                      <Typography sx={{ ml: "auto !important", color: "#94A3B8", fontSize: 11 }}>
+                        {version.audit.length} event{version.audit.length === 1 ? "" : "s"}
+                      </Typography>
+                    </Stack>
+                    {version.audit.length ? <Stack spacing={1.25}>
+                {[...version.audit].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).map((log) => (
                   <Box
                     key={log.id}
                     sx={{
@@ -1184,6 +1257,13 @@ export default function ProjectInfo({ projectId }: { projectId: string }) {
                         </Box>
                       ) : null}
                     </Box>
+                  </Box>
+                ))}
+                    </Stack> : (
+                      <Typography sx={{ py: 0.5, color: "#94A3B8", fontSize: 12 }}>
+                        No approval activity recorded for this version.
+                      </Typography>
+                    )}
                   </Box>
                 ))}
               </Stack>

@@ -20,6 +20,7 @@ import BusinessUnits from "./components/BusinessUnits";
 import UserRequests from "@/app/(pages)/settings/components/UserRequestsPanel";
 import ProjectMaintenance from "./components/ProjectMaintenance";
 import HolidayMaintenance from "./components/HolidayMaintenance";
+import IncidentManagement from "./components/IncidentManagement";
 import Guard from "@/app/components/shared/Guard";
 import { usePermissions } from "@/app/lib/usePermissions";
 
@@ -34,6 +35,7 @@ type TabType =
   | "businessUnits"
   | "projectMaintenance"
   | "holidayMaintenance"
+  | "incidentManagement"
   | "userRequests";
 
 interface NavItem {
@@ -82,6 +84,7 @@ const NAV_ITEMS: NavItem[] = [
     permissionKey: "settings_project_approvals",
     requiredAction: "view",
   },
+  { id: "incidentManagement", label: "Incident Management", permissionKey: "settings_incident_management", requiredAction: "view" },
   {
     id: "modules",
     label: "Modules",
@@ -131,6 +134,8 @@ function SettingsPageContent() {
 
   const renderContent = () => {
     switch (activeTab) {
+      case "incidentManagement":
+        return <Guard permissionKey="settings_incident_management" action="view"><IncidentManagement /></Guard>;
       case "profile":
         return <UserProfile />;
       case "roles":

@@ -16,6 +16,7 @@ function SortableScope({ id, children }: { id: string; children: (handleProps: R
 
 interface ScopeListProps {
   scopes: any[];
+  isBudgeted?: boolean;
   invalidScopeIds?: string[];
   invalidTaskIds?: string[];
   scopeEdit: any;
@@ -45,6 +46,7 @@ interface ScopeListProps {
 
 export default function ScopeList({
   scopes,
+  isBudgeted = true,
   invalidScopeIds = [],
   invalidTaskIds = [],
   scopeEdit,
@@ -103,6 +105,7 @@ export default function ScopeList({
         <ScopeCard
           key={scope.id}
           scope={scope}
+          isBudgeted={isBudgeted}
           orderNumber={scopeIndex + 1}
           isInvalidScope={invalidScopeIds.includes(String(scope.id))}
           invalidTaskIds={invalidTaskIds}

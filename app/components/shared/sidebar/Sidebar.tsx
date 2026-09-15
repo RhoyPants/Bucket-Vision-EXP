@@ -14,6 +14,7 @@ import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
+import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 
 import SidebarItem from "./SidebarItem";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -39,6 +40,7 @@ const settingsTabs: Array<{
   { key: "userRequests", label: "User Requests", permissionKey: "settings_user_requests" },
   { key: "relations", label: "User Relations", permissionKey: "settings_user_relations" },
   { key: "approvals", label: "Approval Flows", permissionKey: "settings_approval_flows" },
+  { key: "incidentManagement", label: "Incident Management", permissionKey: "settings_incident_management" },
   { key: "projectApprovals", label: "Project Approvals", permissionKey: "settings_project_approvals" },
   { key: "modules", label: "Modules", permissionKey: "settings_modules" },
   { key: "businessUnits", label: "Business Units", permissionKey: "settings_business_units" },
@@ -52,6 +54,7 @@ const mainNavItems = [
   { label: "My Requests", href: "/myRequests", permissionKey: "my_requests", icon: <SendOutlinedIcon /> },
   { label: "My Approvals", href: "/myApprovals", permissionKey: "my_approvals", icon: <FactCheckOutlinedIcon /> },
   { label: "Task Board", href: "/taskboard", permissionKey: "task_board", icon: <ViewKanbanOutlinedIcon /> },
+  { label: "Incident Reports", href: "/incidentReports", permissionKey: "projects", icon: <ReportProblemOutlinedIcon /> },
   // Temporarily hidden while the module direction is being finalized.
   // { label: "Team Overview", href: "/teamOverview", permissionKey: "team_overview", icon: <GroupsOutlinedIcon /> },
   { label: "My Drafts", href: "/myDrafts", permissionKey: "my_drafts", icon: <DraftsOutlinedIcon /> },

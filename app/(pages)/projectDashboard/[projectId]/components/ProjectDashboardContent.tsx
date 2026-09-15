@@ -64,7 +64,7 @@ export default function ProjectDashboardContent({ projectId }: { projectId: stri
   };
 
   return (
-    <Box sx={{ p: { xs: 1.25, md: 2 }, maxWidth: 1500, mx: "auto" }}>
+    <Box sx={{ p: { xs: 1.25, md: 2 }, minWidth: 0, mx: "auto" }}>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {detailLoading && !dashboard ? (
         <Box sx={{ minHeight: 360, display: "grid", placeItems: "center" }}><CircularProgress /></Box>

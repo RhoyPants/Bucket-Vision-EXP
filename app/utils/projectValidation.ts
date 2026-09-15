@@ -17,7 +17,8 @@ export interface ProjectFormData {
   };
   startDate: string;
   expectedEndDate: string;
-  totalBudget: number;
+  isBudgeted?: boolean;
+  totalBudget?: number;
   priority: string;
   pin: string;
   businessUnit: string;
@@ -210,17 +211,17 @@ export const validateProjectForm = (form: Partial<ProjectFormData>): ValidationR
   }
 
   // ✅ Total Budget validation
-  if (form.totalBudget === undefined || form.totalBudget === null) {
+  if (form.isBudgeted !== false && (form.totalBudget === undefined || form.totalBudget === null)) {
     errors.push({
       field: "totalBudget",
       message: "Total Budget is required",
     });
-  } else if (form.totalBudget < 0) {
+  } else if (form.isBudgeted !== false && Number(form.totalBudget) < 0) {
     errors.push({
       field: "totalBudget",
       message: "Budget cannot be negative",
     });
-  } else if (form.totalBudget > 999999999) {
+  } else if (form.isBudgeted !== false && Number(form.totalBudget) > 999999999) {
     errors.push({
       field: "totalBudget",
       message: "Budget exceeds maximum allowed value",

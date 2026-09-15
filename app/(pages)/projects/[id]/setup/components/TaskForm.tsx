@@ -154,7 +154,7 @@ export default function TaskForm({
         display: "grid",
         gridTemplateColumns: {
           xs: "minmax(0, 1fr)",
-          sm: "minmax(240px, 300px) minmax(160px, 200px) auto auto",
+          sm: budgetRequired ? "minmax(240px, 300px) minmax(160px, 200px) auto auto" : "minmax(240px, 360px) auto",
         },
         gap: 1,
         alignItems: "start",
@@ -199,7 +199,7 @@ export default function TaskForm({
           />
         )}
 
-      <DecimalBudgetField
+      {budgetRequired && <DecimalBudgetField
           size="small"
           label="Budget"
           placeholder="0"
@@ -210,9 +210,9 @@ export default function TaskForm({
           helperText={budgetError || undefined}
           sx={{ flex: "0 1 200px" }}
           disabled={saving || !budgetRequired}
-      />
+      />}
 
-      <Typography
+      {budgetRequired && <Typography
         variant="caption"
         sx={{
           backgroundColor: "#0ea5e9",
@@ -232,7 +232,7 @@ export default function TaskForm({
         }}
       >
         {budgetPercent.toFixed(1)}%
-      </Typography>
+      </Typography>}
 
       <Button
         size="small"

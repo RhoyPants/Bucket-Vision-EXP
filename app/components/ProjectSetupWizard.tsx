@@ -153,6 +153,7 @@ export default function ProjectSetupWizard({
   const isVersioningContext = pathname?.includes("/versioning") ?? false;
   const canSaveProjectDetails = isCreatingNew && !currentProjectId ? canCreateProject : canUpdateProject;
   const activeStepRef = useRef(initialStep);
+  const wizardTopRef = useRef<HTMLDivElement>(null);
 
   // ===== PROJECT FORM STATE =====
   const [projectForm, setProjectForm] = useState<any>({
@@ -175,6 +176,7 @@ export default function ProjectSetupWizard({
     expectedEndDate: "",
     pin: "",
     priority: "Medium",
+    isBudgeted: true,
     totalBudget: 0,
   });
   const [projectErrors, setProjectErrors] = useState<any[]>([]);
@@ -279,6 +281,10 @@ export default function ProjectSetupWizard({
   }, [currentProjectId, dispatch]);
 
   useEffect(() => {
+    if (activeStepRef.current !== activeStep) {
+      // Steps share a scroll container, so reset it after the new content mounts.
+      wizardTopRef.current?.scrollIntoView({ behavior: "instant", block: "start", inline: "nearest" });
+    }
     activeStepRef.current = activeStep;
   }, [activeStep]);
 
@@ -362,6 +368,7 @@ export default function ProjectSetupWizard({
         : "",
       pin: project.pin || "",
       priority: project.priority || "Medium",
+      isBudgeted: project.isBudgeted ?? true,
       totalBudget: project.totalBudget || 0,
     });
 
@@ -934,7 +941,8 @@ export default function ProjectSetupWizard({
     projectForm.location?.provinceName || project?.location?.provinceName,
     projectForm.location?.regionName || project?.location?.regionName,
   ].filter(Boolean).join(", ") || "Not specified";
-  const proposedBudget = Number(projectForm.totalBudget || project?.totalBudget || 0);
+  const isBudgetedProject = projectForm.isBudgeted ?? project?.isBudgeted ?? true;
+  const proposedBudget = isBudgetedProject ? Number(projectForm.totalBudget || project?.totalBudget || 0) : 0;
   const allocatedScopeBudget = (project?.scopes || []).reduce(
     (total: number, scope: any) => total + Number(scope?.budgetAllocated || 0),
     0
@@ -996,6 +1004,7 @@ export default function ProjectSetupWizard({
         ...workSchedule,
       };
       delete (payload as any).attachments;
+      if (payload.isBudgeted === false) delete (payload as any).totalBudget;
 
       if (isCreatingNew && !currentProjectId) {
         // Create new project
@@ -1351,7 +1360,7 @@ export default function ProjectSetupWizard({
   }
 
   return (
-    <Box sx={{ width: "100%", pb: structureOnly ? 0 : 4 }}>
+    <Box ref={wizardTopRef} sx={{ width: "100%", pb: structureOnly ? 0 : 4 }}>
       {/* WIZARD STEPPER */}
       {!structureOnly && <Stepper activeStep={activeStep} sx={{ position: "sticky", top: 4, zIndex: 20, mb: 2, p: { xs: 1.25, sm: 1.75 }, bgcolor: "rgba(255,255,255,.96)", backdropFilter: "blur(10px)", border: "1px solid #E0DAE6", borderRadius: 2.5, boxShadow: "0 5px 16px rgba(33,14,100,.08)", "& .MuiStepLabel-label": { fontSize: { xs: 11, sm: 12.5 } }, "& .MuiStepIcon-root": { fontSize: { xs: 21, sm: 24 } } }}>
         {WIZARD_STEPS.map((label) => (
@@ -1360,71 +1369,6 @@ export default function ProjectSetupWizard({
           </Step>
         ))}
       </Stepper>}
-
-      {/* PROJECT HEADER - Show if project exists */}
-      {!structureOnly && (project || projectForm.name) && (
-        <>
-        <Card elevation={0} sx={{ mb: 2, border: "1px solid #E0DAE6", borderRadius: 2.5, overflow: "hidden", bgcolor: "#FFFFFF" }}>
-          <Box sx={{ height: 4, background: "linear-gradient(90deg, #210E64, #686AF3)" }} />
-          <CardContent sx={{ p: { xs: 1.5, md: 2 }, "&:last-child": { pb: { xs: 1.5, md: 2 } } }}>
-            <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} gap={1} sx={{ mb: 1.5 }}>
-              <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ color: "#686278", fontSize: 10.5, fontWeight: 750, textTransform: "uppercase", letterSpacing: ".06em" }}>Project snapshot</Typography>
-                <Typography noWrap title={projectForm.name || project?.name || "New Project"} sx={{ color: "#110947", fontSize: 19, fontWeight: 750, mt: 0.15 }}>
-                  {projectForm.name || project?.name || "New Project"}
-                </Typography>
-              </Box>
-              <MuiChip label={project?.status || "DRAFT"} size="small" sx={{ height: 27, bgcolor: "#FEF3C7", color: "#92400E", fontSize: 11, fontWeight: 750, border: "1px solid #FDE68A" }} />
-            </Stack>
-            <Grid container spacing={0} sx={{ border: "1px solid #ECE9F1", borderRadius: 2, overflow: "hidden", bgcolor: "#FCFBFE" }}>
-              {[
-                { label: "Project PIN", value: projectForm.pin || project?.pin || "Not assigned" },
-                { label: "Business Unit", value: projectForm.businessUnitName || project?.businessUnitDetails?.name || project?.businessUnitName || "Not assigned" },
-                { label: "Total Budget", value: `₱${formatBudget(projectForm.totalBudget || project?.totalBudget || 0)}` },
-                { label: "Timeline", value: `${projectForm.startDate ? new Date(projectForm.startDate).toLocaleDateString() : "Not set"} – ${projectForm.expectedEndDate ? new Date(projectForm.expectedEndDate).toLocaleDateString() : "Not set"}` },
-              ].map((item, index) => (
-                <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={item.label}>
-                  <Box sx={{ px: 1.5, py: 1.1, minHeight: 58, borderRight: { lg: index < 3 ? "1px solid #E0DAE6" : 0 }, borderBottom: { xs: index < 3 ? "1px solid #E0DAE6" : 0, sm: index < 2 ? "1px solid #E0DAE6" : 0, lg: 0 } }}>
-                    <Typography sx={{ color: "#858092", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em" }}>{item.label}</Typography>
-                    <Typography noWrap title={item.value} sx={{ color: "#322D43", fontSize: 13, fontWeight: 600, mt: 0.3 }}>{item.value}</Typography>
-                  </Box>
-                </Grid>
-              ))}
-            </Grid>
-          </CardContent>
-        </Card>
-        <Card sx={{ display: "none", mb: 3, backgroundColor: "#f3f4f6" }}>
-          <CardContent>
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-              <Box flex={1}>
-                <Typography variant="h6" fontWeight={700}>
-                  {projectForm.name || project?.name || "New Project"}
-                </Typography>
-                <Typography sx={{ fontSize: 12, color: "#666", mt: 0.5 }}>
-                  PIN: {projectForm.pin || project?.pin || "—"} | Budget: ₱{formatBudget(projectForm.totalBudget || project?.totalBudget || 0)}
-                </Typography>
-                <Typography sx={{ fontSize: 12, color: "#666", mt: 0.5 }}>
-                  📅 {projectForm.startDate ? new Date(projectForm.startDate).toLocaleDateString() : "—"} - {projectForm.expectedEndDate ? new Date(projectForm.expectedEndDate).toLocaleDateString() : "—"}
-                </Typography>
-              </Box>
-              <Typography
-                sx={{
-                  fontSize: 12,
-                  px: 2,
-                  py: 1,
-                  backgroundColor: "#fef3c7",
-                  borderRadius: 1,
-                  fontWeight: 600,
-                  color: "#92400e",
-                }}
-              >
-                {project?.status || "DRAFT"}
-              </Typography>
-            </Stack>
-          </CardContent>
-        </Card>
-        </>
-      )}
 
       {/* STEP CONTENT */}
       <Box sx={{ minHeight: "500px" }}>
@@ -1456,6 +1400,7 @@ export default function ProjectSetupWizard({
                 barangays={barangays}
                 businessUnits={businessUnits}
                 entities={entities}
+                budgetTypeLocked={Boolean(currentProjectId && project?.status !== "DRAFT")}
                 attachmentsSection={
                   <Box
                     sx={{
@@ -1685,7 +1630,7 @@ export default function ProjectSetupWizard({
                         Select one or more Business Units whose WBS templates will supply the Scope, Task, and Subtask LOVs.
                       </Typography>
                       {wbsBusinessUnitError && <Alert severity="error" sx={{ mb: 1.5 }}>{wbsBusinessUnitError}</Alert>}
-                      <FormControl fullWidth size="small" disabled={savingWbsBusinessUnits}>
+                      <FormControl fullWidth size="small" disabled={savingWbsBusinessUnits} sx={{ maxWidth: 720 }}>
                         <InputLabel>WBS Business Units</InputLabel>
                         <Select
                           multiple
@@ -1693,6 +1638,22 @@ export default function ProjectSetupWizard({
                           label="WBS Business Units"
                           onChange={(event) => void handleWbsBusinessUnitsChange(typeof event.target.value === "string" ? event.target.value.split(",") : event.target.value)}
                           renderValue={(ids) => ids.map((id) => businessUnits.find((unit) => unit.id === id)?.code || businessUnits.find((unit) => unit.id === id)?.name || id).join(", ")}
+                          MenuProps={{
+                            anchorOrigin: { vertical: "bottom", horizontal: "left" },
+                            transformOrigin: { vertical: "top", horizontal: "left" },
+                            slotProps: {
+                              paper: {
+                                sx: {
+                                  mt: 0.5,
+                                  maxHeight: 320,
+                                  maxWidth: 720,
+                                  borderRadius: 1.5,
+                                  boxShadow: "0 10px 28px rgba(15, 23, 42, 0.18)",
+                                },
+                              },
+                              list: { dense: true, sx: { py: 0.5 } },
+                            },
+                          }}
                         >
                           {businessUnits.map((unit) => (
                             <MenuItem key={unit.id} value={unit.id}>
@@ -1712,6 +1673,7 @@ export default function ProjectSetupWizard({
                   setScopeForm={setScopeForm}
                   onAddScope={handleAddScope}
                   projectBudget={project?.totalBudget || 0}
+                  isBudgeted={isBudgetedProject}
                   existingScopes={project?.scopes || []}
                   projectId={currentProjectId!}
                   wbsBusinessUnitIds={wbsBusinessUnitIds}
@@ -1722,6 +1684,7 @@ export default function ProjectSetupWizard({
                 {/* Scope List with Tasks & Subtasks */}
                 <ScopeList
                   scopes={sortedScopes}
+                  isBudgeted={isBudgetedProject}
                   invalidScopeIds={structureValidationFeedback.invalidScopeIds}
                   invalidTaskIds={structureValidationFeedback.invalidTaskIds}
                   scopeEdit={scopeEdit}
@@ -1870,10 +1833,10 @@ export default function ProjectSetupWizard({
 
                       <Box>
                         <Typography sx={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase" }}>
-                          Total Budget
+                          {isBudgetedProject ? "Total Budget" : "Project Type"}
                         </Typography>
                         <Typography fontWeight={600}>
-                          ₱{formatBudget(projectForm.totalBudget || project?.totalBudget || 0)}
+                          {isBudgetedProject ? `₱${formatBudget(projectForm.totalBudget || project?.totalBudget || 0)}` : "Non-budgeted"}
                         </Typography>
                       </Box>
                     </Stack>
@@ -2139,7 +2102,7 @@ export default function ProjectSetupWizard({
               </Grid>
 
               {/* BUDGET RECONCILIATION CARD */}
-              <Grid size={{ xs: 12 }}>
+              {isBudgetedProject && <Grid size={{ xs: 12 }}>
                 <Card
                   sx={{
                     border: "1px solid",
@@ -2220,7 +2183,7 @@ export default function ProjectSetupWizard({
                     </Box>
                   </CardContent>
                 </Card>
-              </Grid>
+              </Grid>}
 
               {/* PROJECT STRUCTURE CARD */}
               <Grid size={{ xs: 12 }}>
@@ -2236,7 +2199,7 @@ export default function ProjectSetupWizard({
                             <Typography fontWeight={700} sx={{ color: "#6366f1", mb: 1 }}>
                               {scope.name}
                             </Typography>
-                            <Stack
+                            {isBudgetedProject && <Stack
                               direction={{ xs: "column", sm: "row" }}
                               spacing={{ xs: 0.75, sm: 1.5 }}
                               sx={{
@@ -2263,7 +2226,7 @@ export default function ProjectSetupWizard({
                                     : `₱${formatBudget(Math.abs(Number(scope.budgetAllocated || 0) - getScopeTaskTotal(scope)))} ${Number(scope.budgetAllocated || 0) - getScopeTaskTotal(scope) < 0 ? "over allocation" : "under allocation"}`}
                                 </Box>
                               </Typography>
-                            </Stack>
+                            </Stack>}
                             {scope.tasks && scope.tasks.length > 0 && (
                               <Box sx={{ ml: 2, mt: 1 }}>
                                 <Typography sx={{ fontSize: "0.8rem", fontWeight: 600, color: "#999", mb: 1 }}>
@@ -2274,7 +2237,7 @@ export default function ProjectSetupWizard({
                                     <Box key={task.id} sx={{ pl: 1.25, borderLeft: "2px solid #c7d2fe" }}>
                                       <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={0.5}>
                                         <Typography sx={{ fontSize: "0.82rem", color: "#334155", fontWeight: 700 }}>{task.title}</Typography>
-                                        <Stack
+                                        {isBudgetedProject && <Stack
                                           direction={{ xs: "column", sm: "row" }}
                                           spacing={{ xs: 0.5, sm: 1 }}
                                           sx={{
@@ -2300,7 +2263,7 @@ export default function ProjectSetupWizard({
                                                 : `₱${formatBudget(Math.abs(Number(task.budgetAllocated || 0) - getTaskSubtaskTotal(task)))} ${Number(task.budgetAllocated || 0) - getTaskSubtaskTotal(task) < 0 ? "over allocation" : "under allocation"}`}
                                             </Box>
                                           </Typography>
-                                        </Stack>
+                                        </Stack>}
                                       </Stack>
                                       {task.description && <Typography sx={{ mt: 0.25, fontSize: "0.75rem", color: "#64748b" }}>{task.description}</Typography>}
                                       {task.subtasks?.length > 0 ? (
@@ -2311,7 +2274,9 @@ export default function ProjectSetupWizard({
                                               <Box key={subtask.id} sx={{ p: 1, bgcolor: "#fff", border: "1px solid #e2e8f0", borderRadius: 1 }}>
                                                 <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={0.5}>
                                                   <Typography sx={{ fontSize: "0.78rem", color: "#475569", fontWeight: 600 }}>{subtask.title}</Typography>
-                                                  <Typography sx={{ fontSize: "0.72rem", color: "#64748b", whiteSpace: "nowrap" }}>{subtask.priority || "No priority"} · ₱{formatBudget(subtask.budgetAllocated || 0)}</Typography>
+                                                  <Typography sx={{ fontSize: "0.72rem", color: "#64748b", whiteSpace: "nowrap" }}>
+                                                    {subtask.priority || "No priority"}{isBudgetedProject ? ` · ₱${formatBudget(subtask.budgetAllocated || 0)}` : ""}
+                                                  </Typography>
                                                 </Stack>
                                                 {subtask.description && <Typography sx={{ mt: 0.25, fontSize: "0.73rem", color: "#64748b" }}>{subtask.description}</Typography>}
                                                 {checklistItems.length > 0 && (
@@ -2454,7 +2419,7 @@ export default function ProjectSetupWizard({
                   ["Location", projectLocation],
                   ["Business unit", projectForm.businessUnitName || project?.businessUnitDetails?.name || project?.businessUnitName || "Not assigned"],
                   ["Timeline", `${projectForm.startDate ? new Date(projectForm.startDate).toLocaleDateString() : "Not set"} – ${projectForm.expectedEndDate ? new Date(projectForm.expectedEndDate).toLocaleDateString() : "Not set"}`],
-                  ["Budget", `₱${formatBudget(projectForm.totalBudget || project?.totalBudget || 0)}`],
+                  ["Budget", isBudgetedProject ? `₱${formatBudget(projectForm.totalBudget || project?.totalBudget || 0)}` : "Non-budgeted"],
                   ["Project team", `${teamMemberCount} member(s)`],
                 ].map(([label, value]) => (
                   <Box key={label}>

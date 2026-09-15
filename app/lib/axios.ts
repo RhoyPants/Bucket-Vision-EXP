@@ -38,6 +38,10 @@ const methodActionMap: Record<string, string> = {
 };
 
 const resourceLabelMap: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /^(?:\/api)?\/admin\/incident-workflows(?:\/|$)/, label: "Incident Report Workflow" },
+  { pattern: /^(?:\/api)?\/admin\/escalation-notification-matrices(?:\/|$)/, label: "Escalation Notification Matrix" },
+  { pattern: /^(?:\/api)?\/admin\/incident-types(?:\/|$)/, label: "Incident Type" },
+  { pattern: /^(?:\/api)?\/incidents(?:\/|$)/, label: "Incident Report" },
   { pattern: /^\/roles(?:\/|$)/, label: "Role" },
   { pattern: /^\/projects\/my-drafts(?:\/|$)/, label: "Project Draft" },
   { pattern: /^\/projects(?:\/|$)/, label: "Project" },
@@ -97,16 +101,36 @@ const notifyAccessDenied = (response: { config?: { method?: string; url?: string
   window.dispatchEvent(new CustomEvent(accessDeniedEventName, { detail }));
 };
 
-const responseMessage = (data: any, fallback: string) => {
-  if (typeof data?.message === "string" && data.message.trim()) return data.message;
-  if (typeof data?.error === "string" && data.error.trim()) return data.error;
-  if (typeof data?.error?.message === "string" && data.error.message.trim()) return data.error.message;
+type ApiErrorBody = {
+  message?: unknown;
+  error?: unknown | { message?: unknown };
+};
+
+const responseMessage = (data: unknown, fallback: string) => {
+  if (typeof data === "string" && data.trim()) {
+    const text = data
+      .replace(/<br\s*\/?\s*>/gi, "\n")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;|&apos;/gi, "'")
+      .replace(/[ \t]+/g, " ")
+      .trim();
+    const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const firstLine = lines.find((line) => /^Error:\s*\S/i.test(line)) || lines.find((line) => line.toLowerCase() !== "error");
+    if (firstLine) return firstLine.replace(/^Error:\s*/i, "");
+  }
+  const body = data && typeof data === "object" ? data as ApiErrorBody : undefined;
+  if (typeof body?.message === "string" && body.message.trim()) return body.message;
+  if (typeof body?.error === "string" && body.error.trim()) return body.error;
+  if (body?.error && typeof body.error === "object" && "message" in body.error && typeof body.error.message === "string" && body.error.message.trim()) return body.error.message;
   return fallback;
 };
 
 const notifyApiError = (detail: {
   status?: number;
-  data?: any;
+  data?: unknown;
   method?: string;
   url?: string;
   title?: string;
@@ -194,6 +218,13 @@ axiosApi.interceptors.response.use(
 
     // Handle other error statuses
     if (response.status >= 400) {
+      // Workflow screens need field errors and conflict codes for recovery.
+      if ((response.config as typeof response.config & { preserveApiError?: boolean }).preserveApiError) {
+        return Promise.reject(new AxiosError(
+          responseMessage(response.data, `HTTP Error: ${response.status}`),
+          undefined, response.config, response.request, response,
+        ));
+      }
       if (response.status === 403 && mutatingMethods.has(response.config.method?.toLowerCase() || "")) {
         notifyAccessDenied(response);
       } else {

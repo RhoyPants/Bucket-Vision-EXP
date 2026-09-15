@@ -21,6 +21,7 @@ import {
 
 interface ScopeCardProps {
   scope: any;
+  isBudgeted?: boolean;
   orderNumber: number;
   isInvalidScope?: boolean;
   invalidTaskIds?: string[];
@@ -53,6 +54,7 @@ interface ScopeCardProps {
 
 function ScopeCard({
   scope,
+  isBudgeted = true,
   orderNumber,
   isInvalidScope = false,
   invalidTaskIds = [],
@@ -90,7 +92,7 @@ function ScopeCard({
   const selectedMaintenanceScope = maintenanceScopes.find(
     (item) => item.id === (scopeEdit?.scopeMaintenanceId || scope.scopeMaintenanceId),
   );
-  const budgetRequired = scopeRequiresBudget(selectedMaintenanceScope?.code);
+  const budgetRequired = isBudgeted && scopeRequiresBudget(selectedMaintenanceScope?.code);
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
   const [orderedTasks, setOrderedTasks] = useState<any[]>(scope.tasks || []);
 
@@ -136,7 +138,7 @@ function ScopeCard({
     const validation = validateScopeForm({
       name: scopeEdit.name,
       projectId: scope.projectId || "",
-      budgetAllocated: Number(scopeEdit.budgetAllocated) || 0,
+      budgetAllocated: budgetRequired ? Number(scopeEdit.budgetAllocated) || 0 : 0,
     }, 0, budgetRequired);
 
     if (!validation.isValid) {
@@ -224,9 +226,9 @@ function ScopeCard({
               <Chip label={`SCOPE ${orderNumber}`} size="small" sx={{ height: 22, bgcolor: "#ede9fe", color: "#4c1d95", fontSize: 10, fontWeight: 800 }} />
               <Typography variant="subtitle1" fontWeight={700}>{scope.name}</Typography>
             </Stack>
-            <Typography variant="caption" color="text.secondary">
+            {isBudgeted && <Typography variant="caption" color="text.secondary">
               ₱{(Number(scope.budgetAllocated) || 0).toLocaleString()} ({scope.budgetPercent?.toFixed(2)}%)
-            </Typography>
+            </Typography>}
           </Box>
 
           {!reorderOnly && <Box
@@ -256,7 +258,7 @@ function ScopeCard({
         </Box>
 
         {!scopeDragActive && <>
-        <Stack
+        {isBudgeted && <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={{ xs: 0.75, sm: 1.5 }}
           sx={{
@@ -287,7 +289,7 @@ function ScopeCard({
                 : `₱${Math.abs(scopeBudgetVariance).toLocaleString()} ${scopeBudgetVariance < 0 ? "over allocation" : "under allocation"}`}
             </Box>
           </Typography>
-        </Stack>
+        </Stack>}
 
         {/* TASK INPUT */}
         {!reorderOnly && <TaskForm
@@ -384,7 +386,7 @@ function ScopeCard({
           )}
 
           {/* SCOPE NAME */}
-          <Box sx={{ mb: 2.5 }}>
+          {isBudgeted && <Box sx={{ mb: 2.5 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
               <Typography variant="subtitle2" fontWeight={600}>
                 Scope Name
@@ -424,7 +426,7 @@ function ScopeCard({
                 <MenuItem key={item.id} value={item.id}>{item.name} ({item.code})</MenuItem>
               ))}
             </TextField>
-          </Box>
+          </Box>}
 
           {/* BUDGET ALLOCATED */}
           <Box sx={{ mb: 2.5 }}>

@@ -25,7 +25,7 @@ export default function ProjectCpm({ projectId }: { projectId: string }) {
   }, [dispatch, projectId]);
 
   return (
-    <Box sx={{ p: { xs: 1.25, md: 2 }, maxWidth: 1500, mx: "auto" }}>
+    <Box sx={{ p: { xs: 1.25, md: 2 }, minWidth: 0, mx: "auto" }}>
       {error ? (
         <Alert severity="error">{error}</Alert>
       ) : !scopes ? (

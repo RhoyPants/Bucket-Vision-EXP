@@ -10,11 +10,13 @@ import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
 import { logout } from "@/app/redux/slices/authSlice";
 import { logoutRequest } from "@/app/api-service/authService";
 import { resetNotificationCounts } from "@/app/redux/slices/notificationCountSlice";
+import NotificationCenter from "@/app/components/shared/NotificationCenter";
 
 // Map exact routes to display titles
 const routeTitleMap: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/taskboard": "Task Board",
+  "/incidentReports": "Incident Reports",
   "/teamOverview": "Team Overview",
   "/projects": "Projects",
   "/reports": "Reports",
@@ -34,6 +36,7 @@ const routeTitleMap: Record<string, string> = {
 const routeDescriptionMap: Record<string, string> = {
   "/dashboard": "Your central workspace and project overview",
   "/taskboard": "Manage and track all assigned tasks and subtasks",
+  "/incidentReports": "View submitted incidents, resolver assignments, and corrective actions",
   "/teamOverview": "Overview of team members and their assignments",
   "/projects": "Manage all your projects and their status",
   "/reports": "Track and manage daily and weekly reports from your team",
@@ -192,6 +195,8 @@ export default function Header() {
           <IconButton aria-label="Help" sx={{ color: "#374151", display: { xs: "none", sm: "inline-flex" } }}>
             <HelpOutlineIcon sx={{ fontSize: 20 }} />
           </IconButton>
+
+          <NotificationCenter />
 
           <Box
             onClick={handleAvatarClick}

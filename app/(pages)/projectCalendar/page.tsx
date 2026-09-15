@@ -126,7 +126,7 @@ function ProjectCalendarContent() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <Container maxWidth={false} sx={{ py: 3 }}>
       {/* Header */}
       <CalendarHeader
         month={currentMonth}

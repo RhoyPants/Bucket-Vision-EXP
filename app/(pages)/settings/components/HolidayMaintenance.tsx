@@ -137,7 +137,7 @@ export default function HolidayMaintenance() {
   };
 
   return (
-    <Box sx={{ width: "100%", maxWidth: 1440, mx: "auto" }}>
+    <Box sx={{ width: "100%", minWidth: 0, mx: "auto" }}>
       <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} gap={2} mb={3}>
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Avatar variant="rounded" sx={{ width: 44, height: 44, bgcolor: "#F1EDFF", color: "#4B2E83" }}>
