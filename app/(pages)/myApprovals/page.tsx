@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import { Box, InputAdornment, MenuItem, Paper, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
+import { Box, CircularProgress, InputAdornment, MenuItem, Paper, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -17,7 +17,7 @@ import { getMyApprovalsProjects } from "@/app/redux/controllers/projectControlle
 import { brandColors } from "@/app/lib/theme";
 import ProgressUpdateRequestsPanel from "./ProgressUpdateRequestsPanel";
 
-export default function MyApprovalsPage() {
+function MyApprovalsPageContent() {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -214,5 +214,19 @@ export default function MyApprovalsPage() {
         </Box>
       </Guard>
     </Layout>
+  );
+}
+
+export default function MyApprovalsPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box sx={{ display: "grid", placeItems: "center", minHeight: "100vh", bgcolor: "#F8FAFC" }}>
+          <CircularProgress />
+        </Box>
+      }
+    >
+      <MyApprovalsPageContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Typography,
@@ -12,6 +12,7 @@ import {
   InputAdornment,
   Tab,
   Tabs,
+  CircularProgress,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import SearchIcon from "@mui/icons-material/Search";
@@ -41,7 +42,7 @@ type MyRequestProject = {
   } | null;
 };
 
-export default function MyRequestsPage() {
+function MyRequestsPageContent() {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -340,5 +341,19 @@ export default function MyRequestsPage() {
         </Box>
       </Guard>
     </Layout>
+  );
+}
+
+export default function MyRequestsPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box sx={{ display: "grid", placeItems: "center", minHeight: "100vh", bgcolor: "#F8FAFC" }}>
+          <CircularProgress />
+        </Box>
+      }
+    >
+      <MyRequestsPageContent />
+    </Suspense>
   );
 }
