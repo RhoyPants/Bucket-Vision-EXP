@@ -29,6 +29,7 @@ import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import KeyboardArrowDownOutlinedIcon from "@mui/icons-material/KeyboardArrowDownOutlined";
 import KeyboardArrowUpOutlinedIcon from "@mui/icons-material/KeyboardArrowUpOutlined";
+import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import {
   createMaintenanceRecord,
   bulkUpdateMaintenanceStatus,
@@ -37,6 +38,7 @@ import {
   MaintenancePayload,
   MaintenanceRecord,
   MaintenanceRelation,
+  MaintenanceTable,
   reorderScopes,
   reorderSubtasksForTask,
   reorderTasksForScope,
@@ -160,6 +162,8 @@ export default function ProjectMaintenance() {
     canUpdate("settings_business_units");
   const [activeKind, setActiveKind] = useState<MaintenanceKind>("scope");
   const [selectedTableId, setSelectedTableId] = useState("");
+  const [selectedTable, setSelectedTable] = useState<MaintenanceTable | null>(null);
+  const [exporting, setExporting] = useState(false);
   const canCreateHierarchyRecord = canCreateRecord && Boolean(selectedTableId) && selectedTableId !== "__legacy__";
   const [records, setRecords] = useState<
     Record<MaintenanceKind, MaintenanceRecord[]>
@@ -565,6 +569,82 @@ export default function ProjectMaintenance() {
   const displaySubtasksForTask = (taskId: string) =>
     subtasksByTask[taskId] || [];
 
+  const exportWbs = async () => {
+    if (!selectedTable || exporting) return;
+    try {
+      setExporting(true);
+      setError("");
+      const browserBundle = await import("exceljs/dist/exceljs.min.js");
+      const ExcelJS = browserBundle.default ?? browserBundle;
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "Bucket Vision";
+      workbook.created = new Date();
+      const sheet = workbook.addWorksheet("WBS");
+      sheet.columns = [
+        { key: "itemNumber", width: 16 },
+        { key: "scopeOfWork", width: 56 },
+        { key: "status", width: 16 },
+      ];
+      const businessUnits = selectedTable.businessUnits?.map((item) => item.businessUnit?.name || item.businessUnit?.code || item.businessUnitId).join(", ") || "Private / Unassigned";
+      sheet.mergeCells("A1:C1");
+      sheet.getCell("A1").value = selectedTable.name;
+      sheet.getCell("A1").font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
+      sheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF3F3F3F" } };
+      sheet.getCell("A1").alignment = { vertical: "middle", horizontal: "center" };
+      sheet.getRow(1).height = 28;
+      sheet.mergeCells("A2:C2");
+      sheet.getCell("A2").value = `BUSINESS UNIT: ${businessUnits}`;
+      sheet.getCell("A2").font = { bold: true, color: { argb: "FF1E293B" } };
+      sheet.getCell("A2").alignment = { vertical: "middle", horizontal: "center" };
+      sheet.addRow([]);
+      const header = sheet.addRow(["ITEM NO.", "SCOPE OF WORK", "STATUS"]);
+      header.height = 24;
+      for (let column = 1; column <= 3; column += 1) {
+        header.getCell(column).font = { bold: true, color: { argb: "FFFFFFFF" } };
+        header.getCell(column).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF3F3F3F" } };
+        header.getCell(column).alignment = { vertical: "middle", horizontal: "center" };
+      }
+      sortedScopes.forEach((scope, scopeIndex) => {
+        const scopeNumber = `${scopeIndex + 1}.0`;
+        const scopeRow = sheet.addRow([scopeNumber, scope.name, scope.isActive === false ? "Inactive" : "Active"]);
+        for (let column = 1; column <= 3; column += 1) {
+          scopeRow.getCell(column).font = { bold: true, color: { argb: "FFFFFFFF" } };
+          scopeRow.getCell(column).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF3F3F3F" } };
+        }
+        displayTasksForScope(scope.id).forEach((task, taskIndex) => {
+          const taskNumber = `${scopeIndex + 1}.${taskIndex + 1}`;
+          const taskRow = sheet.addRow([taskNumber, task.name, task.isActive === false ? "Inactive" : "Active"]);
+          for (let column = 1; column <= 3; column += 1) {
+            taskRow.getCell(column).font = { bold: true, color: { argb: "FFFFFFFF" } };
+            taskRow.getCell(column).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF172F5B" } };
+          }
+          displaySubtasksForTask(task.id).forEach((subtask, subtaskIndex) => {
+            sheet.addRow([`${taskNumber}.${subtaskIndex + 1}`, subtask.name, subtask.isActive === false ? "Inactive" : "Active"]);
+          });
+        });
+      });
+      sheet.views = [{ state: "frozen", ySplit: 4 }];
+      sheet.autoFilter = { from: "A4", to: "C4" };
+      sheet.eachRow((row, rowNumber) => {
+        if (rowNumber > 4) row.alignment = { vertical: "middle", wrapText: true };
+        if (rowNumber > 4) row.getCell(1).alignment = { vertical: "middle", horizontal: "center" };
+        if (rowNumber > 4) row.getCell(3).alignment = { vertical: "middle", horizontal: "center" };
+        row.eachCell((cell) => { cell.border = { bottom: { style: "thin", color: { argb: "FFE2E8F0" } } }; });
+      });
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${selectedTable.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}-wbs.xlsx`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const moveRecord = (
     items: MaintenanceRecord[],
     index: number,
@@ -668,7 +748,7 @@ export default function ProjectMaintenance() {
         </Box>
       </Stack>
 
-      <MaintenanceTableSelector selectedId={selectedTableId} onSelect={handleTableSelect} canCreate={canCreateRecord} canUpdate={canUpdateRecord} />
+      <MaintenanceTableSelector selectedId={selectedTableId} onSelect={handleTableSelect} onSelectedTableChange={setSelectedTable} canCreate={canCreateRecord} canUpdate={canUpdateRecord} />
 
       {error && !dialogOpen ? (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
@@ -712,6 +792,15 @@ export default function ProjectMaintenance() {
             <Typography sx={{ color: "#64748B", fontSize: 12 }}>
               Showing {visibleScopes.length} of {sortedScopes.length} scopes
             </Typography>
+            <Button
+              variant="outlined"
+              startIcon={exporting ? <CircularProgress size={16} /> : <FileDownloadOutlinedIcon />}
+              onClick={() => void exportWbs()}
+              disabled={!selectedTable || exporting || sortedScopes.length === 0}
+              sx={{ width: { xs: "100%", sm: "auto" }, textTransform: "none", whiteSpace: "nowrap", fontWeight: 600 }}
+            >
+              {exporting ? "Exporting..." : "Export WBS"}
+            </Button>
             {canCreateHierarchyRecord ? (
               <Button
                 variant="contained"

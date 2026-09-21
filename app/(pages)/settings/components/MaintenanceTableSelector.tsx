@@ -10,7 +10,7 @@ import { getBusinessUnitsDropdown } from "@/app/api-service/businessUnitService"
 type FormState = { code: string; name: string; description: string; isActive: boolean; businessUnitIds: string[] };
 const emptyForm: FormState = { code: "", name: "", description: "", isActive: true, businessUnitIds: [] };
 
-export default function MaintenanceTableSelector({ selectedId, onSelect, canCreate, canUpdate }: { selectedId: string; onSelect: (id: string) => void; canCreate: boolean; canUpdate: boolean }) {
+export default function MaintenanceTableSelector({ selectedId, onSelect, onSelectedTableChange, canCreate, canUpdate }: { selectedId: string; onSelect: (id: string) => void; onSelectedTableChange?: (table: MaintenanceTable | null) => void; canCreate: boolean; canUpdate: boolean }) {
   const [tables, setTables] = useState<MaintenanceTable[]>([]);
   const [businessUnits, setBusinessUnits] = useState<Array<{ id: string; code?: string; name?: string }>>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +38,9 @@ export default function MaintenanceTableSelector({ selectedId, onSelect, canCrea
 
   useEffect(() => { void load(); }, []);
   const selected = tables.find((table) => table.id === selectedId);
+  useEffect(() => {
+    onSelectedTableChange?.(selected ?? null);
+  }, [onSelectedTableChange, selected]);
   const openCreate = () => { setEditing(null); setForm(emptyForm); setError(""); setDialogOpen(true); };
   const openEdit = () => { if (!selected) return; setEditing(selected); setForm({ code: selected.code, name: selected.name, description: selected.description || "", isActive: selected.isActive !== false, businessUnitIds: selected.businessUnits?.map((item) => item.businessUnitId) ?? [] }); setError(""); setDialogOpen(true); };
   const save = async () => {
