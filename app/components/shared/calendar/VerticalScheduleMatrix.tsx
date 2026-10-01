@@ -23,6 +23,8 @@ type MatrixScope = {
   id: string;
   title: string;
   tasks: MatrixTask[];
+  phaseId?: string | null;
+  phaseTitle?: string;
 };
 
 type Props = {
@@ -74,10 +76,17 @@ export default function VerticalScheduleMatrix({ projectTree, initialDate, heigh
     setSelectedSubtaskId(null);
   }, [projectTree?.id]);
 
-  const scopes = useMemo<MatrixScope[]>(() =>
-    (projectTree?.scopes || []).map((scope: any, scopeIndex: number) => ({
+  const scopes = useMemo<MatrixScope[]>(() => {
+    const flatScopes = projectTree?.scopes || [];
+    const sourceScopes = projectTree?.isPhasing && projectTree?.phases?.length
+      ? [...projectTree.phases].sort((a: any, b: any) => Number(a.order ?? 0) - Number(b.order ?? 0)).flatMap((phase: any) =>
+          (phase.scopes?.length ? phase.scopes : flatScopes.filter((scope: any) => scope.phaseId === phase.id)).map((scope: any) => ({ ...scope, phaseId: phase.id, phaseTitle: phase.name || "Untitled Phase" })))
+      : flatScopes;
+    return sourceScopes.map((scope: any, scopeIndex: number) => ({
       id: String(scope.id || `scope-${scopeIndex}`),
       title: scope.name || scope.title || `Scope ${scopeIndex + 1}`,
+      phaseId: scope.phaseId || null,
+      phaseTitle: scope.phaseTitle,
       tasks: (scope.tasks || []).map((task: any, taskIndex: number) => ({
         id: String(task.id || `task-${scopeIndex}-${taskIndex}`),
         title: task.title || task.name || `Task ${taskIndex + 1}`,
@@ -89,8 +98,23 @@ export default function VerticalScheduleMatrix({ projectTree, initialDate, heigh
           end: parseDate(subtask.projectedEndDate || subtask.endDate),
         })),
       })).filter((task: MatrixTask) => task.subtasks.length > 0),
-    })).filter((scope: MatrixScope) => scope.tasks.length > 0),
+    })).filter((scope: MatrixScope) => scope.tasks.length > 0);
+  },
   [projectTree]);
+
+  const phaseGroups = useMemo(() => {
+    if (!projectTree?.isPhasing) return [];
+    const groups: Array<{ id: string; title: string; count: number }> = [];
+    scopes.forEach((scope) => {
+      const id = scope.phaseId || "unassigned";
+      const count = scope.tasks.reduce((sum, task) => sum + task.subtasks.length, 0);
+      const current = groups[groups.length - 1];
+      if (current?.id === id) current.count += count;
+      else groups.push({ id, title: scope.phaseTitle || "Unassigned Phase", count });
+    });
+    return groups;
+  }, [projectTree?.isPhasing, scopes]);
+  const headerRowCount = phaseGroups.length ? 4 : 3;
 
   const columns = useMemo(
     () => scopes.flatMap((scope) => scope.tasks.flatMap((task) => task.subtasks.map((subtask) => ({ scope, task, subtask })))),
@@ -126,10 +150,10 @@ export default function VerticalScheduleMatrix({ projectTree, initialDate, heigh
     const target = today >= first && today <= last ? today : firstScheduled ?? first;
     const targetIndex = Math.max(0, Math.round((target - first) / 86_400_000));
     const frame = requestAnimationFrame(() => {
-      container.scrollTop = Math.max(0, HEADER_ROW_HEIGHT * 3 + targetIndex * DAY_ROW_HEIGHT - DAY_ROW_HEIGHT * 2);
+      container.scrollTop = Math.max(0, HEADER_ROW_HEIGHT * headerRowCount + targetIndex * DAY_ROW_HEIGHT - DAY_ROW_HEIGHT * 2);
     });
     return () => cancelAnimationFrame(frame);
-  }, [columns, dates, projectTree?.id]);
+  }, [columns, dates, headerRowCount, projectTree?.id]);
 
   const todayKey = dateKey(new Date());
   const totalWidth = DATE_COLUMN_WIDTH + Math.max(columns.length, 1) * SUBTASK_COLUMN_WIDTH;
@@ -178,34 +202,39 @@ export default function VerticalScheduleMatrix({ projectTree, initialDate, heigh
   }
 
   return (
-    <Stack spacing={1.5} sx={{ minWidth: 0 }}>
+    <Stack spacing={1.5} sx={{ minWidth: 0, p: { xs: 1.25, md: 2 }, border: "1px solid #CBD5E1", borderRadius: 2.5, bgcolor: "#FFF", boxShadow: "0 8px 24px rgba(15,23,42,.06)" }}>
       <Box>
-        <Typography sx={{ fontWeight: 900 }}>
+        <Typography sx={{ color: "#0F172A", fontSize: 15, fontWeight: 900 }}>Schedule Matrix</Typography>
+        <Typography sx={{ color: "#64748B", fontSize: 10.5 }}>Daily execution matrix grouped by phase, scope, task, and subtask.</Typography>
+        <Typography sx={{ mt: 0.75, fontWeight: 900, fontSize: 12 }}>
           {dates[0]?.toLocaleDateString("en-US", { month: "short", year: "numeric" })} – {dates[dates.length - 1]?.toLocaleDateString("en-US", { month: "short", year: "numeric" })}
         </Typography>
         <Typography sx={{ color: "#64748B", fontSize: 11.5 }}>{dates.length} continuous days · {columns.length} subtask columns</Typography>
       </Box>
 
-      <Box ref={scrollRef} sx={{ height, overflow: "auto", border: "1px solid #CBD5E1", borderRadius: 1.5, bgcolor: "#FFF", scrollbarWidth: "thin" }}>
+      <Box ref={scrollRef} sx={{ height, overflow: "auto", border: "1px solid #CBD5E1", borderRadius: 1.5, bgcolor: "#FFF", scrollbarWidth: "thin", boxShadow: "inset 0 1px 2px rgba(15,23,42,.04)" }}>
         <Box sx={{ width: totalWidth, minWidth: "100%", position: "relative" }}>
-          <Box sx={{ position: "sticky", top: 0, zIndex: 20, display: "flex", height: HEADER_ROW_HEIGHT * 3, bgcolor: "#FFF", boxShadow: "0 2px 5px rgba(15,23,42,.12)" }}>
+          <Box sx={{ position: "sticky", top: 0, zIndex: 20, display: "flex", height: HEADER_ROW_HEIGHT * headerRowCount, bgcolor: "#FFF", boxShadow: "0 2px 5px rgba(15,23,42,.12)" }}>
             <Box sx={{ position: "sticky", left: 0, zIndex: 24, width: DATE_COLUMN_WIDTH, flexShrink: 0, display: "grid", placeItems: "center", bgcolor: MATRIX_COLORS.completed, color: "#FFF", borderRight: "2px solid #DDD8FF" }}>
               <Typography sx={{ color: "#FFF", fontSize: 12, fontWeight: 900 }}>DATE</Typography>
             </Box>
             <Box sx={{ width: columns.length * SUBTASK_COLUMN_WIDTH, flexShrink: 0 }}>
+              {phaseGroups.length > 0 && <Box sx={{ display: "flex", height: HEADER_ROW_HEIGHT }}>
+                {phaseGroups.map((phase) => <HeaderCell key={phase.id} width={phase.count * SUBTASK_COLUMN_WIDTH} color="#312E81" label={phase.title} />)}
+              </Box>}
               <Box sx={{ display: "flex", height: HEADER_ROW_HEIGHT }}>
                 {scopes.map((scope) => {
                   const count = scope.tasks.reduce((sum, task) => sum + task.subtasks.length, 0);
-                  return <HeaderCell key={scope.id} width={count * SUBTASK_COLUMN_WIDTH} color={MATRIX_COLORS.active} label={scope.title} darkText />;
+                  return <HeaderCell key={scope.id} width={count * SUBTASK_COLUMN_WIDTH} color="#334155" label={scope.title} />;
                 })}
               </Box>
               <Box sx={{ display: "flex", height: HEADER_ROW_HEIGHT }}>
                 {scopes.flatMap((scope) => scope.tasks.map((task) =>
-                  <HeaderCell key={`${scope.id}-${task.id}`} width={task.subtasks.length * SUBTASK_COLUMN_WIDTH} color={MATRIX_COLORS.forReview} label={task.title} darkText />
+                  <HeaderCell key={`${scope.id}-${task.id}`} width={task.subtasks.length * SUBTASK_COLUMN_WIDTH} color="#64748B" label={task.title} />
                 ))}
               </Box>
               <Box sx={{ display: "flex", height: HEADER_ROW_HEIGHT }}>
-                {columns.map(({ subtask }) => <HeaderCell key={subtask.id} width={SUBTASK_COLUMN_WIDTH} color={MATRIX_COLORS.draft} label={subtask.title} darkText />)}
+                {columns.map(({ subtask }) => <HeaderCell key={subtask.id} width={SUBTASK_COLUMN_WIDTH} color="#E2E8F0" label={subtask.title} darkText />)}
               </Box>
             </Box>
           </Box>
@@ -253,7 +282,7 @@ export default function VerticalScheduleMatrix({ projectTree, initialDate, heigh
                     position: "absolute",
                     zIndex: 5,
                     left: DATE_COLUMN_WIDTH + columnIndex * SUBTASK_COLUMN_WIDTH + 7,
-                    top: HEADER_ROW_HEIGHT * 3 + startIndex * DAY_ROW_HEIGHT + 3,
+                    top: HEADER_ROW_HEIGHT * headerRowCount + startIndex * DAY_ROW_HEIGHT + 3,
                     width: SUBTASK_COLUMN_WIDTH - 14,
                     height: Math.max(8, blockHeight),
                     overflow: "hidden",

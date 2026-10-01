@@ -91,6 +91,7 @@ export default function ProjectModal({
     pin: "",
     priority: "Medium",
     isBudgeted: true,
+    isPhasing: false,
     totalBudget: 0,
   });
 
@@ -130,6 +131,7 @@ export default function ProjectModal({
           pin: data.pin ?? "",
           priority: data.priority ?? "Medium",
           isBudgeted: data.isBudgeted ?? true,
+          isPhasing: data.isPhasing ?? false,
           businessUnit: data.businessUnit ?? "",
           entity: data.entity ?? "",
           totalBudget: data.totalBudget ?? 0,
@@ -161,6 +163,7 @@ export default function ProjectModal({
         pin: "",
         priority: "Medium",
         isBudgeted: true,
+        isPhasing: false,
         totalBudget: 0,
       });
     }
@@ -293,7 +296,8 @@ export default function ProjectModal({
         await dispatch(updateProject(project.id, payload));
         onClose();
       } else {
-        const createdProject = await dispatch(createProject(payload));
+        const createdResponse = await dispatch(createProject(payload));
+        const createdProject = createdResponse?.data ?? createdResponse;
         onClose();
         // Navigate to setup wizard after creating project
         if (createdProject?.id) {
@@ -650,6 +654,7 @@ export default function ProjectModal({
                     }}
                   /> : <Typography variant="body2" color="text.secondary">Progress weights will be calculated automatically from subtasks.</Typography>}
                 </Box>
+
               </Grid>
 
               {/* RIGHT COLUMN */}

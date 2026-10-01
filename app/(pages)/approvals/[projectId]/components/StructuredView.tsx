@@ -68,16 +68,20 @@ export default function StructuredView({ project, compareMode }: StructuredViewP
         </Box>
       )}
 
-      {/* SCOPES LIST */}
-      <Box>
-        {project.scopes.map((scope) => (
-          <ScopeCard
-            key={scope.id}
-            scope={scope}
-            theme={compareMode ? getCompareTheme(scope.changeStatus) : undefined}
-          />
-        ))}
-      </Box>
+      {project.isPhasing && project.phases?.length ? (
+        <Stack spacing={2}>
+          {[...project.phases].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((phase) => (
+            <Box key={phase.id} sx={{ p: 1.5, border: "1px solid #DDD6FE", borderRadius: 2, bgcolor: "#FAF9FF" }}>
+              <Typography sx={{ color: "#5B21B6", fontSize: 15, fontWeight: 800 }}>{phase.name}</Typography>
+              {phase.description && <Typography sx={{ mb: 1.25, color: "#6B7280", fontSize: 11.5 }}>{phase.description}</Typography>}
+              {[...(phase.scopes || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((scope) => <ScopeCard key={scope.id} scope={scope} theme={compareMode ? getCompareTheme(scope.changeStatus) : undefined} />)}
+              {!phase.scopes?.length && <Alert severity="info" sx={{ mt: 1 }}>No scopes in this phase.</Alert>}
+            </Box>
+          ))}
+        </Stack>
+      ) : (
+        <Box>{project.scopes.map((scope) => <ScopeCard key={scope.id} scope={scope} theme={compareMode ? getCompareTheme(scope.changeStatus) : undefined} />)}</Box>
+      )}
     </Stack>
   );
 }

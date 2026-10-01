@@ -29,6 +29,7 @@ import {
   Select,
   MenuItem,
   Checkbox,
+  Switch,
   ListItemText,
 } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "@/app/redux/hook";
@@ -77,6 +78,8 @@ import { formatBudget } from "@/app/utils/formatters";
 import ProjectTeamPanel from "@/app/(pages)/projects/[id]/setup/components/ProjectTeamPanel";
 import ScopeForm from "@/app/(pages)/projects/[id]/setup/components/ScopeForm";
 import ScopeList from "@/app/(pages)/projects/[id]/setup/components/ScopeList";
+import PhaseManager from "@/app/(pages)/projects/[id]/setup/components/PhaseManager";
+import { createPhase, deletePhase, updatePhase, type ProjectPhase } from "@/app/api-service/phaseService";
 import CreateProject from "@/app/(pages)/projects/components/CreateProject";
 import {
   getAllRegions,
@@ -178,6 +181,7 @@ export default function ProjectSetupWizard({
     pin: "",
     priority: "Medium",
     isBudgeted: true,
+    isPhasing: false,
     totalBudget: 0,
   });
   const [projectErrors, setProjectErrors] = useState<any[]>([]);
@@ -192,6 +196,7 @@ export default function ProjectSetupWizard({
   const [wbsBusinessUnitError, setWbsBusinessUnitError] = useState("");
   const [entities, setEntities] = useState<string[]>(["GVI", "GVE", "HULMA"]);
   const isHydratingLocationRef = useRef(false);
+  const hydratedProjectIdRef = useRef<string | null>(null);
 
   // ===== WORK SCHEDULE STATE =====
   const [workSchedule, setWorkSchedule] = useState({
@@ -212,7 +217,9 @@ export default function ProjectSetupWizard({
     sourceType: "" as "" | "MAINTENANCE",
     scopeMaintenanceId: "",
   });
+  const [phaseScopeForms, setPhaseScopeForms] = useState<Record<string, typeof scopeForm>>({});
   const [scopeEdit, setScopeEdit] = useState<any>(null);
+  const [phaseModeSaving, setPhaseModeSaving] = useState(false);
 
   // TASK STATE
   const [taskInputs, setTaskInputs] = useState<Record<string, any>>({});
@@ -337,6 +344,8 @@ export default function ProjectSetupWizard({
 
   useEffect(() => {
     if (!project) return;
+    if (project.id && hydratedProjectIdRef.current === project.id) return;
+    if (project.id) hydratedProjectIdRef.current = project.id;
 
     isHydratingLocationRef.current = true;
     setWbsBusinessUnitIds(
@@ -370,6 +379,7 @@ export default function ProjectSetupWizard({
       pin: project.pin || "",
       priority: project.priority || "Medium",
       isBudgeted: project.isBudgeted ?? true,
+      isPhasing: project.isPhasing ?? false,
       totalBudget: project.totalBudget || 0,
     });
 
@@ -395,11 +405,13 @@ export default function ProjectSetupWizard({
           setProvinces(provinceRes || []);
         }
 
+        if (activeStepRef.current !== 0) return;
         if (project.location?.provinceCode) {
           const cityRes = await getCitiesByProvince(project.location.provinceCode);
           setCities(cityRes || []);
         }
 
+        if (activeStepRef.current !== 0) return;
         if (project.location?.cityCode) {
           const brgyRes = await getBarangaysByCity(project.location.cityCode);
           setBarangays(brgyRes || []);
@@ -413,6 +425,16 @@ export default function ProjectSetupWizard({
 
     hydrateLocationHierarchy();
   }, [project]);
+
+  const orderedPhases = useMemo<ProjectPhase[]>(() => {
+    return [...(project?.phases || [])]
+      .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
+      .map((phase: any) => ({
+        ...phase,
+        scopes: [...(phase.scopes || (project?.scopes || []).filter((scope: any) => scope.phaseId === phase.id))]
+          .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0)),
+      }));
+  }, [project?.phases, project?.scopes]);
 
   const handleWbsBusinessUnitsChange = async (nextIds: string[]) => {
     if (!currentProjectId || savingWbsBusinessUnits) return;
@@ -558,8 +580,9 @@ export default function ProjectSetupWizard({
   // ===========================
   // SCOPE HANDLERS
   // ===========================
-  const handleAddScope = useCallback(async () => {
-    if (!scopeForm.scopeMaintenanceId) {
+  const handleAddScope = useCallback(async (phaseId?: string, formOverride?: typeof scopeForm) => {
+    const activeScopeForm = formOverride || scopeForm;
+    if (!activeScopeForm.scopeMaintenanceId) {
       alert("Please select a scope from Project Maintenance");
       return;
     }
@@ -569,37 +592,49 @@ export default function ProjectSetupWizard({
       return;
     }
 
+    const targetPhaseId = phaseId;
+    if (project?.isPhasing && !targetPhaseId) {
+      alert("Create a phase before adding a scope");
+      return;
+    }
+
     try {
       setSaving(true);
       const projectBudget = project?.totalBudget || 0;
-      const budget = Number(scopeForm.budgetAllocated) || 0;
+      const budget = Number(activeScopeForm.budgetAllocated) || 0;
       const percent = projectBudget > 0 ? (budget / projectBudget) * 100 : 0;
 
       await dispatch(
         createScope({
           projectId: currentProjectId,
+          ...(project?.isPhasing ? { phaseId: targetPhaseId } : {}),
           sourceType: "MAINTENANCE",
-          scopeMaintenanceId: scopeForm.scopeMaintenanceId,
+          scopeMaintenanceId: activeScopeForm.scopeMaintenanceId,
           budgetAllocated: budget,
           budgetPercent: percent,
-          order: project.scopes?.length || 0,
+          order: project?.isPhasing
+            ? orderedPhases.find((phase) => phase.id === targetPhaseId)?.scopes?.length || 0
+            : project.scopes?.length || 0,
         })
       );
 
-      setScopeForm({
+      const emptyScopeForm = {
         name: "",
         budgetAllocated: "",
-        sourceType: "",
+        sourceType: "" as const,
         scopeMaintenanceId: "",
-      });
+      };
+      if (phaseId) setPhaseScopeForms((current) => ({ ...current, [phaseId]: emptyScopeForm }));
+      else setScopeForm(emptyScopeForm);
       await refreshProject();
     } catch (error) {
       console.error("Error creating scope:", error);
       alert("Failed to create scope");
+      throw error;
     } finally {
       setSaving(false);
     }
-  }, [scopeForm, currentProjectId, project, dispatch, refreshProject]);
+  }, [scopeForm, currentProjectId, project, orderedPhases, dispatch, refreshProject]);
 
   const handleUpdateScope = useCallback(async () => {
     if (!scopeEdit?.name.trim()) {
@@ -750,7 +785,7 @@ export default function ProjectSetupWizard({
           ? (data.budgetAllocated / parentTask.budgetAllocated) * 100
           : 0;
 
-      await dispatch(
+      const createdSubtask = await dispatch(
         createSubtask(
           {
             sourceType: data.subtaskMaintenanceId ? "MAINTENANCE" : "CUSTOM",
@@ -771,14 +806,32 @@ export default function ProjectSetupWizard({
       );
 
       setSubtaskInputs((prev) => ({ ...prev, [taskId]: {} }));
-      await refreshProject();
+      const newSubtask = createdSubtask?.data ?? createdSubtask;
+      const assignees = (data.users || []).map((user: any) => ({ user }));
+      setProject((current: any) => ({
+        ...current,
+        scopes: (current?.scopes || []).map((scope: any) => ({
+          ...scope,
+          tasks: (scope.tasks || []).map((task: any) =>
+            task.id === taskId
+              ? {
+                  ...task,
+                  subtasks: [
+                    ...(task.subtasks || []),
+                    { ...newSubtask, assignees: newSubtask?.assignees?.length ? newSubtask.assignees : assignees },
+                  ],
+                }
+              : task
+          ),
+        })),
+      }));
     } catch (error) {
       console.error("Error creating subtask:", error);
       alert("Failed to create subtask");
     } finally {
       setSaving(false);
     }
-  }, [subtaskInputs, currentProjectId, project, dispatch, refreshProject]);
+  }, [subtaskInputs, currentProjectId, project, dispatch]);
 
   const handleUpdateSubtask = useCallback(async (id: string, taskId: string) => {
     const data = subtaskInputs[taskId];
@@ -794,7 +847,7 @@ export default function ProjectSetupWizard({
           ? (data.budgetAllocated / parentTask.budgetAllocated) * 100
           : 0;
 
-      await dispatch(
+      const updatedSubtask = await dispatch(
         updateSubtask(id, {
           sourceType: data.subtaskMaintenanceId ? "MAINTENANCE" : "CUSTOM",
           ...(data.subtaskMaintenanceId
@@ -811,14 +864,44 @@ export default function ProjectSetupWizard({
       );
 
       setSubtaskInputs((prev) => ({ ...prev, [taskId]: {} }));
-      await refreshProject();
+      const savedSubtask = updatedSubtask?.data ?? updatedSubtask;
+      setProject((current: any) => ({
+        ...current,
+        scopes: (current?.scopes || []).map((scope: any) => ({
+          ...scope,
+          tasks: (scope.tasks || []).map((task: any) =>
+            task.id === taskId
+              ? {
+                  ...task,
+                  subtasks: (task.subtasks || []).map((subtask: any) =>
+                    subtask.id === id
+                      ? {
+                          ...subtask,
+                          title: data.title,
+                          description: data.description || "",
+                          priority: data.priority,
+                          budgetAllocated: Number(data.budgetAllocated) || 0,
+                          budgetPercent: percent,
+                          projectedStartDate: data.projectedStartDate,
+                          projectedEndDate: data.projectedEndDate,
+                          subtaskMaintenanceId: data.subtaskMaintenanceId || null,
+                          ...savedSubtask,
+                          assignees: (data.users || []).map((user: any) => ({ user })),
+                        }
+                      : subtask
+                  ),
+                }
+              : task
+          ),
+        })),
+      }));
     } catch (error) {
       console.error("Error updating subtask:", error);
       alert("Failed to update subtask");
     } finally {
       setSaving(false);
     }
-  }, [subtaskInputs, project, dispatch, refreshProject]);
+  }, [subtaskInputs, project, dispatch]);
 
   const handleDeleteSubtask = useCallback((id: string, taskId: string) => {
     const subtask = project?.scopes
@@ -861,6 +944,50 @@ export default function ProjectSetupWizard({
       (a: any, b: any) => (a.order ?? 0) - (b.order ?? 0)
     );
   }, [project?.scopes]);
+
+  const handleCreatePhase = async (name: string, description: string) => {
+    if (!currentProjectId) return;
+    await createPhase({ projectId: currentProjectId, name, description, order: orderedPhases.length });
+    await refreshProject();
+  };
+
+  const handlePhasingChange = async (isPhasing: boolean) => {
+    if (!currentProjectId || project?.status !== "DRAFT") return;
+    setPhaseModeSaving(true);
+    setSubmitMessage("");
+    try {
+      await dispatch(updateProject(currentProjectId, { isPhasing }));
+      setProjectForm((current: any) => ({ ...current, isPhasing }));
+      await refreshProject();
+    } catch (requestError: any) {
+      setSubmitMessage(requestError?.response?.data?.message || requestError?.message || "Unable to enable project phasing.");
+    } finally {
+      setPhaseModeSaving(false);
+    }
+  };
+
+  const handleUpdatePhase = async (phaseId: string, data: { name: string; description?: string; order?: number }) => {
+    await updatePhase(phaseId, data);
+    await refreshProject();
+  };
+
+  const handleDeletePhase = async (phase: ProjectPhase) => {
+    if (phase.scopes?.length) return;
+    if (!window.confirm(`Delete ${phase.name}?`)) return;
+    await deletePhase(phase.id);
+    await refreshProject();
+  };
+
+  const handleMovePhase = async (phaseId: string, direction: -1 | 1) => {
+    const from = orderedPhases.findIndex((phase) => phase.id === phaseId);
+    const to = from + direction;
+    if (from < 0 || to < 0 || to >= orderedPhases.length) return;
+    const reordered = [...orderedPhases];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    await Promise.all(reordered.map((phase, order) => updatePhase(phase.id, { order })));
+    await refreshProject();
+  };
 
   const handleReorderSubtasks = async (taskId: string, draggedId: string, targetId: string) => {
     const task = project?.scopes?.flatMap((scope: any) => scope.tasks || []).find((item: any) => item.id === taskId);
@@ -1022,6 +1149,7 @@ export default function ProjectSetupWizard({
 
         setCurrentProjectId(createdId);
         window.history.replaceState({}, "", `/projects/${createdId}/setup`);
+        hydratedProjectIdRef.current = createdId;
         setProject(createdProject);
 
         if (canUpdateProject && projectAttachmentFiles.length > 0) {
@@ -1234,6 +1362,26 @@ export default function ProjectSetupWizard({
   };
 
   const validateProjectStructureForNext = (): StructureValidationFeedback | null => {
+    if (project?.isPhasing && orderedPhases.length === 0) {
+      return {
+        title: "Project Phase Required",
+        details: ["Create at least one phase and add at least one scope to it before proceeding."],
+        targets: ["No phase found"],
+        invalidScopeIds: [],
+        invalidTaskIds: [],
+      };
+    }
+
+    if (project?.isPhasing && orderedPhases.every((phase) => !phase.scopes?.length)) {
+      return {
+        title: "Phase Scope Required",
+        details: ["At least one phase must contain a scope before proceeding."],
+        targets: ["All phases are empty"],
+        invalidScopeIds: [],
+        invalidTaskIds: [],
+      };
+    }
+
     if (!project?.scopes || project.scopes.length === 0) {
       return {
         title: "Project Structure Incomplete",
@@ -1697,8 +1845,40 @@ export default function ProjectSetupWizard({
             {/* Project structure section starts here */}
             {project && (
               <Box sx={{ zoom: structureZoom, width: "100%" }}>
-                {!reorderOnly && (
-                  <Card elevation={0} sx={{ mb: 2, border: "1px solid #E0DAE6", borderRadius: 2 }}>
+                {!reorderOnly && <Box sx={{ mb: 2, display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }, gap: 1.5, alignItems: "stretch" }}>
+                <Card elevation={0} sx={{ height: "100%", border: "1px solid #DDD6FE", borderRadius: 2, bgcolor: "#FAF9FF" }}>
+                  <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+                    <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} gap={1.5}>
+                      <Box>
+                        <Typography sx={{ fontSize: 14, fontWeight: 800, color: "#312E81" }}>Project Phasing</Typography>
+                        <Typography sx={{ mt: 0.35, fontSize: 12, color: "#667085" }}>
+                          {project.isPhasing
+                            ? project.status === "DRAFT"
+                              ? "This draft uses phases. You may switch back to Standard while the project remains in Draft."
+                              : "Phasing is enabled and locked because this project is no longer in Draft."
+                            : project.status === "DRAFT"
+                              ? "This draft uses the standard structure. You may enable phasing while the project remains in Draft."
+                              : "The standard structure is locked because this project is no longer in Draft."}
+                        </Typography>
+                      </Box>
+                      <Stack direction="row" alignItems="center" justifyContent={{ xs: "space-between", sm: "flex-end" }} gap={1}>
+                        <Typography sx={{ fontSize: 12, fontWeight: 800, color: project.isPhasing ? "#6D28D9" : "#475467" }}>{project.isPhasing ? "Phased" : "Standard"}</Typography>
+                        <Switch
+                          checked={Boolean(project.isPhasing)}
+                          disabled={phaseModeSaving || project.status !== "DRAFT"}
+                          inputProps={{ "aria-label": "Change project phasing mode" }}
+                          onChange={(event) => void handlePhasingChange(event.target.checked)}
+                        />
+                      </Stack>
+                    </Stack>
+                    <Alert severity={project.status === "DRAFT" ? "info" : "warning"} sx={{ mt: 1.25 }}>
+                      {project.status === "DRAFT"
+                        ? "Project structure mode can be changed while this project is in Draft. It becomes locked after submission."
+                        : "Project structure mode is locked after the project leaves Draft."}
+                    </Alert>
+                  </CardContent>
+                </Card>
+                  <Card elevation={0} sx={{ height: "100%", border: "1px solid #E0DAE6", borderRadius: 2 }}>
                     <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
                       <Typography sx={{ fontSize: 14, fontWeight: 800, color: "#111827" }}>WBS Business Units</Typography>
                       <Typography sx={{ mt: 0.35, mb: 1.5, fontSize: 12, color: "#667085" }}>
@@ -1741,8 +1921,54 @@ export default function ProjectSetupWizard({
                       {savingWbsBusinessUnits && <Typography sx={{ mt: 1, fontSize: 11.5, color: "#667085" }}>Saving WBS selection…</Typography>}
                     </CardContent>
                   </Card>
-                )}
+                </Box>}
                 {/* Scope Input */}
+                {project?.isPhasing && <PhaseManager
+                  phases={orderedPhases}
+                  disabled={reorderOnly}
+                  onCreate={handleCreatePhase}
+                  onUpdate={handleUpdatePhase}
+                  onDelete={handleDeletePhase}
+                  onMove={handleMovePhase}
+                  renderContent={(phase, showScopeForm, closeScopeForm) => {
+                    const phaseScopes = sortedScopes.filter((scope: any) => scope.phaseId === phase.id);
+                    const phaseScopeForm = phaseScopeForms[phase.id] || { name: "", budgetAllocated: "", sourceType: "" as const, scopeMaintenanceId: "" };
+                    return <Box sx={{ display: "flex", flexDirection: "column" }}>
+                      <Box sx={{ order: 1 }}><ScopeList
+                        scopes={phaseScopes}
+                        isBudgeted={isBudgetedProject}
+                        invalidScopeIds={structureValidationFeedback.invalidScopeIds}
+                        invalidTaskIds={structureValidationFeedback.invalidTaskIds}
+                        scopeEdit={scopeEdit}
+                        setScopeEdit={setScopeEdit}
+                        taskInputs={taskInputs}
+                        setTaskInputs={setTaskInputs}
+                        subtaskInputs={subtaskInputs}
+                        setSubtaskInputs={setSubtaskInputs}
+                        members={members}
+                        projectId={currentProjectId!}
+                        wbsBusinessUnitIds={wbsBusinessUnitIds}
+                        onEditScope={(scope: any) => setScopeEdit(scope)}
+                        onDeleteScope={handleDeleteScope}
+                        onUpdateScope={handleUpdateScope}
+                        onAddTask={handleAddTask}
+                        onUpdateTask={handleUpdateTask}
+                        onDeleteTask={handleDeleteTask}
+                        onAddSubtask={handleAddSubtask}
+                        onReorderSubtasks={handleReorderSubtasks}
+                        onReorderScopes={handleReorderScopes}
+                        onReorderTasks={handleReorderTasks}
+                        reorderOnly={reorderOnly}
+                        onUpdateSubtask={handleUpdateSubtask}
+                        onDeleteSubtask={handleDeleteSubtask}
+                        onEditSubtask={(sub: any, taskId: string) => setSubtaskInputs((prev) => ({ ...prev, [taskId]: { editId: sub.id, sourceType: sub.subtaskMaintenanceId ? "MAINTENANCE" : "CUSTOM", subtaskMaintenanceId: sub.subtaskMaintenanceId || "", title: sub.title, description: sub.description || "", priority: sub.priority || "", budgetAllocated: sub.budgetAllocated, projectedStartDate: sub.projectedStartDate || "", projectedEndDate: sub.projectedEndDate || "", users: sub.assignees?.map((a: any) => a.user) || [] } }))}
+                      /></Box>
+                      {!reorderOnly && showScopeForm && phaseScopes.length > 0 && <Divider sx={{ order: 2, my: 2 }} />}
+                      {!reorderOnly && showScopeForm && <Box sx={{ order: phaseScopes.length ? 3 : 0 }}><ScopeForm scopeForm={phaseScopeForm} setScopeForm={(next) => setPhaseScopeForms((current) => ({ ...current, [phase.id]: next }))} onAddScope={async () => { await handleAddScope(phase.id, phaseScopeForm); if (phaseScopes.length) closeScopeForm(); }} projectBudget={project?.totalBudget || 0} isBudgeted={isBudgetedProject} existingScopes={phaseScopes} projectId={currentProjectId!} wbsBusinessUnitIds={wbsBusinessUnitIds} /></Box>}
+                    </Box>;
+                  }}
+                />}
+                {!project?.isPhasing && <Box>
                 {!reorderOnly && <ScopeForm
                   scopeForm={scopeForm}
                   setScopeForm={setScopeForm}
@@ -1802,6 +2028,7 @@ export default function ProjectSetupWizard({
                     }));
                   }}
                 />
+                </Box>}
               </Box>
             )}
 
@@ -2273,6 +2500,9 @@ export default function ProjectSetupWizard({
                       <Stack spacing={1.25}>
                         {project.scopes.map((scope: any) => (
                           <Box key={scope.id} sx={{ p: 1.5, backgroundColor: "#f8faff", borderRadius: 1, border: "1px solid #e0e7ff" }}>
+                            {project?.isPhasing && <Typography sx={{ mb: 0.35, color: "#7C3AED", fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".04em" }}>
+                              {orderedPhases.find((phase) => phase.id === scope.phaseId)?.name || "Unassigned phase"}
+                            </Typography>}
                             <Typography fontWeight={700} sx={{ color: "#6366f1", mb: 1 }}>
                               {scope.name}
                             </Typography>

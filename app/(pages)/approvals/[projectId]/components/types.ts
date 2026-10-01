@@ -55,6 +55,16 @@ export interface Scope {
   progress: number;
   changeStatus?: ChangeStatus;
   tasks: Task[];
+  phaseId?: string | null;
+  order?: number;
+}
+
+export interface Phase {
+  id: string;
+  name: string;
+  description?: string | null;
+  order?: number;
+  scopes: Scope[];
 }
 
 export interface StructuredViewProps {
@@ -63,6 +73,8 @@ export interface StructuredViewProps {
     name: string;
     totalBudget?: number;
     scopes: Scope[];
+    isPhasing?: boolean;
+    phases?: Phase[];
   };
   compareMode?: boolean;
 }

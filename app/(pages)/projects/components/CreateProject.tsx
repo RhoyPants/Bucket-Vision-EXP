@@ -292,6 +292,7 @@ export default function CreateProject({
               sx={{ "& .MuiOutlinedInput-root": { borderRadius: 1.5 } }}
             /> : <Typography variant="body2" color="text.secondary">Progress weights will be calculated automatically from subtasks.</Typography>}
           </Box>
+
         </Grid>
 
         {/* RIGHT COLUMN */}

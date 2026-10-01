@@ -77,9 +77,11 @@ const formatColumnDate = (date?: string | null) => {
 
 export default function DashboardReportTable({
   reportTable,
+  projectTree,
   loading,
 }: {
   reportTable: DashboardReportTableData | null;
+  projectTree?: { isPhasing?: boolean; phases?: Array<{ id: string; name?: string | null; order?: number | null }> } | null;
   loading?: boolean;
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -140,6 +142,9 @@ export default function DashboardReportTable({
             <Typography sx={{ color: "#64748b", fontSize: 12 }}>
               {reportTable?.project?.name ?? "Project progress, cash flow, and variance"}
             </Typography>
+            {projectTree?.isPhasing && Boolean(projectTree.phases?.length) && <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 0.75 }}>
+              {[...(projectTree.phases || [])].sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0)).map((phase) => <Chip key={phase.id} size="small" label={phase.name || "Untitled Phase"} sx={{ height: 20, bgcolor: "#F3E8FF", color: "#5B21B6", fontSize: 9.5, fontWeight: 800 }} />)}
+            </Stack>}
           </Box>
           <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap" justifyContent={{ md: "flex-end" }}>
             {reportTable?.project?.totalBudget !== undefined && reportTable.project.totalBudget !== null && (

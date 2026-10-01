@@ -25,12 +25,18 @@ type Scope = {
   budgetAllocated?: number;
   budgetPercent?: number;
   tasks?: Task[];
+  phaseId?: string | null;
 };
+
+type Phase = { id: string; name?: string; order?: number; scopes?: Scope[] };
 
 export default function ProjectSprintManagement({ projectId }: { projectId: string }) {
   const dispatch = useAppDispatch();
   const subtasks = useAppSelector((state) => state.kanban.subtasks);
   const [scopes, setScopes] = useState<Scope[]>([]);
+  const [isPhasing, setIsPhasing] = useState(false);
+  const [phases, setPhases] = useState<Phase[]>([]);
+  const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
   const [selectedScopeId, setSelectedScopeId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,7 +52,17 @@ export default function ProjectSprintManagement({ projectId }: { projectId: stri
     dispatch(getProjectFull(projectId, { preferCache: true }))
       .then((project) => {
         if (!active) return;
-        const nextScopes = (project?.scopes ?? []) as Scope[];
+        const allScopes = (project?.scopes ?? []) as Scope[];
+        const nextPhases = ([...(project?.phases ?? [])] as Phase[]).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((phase) => ({
+          ...phase,
+          scopes: phase.scopes?.length ? phase.scopes : allScopes.filter((scope) => scope.phaseId === phase.id),
+        }));
+        const phased = Boolean(project?.isPhasing);
+        const firstPhaseId = phased ? nextPhases[0]?.id ?? null : null;
+        const nextScopes = allScopes.filter((scope) => !phased || scope.phaseId === firstPhaseId);
+        setIsPhasing(phased);
+        setPhases(nextPhases);
+        setSelectedPhaseId(firstPhaseId);
         setScopes(nextScopes);
         setSelectedScopeId(nextScopes[0]?.id ?? null);
         setSelectedTaskId(nextScopes[0]?.tasks?.[0]?.id ?? null);
@@ -86,6 +102,17 @@ export default function ProjectSprintManagement({ projectId }: { projectId: stri
     setSelectedTaskId(scope.tasks?.[0]?.id ?? null);
   };
 
+  const selectPhase = (phase: Phase) => {
+    const phaseScopes = phase.scopes?.length ? phase.scopes : [];
+    setSelectedPhaseId(phase.id);
+    setScopes(phaseScopes);
+    setSelectedScopeId(phaseScopes[0]?.id ?? null);
+    setSelectedTaskId(phaseScopes[0]?.tasks?.[0]?.id ?? null);
+  };
+
+  const selectedPhase = phases.find((phase) => phase.id === selectedPhaseId) ?? null;
+  const stepOffset = isPhasing ? 1 : 0;
+
   if (loading) {
     return <Box sx={{ minHeight: 420, display: "grid", placeItems: "center" }}><CircularProgress /></Box>;
   }
@@ -119,8 +146,15 @@ export default function ProjectSprintManagement({ projectId }: { projectId: stri
         }}
       >
         <Box sx={{ px: 1.25, py: 1, borderBottom: "1px solid #E2E8F0" }}>
+          {isPhasing && <Box sx={{ mb: 1.25, pb: 1.25, borderBottom: "1px solid #E2E8F0" }}>
+            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.75 }}>
+              <Box sx={{ width: 21, height: 21, display: "grid", placeItems: "center", borderRadius: "50%", bgcolor: "#7C3AED", color: "#FFF", fontSize: 10, fontWeight: 900 }}>1</Box>
+              <Typography sx={{ fontSize: 14, fontWeight: 900, color: "#0F172A" }}>Choose a phase</Typography>
+            </Stack>
+            <Stack spacing={0.5}>{phases.map((phase) => <Box key={phase.id} role="button" tabIndex={0} onClick={() => selectPhase(phase)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") selectPhase(phase); }} sx={{ px: 1, py: 0.7, borderRadius: 1, cursor: "pointer", border: phase.id === selectedPhaseId ? "2px solid #8B5CF6" : "1px solid #DDD6FE", bgcolor: phase.id === selectedPhaseId ? "#F5F3FF" : "#FFF", fontSize: 11.5, fontWeight: 800, color: "#5B21B6" }}>{phase.name || "Untitled Phase"}</Box>)}</Stack>
+          </Box>}
           <Stack direction="row" spacing={0.75} alignItems="center">
-            <Box sx={{ width: 21, height: 21, display: "grid", placeItems: "center", borderRadius: "50%", bgcolor: "#2563EB", color: "#FFF", fontSize: 10, fontWeight: 900 }}>1</Box>
+            <Box sx={{ width: 21, height: 21, display: "grid", placeItems: "center", borderRadius: "50%", bgcolor: "#2563EB", color: "#FFF", fontSize: 10, fontWeight: 900 }}>{1 + stepOffset}</Box>
             <Typography sx={{ fontSize: 14, fontWeight: 900, color: "#0F172A" }}>Choose a scope</Typography>
           </Stack>
           <Typography sx={{ mt: 0.35, color: "#64748B", fontSize: 9.5 }}>Start by selecting a project work area.</Typography>
@@ -205,7 +239,7 @@ export default function ProjectSprintManagement({ projectId }: { projectId: stri
         <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1} sx={{ px: 1.5, py: 0.8, borderBottom: "1px solid #E2E8F0" }}>
           <Box>
             <Stack direction="row" spacing={0.75} alignItems="center">
-              <Box sx={{ width: 21, height: 21, display: "grid", placeItems: "center", borderRadius: "50%", bgcolor: "#0D9488", color: "#FFF", fontSize: 10, fontWeight: 900 }}>2</Box>
+              <Box sx={{ width: 21, height: 21, display: "grid", placeItems: "center", borderRadius: "50%", bgcolor: "#0D9488", color: "#FFF", fontSize: 10, fontWeight: 900 }}>{2 + stepOffset}</Box>
               <Typography sx={{ fontSize: 14, fontWeight: 900, color: "#0F172A" }}>Choose a task</Typography>
             </Stack>
             <Typography sx={{ mt: 0.25, color: "#64748B", fontSize: 9.5 }}>
@@ -282,13 +316,13 @@ export default function ProjectSprintManagement({ projectId }: { projectId: stri
             <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} gap={0.75} sx={{ px: 1.5, py: 1, borderBottom: "1px solid #E2E8F0", position: "sticky", top: 0, zIndex: 2, bgcolor: "#FFFFFF" }}>
               <Box>
                 <Stack direction="row" spacing={0.75} alignItems="center">
-                  <Box sx={{ width: 21, height: 21, display: "grid", placeItems: "center", borderRadius: "50%", bgcolor: "#7C3AED", color: "#FFF", fontSize: 10, fontWeight: 900 }}>3</Box>
+                  <Box sx={{ width: 21, height: 21, display: "grid", placeItems: "center", borderRadius: "50%", bgcolor: "#7C3AED", color: "#FFF", fontSize: 10, fontWeight: 900 }}>{3 + stepOffset}</Box>
                   <Typography sx={{ fontSize: 14, fontWeight: 900 }}>Manage subtasks</Typography>
                 </Stack>
                 <Typography sx={{ mt: 0.25, color: "#64748B", fontSize: 9.5 }}>Review work by status and move subtasks through the workflow.</Typography>
               </Box>
               <Chip
-                label={`${selectedScope?.name || "Scope"} / ${selectedTask.title || selectedTask.name || "Task"}`}
+                label={`${selectedPhase ? `${selectedPhase.name || "Phase"} / ` : ""}${selectedScope?.name || "Scope"} / ${selectedTask.title || selectedTask.name || "Task"}`}
                 size="small"
                 sx={{ maxWidth: "100%", height: 23, fontSize: 9.5, fontWeight: 800, bgcolor: "#F3E8FF", color: "#6D28D9", "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis" } }}
               />

@@ -1,10 +1,12 @@
-import { Box, Button, TextField, Typography, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Alert, Chip, MenuItem, Stack } from "@mui/material";
+import { Box, Button, TextField, Typography, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Alert, Chip, MenuItem, Stack, Tooltip } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import WarningIcon from "@mui/icons-material/Warning";
 import CloseIcon from "@mui/icons-material/Close";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import DecimalBudgetField from "@/app/components/shared/DecimalBudgetField";
 import { calculateBudgetVariance } from "@/app/utils/formatters";
 import { scopeRequiresBudget } from "@/app/utils/budgetPolicy";
@@ -95,6 +97,7 @@ function ScopeCard({
   const budgetRequired = isBudgeted && scopeRequiresBudget(selectedMaintenanceScope?.code);
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
   const [orderedTasks, setOrderedTasks] = useState<any[]>(scope.tasks || []);
+  const [expanded, setExpanded] = useState(true);
 
   useEffect(() => setOrderedTasks(scope.tasks || []), [scope.tasks]);
 
@@ -222,9 +225,11 @@ function ScopeCard({
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Box>
             <Stack direction="row" spacing={1} alignItems="center">
+              <Tooltip title={expanded ? "Collapse scope" : "Expand scope"}><IconButton size="small" onClick={() => setExpanded((value) => !value)} sx={{ p: 0.25, color: "#4C1D95" }}>{expanded ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}</IconButton></Tooltip>
               <IconButton {...scopeDragHandleProps} size="small" aria-label={`Reorder scope ${scope.name}`} sx={{ p: 0.25, cursor: scopeDragActive ? "grabbing" : "grab", color: "#6d28d9" }}><DragIndicatorIcon fontSize="small" /></IconButton>
               <Chip label={`SCOPE ${orderNumber}`} size="small" sx={{ height: 22, bgcolor: "#ede9fe", color: "#4c1d95", fontSize: 10, fontWeight: 800 }} />
               <Typography variant="subtitle1" fontWeight={700}>{scope.name}</Typography>
+              <Chip label={`${orderedTasks.length} task${orderedTasks.length === 1 ? "" : "s"}`} size="small" variant="outlined" sx={{ height: 20, color: "#64748B", borderColor: "#CBD5E1", fontSize: 9 }} />
             </Stack>
             {isBudgeted && <Typography variant="caption" color="text.secondary">
               ₱{(Number(scope.budgetAllocated) || 0).toLocaleString()} ({scope.budgetPercent?.toFixed(2)}%)
@@ -257,7 +262,7 @@ function ScopeCard({
           </Box>}
         </Box>
 
-        {!scopeDragActive && <>
+        {!scopeDragActive && expanded && <>
         {isBudgeted && <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={{ xs: 0.75, sm: 1.5 }}

@@ -2,7 +2,7 @@ import type { Cell, Row, Worksheet } from "exceljs";
 import type { DashboardReportTable } from "@/app/api-service/personalDashboardService";
 
 export type TimelineExportRow = {
-  type: "project" | "scope" | "task" | "subtask";
+  type: "project" | "phase" | "scope" | "task" | "subtask";
   key: string;
   itemNo: string;
   title: string;
@@ -38,6 +38,7 @@ const COLORS = {
   green: "FF047857",
   progressInput: "FFC6E0B4",
   projectLight: "FFE2E8F0",
+  phaseLight: "FFEDE9FE",
   scopeLight: "FFB4C7E7",
   taskLight: "FFE0F2FE",
   headerLight: "FFEAF2F8",
@@ -293,7 +294,7 @@ const addProgressTimesheet = (sheet: Worksheet, options: ExportOptions) => {
   timelineRows.forEach((item) => {
     const row = sheet.addRow([item.itemNo, item.title]);
     if (item.type !== "subtask") {
-      const fill = item.type === "task" ? COLORS.taskLight : item.type === "scope" ? COLORS.scopeLight : COLORS.projectLight;
+      const fill = item.type === "task" ? COLORS.taskLight : item.type === "scope" ? COLORS.scopeLight : item.type === "phase" ? COLORS.phaseLight : COLORS.projectLight;
       styleCells(row, 1, lastColumn, fill, "FF1E3A5F", true);
       if (item.type !== "project") setNumeric(row.getCell(3), item.progress / 100, "0.00%");
       return;

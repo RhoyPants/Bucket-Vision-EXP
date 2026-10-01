@@ -39,15 +39,15 @@ const CalendarGrid = memo(function CalendarGrid({
   return (
     <Paper
       elevation={0}
-      sx={{ border: "1px solid #e0e0e0", overflow: "hidden", borderRadius: 2 }}
+      sx={{ border: "1px solid #CBD5E1", overflow: "hidden", borderRadius: 1.5, boxShadow: "none" }}
     >
       {/* ── Weekday header ─────────────────────────────── */}
       <Box
         sx={{
           display: "grid",
           gridTemplateColumns: "repeat(7, 1fr)",
-          backgroundColor: "#f5f5f5",
-          borderBottom: "1px solid #e5e5e5",
+          backgroundColor: "#172B4D",
+          borderBottom: "1px solid #0F172A",
         }}
       >
         {WEEKDAY_LABELS.map((label) => (
@@ -56,11 +56,12 @@ const CalendarGrid = memo(function CalendarGrid({
             variant="caption"
             align="center"
             sx={{
-              py: 1,
-              fontWeight: 700,
-              color: "#555",
-              fontSize: "0.75rem",
-              letterSpacing: 0.4,
+              py: 0.85,
+              fontWeight: 800,
+              color: "#FFF",
+              fontSize: 10,
+              letterSpacing: 0.7,
+              textTransform: "uppercase",
             }}
           >
             {label}
@@ -89,7 +90,7 @@ const CalendarGrid = memo(function CalendarGrid({
             sx={{
               borderBottom: wi < weeks.length - 1 ? "1px solid #f1f1f1" : "none",
               // Alternate week rows: even rows get a barely-visible tint
-              backgroundColor: wi % 2 === 1 ? "#fafafa" : "#ffffff",
+              backgroundColor: "#ffffff",
             }}
           >
             {/* Day-number strip */}
@@ -110,7 +111,7 @@ const CalendarGrid = memo(function CalendarGrid({
                       borderRight: di < 6 ? "1px solid #f1f1f1" : "none",
                       px: 0.5,
                       py: 0.4,
-                      backgroundColor: today_ ? "#e8f4fd" : "transparent",
+                      backgroundColor: today_ ? "#EEF2FF" : di === 0 || di === 6 ? "#F8FAFC" : "transparent",
                       textAlign: "center",
                     }}
                   >
@@ -118,7 +119,7 @@ const CalendarGrid = memo(function CalendarGrid({
                       variant="caption"
                       sx={{
                         fontWeight: today_ ? 700 : 400,
-                        color: today_ ? "#1976d2" : inMonth ? "#333" : "#c0c0c0",
+                        color: today_ ? "#4F46E5" : inMonth ? "#334155" : "#CBD5E1",
                         fontSize: "0.72rem",
                       }}
                     >

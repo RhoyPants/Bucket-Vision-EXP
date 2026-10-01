@@ -29,6 +29,8 @@ import ProgressCalendarModal from "../modals/ProgressCalendarModal";
 import SubtaskModal from "../modals/SubtaskModal";
 import { formatBudget } from "@/app/utils/formatters";
 import { usePermissions } from "@/app/lib/usePermissions";
+import { getSubtaskScheduleRisk } from "@/app/utils/subtaskScheduleRisk";
+import SubtaskScheduleRiskIndicator from "@/app/components/shared/SubtaskScheduleRiskIndicator";
 
 const SourceTooltip = styled(({ className, ...props }: React.ComponentProps<typeof Tooltip>) => (
   <Tooltip {...props} classes={{ popper: className }} />
@@ -170,6 +172,11 @@ export default function KanbanSortableCard({
   ].filter(Boolean);
   const startDate = subtask.startDate || subtask.projectedStartDate;
   const endDate = subtask.endDate || subtask.projectedEndDate;
+  const scheduleRisk = getSubtaskScheduleRisk({
+    status: subtask.status,
+    progress: subtask.progress,
+    endDate,
+  });
   const dateLabel =
     startDate || endDate
       ? `${formatCompactDate(startDate) || "Start"} - ${formatCompactDate(endDate) || "End"}`
@@ -378,7 +385,9 @@ export default function KanbanSortableCard({
             }}
           >
             <Box sx={{ minWidth: 0 }}>
-              <Typography
+              <Stack direction="row" alignItems="center" spacing={0.9}>
+                <SubtaskScheduleRiskIndicator risk={scheduleRisk} />
+                <Typography
                 fontWeight={700}
                 sx={{
                   fontSize: isTaskBoardCard ? 14 : "inherit",
@@ -396,7 +405,8 @@ export default function KanbanSortableCard({
                 onClick={isTaskBoardCard ? handleOpenDetails : undefined}
               >
                 {subtask.title}
-              </Typography>
+                </Typography>
+              </Stack>
               {isTaskBoardCard && (
                 <Box
                   component="span"

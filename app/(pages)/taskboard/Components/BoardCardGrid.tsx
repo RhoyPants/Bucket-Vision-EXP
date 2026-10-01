@@ -19,6 +19,8 @@ import {
 } from "@mui/material";
 import OpenInNewOutlinedIcon from "@mui/icons-material/OpenInNewOutlined";
 import type { SubtaskCardData } from "@/app/api-service/myBoardService";
+import { getSubtaskScheduleRisk } from "@/app/utils/subtaskScheduleRisk";
+import SubtaskScheduleRiskIndicator from "@/app/components/shared/SubtaskScheduleRiskIndicator";
 
 interface BoardCardGridProps {
   subtasks: SubtaskCardData[];
@@ -107,6 +109,11 @@ export default function BoardCardGrid({
                 ? subtask.assigneeNames
                 : subtask.assignees?.map((assignee) => assignee.user?.name).filter(Boolean) || [];
               const progressColor = getProgressColor(progress);
+              const scheduleRisk = getSubtaskScheduleRisk({
+                status: subtask.status,
+                progress,
+                endDate: subtask.endDate || subtask.projectedEndDate,
+              });
 
               return (
                 <TableRow
@@ -121,9 +128,12 @@ export default function BoardCardGrid({
                 >
                   <TableCell sx={{ minWidth: 240 }}>
                     <Stack spacing={0.5}>
-                      <Typography sx={{ fontSize: 13, color: "#0f172a", fontWeight: 750, lineHeight: 1.25 }}>
-                        {subtask.subtaskName || subtask.title}
-                      </Typography>
+                      <Stack direction="row" spacing={0.9} alignItems="center">
+                        <SubtaskScheduleRiskIndicator risk={scheduleRisk} />
+                        <Typography sx={{ fontSize: 13, color: "#0f172a", fontWeight: 750, lineHeight: 1.25 }}>
+                          {subtask.subtaskName || subtask.title}
+                        </Typography>
+                      </Stack>
                       <Chip
                         size="small"
                         label={getStatusLabel(progress)}

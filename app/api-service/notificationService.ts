@@ -66,13 +66,28 @@ export interface NotificationListParams {
 
 const base = "/notifications";
 const data = <T>(response: { data: { data: T } }) => response.data.data;
+let summaryInFlight: Promise<NotificationSummary> | null = null;
+let cachedSummary: NotificationSummary | null = null;
+let summaryCachedAt = 0;
 
 export const notificationService = {
   async acknowledgements(params: { resourceType: "INCIDENT" | "INCIDENT_ACTION" | "INCIDENT_INVESTIGATION"; incidentId: string; actionId?: string }): Promise<NotificationAcknowledgement[]> {
     return data(await axiosApi.get(workflowUrl(`${base}/acknowledgements`), { ...workflowRequest, params }));
   },
-  async summary(): Promise<NotificationSummary> {
-    return data(await axiosApi.get(workflowUrl(`${base}/summary`), workflowRequest));
+  summary(force = false): Promise<NotificationSummary> {
+    if (summaryInFlight) return summaryInFlight;
+    if (!force && cachedSummary && Date.now() - summaryCachedAt < 1000) {
+      return Promise.resolve(cachedSummary);
+    }
+    summaryInFlight = axiosApi.get(workflowUrl(`${base}/summary`), workflowRequest)
+      .then((response) => {
+        const summary = data<NotificationSummary>(response);
+        cachedSummary = summary;
+        summaryCachedAt = Date.now();
+        return summary;
+      })
+      .finally(() => { summaryInFlight = null; });
+    return summaryInFlight;
   },
   async list(params: NotificationListParams): Promise<Page<UserNotification>> {
     return (await axiosApi.get(workflowUrl(base), { ...workflowRequest, params })).data;

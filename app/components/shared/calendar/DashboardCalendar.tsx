@@ -6,7 +6,7 @@ import {
   fetchCalendarScopes,
   fetchCalendarMonth,
 } from "@/app/redux/controllers/projectCalendarController";
-import { Box, Card, CircularProgress, Alert } from "@mui/material";
+import { Box, Card, CircularProgress, Alert, Stack, Typography, Chip } from "@mui/material";
 import CalendarHeader from "@/app/components/shared/calendar/CalendarHeader";
 import CalendarGrid from "@/app/components/shared/calendar/CalendarGrid";
 import ScopeFilter from "@/app/components/shared/calendar/ScopeFilter";
@@ -57,7 +57,11 @@ export default function DashboardCalendar({
   );
   const scopes = useMemo(
     () => treeMatchesProject
-      ? treeScopes.map((scope: any) => ({ id: scope.id, name: scope.name || scope.title || "Unnamed" }))
+      ? treeScopes.map((scope: any) => {
+          const phase = projectTree?.isPhasing ? projectTree?.phases?.find((item: any) => item.id === scope.phaseId) : null;
+          const scopeName = scope.name || scope.title || "Unnamed";
+          return { id: scope.id, name: phase ? `${phase.name} / ${scopeName}` : scopeName };
+        })
       : fetchedScopes,
     [fetchedScopes, treeMatchesProject, treeScopes],
   );
@@ -66,15 +70,17 @@ export default function DashboardCalendar({
 
     return treeScopes.flatMap((scope: any) =>
       (scope.tasks || []).flatMap((task: any) =>
-        (task.subtasks || []).map((subtask: any) => ({
+        (task.subtasks || []).map((subtask: any) => {
+          const phase = projectTree?.isPhasing ? projectTree?.phases?.find((item: any) => item.id === scope.phaseId) : null;
+          return {
           id: subtask.id,
           title: subtask.title || subtask.name || "Untitled",
           progress: subtask.progress ?? 0,
           startDate: subtask.projectedStartDate || subtask.startDate || "",
           endDate: subtask.projectedEndDate || subtask.endDate || "",
           scopeId: scope.id,
-          scopeName: scope.name || scope.title || "Unnamed",
-        })),
+          scopeName: `${phase ? `${phase.name} / ` : ""}${scope.name || scope.title || "Unnamed"}`,
+        };}),
       ),
     ).filter((subtask: any) => !scopeId || String(subtask.scopeId) === String(scopeId));
   }, [fetchedSubtasks, scopeId, treeMatchesProject, treeScopes]);
@@ -145,24 +151,27 @@ export default function DashboardCalendar({
   return (
     <Card
       sx={{
-        mb: 3,
-        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-        border: "1px solid #e5e7eb",
+        borderRadius: 2.5,
+        boxShadow: "0 8px 24px rgba(15,23,42,.06)",
+        border: "1px solid #CBD5E1",
+        overflow: "hidden",
       }}
     >
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 1.25, md: 2 } }}>
         {/* Header */}
         <Box
           sx={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            mb: 2,
+            mb: 1.5,
+            gap: 2,
           }}
         >
-          <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 600 }}>
-            Subtask Calendar
-          </h3>
+          <Box>
+            <Stack direction="row" spacing={1} alignItems="center"><Typography sx={{ color: "#0F172A", fontSize: 15, fontWeight: 900 }}>Delivery Calendar</Typography>{projectTree?.isPhasing && <Chip size="small" label="Phase aware" sx={{ height: 20, bgcolor: "#EDE9FE", color: "#5B21B6", fontSize: 9, fontWeight: 800 }} />}</Stack>
+            <Typography sx={{ mt: 0.25, color: "#64748B", fontSize: 11 }}>Review scheduled work by month and open progress details directly from an activity.</Typography>
+          </Box>
           <ScopeFilter
             scopes={scopes}
             selectedScopeId={scopeId}

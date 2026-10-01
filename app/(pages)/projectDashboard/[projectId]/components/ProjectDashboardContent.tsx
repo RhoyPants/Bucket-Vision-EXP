@@ -105,7 +105,7 @@ export default function ProjectDashboardContent({ projectId }: { projectId: stri
           <SubtaskHealthKpi projectId={projectId} showSummary={false} onSummaryChange={setHealthSummary} onDataChange={setHealthData} />
           <DashboardCharts dashboard={dashboard} chartData={chartData} projectTree={fullProject} />
           <ProjectedActualTimelineChart reportTable={reportTable ?? chartData?.reportTable ?? null} projectTree={fullProject} loading={reportLoading} />
-          <DashboardReportTable reportTable={reportTable ?? chartData?.reportTable ?? null} loading={reportLoading} />
+          <DashboardReportTable reportTable={reportTable ?? chartData?.reportTable ?? null} projectTree={fullProject} loading={reportLoading} />
         </Stack>
       ) : (
         <Alert severity="info">Project dashboard data is not available.</Alert>

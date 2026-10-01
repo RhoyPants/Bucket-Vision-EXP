@@ -75,6 +75,16 @@ type ProjectTreeScope = {
   budgetAllocated?: number | null;
   budgetPercent?: number | null;
   tasks?: ProjectTreeTask[];
+  phaseId?: string | null;
+  order?: number | null;
+};
+
+type ProjectTreePhase = {
+  id: string;
+  name?: string | null;
+  description?: string | null;
+  order?: number | null;
+  scopes?: ProjectTreeScope[];
 };
 
 type ProjectTree = {
@@ -84,13 +94,15 @@ type ProjectTree = {
   startDate?: string | null;
   expectedEndDate?: string | null;
   scopes?: ProjectTreeScope[];
+  isPhasing?: boolean;
+  phases?: ProjectTreePhase[];
 };
 
 type ProjectTreeResponse = ProjectTree | { data?: ProjectTree | null } | { success?: boolean; data?: ProjectTree | null };
 
 type GanttRow =
   | {
-      type: "project" | "scope" | "task";
+      type: "project" | "phase" | "scope" | "task";
       key: string;
       itemNo: string;
       title: string;
@@ -279,8 +291,9 @@ const buildGanttRows = (project: ProjectTree | null, reportTable: DashboardRepor
     },
   ];
 
-  scopes.forEach((scope, scopeIndex) => {
-    const scopeNumber = `${scopeIndex + 1}.0`;
+  const appendScopes = (phaseScopes: ProjectTreeScope[], numberPrefix = "") => phaseScopes.forEach((scope, scopeIndex) => {
+    const scopeBase = numberPrefix ? `${numberPrefix}.${scopeIndex + 1}` : `${scopeIndex + 1}`;
+    const scopeNumber = `${scopeBase}.0`;
     rows.push({
       type: "scope",
       key: `scope-${scope.id}`,
@@ -292,7 +305,7 @@ const buildGanttRows = (project: ProjectTree | null, reportTable: DashboardRepor
     });
 
     (scope.tasks ?? []).forEach((task, taskIndex) => {
-      const taskNumber = `${scopeIndex + 1}.${taskIndex + 1}`;
+      const taskNumber = `${scopeBase}.${taskIndex + 1}`;
       rows.push({
         type: "task",
         key: `task-${task.id}`,
@@ -321,6 +334,27 @@ const buildGanttRows = (project: ProjectTree | null, reportTable: DashboardRepor
       });
     });
   });
+
+  if (project?.isPhasing && project.phases?.length) {
+    [...project.phases].sort((a, b) => toNumber(a.order) - toNumber(b.order)).forEach((phase, phaseIndex) => {
+      const phaseNumber = `${phaseIndex + 1}`;
+      const phaseScopes = phase.scopes?.length
+        ? phase.scopes
+        : scopes.filter((scope) => scope.phaseId === phase.id);
+      rows.push({
+        type: "phase",
+        key: `phase-${phase.id}`,
+        itemNo: phaseNumber,
+        title: phase.name ?? `Phase ${phaseIndex + 1}`,
+        progress: 0,
+        amount: phaseScopes.reduce((total, scope) => total + toNumber(scope.budgetAllocated), 0),
+        budgetPercent: phaseScopes.reduce((total, scope) => total + toNumber(scope.budgetPercent), 0),
+      });
+      appendScopes([...phaseScopes].sort((a, b) => toNumber(a.order) - toNumber(b.order)), phaseNumber);
+    });
+  } else {
+    appendScopes(scopes);
+  }
 
   return rows;
 };
@@ -571,12 +605,14 @@ export default function ProjectedActualTimelineChart({
                 {ganttRows.map((row) => {
                   if (row.type !== "subtask") {
                     const isProject = row.type === "project";
+                    const isPhase = row.type === "phase";
                     const isScope = row.type === "scope";
+                    const groupBackground = isPhase ? "#4C1D95" : isProject || isScope ? darkHeader : navy;
                     return (
                       <TableRow key={row.key}>
                         <TableCell
                           sx={{
-                            bgcolor: isProject || isScope ? darkHeader : navy,
+                            bgcolor: groupBackground,
                             color: "#fff",
                             border: `1px solid ${gridBorder}`,
                             fontWeight: 900,
@@ -588,27 +624,27 @@ export default function ProjectedActualTimelineChart({
                         </TableCell>
                         <TableCell
                           sx={{
-                            bgcolor: isProject || isScope ? darkHeader : navy,
+                            bgcolor: groupBackground,
                             color: "#fff",
                             border: `1px solid ${gridBorder}`,
                             fontWeight: 900,
-                            fontSize: isProject ? 12 : 11,
-                            textTransform: isProject || isScope ? "uppercase" : "none",
+                            fontSize: isProject || isPhase ? 12 : 11,
+                            textTransform: isProject || isPhase || isScope ? "uppercase" : "none",
                           }}
                         >
                           {row.title}
                         </TableCell>
-                        <TableCell align="center" sx={{ bgcolor: isProject || isScope ? darkHeader : navy, color: "#fff", border: `1px solid ${gridBorder}`, fontSize: 11, fontWeight: 800 }}>
+                        <TableCell align="center" sx={{ bgcolor: groupBackground, color: "#fff", border: `1px solid ${gridBorder}`, fontSize: 11, fontWeight: 800 }}>
                           {row.progress ? `${row.progress.toFixed(0)}%` : ""}
                         </TableCell>
-                        <TableCell align="right" sx={{ bgcolor: isProject || isScope ? darkHeader : navy, color: "#fff", border: `1px solid ${gridBorder}`, fontSize: 11, fontWeight: 900 }}>
+                        <TableCell align="right" sx={{ bgcolor: groupBackground, color: "#fff", border: `1px solid ${gridBorder}`, fontSize: 11, fontWeight: 900 }}>
                           {row.amount ? row.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
                         </TableCell>
-                        <TableCell align="right" sx={{ bgcolor: isProject || isScope ? darkHeader : navy, color: "#fff", border: `1px solid ${gridBorder}`, fontSize: 11, fontWeight: 900 }}>
+                        <TableCell align="right" sx={{ bgcolor: groupBackground, color: "#fff", border: `1px solid ${gridBorder}`, fontSize: 11, fontWeight: 900 }}>
                           {row.budgetPercent ? `${row.budgetPercent.toFixed(2)}%` : ""}
                         </TableCell>
-                        <TableCell sx={{ bgcolor: isProject || isScope ? darkHeader : navy, border: `1px solid ${gridBorder}` }} />
-                        <TableCell colSpan={displayColumns.length} sx={{ bgcolor: isProject || isScope ? darkHeader : navy, height: 24, border: `1px solid ${gridBorder}` }} />
+                        <TableCell sx={{ bgcolor: groupBackground, border: `1px solid ${gridBorder}` }} />
+                        <TableCell colSpan={displayColumns.length} sx={{ bgcolor: groupBackground, height: 24, border: `1px solid ${gridBorder}` }} />
                       </TableRow>
                     );
                   }

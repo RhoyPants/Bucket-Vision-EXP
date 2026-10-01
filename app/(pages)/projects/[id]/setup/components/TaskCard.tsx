@@ -19,6 +19,8 @@ import SaveIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import {
   validateTaskForm,
   calculateBudgetPercent,
@@ -92,6 +94,7 @@ function TaskCard({
   const [saving, setSaving] = useState(false);
   const [maintenanceTasks, setMaintenanceTasks] = useState<MaintenanceRecord[]>([]);
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
     if (!scopeMaintenanceId || !projectId) return;
@@ -294,6 +297,7 @@ function TaskCard({
           >
             <Box flex={1} minWidth={0}>
               <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+                <Tooltip title={expanded ? "Collapse task" : "Expand task"}><IconButton size="small" onClick={() => setExpanded((value) => !value)} sx={{ p: 0.2, color: "#0369A1" }}>{expanded ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}</IconButton></Tooltip>
                 <Chip label={`TASK ${orderLabel}`} size="small" sx={{ height: 21, bgcolor: "#e0f2fe", color: "#0369a1", fontSize: 9.5, fontWeight: 800 }} />
                 <Typography
                   variant="body2"
@@ -301,6 +305,7 @@ function TaskCard({
                 >
                   {task.title}
                 </Typography>
+                <Chip label={`${task.subtasks?.length || 0} subtask${task.subtasks?.length === 1 ? "" : "s"}`} size="small" variant="outlined" sx={{ height: 19, color: "#64748B", borderColor: "#BAE6FD", fontSize: 8.5 }} />
               </Box>
               {budgetRequired && <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
                 <Typography
@@ -372,7 +377,7 @@ function TaskCard({
           </Box>
         )}
 
-        {!isEditing && budgetRequired && (
+        {!isEditing && expanded && budgetRequired && (
           <Box
             sx={{
               display: "flex",
@@ -409,7 +414,7 @@ function TaskCard({
         )}
 
         {/* SUBTASK SECTION */}
-        {!isEditing && (
+        {!isEditing && expanded && (
           <SubtaskList
             wbsBusinessUnitIds={wbsBusinessUnitIds}
             task={task}

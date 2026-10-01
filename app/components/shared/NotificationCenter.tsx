@@ -224,9 +224,9 @@ export default function NotificationCenter() {
   const [remarks, setRemarks] = useState("");
   const lastSummaryAt = useRef(0);
 
-  const loadSummary = useCallback(async () => {
+  const loadSummary = useCallback(async (force = false) => {
     try {
-      const nextSummary = await notificationService.summary();
+      const nextSummary = await notificationService.summary(force);
       setSummary(nextSummary);
       lastSummaryAt.current = Date.now();
     } catch { /* Header remains usable if notifications are unavailable. */ }
@@ -265,10 +265,10 @@ export default function NotificationCenter() {
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refreshWhenStale); };
   }, [loadSummary]);
   useEffect(() => { if (open) void loadList(); }, [open, loadList]);
-  useEffect(() => { if (open) void loadSummary(); }, [open, loadSummary]);
+  useEffect(() => { if (open) void loadSummary(true); }, [open, loadSummary]);
   useEffect(() => { const timer = window.setTimeout(() => { setPage(1); setSearchQuery(search.trim()); }, 350); return () => window.clearTimeout(timer); }, [search]);
 
-  const refresh = async () => { await Promise.all([loadList(false), loadSummary()]); };
+  const refresh = async () => { await Promise.all([loadList(false), loadSummary(true)]); };
   const mutate = async (id: string, action: () => Promise<unknown>) => {
     setBusyId(id); setError("");
     try { await action(); await refresh(); }
@@ -282,7 +282,7 @@ export default function NotificationCenter() {
   const openTarget = async (item: UserNotification) => {
     const url = targetUrl(item);
     if (!item.readAt && item.permissions.canRead) {
-      try { await notificationService.markRead(item.id); await loadSummary(); }
+      try { await notificationService.markRead(item.id); await loadSummary(true); }
       catch (value) { setError(workflowError(value).message); return; }
     }
     if (url) { setOpen(false); router.push(url); }

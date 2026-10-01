@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Alert, Box, CircularProgress, FormControlLabel, Switch, Tooltip } from "@mui/material";
 import StructuredView from "@/app/(pages)/approvals/[projectId]/components/StructuredView";
 import ProjectSetupWizard from "@/app/components/ProjectSetupWizard";
-import type { Scope } from "@/app/(pages)/approvals/[projectId]/components/types";
+import type { Phase, Scope } from "@/app/(pages)/approvals/[projectId]/components/types";
 import { useAppDispatch } from "@/app/redux/hook";
 import { getProjectFull } from "@/app/redux/controllers/projectController";
 import { usePermissions } from "@/app/lib/usePermissions";
@@ -14,6 +14,8 @@ type StructureProject = {
   name: string;
   totalBudget?: number;
   scopes: Scope[];
+  isPhasing?: boolean;
+  phases?: Phase[];
 };
 
 export default function ProjectStructure({ projectId }: { projectId: string }) {
@@ -42,6 +44,8 @@ export default function ProjectStructure({ projectId }: { projectId: string }) {
       name: response.name || "Untitled Project",
       totalBudget: Number(response.totalBudget || 0),
       scopes: scopes as unknown as Scope[],
+      isPhasing: Boolean(response.isPhasing),
+      phases: response.phases || [],
     });
   };
 

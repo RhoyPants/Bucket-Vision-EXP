@@ -57,6 +57,7 @@ const isMonday  = (d: Date) => d.getDay() === 1;
 const isToday   = (d: Date) => d.toDateString() === new Date().toDateString();
 
 const barColor = (row: any): string => {
+  if (row.type === "phase") return "#7C3AED";
   if (row.type === "scope") return "#5E35B1";
   if (row.type === "task")  return "#0D47A1";
   const progress = Number(row.progress ?? 0);
@@ -176,17 +177,24 @@ const monthGroups = useMemo(() => {
 const baseRows = useMemo(() => {
     if (!fullProject?.scopes) return [];
     const out: any[] = [];
-    fullProject.scopes.forEach((sc: any, si: number) => {
-      out.push({ ...sc, type: "scope", _si: si });
+    const appendScopes = (scopes: any[], phaseIndex?: number) => scopes.forEach((sc: any, si: number) => {
+      out.push({ ...sc, type: "scope", _pi: phaseIndex, _si: si });
       if (!expandedScopes.has(sc.id)) return;
       sc.tasks?.forEach((t: any, ti: number) => {
-        out.push({ ...t, type: "task", _si: si, _ti: ti });
+        out.push({ ...t, type: "task", _pi: phaseIndex, _si: si, _ti: ti });
         if (!expandedTasks.has(t.id)) return;
         t.subtasks?.forEach((sub: any, xi: number) => {
-          out.push({ ...sub, type: "subtask", _si: si, _ti: ti, _xi: xi });
+          out.push({ ...sub, type: "subtask", _pi: phaseIndex, _si: si, _ti: ti, _xi: xi });
         });
       });
     });
+    if (fullProject.isPhasing && fullProject.phases?.length) {
+      [...fullProject.phases].sort((a: any, b: any) => Number(a.order ?? 0) - Number(b.order ?? 0)).forEach((phase: any, pi: number) => {
+        const phaseScopes = phase.scopes?.length ? phase.scopes : fullProject.scopes.filter((scope: any) => scope.phaseId === phase.id);
+        out.push({ ...phase, scopes: phaseScopes, type: "phase", _pi: pi });
+        appendScopes(phaseScopes, pi);
+      });
+    } else appendScopes(fullProject.scopes);
     return out;
   }, [fullProject, expandedScopes, expandedTasks]);
 
@@ -232,6 +240,17 @@ const baseRows = useMemo(() => {
       return { start: Math.min(...starts), end: Math.max(...ends) };
     }
 
+    if (row.type === "phase") {
+      const starts: number[] = [], ends: number[] = [];
+      row.scopes?.forEach((scope: any) => scope.tasks?.forEach((task: any) => task.subtasks?.forEach((subtask: any) => {
+        const start = toMs(subtask.projectedStartDate || subtask.startDate);
+        const end = toMs(subtask.projectedEndDate || subtask.endDate);
+        if (start) starts.push(start);
+        if (end) ends.push(end);
+      })));
+      return starts.length ? { start: Math.min(...starts), end: Math.max(...ends) } : { start: null, end: null };
+    }
+
     return { start: null, end: null };
   }, []);
 
@@ -245,10 +264,12 @@ const baseRows = useMemo(() => {
 const toggleScope = (id: string) => setExpandedScopes(p => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; });
   const toggleTask  = (id: string) => setExpandedTasks(p  => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; });
 const wbs = (row: any) => {
-    const s = (row._si ?? 0) + 1, t = (row._ti ?? 0) + 1, x = (row._xi ?? 0) + 1;
-    if (row.type === "scope")   return `${s}`;
-    if (row.type === "task")    return `${s}.${t}`;
-    if (row.type === "subtask") return `${s}.${t}.${x}`;
+    const p = (row._pi ?? 0) + 1, s = (row._si ?? 0) + 1, t = (row._ti ?? 0) + 1, x = (row._xi ?? 0) + 1;
+    const prefix = fullProject?.isPhasing ? `${p}.` : "";
+    if (row.type === "phase")   return `${p}`;
+    if (row.type === "scope")   return `${prefix}${s}`;
+    if (row.type === "task")    return `${prefix}${s}.${t}`;
+    if (row.type === "subtask") return `${prefix}${s}.${t}.${x}`;
     return "";
   };
  if (!projectId || !fullProject) {
@@ -270,14 +291,14 @@ const wbs = (row: any) => {
   }
 
    return (
-    <Box sx={{ display: "flex", flexDirection: "column", userSelect: "none", width: "100%", minWidth: 0, overflow: "hidden", border: "1px solid #d8dee9", borderRadius: 2.5, bgcolor: "#fff" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", userSelect: "none", width: "100%", minWidth: 0, overflow: "hidden", border: "1px solid #CBD5E1", borderRadius: 2.5, bgcolor: "#fff", boxShadow: "0 8px 24px rgba(15,23,42,.06)" }}>
 
       {/* TOOLBAR */}
-      <Box sx={{ px: { xs: 1.25, sm: 2 }, py: 1.25, borderBottom: "1px solid #e4e9f0", bgcolor: "#fbfcfe" }}>
+      <Box sx={{ px: { xs: 1.25, sm: 2 }, py: 1.25, borderBottom: "1px solid #E2E8F0", bgcolor: "#F8FAFC" }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", md: "center" }} gap={1.25}>
           <Box>
-            <Typography sx={{ fontSize: 13, fontWeight: 850, color: "#17233c" }}>Original project timeline</Typography>
-            <Typography sx={{ mt: 0.15, fontSize: 10.5, color: "#697386" }}>Planned dates from the approved project structure.</Typography>
+            <Typography sx={{ fontSize: 15, fontWeight: 900, color: "#0F172A" }}>Delivery Timeline</Typography>
+            <Typography sx={{ mt: 0.15, fontSize: 10.5, color: "#64748B" }}>Planned delivery windows grouped by phase, scope, task, and subtask.</Typography>
           </Box>
           <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flexWrap: "wrap", rowGap: 0.75 }}>
             <Typography variant="caption" fontWeight={750} color="text.secondary">View by</Typography>
@@ -296,7 +317,7 @@ const wbs = (row: any) => {
           </Stack>
         </Stack>
         <Stack direction="row" spacing={1.75} useFlexGap sx={{ mt: 1, flexWrap: "wrap" }}>
-          {[["#5E35B1", "Scope"], ["#0D47A1", "Task"], ["#FFA726", "Not started"], ["#29B6F6", "In progress"], ["#00C853", "Completed"]].map(([color, label]) => <Stack key={label} direction="row" spacing={0.55} alignItems="center"><Box sx={{ width: 14, height: 5, borderRadius: 4, bgcolor: color }} /><Typography sx={{ fontSize: 9.5, color: "#526078" }}>{label}</Typography></Stack>)}
+          {[["#7C3AED", "Phase"], ["#5E35B1", "Scope"], ["#0D47A1", "Task"], ["#FFA726", "Not started"], ["#29B6F6", "In progress"], ["#00C853", "Completed"]].map(([color, label]) => <Stack key={label} direction="row" spacing={0.55} alignItems="center"><Box sx={{ width: 14, height: 5, borderRadius: 4, bgcolor: color }} /><Typography sx={{ fontSize: 9.5, color: "#526078" }}>{label}</Typography></Stack>)}
         </Stack>
       </Box>
 
@@ -337,7 +358,7 @@ const wbs = (row: any) => {
               fontWeight: 700, fontSize: 12, color: "#444",
             }}>
               <Box sx={{ width: 60, px: 1, flexShrink: 0 }}>WBS</Box>
-              <Box sx={{ flex: 1, px: 1, overflow: "hidden" }}>Phase / Task</Box>
+              <Box sx={{ flex: 1, px: 1, overflow: "hidden" }}>Phase / Scope / Task</Box>
             </Box>
 
             {/* Meta header — Start / End / Days / % — scrolls with timeline */}
@@ -423,13 +444,14 @@ const wbs = (row: any) => {
               );
             }
 
+            const isPh = row.type === "phase";
             const isSc = row.type === "scope";
             const isTk = row.type === "task";
             const isSb = row.type === "subtask";
             const { start, end } = getRowMs(row);
             const durDays  = start && end ? Math.round((end - start) / MS_DAY + 1) : 0;
             const progress = Math.round(row.progress ?? 0);
-            const rowBg    = isSc ? "#f1effb" : isTk ? "#eef5ff" : "#ffffff";
+            const rowBg    = isPh ? "#ede9fe" : isSc ? "#f1effb" : isTk ? "#eef5ff" : "#ffffff";
             const leftPx   = getOffsetPx(start);
             const widthPx  = getDurPx(start, end);
             const color    = barColor(row);
@@ -445,7 +467,7 @@ const wbs = (row: any) => {
                   bgcolor: rowBg,
                   borderRight: "1px solid #C8CDD8",
                   borderBottom: "1px solid #E8E8E8",
-                  borderLeft: isSc ? "3px solid #4B2E83" : "3px solid transparent",
+                  borderLeft: isPh ? "4px solid #7C3AED" : isSc ? "3px solid #4B2E83" : "3px solid transparent",
                 }}>
                   <Box sx={{ width: 60, px: 1, flexShrink: 0, fontSize: 10, fontWeight: 600, color: "#888", whiteSpace: "nowrap" }}>
                     {wbs(row)}
@@ -468,9 +490,9 @@ const wbs = (row: any) => {
                     )}
                     {isSb && <Box sx={{ width: 20, flexShrink: 0 }} />}
                     <Typography noWrap sx={{
-                      fontSize: isSc ? 12 : isTk ? 11 : 10,
-                      fontWeight: isSc ? 700 : isTk ? 600 : 400,
-                      color: isSc ? "#1a1040" : isTk ? "#1a2560" : "#555",
+                      fontSize: isPh ? 12.5 : isSc ? 12 : isTk ? 11 : 10,
+                      fontWeight: isPh ? 800 : isSc ? 700 : isTk ? 600 : 400,
+                      color: isPh ? "#5B21B6" : isSc ? "#1a1040" : isTk ? "#1a2560" : "#555",
                     }}>
                       {row.name || row.title}
                     </Typography>
@@ -532,7 +554,7 @@ const wbs = (row: any) => {
                           position: "absolute",
                           left: leftPx,
                           width: Math.max(widthPx, 4),
-                          height: isSc ? 16 : isTk ? 13 : 9,
+                          height: isPh ? 18 : isSc ? 16 : isTk ? 13 : 9,
                           top: "50%",
                           transform: "translateY(-50%)",
                           borderRadius: 999,
@@ -550,12 +572,12 @@ const wbs = (row: any) => {
                         )}
 
                         {/* Bar label (wide bars only) */}
-                        {widthPx > 90 && isSc && (
+                        {widthPx > 90 && (isPh || isSc) && (
                           <Typography noWrap sx={{
                             fontSize: 9,
                             color: "rgba(255,255,255,0.92)",
                             pl: 1,
-                            lineHeight: "16px",
+                            lineHeight: isPh ? "18px" : "16px",
                             pointerEvents: "none",
                           }}>
                             {row.name || row.title}
