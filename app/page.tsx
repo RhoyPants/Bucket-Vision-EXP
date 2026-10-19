@@ -260,9 +260,93 @@ function LoginPageContent() {
             </Alert>
           )}
 
-          <Box sx={{ width: "100%", maxWidth: { xs: 410, lg: 430, xl: 470 } }}>
-            <LoginContainer />
-          </Box>
+          <Box
+  sx={{
+    width: "100%",
+    maxWidth: { xs: 410, lg: 430, xl: 470 },
+    p: { xs: 3, md: 4 },
+    borderRadius: 4,
+    backgroundColor: "rgba(255,255,255,0.82)",
+    backdropFilter: "blur(12px)",
+    boxShadow: "0 20px 60px rgba(33, 14, 100, 0.16)",
+    border: "1px solid rgba(255,255,255,0.65)",
+    textAlign: "center",
+  }}
+>
+  <Typography
+    sx={{
+      color: "#210e64",
+      fontSize: { xs: 26, md: 30 },
+      fontWeight: 900,
+      lineHeight: 1.2,
+    }}
+  >
+    VISION Has Moved
+  </Typography>
+
+  <Typography
+    sx={{
+      mt: 2,
+      color: "#4d4658",
+      fontSize: 16,
+      lineHeight: 1.7,
+    }}
+  >
+    VISION has been successfully migrated and deployed to our new Production
+    environment.
+  </Typography>
+
+  <Typography
+    sx={{
+      mt: 1.5,
+      color: "#4d4658",
+      fontSize: 15,
+      lineHeight: 1.7,
+    }}
+  >
+    This site is no longer the active VISION environment. Please use the new
+    Production link below to continue.
+  </Typography>
+
+  <Box
+    component="a"
+    href="https://vision.globalvisionsinc.com.ph/"
+    sx={{
+      mt: 3,
+      width: "100%",
+      minHeight: 50,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 2,
+      background: "linear-gradient(90deg, #2b148f 0%, #5438d6 100%)",
+      color: "#ffffff",
+      fontSize: 15,
+      fontWeight: 800,
+      textDecoration: "none",
+      boxShadow: "0 10px 24px rgba(43, 20, 143, 0.25)",
+      transition: "transform 150ms ease, box-shadow 150ms ease",
+
+      "&:hover": {
+        transform: "translateY(-1px)",
+        boxShadow: "0 14px 30px rgba(43, 20, 143, 0.32)",
+      },
+    }}
+  >
+    Open VISION Production →
+  </Box>
+
+  <Typography
+    sx={{
+      mt: 2,
+      color: "#77717f",
+      fontSize: 12,
+      lineHeight: 1.6,
+    }}
+  >
+    Please update your bookmarks to the new VISION Production address.
+  </Typography>
+</Box>
         </Stack>
       </Box>
     </Box>
