@@ -1,64 +1,10 @@
 "use client";
 
-import { Alert, Box, CircularProgress, Stack, Typography } from "@mui/material";
-import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
-import LoginContainer from "./login/components/loginContainer";
+import { Box, Typography } from "@mui/material";
 
-const visionSlides = [
-  {
-    image: "/images/vision-slides/visibility.png",
-    letter: "V",
-    word: "Visibility",
-    meaning: "Clear Visibility.",
-  },  
-  {
-    image: "/images/vision-slides/insight.png",
-    letter: "I",
-    word: "Insight",
-    meaning: "Actionable Insight.",
-  },
-  {
-    image: "/images/vision-slides/status.png",
-    letter: "S",
-    word: "Status",
-    meaning: "Real-time Status.",
-  },
-  {
-    image: "/images/vision-slides/information.png",
-    letter: "I",
-    word: "Information",
-    meaning: "Centralized Information.",
-  },
-  {
-    image: "/images/vision-slides/objectives.png",
-    letter: "O",
-    word: "Objectives",
-    meaning: "Tracked Objectives.",
-  },
-  {
-    image: "/images/vision-slides/next-action.png",
-    letter: "N",
-    word: "Next Action",
-    meaning: "Prioritized Next Actions.",
-  },
-];
+const PRODUCTION_URL = "https://vision.globalvisionsinc.com.ph/";
 
-const visionLetters = ["V", "I", "S", "I", "O", "N"];
-
-function LoginPageContent() {
-  const searchParams = useSearchParams();
-  const ssoStatus = searchParams.get("sso");
-  const [activeSlide, setActiveSlide] = useState(0);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setActiveSlide((current) => (current + 1) % visionSlides.length);
-    }, 4500);
-
-    return () => window.clearInterval(interval);
-  }, []);
-
+export default function VisionTransitionPage() {
   return (
     <Box
       sx={{
@@ -66,405 +12,269 @@ function LoginPageContent() {
         inset: 0,
         width: "100vw",
         height: "100dvh",
-        minHeight: "100dvh",
         display: "flex",
-        justifyContent: "center",
         alignItems: "center",
-        overflow: "hidden",
-        backgroundColor: "#210e64",
+        justifyContent: "center",
+        overflow: "auto",
+        p: { xs: 2, sm: 3, md: 5 },
+        backgroundColor: "#e0dae6",
+        backgroundImage:
+          "linear-gradient(135deg, rgba(255,255,255,0.35), rgba(224,218,230,0.35)), url('/images/BG LIGHT.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
       }}
     >
       <Box
         sx={{
-          width: "100%",
-          height: "100%",
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "1fr",
-            md: "minmax(0, 1fr) 440px",
-            lg: "minmax(0, 1fr) 470px",
-            xl: "minmax(0, 1fr) 560px",
+          width: {
+            xs: "100%",
+            sm: "92%",
+            md: "82%",
+            lg: "75%",
+            xl: "70%",
           },
+          maxWidth: "1400px",
+          minHeight: { md: "70vh" },
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          p: {
+            xs: 3,
+            sm: 4,
+            md: 6,
+            lg: 8,
+          },
+          borderRadius: { xs: 3, md: 5 },
+          backgroundColor: "rgba(255,255,255,0.92)",
+          backdropFilter: "blur(14px)",
+          border: "1px solid rgba(255,255,255,0.75)",
+          boxShadow: "0 30px 80px rgba(33,14,100,0.18)",
         }}
       >
-        <Box
+        <Typography
+          component="h1"
           sx={{
-            position: "relative",
-            display: { xs: "none", md: "block" },
-            height: "100%",
-            overflow: "hidden",
-            bgcolor: "#210e64",
+            color: "#210e64",
+            fontSize: {
+              xs: 36,
+              sm: 44,
+              md: 56,
+              lg: 64,
+            },
+            lineHeight: 1.05,
+            fontWeight: 950,
+            textAlign: "center",
           }}
         >
-          {visionSlides.map((slide, index) => (
-            <Box
-              key={slide.image}
-              sx={{
-                position: "absolute",
-                inset: 0,
-                backgroundImage: `url('${slide.image}')`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                opacity: activeSlide === index ? 1 : 0,
-                transform: activeSlide === index ? "scale(1.02)" : "scale(1)",
-                transition: "opacity 900ms ease, transform 5000ms ease",
-              }}
-            />
-          ))}
+          VISION Transition
+        </Typography>
 
-          <Box
-            sx={{
-              position: "absolute",
-              inset: 0,
-              background:
-                "linear-gradient(180deg, rgba(9, 3, 42, 0.08) 0%, rgba(9, 3, 42, 0.48) 58%, rgba(9, 3, 42, 0.9) 100%), linear-gradient(90deg, rgba(9, 3, 42, 0.72) 0%, rgba(9, 3, 42, 0.34) 46%, rgba(9, 3, 42, 0.62) 100%)",
-            }}
-          />
+        <Typography
+          sx={{
+            mt: 2,
+            color: "#5438d6",
+            fontSize: {
+              xs: 18,
+              md: 22,
+              lg: 26,
+            },
+            fontWeight: 800,
+            textAlign: "center",
+          }}
+        >
+          Important Notice — New Production Environment
+        </Typography>
 
-          <Stack
-            spacing={2.25}
+        <Box
+          sx={{
+            width: "80px",
+            height: "5px",
+            mx: "auto",
+            mt: 3,
+            mb: { xs: 3, md: 5 },
+            borderRadius: 10,
+            backgroundColor: "#f6d365",
+          }}
+        />
+
+        <Typography
+          sx={{
+            color: "#342d3d",
+            fontSize: {
+              xs: 17,
+              sm: 18,
+              md: 21,
+              lg: 23,
+            },
+            lineHeight: 1.7,
+            fontWeight: 600,
+          }}
+        >
+          Please be advised that we have transitioned to a new URL for our
+          VISION Environment.
+        </Typography>
+
+        <Typography
+          sx={{
+            mt: 2.5,
+            color: "#342d3d",
+            fontSize: {
+              xs: 17,
+              sm: 18,
+              md: 21,
+              lg: 23,
+            },
+            lineHeight: 1.7,
+            fontWeight: 600,
+          }}
+        >
+          To ensure uninterrupted access and prevent login errors, all users
+          are requested to update their web browsers immediately. Please remove
+          any existing bookmarks or shortcuts pointing to the old VISION
+          environment and use the new official Production environment moving
+          forward.
+        </Typography>
+
+        <Box
+          sx={{
+            mt: { xs: 3, md: 5 },
+            p: { xs: 2.5, md: 4 },
+            borderRadius: 3,
+            backgroundColor: "rgba(33,14,100,0.06)",
+            border: "2px solid rgba(33,14,100,0.12)",
+            textAlign: "center",
+          }}
+        >
+          <Typography
             sx={{
-              position: "absolute",
-              left: { md: 56, lg: 72 },
-              right: { md: 48, lg: 72, xl: 96 },
-              bottom: { md: 48, lg: 64, xl: 84 },
-              color: "#ffffff",
-              maxWidth: { md: 720, xl: 880 },
+              color: "#210e64",
+              fontSize: {
+                xs: 14,
+                md: 17,
+              },
+              fontWeight: 900,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
             }}
           >
-            <Typography
-              component="h1"
-              sx={{
-                display: "flex",
-                alignItems: "baseline",
-                flexWrap: "wrap",
-                gap: { md: 0.65, lg: 0.85 },
-                fontSize: { md: 62, lg: 82, xl: 104 },
-                lineHeight: 0.9,
-                fontWeight: 950,
-                textShadow:
-                  "0 0 22px rgba(246, 211, 101, 0.34), 0 22px 52px rgba(0,0,0,0.46)",
-              }}
-            >
-              {visionLetters.map((letter, index) => (
-                <Box
-                  key={`${letter}-${index}`}
-                  component="span"
-                  sx={{
-                    display: "inline-flex",
-                    alignItems: "baseline",
-                    color: "#ffffff",
-                  }}
-                >
-                  <Box
-                    component="span"
-                    sx={{
-                      color: activeSlide === index ? "#f6d365" : "#ffffff",
-                      textShadow:
-                        activeSlide === index
-                          ? "0 0 18px rgba(246, 211, 101, 0.68), 0 18px 46px rgba(0,0,0,0.42)"
-                          : "0 18px 46px rgba(0,0,0,0.42)",
-                      transition: "color 320ms ease, text-shadow 320ms ease",
-                    }}
-                  >
-                    {letter}
-                  </Box>
-                  {index < visionLetters.length - 1 && (
-                    <Box
-                      component="span"
-                      sx={{
-                        mx: { md: 0.35, lg: 0.45 },
-                        color: "rgba(255,255,255,0.72)",
-                        fontSize: "0.42em",
-                      }}
-                    >
-                      .
-                    </Box>
-                  )}
-                </Box>
-              ))}
-            </Typography>
+            New Official VISION Production
+          </Typography>
 
-            <Box>
-              <Typography
-                sx={{
-                  color: "#f6d365",
-                  fontSize: { md: 21, lg: 24, xl: 30 },
-                  lineHeight: 1.2,
-                  fontWeight: 900,
-                  textShadow: "0 0 20px rgba(246, 211, 101, 0.3)",
-                }}
-              >
-                {visionSlides[activeSlide].word}
-              </Typography>
-              <Typography
-                sx={{
-                  mt: 0.75,
-                  maxWidth: { md: 620, xl: 760 },
-                  color: "rgba(255,255,255,0.84)",
-                  fontSize: { md: 15, xl: 18 },
-                  lineHeight: 1.7,
-                  fontWeight: 650,
-                }}
-              >
-                {visionSlides[activeSlide].meaning}
-              </Typography>
-            </Box>
-
-
-          </Stack>
+          <Typography
+            sx={{
+              mt: 1.5,
+              color: "#210e64",
+              fontSize: {
+                xs: 20,
+                sm: 24,
+                md: 30,
+                lg: 34,
+              },
+              lineHeight: 1.2,
+              fontWeight: 900,
+              wordBreak: "break-word",
+            }}
+          >
+            vision.globalvisionsinc.com.ph
+          </Typography>
         </Box>
 
-        <Stack
-          spacing={2}
+        <Box
+          component="a"
+          href={PRODUCTION_URL}
           sx={{
+            mt: { xs: 3, md: 4 },
             width: "100%",
-            height: "100%",
-            maxWidth: "none",
-            mx: "auto",
+            minHeight: { xs: 58, md: 72 },
+            display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            p: { xs: 2, md: 4, xl: 6 },
-            backgroundColor: "#e0dae6",
-            backgroundImage:
-              "linear-gradient(180deg, rgba(255,255,255,0.2), rgba(224,218,230,0.18)), url('/images/BG LIGHT.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
+            borderRadius: 2.5,
+            background:
+              "linear-gradient(90deg, #2b148f 0%, #5438d6 100%)",
+            color: "#ffffff",
+            fontSize: {
+              xs: 17,
+              md: 21,
+            },
+            fontWeight: 900,
+            textDecoration: "none",
+            boxShadow: "0 12px 30px rgba(43,20,143,0.25)",
+            transition:
+              "transform 150ms ease, box-shadow 150ms ease",
+
+            "&:hover": {
+              transform: "translateY(-2px)",
+              boxShadow: "0 16px 36px rgba(43,20,143,0.32)",
+            },
           }}
         >
-          {ssoStatus === "register" && (
-            <Alert severity="warning">
-              No registered account found. Please contact admin to register your
-              account.
-            </Alert>
-          )}
+          Open New VISION Production →
+        </Box>
 
-          {ssoStatus === "pending" && (
-            <Alert severity="info">
-              Your account is inactive. Please contact your administrator.
-            </Alert>
-          )}
+        <Typography
+          sx={{
+            mt: { xs: 3, md: 4 },
+            color: "#4d4658",
+            fontSize: {
+              xs: 15,
+              md: 18,
+            },
+            lineHeight: 1.7,
+            fontWeight: 600,
+            textAlign: "center",
+          }}
+        >
+          Please ensure you use this new link for all your day-to-day
+          transactions and system activities moving forward.
+        </Typography>
 
-          {ssoStatus === "denied" && (
-            <Alert severity="error">
-              Your account has been denied access. Please contact your
-              administrator.
-            </Alert>
-          )}
+        <Typography
+          sx={{
+            mt: 2,
+            color: "#696270",
+            fontSize: {
+              xs: 14,
+              md: 16,
+            },
+            lineHeight: 1.7,
+            textAlign: "center",
+          }}
+        >
+          Should you experience any issues accessing the new link, please
+          reach out to MIT immediately.
+        </Typography>
 
-          {(ssoStatus === "failed" ||
-            ssoStatus === "invalid_state" ||
-            ssoStatus === "invalid_callback") && (
-            <Alert severity="error">
-              Microsoft SSO login failed. Please try again.
-            </Alert>
-          )}
-<Box
-  sx={{
-    width: "100%",
-    maxWidth: { xs: 430, lg: 460, xl: 500 },
-    p: { xs: 3, md: 4 },
-    borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.86)",
-    backdropFilter: "blur(12px)",
-    boxShadow: "0 20px 60px rgba(33, 14, 100, 0.16)",
-    border: "1px solid rgba(255,255,255,0.65)",
-    textAlign: "left",
-  }}
->
-  <Typography
-    sx={{
-      color: "#210e64",
-      fontSize: { xs: 25, md: 29 },
-      fontWeight: 900,
-      lineHeight: 1.2,
-      textAlign: "center",
-    }}
-  >
-    VISION Transition
-  </Typography>
-
-  <Typography
-    sx={{
-      mt: 1,
-      color: "#77717f",
-      fontSize: 13,
-      fontWeight: 600,
-      textAlign: "center",
-    }}
-  >
-    New Production Environment
-  </Typography>
-
-  <Typography
-    sx={{
-      mt: 3,
-      color: "#4d4658",
-      fontSize: 14,
-      lineHeight: 1.7,
-    }}
-  >
-    Please be advised that VISION has transitioned to a new Production
-    environment.
-  </Typography>
-
-  <Typography
-    sx={{
-      mt: 1.5,
-      color: "#4d4658",
-      fontSize: 14,
-      lineHeight: 1.7,
-    }}
-  >
-    To ensure uninterrupted access and prevent login errors, please remove any
-    existing bookmarks or shortcuts pointing to this old VISION environment
-    and use the new official Production link moving forward.
-  </Typography>
-
-  <Box
-    sx={{
-      mt: 2.5,
-      p: 2,
-      borderRadius: 2,
-      backgroundColor: "rgba(33, 14, 100, 0.06)",
-      border: "1px solid rgba(33, 14, 100, 0.10)",
-    }}
-  >
-    <Typography
-      sx={{
-        color: "#210e64",
-        fontSize: 12,
-        fontWeight: 800,
-        textTransform: "uppercase",
-        letterSpacing: "0.08em",
-      }}
-    >
-      Official VISION Production
-    </Typography>
-
-    <Typography
-      sx={{
-        mt: 0.75,
-        color: "#4d4658",
-        fontSize: 13,
-        fontWeight: 600,
-        wordBreak: "break-word",
-      }}
-    >
-      vision.globalvisionsinc.com.ph
-    </Typography>
-  </Box>
-
-  <Box
-    component="a"
-    href="https://vision.globalvisionsinc.com.ph/"
-    target="_self"
-    sx={{
-      mt: 2.5,
-      width: "100%",
-      minHeight: 50,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: 2,
-      background: "linear-gradient(90deg, #2b148f 0%, #5438d6 100%)",
-      color: "#ffffff",
-      fontSize: 14,
-      fontWeight: 800,
-      textDecoration: "none",
-      boxShadow: "0 10px 24px rgba(43, 20, 143, 0.25)",
-      transition: "transform 150ms ease, box-shadow 150ms ease",
-
-      "&:hover": {
-        transform: "translateY(-1px)",
-        boxShadow: "0 14px 30px rgba(43, 20, 143, 0.32)",
-      },
-    }}
-  >
-    Continue to VISION Production →
-  </Box>
-
-  <Typography
-    sx={{
-      mt: 2.5,
-      color: "#66606d",
-      fontSize: 12.5,
-      lineHeight: 1.6,
-      textAlign: "center",
-    }}
-  >
-    Please update your browser bookmark and use the new Production link for
-    all day-to-day transactions and system activities.
-  </Typography>
-
-  <Typography
-    sx={{
-      mt: 2,
-      color: "#77717f",
-      fontSize: 11.5,
-      lineHeight: 1.6,
-      textAlign: "center",
-    }}
-  >
-    If you experience any issues accessing the new environment, please contact
-    MIT for assistance.
-  </Typography>
-
-  <Box
-    sx={{
-      mt: 2.5,
-      pt: 2,
-      borderTop: "1px solid rgba(33, 14, 100, 0.10)",
-      textAlign: "center",
-    }}
-  >
-    <Typography
-      sx={{
-        color: "#210e64",
-        fontSize: 12,
-        fontWeight: 800,
-      }}
-    >
-      System Admin
-    </Typography>
-
-    <Typography
-      sx={{
-        mt: 0.25,
-        color: "#77717f",
-        fontSize: 11,
-        fontWeight: 600,
-      }}
-    >
-      MIT
-    </Typography>
-  </Box>
-</Box>
-
-        </Stack>
-      </Box>
-    </Box>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense
-      fallback={
         <Box
           sx={{
-            height: "100vh",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            // backgroundColor: "#19075d",
+            mt: { xs: 3, md: 4 },
+            pt: 3,
+            borderTop: "1px solid rgba(33,14,100,0.12)",
+            textAlign: "center",
           }}
         >
-          <CircularProgress />
+          <Typography
+            sx={{
+              color: "#210e64",
+              fontSize: 16,
+              fontWeight: 900,
+            }}
+          >
+            System Admin
+          </Typography>
+
+          <Typography
+            sx={{
+              mt: 0.25,
+              color: "#696270",
+              fontSize: 14,
+              fontWeight: 700,
+            }}
+          >
+            MIT
+          </Typography>
         </Box>
-      }
-    >
-      <LoginPageContent />
-    </Suspense>
+      </Box>
+    </Box>
   );
 }
