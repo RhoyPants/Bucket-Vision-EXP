@@ -259,40 +259,52 @@ function LoginPageContent() {
               Microsoft SSO login failed. Please try again.
             </Alert>
           )}
-
-          <Box
+<Box
   sx={{
     width: "100%",
-    maxWidth: { xs: 410, lg: 430, xl: 470 },
+    maxWidth: { xs: 430, lg: 460, xl: 500 },
     p: { xs: 3, md: 4 },
     borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.82)",
+    backgroundColor: "rgba(255,255,255,0.86)",
     backdropFilter: "blur(12px)",
     boxShadow: "0 20px 60px rgba(33, 14, 100, 0.16)",
     border: "1px solid rgba(255,255,255,0.65)",
-    textAlign: "center",
+    textAlign: "left",
   }}
 >
   <Typography
     sx={{
       color: "#210e64",
-      fontSize: { xs: 26, md: 30 },
+      fontSize: { xs: 25, md: 29 },
       fontWeight: 900,
       lineHeight: 1.2,
+      textAlign: "center",
     }}
   >
-    VISION Has Moved
+    VISION Transition
   </Typography>
 
   <Typography
     sx={{
-      mt: 2,
+      mt: 1,
+      color: "#77717f",
+      fontSize: 13,
+      fontWeight: 600,
+      textAlign: "center",
+    }}
+  >
+    New Production Environment
+  </Typography>
+
+  <Typography
+    sx={{
+      mt: 3,
       color: "#4d4658",
-      fontSize: 16,
+      fontSize: 14,
       lineHeight: 1.7,
     }}
   >
-    VISION has been successfully migrated and deployed to our new Production
+    Please be advised that VISION has transitioned to a new Production
     environment.
   </Typography>
 
@@ -300,19 +312,55 @@ function LoginPageContent() {
     sx={{
       mt: 1.5,
       color: "#4d4658",
-      fontSize: 15,
+      fontSize: 14,
       lineHeight: 1.7,
     }}
   >
-    This site is no longer the active VISION environment. Please use the new
-    Production link below to continue.
+    To ensure uninterrupted access and prevent login errors, please remove any
+    existing bookmarks or shortcuts pointing to this old VISION environment
+    and use the new official Production link moving forward.
   </Typography>
+
+  <Box
+    sx={{
+      mt: 2.5,
+      p: 2,
+      borderRadius: 2,
+      backgroundColor: "rgba(33, 14, 100, 0.06)",
+      border: "1px solid rgba(33, 14, 100, 0.10)",
+    }}
+  >
+    <Typography
+      sx={{
+        color: "#210e64",
+        fontSize: 12,
+        fontWeight: 800,
+        textTransform: "uppercase",
+        letterSpacing: "0.08em",
+      }}
+    >
+      Official VISION Production
+    </Typography>
+
+    <Typography
+      sx={{
+        mt: 0.75,
+        color: "#4d4658",
+        fontSize: 13,
+        fontWeight: 600,
+        wordBreak: "break-word",
+      }}
+    >
+      vision.globalvisionsinc.com.ph
+    </Typography>
+  </Box>
 
   <Box
     component="a"
     href="https://vision.globalvisionsinc.com.ph/"
+    target="_self"
     sx={{
-      mt: 3,
+      mt: 2.5,
       width: "100%",
       minHeight: 50,
       display: "flex",
@@ -321,7 +369,7 @@ function LoginPageContent() {
       borderRadius: 2,
       background: "linear-gradient(90deg, #2b148f 0%, #5438d6 100%)",
       color: "#ffffff",
-      fontSize: 15,
+      fontSize: 14,
       fontWeight: 800,
       textDecoration: "none",
       boxShadow: "0 10px 24px rgba(43, 20, 143, 0.25)",
@@ -333,20 +381,66 @@ function LoginPageContent() {
       },
     }}
   >
-    Open VISION Production →
+    Continue to VISION Production →
   </Box>
+
+  <Typography
+    sx={{
+      mt: 2.5,
+      color: "#66606d",
+      fontSize: 12.5,
+      lineHeight: 1.6,
+      textAlign: "center",
+    }}
+  >
+    Please update your browser bookmark and use the new Production link for
+    all day-to-day transactions and system activities.
+  </Typography>
 
   <Typography
     sx={{
       mt: 2,
       color: "#77717f",
-      fontSize: 12,
+      fontSize: 11.5,
       lineHeight: 1.6,
+      textAlign: "center",
     }}
   >
-    Please update your bookmarks to the new VISION Production address.
+    If you experience any issues accessing the new environment, please contact
+    MIT for assistance.
   </Typography>
+
+  <Box
+    sx={{
+      mt: 2.5,
+      pt: 2,
+      borderTop: "1px solid rgba(33, 14, 100, 0.10)",
+      textAlign: "center",
+    }}
+  >
+    <Typography
+      sx={{
+        color: "#210e64",
+        fontSize: 12,
+        fontWeight: 800,
+      }}
+    >
+      System Admin
+    </Typography>
+
+    <Typography
+      sx={{
+        mt: 0.25,
+        color: "#77717f",
+        fontSize: 11,
+        fontWeight: 600,
+      }}
+    >
+      MIT
+    </Typography>
+  </Box>
 </Box>
+
         </Stack>
       </Box>
     </Box>
