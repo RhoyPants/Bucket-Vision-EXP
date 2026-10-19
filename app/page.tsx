@@ -8,15 +8,16 @@ export default function VisionTransitionPage() {
   return (
     <Box
       sx={{
-        position: "fixed",
-        inset: 0,
-        width: "100vw",
-        height: "100dvh",
+        minHeight: "100dvh",
+        width: "100%",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        overflow: "auto",
-        p: { xs: 2, sm: 3, md: 5 },
+        boxSizing: "border-box",
+
+        // Responsive outer spacing
+        p: "clamp(16px, 3vw, 48px)",
+
         backgroundColor: "#e0dae6",
         backgroundImage:
           "linear-gradient(135deg, rgba(255,255,255,0.35), rgba(224,218,230,0.35)), url('/images/BG LIGHT.png')",
@@ -26,132 +27,119 @@ export default function VisionTransitionPage() {
     >
       <Box
         sx={{
-          width: {
-            xs: "100%",
-            sm: "92%",
-            md: "82%",
-            lg: "75%",
-            xl: "70%",
-          },
-          maxWidth: "1400px",
-          minHeight: { md: "70vh" },
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          p: {
-            xs: 3,
-            sm: 4,
-            md: 6,
-            lg: 8,
-          },
-          borderRadius: { xs: 3, md: 5 },
-          backgroundColor: "rgba(255,255,255,0.92)",
+          // Uses most of the screen without becoming enormous
+          width: "min(78vw, 1100px)",
+          maxHeight: "calc(100dvh - 40px)",
+          overflowY: "auto",
+
+          p: "clamp(24px, 4vw, 56px)",
+          boxSizing: "border-box",
+
+          borderRadius: "clamp(20px, 3vw, 36px)",
+          backgroundColor: "rgba(255,255,255,0.94)",
           backdropFilter: "blur(14px)",
           border: "1px solid rgba(255,255,255,0.75)",
-          boxShadow: "0 30px 80px rgba(33,14,100,0.18)",
+          boxShadow: "0 24px 70px rgba(33,14,100,0.16)",
+
+          // Tablet / mobile
+          "@media (max-width: 900px)": {
+            width: "92vw",
+          },
+
+          "@media (max-width: 600px)": {
+            width: "100%",
+            maxHeight: "none",
+            borderRadius: "20px",
+          },
         }}
       >
-        <Typography
-          component="h1"
-          sx={{
-            color: "#210e64",
-            fontSize: {
-              xs: 36,
-              sm: 44,
-              md: 56,
-              lg: 64,
-            },
-            lineHeight: 1.05,
-            fontWeight: 950,
-            textAlign: "center",
-          }}
-        >
-          VISION Transition
-        </Typography>
+        {/* Header */}
+        <Box sx={{ textAlign: "center" }}>
+          <Typography
+            component="h1"
+            sx={{
+              color: "#210e64",
+              fontSize: "clamp(28px, 3.2vw, 48px)",
+              lineHeight: 1.1,
+              fontWeight: 900,
+            }}
+          >
+            VISION Transition
+          </Typography>
 
-        <Typography
-          sx={{
-            mt: 2,
-            color: "#5438d6",
-            fontSize: {
-              xs: 18,
-              md: 22,
-              lg: 26,
-            },
-            fontWeight: 800,
-            textAlign: "center",
-          }}
-        >
-          Important Notice — New Production Environment
-        </Typography>
+          <Typography
+            sx={{
+              mt: 1,
+              color: "#5438d6",
+              fontSize: "clamp(16px, 1.6vw, 22px)",
+              fontWeight: 800,
+            }}
+          >
+            Important Notice — New Production Environment
+          </Typography>
 
+          <Box
+            sx={{
+              width: 64,
+              height: 4,
+              mx: "auto",
+              mt: 2,
+              borderRadius: 10,
+              backgroundColor: "#f6d365",
+            }}
+          />
+        </Box>
+
+        {/* Announcement */}
         <Box
           sx={{
-            width: "80px",
-            height: "5px",
-            mx: "auto",
-            mt: 3,
-            mb: { xs: 3, md: 5 },
-            borderRadius: 10,
-            backgroundColor: "#f6d365",
-          }}
-        />
-
-        <Typography
-          sx={{
-            color: "#342d3d",
-            fontSize: {
-              xs: 17,
-              sm: 18,
-              md: 21,
-              lg: 23,
-            },
-            lineHeight: 1.7,
-            fontWeight: 600,
+            mt: "clamp(24px, 3vw, 40px)",
           }}
         >
-          Please be advised that we have transitioned to a new URL for our
-          VISION Environment.
-        </Typography>
+          <Typography
+            sx={{
+              color: "#342d3d",
+              fontSize: "clamp(15px, 1.3vw, 18px)",
+              lineHeight: 1.65,
+              fontWeight: 600,
+            }}
+          >
+            Please be advised that we have transitioned to a new URL for our
+            VISION Environment.
+          </Typography>
 
-        <Typography
-          sx={{
-            mt: 2.5,
-            color: "#342d3d",
-            fontSize: {
-              xs: 17,
-              sm: 18,
-              md: 21,
-              lg: 23,
-            },
-            lineHeight: 1.7,
-            fontWeight: 600,
-          }}
-        >
-          To ensure uninterrupted access and prevent login errors, all users
-          are requested to update their web browsers immediately. Please remove
-          any existing bookmarks or shortcuts pointing to the old VISION
-          environment and use the new official Production environment moving
-          forward.
-        </Typography>
+          <Typography
+            sx={{
+              mt: 2,
+              color: "#342d3d",
+              fontSize: "clamp(15px, 1.3vw, 18px)",
+              lineHeight: 1.65,
+              fontWeight: 600,
+            }}
+          >
+            To ensure uninterrupted access and prevent login errors, all users
+            are requested to update their web browsers immediately. Please
+            remove any existing bookmarks or shortcuts pointing to the old
+            VISION environment and use the new official Production environment
+            moving forward.
+          </Typography>
+        </Box>
 
+        {/* New URL */}
         <Box
           sx={{
-            mt: { xs: 3, md: 5 },
-            p: { xs: 2.5, md: 4 },
+            mt: "clamp(22px, 3vw, 34px)",
+            p: "clamp(18px, 2.5vw, 28px)",
             borderRadius: 3,
-            backgroundColor: "rgba(33,14,100,0.06)",
-            border: "2px solid rgba(33,14,100,0.12)",
+            backgroundColor: "rgba(33,14,100,0.055)",
+            border: "1px solid rgba(33,14,100,0.14)",
             textAlign: "center",
           }}
         >
           <Typography
             sx={{
               color: "#210e64",
-              fontSize: {
-                xs: 14,
-                md: 17,
-              },
+              fontSize: "clamp(12px, 1.2vw, 15px)",
               fontWeight: 900,
               textTransform: "uppercase",
               letterSpacing: "0.08em",
@@ -162,117 +150,115 @@ export default function VisionTransitionPage() {
 
           <Typography
             sx={{
-              mt: 1.5,
+              mt: 1,
               color: "#210e64",
-              fontSize: {
-                xs: 20,
-                sm: 24,
-                md: 30,
-                lg: 34,
-              },
+              fontSize: "clamp(18px, 2.2vw, 28px)",
               lineHeight: 1.2,
               fontWeight: 900,
-              wordBreak: "break-word",
+              overflowWrap: "anywhere",
             }}
           >
             vision.globalvisionsinc.com.ph
           </Typography>
         </Box>
 
+        {/* Button */}
         <Box
           component="a"
           href={PRODUCTION_URL}
           sx={{
-            mt: { xs: 3, md: 4 },
+            mt: 2.5,
             width: "100%",
-            minHeight: { xs: 58, md: 72 },
+            minHeight: "clamp(50px, 6vh, 62px)",
+
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+
+            px: 2,
+            boxSizing: "border-box",
             borderRadius: 2.5,
+
             background:
               "linear-gradient(90deg, #2b148f 0%, #5438d6 100%)",
+
             color: "#ffffff",
-            fontSize: {
-              xs: 17,
-              md: 21,
-            },
-            fontWeight: 900,
+            fontSize: "clamp(15px, 1.4vw, 18px)",
+            fontWeight: 800,
             textDecoration: "none",
-            boxShadow: "0 12px 30px rgba(43,20,143,0.25)",
-            transition:
-              "transform 150ms ease, box-shadow 150ms ease",
+            textAlign: "center",
+
+            boxShadow: "0 10px 25px rgba(43,20,143,0.22)",
+            transition: "transform 150ms ease, box-shadow 150ms ease",
 
             "&:hover": {
               transform: "translateY(-2px)",
-              boxShadow: "0 16px 36px rgba(43,20,143,0.32)",
+              boxShadow: "0 14px 30px rgba(43,20,143,0.30)",
             },
           }}
         >
           Open New VISION Production →
         </Box>
 
-        <Typography
-          sx={{
-            mt: { xs: 3, md: 4 },
-            color: "#4d4658",
-            fontSize: {
-              xs: 15,
-              md: 18,
-            },
-            lineHeight: 1.7,
-            fontWeight: 600,
-            textAlign: "center",
-          }}
-        >
-          Please ensure you use this new link for all your day-to-day
-          transactions and system activities moving forward.
-        </Typography>
-
-        <Typography
-          sx={{
-            mt: 2,
-            color: "#696270",
-            fontSize: {
-              xs: 14,
-              md: 16,
-            },
-            lineHeight: 1.7,
-            textAlign: "center",
-          }}
-        >
-          Should you experience any issues accessing the new link, please
-          reach out to MIT immediately.
-        </Typography>
-
+        {/* Footer Notice */}
         <Box
           sx={{
-            mt: { xs: 3, md: 4 },
-            pt: 3,
-            borderTop: "1px solid rgba(33,14,100,0.12)",
+            mt: "clamp(20px, 2.5vw, 30px)",
             textAlign: "center",
           }}
         >
           <Typography
             sx={{
-              color: "#210e64",
-              fontSize: 16,
-              fontWeight: 900,
+              color: "#4d4658",
+              fontSize: "clamp(13px, 1.15vw, 16px)",
+              lineHeight: 1.6,
+              fontWeight: 600,
             }}
           >
-            System Admin
+            Please ensure you use this new link for all your day-to-day
+            transactions and system activities moving forward.
           </Typography>
 
           <Typography
             sx={{
-              mt: 0.25,
+              mt: 1.25,
               color: "#696270",
-              fontSize: 14,
-              fontWeight: 700,
+              fontSize: "clamp(12px, 1vw, 14px)",
+              lineHeight: 1.6,
             }}
           >
-            MIT
+            Should you experience any issues accessing the new link, please
+            reach out to MIT immediately.
           </Typography>
+
+          <Box
+            sx={{
+              mt: 2.5,
+              pt: 2,
+              borderTop: "1px solid rgba(33,14,100,0.1)",
+            }}
+          >
+            <Typography
+              sx={{
+                color: "#210e64",
+                fontSize: 14,
+                fontWeight: 900,
+              }}
+            >
+              System Admin
+            </Typography>
+
+            <Typography
+              sx={{
+                mt: 0.25,
+                color: "#696270",
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              MIT
+            </Typography>
+          </Box>
         </Box>
       </Box>
     </Box>
